@@ -1,0 +1,34 @@
+name: Submit verified iOS build to TestFlight
+
+on:
+  workflow_dispatch:
+    inputs:
+      build_id:
+        description: EAS build ID to submit
+        required: true
+        default: aac1c0b1
+
+permissions:
+  contents: read
+
+jobs:
+  submit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out verified release
+        uses: actions/checkout@v4
+        with:
+          ref: 7dc9af0377e15333dc92e81242ed5ec0d8249d26
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install EAS CLI
+        run: npm install --global eas-cli
+
+      - name: Submit exact EAS build to TestFlight
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: eas submit --platform ios --profile production --id "${{ inputs.build_id }}" --non-interactive
