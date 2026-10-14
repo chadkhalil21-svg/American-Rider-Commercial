@@ -37,7 +37,7 @@ for (let pass = 1; pass <= 2; pass++) {
     assert.doesNotMatch(signature,/market|admission/i,route + ' has no regional onboarding gate');
   }
   assert.doesNotMatch(mcp,/deps\.(inspectMarket|activateRegion|pauseMarket|manifestFor)\(/);
-  assert.match(here('market-fleet.js'),/latest\.payoutsEnabled===false/,
+  assert.match(here('market-fleet.js'),/latest\.payoutsEnabled\s*===\s*false/,
     'duty still protects concurrent Stripe payout downgrades');
 }
 console.log('PASS twice: regional geography independent of county approval and Operator onboarding');
