@@ -36,7 +36,7 @@ const before=process.env.TEEN_PIN_SECRET;
   const wrong=locked.pin==='0000'?'0001':'0000';
   for(let i=0;i<5;i++)assert.equal((await verifyTeenPin({rideId:'r2',operatorUid:'op',pin:wrong})).status,403);
   assert.equal((await verifyTeenPin({rideId:'r2',operatorUid:'op',pin:locked.pin})).status,423);
-  rows.r3={...base,status:'awaiting_payment',teenPickup:null,paymentIntentId:'pi',pickupLat:25.7,pickupLng:-80.2};
+  rows.r3={...base,status:'awaiting_payment',teenPickup:null,paymentIntentId:'pi',pickupLat:25.7617,pickupLng:-80.1918};
   const denied=await assignPaidTravel({db,uid:'u',rideId:'r3',payment:{id:'pi',status:'succeeded',amount_received:2500,currency:'usd',metadata:{uid:'u',rideId:'r3'}},candidate:null});
   assert.equal(denied.body.code,'teen_pin_unavailable');
   console.log('PASS Teen secret gate, stable keyed PIN, actual verification, five-attempt lockout and pre-offer refusal');
