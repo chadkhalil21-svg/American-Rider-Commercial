@@ -21,6 +21,7 @@ require('node:dns').setDefaultResultOrder('ipv4first');
 const express = require('express');
 const cors = require('cors');
 const { corsOptionsFor } = require('./cors-policy');
+const { readinessForRoute } = require('./booking-readiness');
 const {
   quote, createPaymentIntent, resumePaymentIntent, verifiedTravelPayment, cancelUnpaidIntent, chargeRide, refundTravel,
   connectAccountFor, connectOnboardingLink, connectAccountStatus,
@@ -306,7 +307,8 @@ function productionReadiness() {
 }
 
 function requireOperationalReadiness(req, res, next) {
-  const state = productionReadiness();
+  const state = readinessForRoute({ path: req.path,
+    missing: productionReadiness().missing, production: productionMode });
   if (!state.ready) return res.status(503).json({
     error: 'American Rider production services are not operationally ready.',
     code: 'production_not_ready',
@@ -473,8 +475,13 @@ app.get('/health', async (req, res) => {
     // were invisible; a field on a URL is how that stops happening.
     webhook: webhookReady() ? 'on' : 'off',
     deployment: DEPLOYMENT_MODE,
-    operationalReady: readiness.ready,
-    operationalMissing: readiness.missing,
+    operationalReady: readinessForRoute({ path:'/create-payment-intent',
+      missing: readiness.missing, production: productionMode }).ready,
+    operationalMissing: readinessForRoute({ path:'/create-payment-intent',
+      missing: readiness.missing, production: productionMode }).missing,
+    otherServiceMissing: readiness.missing.filter((id) =>
+      !readinessForRoute({path:'/create-payment-intent',
+        missing:[id],production:productionMode}).missing.includes(id)),
     scheduler: readKey('SCHEDULER_TOKEN') ? 'authenticated' : 'off',
     tolls: readKey('HERE_API_KEY') ? 'on' : 'off',
     marketReference: marketReferenceReady() ? 'scheduler-on' : 'off',
@@ -529,7 +536,8 @@ app.get('/health', async (req, res) => {
 // `mode` is what the app's payment copy reads, so no screen can claim payments are simulated
 // while real money is moving, or the reverse.
 app.get('/config', async (req, res) => {
-  const readiness = productionReadiness();
+  const readiness = readinessForRoute({ path: '/create-payment-intent',
+    missing: productionReadiness().missing, production: productionMode });
   const activeMarkets = (await publicMarkets()).some((m) => m.status === 'active');
   res.json({
     stripePublishableKey: readKey('STRIPE_PUBLISHABLE_KEY') || null,
@@ -539,7 +547,7 @@ app.get('/config', async (req, res) => {
     // A Travel charge remains stricter: create-payment-intent is still protected by
     // requireOperationalReadiness below.
     canManagePaymentMethods: keyMode !== 'no-key' && !!readKey('STRIPE_PUBLISHABLE_KEY'),
-    // Charging/reserving remains fail-closed on the complete operational gate.
+    // Payment readiness is independent of the Operations console and research services.
     canTakePayment: readiness.ready && activeMarkets && keyMode !== 'no-key' && !!readKey('STRIPE_PUBLISHABLE_KEY'),
     operationalReady: readiness.ready,
   });
