@@ -1,8 +1,8 @@
 // National market geography engine.
 //
-// Geography and authorization are separate. Boundary files identify where a point is; region
-// records and the admission contract decide whether American Rider may operate there. A missing
-// state/county/region is WAITLIST, never permission.
+// County boundaries and the configured service-region activation set decide service geography.
+// A county does not require a separate evidence or admission approval to sell Travel.
+// Unknown counties and regions remain outside the service area.
 //
 // Boundary packages are Census county datasets placed in backend/markets/*-counties.json.
 // Adding Texas, California, or another jurisdiction is data ingestion, not a code fork.
@@ -10,7 +10,6 @@ const fs=require('node:fs');
 const path=require('node:path');
 const {regionById,regionFor,REGIONS}=require('./regions');
 const {readKey}=require('./env');
-const {regionReady}=require('./market-admission');
 const SHORE_M=100;
 const slug=s=>String(s).toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
 
@@ -36,14 +35,13 @@ function buildMarkets(){
   for(const c of pack.counties||[]){
    const r=regionForCounty(state,c.fips,c.name);
    const id=`${state.toLowerCase()}-${slug(c.name)}`;
-   let status=r&&Array.isArray(r.activeMarketFips)&&r.activeMarketFips.includes(c.fips)&&regionReady(r)?'active':'waitlist';
+   let status=r&&Array.isArray(r.activeMarketFips)&&r.activeMarketFips.includes(c.fips)?'active':'waitlist';
    if(overrides[id]){
-    if(overrides[id]==='active'&&!(r&&regionReady(r)))console.error(`[markets] activation refused: ${id} has no admissible configured region`);
+    if(overrides[id]==='active'&&!(r&&Array.isArray(r.marketFips)&&r.marketFips.includes(c.fips)))console.error(`[markets] activation refused: ${id} has no configured service region`);
     else status=overrides[id];
    }
-   // Geography is OPEN statewide by default. Only an explicit Founder closure
-   // changes that geographic designation. This field is separate from the
-   // readiness of a paid booking, which is not inferred from an open county.
+   // Florida geographic discovery is statewide; paid Travel is served only in an
+   // active, configured service region. Founder closures can withdraw county service.
    const founderClosedHere=state==='FL'&&founderClosed.has(id);
    if(founderClosedHere)status='waitlist';
    const geographicallyAvailable=state==='FL'&&!founderClosedHere;
