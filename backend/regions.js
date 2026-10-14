@@ -58,6 +58,12 @@ function region(def) {
   const suffix = envSuffix(def.id);
   const rec = {
     ...def,
+    // A fully configured region includes its counties in the geographical
+    // service catalogue by default. This is NOT paid-booking authorization.
+    // An explicit list still supports deliberate geographic exclusions.
+    activeMarketFips: Array.isArray(def.activeMarketFips)
+      ? [...def.activeMarketFips]
+      : (Array.isArray(def.marketFips) ? [...def.marketFips] : []),
     get otpUrl() {
       return clean(process.env[`OTP_URL_${suffix}`]) || clean(process.env.OTP_URL) || null;
     },
