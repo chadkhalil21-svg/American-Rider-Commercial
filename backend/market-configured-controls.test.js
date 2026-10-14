@@ -54,8 +54,8 @@ for(let pass=1;pass<=2;pass++){
   assert.ok(page.includes('<option value="device_and_release_tests">'),
     'real physical-device evidence still requires a verified record');
   const server=fs.readFileSync(path.join(__dirname,'server.js'),'utf8');
-  assert.match(server,/if \(!screeningReady\(\)\) missing.push\('screening_provider'\)/,
-    'independent production screening handoff remains a hard launch gate');
+  assert.doesNotMatch(server,/missing.push\('screening_provider'\)/,
+    'individual screening requirements must not impose a county-wide booking ban');
   assert.doesNotMatch(server,/providerMissing: productionReadiness\(\).missing/,
     'no repeated regional admission provider checklist remains');
   assert.match(server,/requireServedPickup/,'paid-Travel pickup checks configured geography');
