@@ -310,7 +310,6 @@ function mount(app, express, deps) {
         else out={ok:false,code:'geography_configuration_required',marketId,
           message:'Change the configured service area to close this county.'};
       }
-      }
       return res.json(jsonrpc(id,toolResult(out || {ok:false,code:'action_unavailable'})));
     } catch {
       return res.status(503).json(error(id,-32000,'Operations temporarily unavailable; verify live status before retry.'));
