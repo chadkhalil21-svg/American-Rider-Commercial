@@ -7,7 +7,10 @@ const region = regionById(market.regionId);
 const manifest = M.manifestFor(market, region);
 assert.equal(manifest.sourceProblems.length, 0);
 assert.equal(M.readinessFor({ market, region }).status, 'waitlist');
-assert.equal(M.readinessFor({ market, region }).missing.length, M.REQUIRED_EVIDENCE.length - 3);
+assert.equal(M.REQUIRED_EVIDENCE.length, 3);
+assert.equal(M.readinessFor({ market, region }).missing.length, 0);
+assert.equal(M.readinessFor({ market, region }).readyToActivate, true,
+  'the eleven former admission records are no longer regional requirements');
 
 const now = 1_800_000_000_000;
 const evidence = Object.fromEntries(M.REQUIRED_EVIDENCE.map((id) => [id, {
@@ -16,8 +19,14 @@ const evidence = Object.fromEntries(M.REQUIRED_EVIDENCE.map((id) => [id, {
   manifestVersion: manifest.version,
 }]));
 const rec = { status: 'active', manifestVersion: manifest.version, evidence };
+const noProofButConfigured = { status: 'active', manifestVersion: manifest.version, evidence: {} };
+assert.equal(M.readinessFor({ market, region, record: noProofButConfigured, now }).status,'active',
+  'regional activation no longer depends on eleven domain records');
+assert.equal(M.readinessFor({ market, region, record: noProofButConfigured,
+  now, providerMissing: ['screening_provider'] }).status,'waitlist',
+  'real external screening provider condition remains enforced separately');
 assert.equal(M.readinessFor({ market, region, record: rec, now }).status, 'active');
-assert.equal(M.readinessFor({ market, region, record: rec, now: now + 10_001 }).status, 'waitlist', 'expired evidence stops offers');
+assert.equal(M.readinessFor({ market, region, record: rec, now: now + 10_001 }).status, 'active', 'retired evidence is not a regional expiry gate');
 assert.equal(M.readinessFor({ market, region, record: { ...rec, manifestVersion: 'old' }, now }).status, 'waitlist', 'source drift stops offers');
 assert.equal(M.readinessFor({ market, region, record: rec, now, providerMissing: ['stripe_live_key'] }).status, 'waitlist');
 assert.equal(M.readinessFor({ market: null, region: null, now }).status, 'waitlist');
@@ -52,8 +61,8 @@ function memoryDb() {
   const staged = await M.authorizeOnboarding({ db, market, region, actor: 'named-ops', expectedVersion: manifest.version, now });
   assert.equal(staged.status, 'onboarding');
   assert.equal((await M.inspectMarket({ db, market, region, now })).status, 'onboarding');
-  assert.equal((await M.activateMarket({ db, market, region, actor: 'named-ops', expectedVersion: manifest.version, now })).code, 'market_not_ready');
-  for (const id of M.REQUIRED_EVIDENCE.filter((domain) => !M.ONBOARDING_EVIDENCE.includes(domain))) {
+  assert.equal((await M.activateMarket({ db, market, region, actor: 'named-ops', expectedVersion: manifest.version, now, providerMissing: ['screening_provider'] })).code, 'market_not_ready');
+  for (const id of ['jurisdiction_authority']) {
     await M.recordEvidence({ db, market, region, domain: id, actor: 'named-ops',
       expectedVersion: manifest.version, now,
       input: { reference: `external-record-${id}`, issuer: 'Independent issuer', validUntil: now + 10_000 } });
@@ -74,8 +83,8 @@ function memoryDb() {
   assert.notEqual(changed.version, manifest.version);
   assert.equal((await M.inspectMarket({ db, market, region: changedRegion, now })).status, 'waitlist');
   assert.equal((await M.activateMarket({ db, market, region: changedRegion, actor: 'named-ops',
-    expectedVersion: changed.version, now })).code, 'market_not_ready');
-  assert.equal((await M.recordEvidence({ db, market, region: changedRegion, domain: 'company_insurance_bound',
+    expectedVersion: changed.version, now })).status, 'active');
+  assert.equal((await M.recordEvidence({ db, market, region: changedRegion, domain: 'jurisdiction_authority',
     actor: 'named-ops', expectedVersion: manifest.version, now,
     input: { reference: 'old-manifest-review', issuer: 'Independent issuer', validUntil: now+10_000 } })).code, 'stale_manifest');
   const paused = await M.pauseMarket({ db, market, actor: 'named-ops', reason: 'Carrier lapse in this market', now: now + 1 });
