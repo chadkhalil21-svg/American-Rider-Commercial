@@ -54,9 +54,9 @@ function fakeDb() {
  db.set('operators/op2',{marketId:'fl-broward',available:true,lat:26.12,lng:-80.14});
  db.set('operators/op3',{available:true,lat:25.775,lng:-80.191}); // legacy fleet, no marketId
  db.setBeforeCommit(()=>db.set(key,{...db.rows.get(key),status:'paused',fleetCleanupPending:true}));
- assert.equal(await fleet.setAdmittedFleetOnline({db,operatorId:'op1',fleetUpdate:{available:true},markets:[market],now}),false,
-   'the transaction retries after a concurrent pause, then refuses the renewal');
- assert.equal(db.rows.get('operators/op1').available,true,'an existing on-duty document still needs a bounded shutdown');
+ assert.equal(await fleet.setGeographicFleetOnline({db,operatorId:'op1',fleetUpdate:{available:true},markets:[market],now}),true,
+   'county approval records do not control Operator duty in an active geographic market');
+ assert.equal(db.rows.get('operators/op1').available,true,'the geographic duty transaction succeeds');
  assert.equal((await admission.inspectMarket({db,market,region,now})).readyToActivate,false);
  const first=await fleet.deactivateMarketFleet({db,market,maxPages:1,now});
  assert.deepEqual({done:first.done,offlined:first.offlined},{done:true,offlined:2});
@@ -65,11 +65,11 @@ function fakeDb() {
  assert.equal(db.rows.get('operators/op2').available,true,'another county is untouched');
  assert.equal(db.rows.get(key).fleetCleanupPending,false);
  assert.equal((await admission.inspectMarket({db,market,region,now})).readyToActivate,true);
- assert.equal(await fleet.setAdmittedFleetOnline({db,operatorId:'op1',fleetUpdate:{available:true},markets:[market],now}),false,
-   'after cleanup, the paused admission record still blocks renewals');
+ assert.equal(await fleet.setGeographicFleetOnline({db,operatorId:'op1',fleetUpdate:{available:true},markets:[market],now}),true,
+   'the stale regional record does not block an eligible Operator');
  db.set(key,{status:'active',manifestVersion:version,evidence,fleetCleanupPending:false});
  db.set('account_closures/op1',{closingAt:now,state:'closing'});
- assert.equal(await fleet.setAdmittedFleetOnline({db,operatorId:'op1',fleetUpdate:{available:true},markets:[market],now}),false,
+ assert.equal(await fleet.setGeographicFleetOnline({db,operatorId:'op1',fleetUpdate:{available:true},markets:[market],now}),false,
    'a closing Operator cannot reactivate in a commercially active market');
  assert.equal(await fleet.setFleetOnlineIfOpen({db,operatorId:'op1',fleetUpdate:{available:true}}),false,
    'test/development duty cannot bypass the same closing tombstone');
@@ -81,7 +81,7 @@ function fakeDb() {
    'the inexpensive closing-account preflight must precede the external Stripe readiness check');
  db.set('account_closures/op1',{closingAt:0,state:'open'});
  db.setBeforeCommit(()=>db.set('account_closures/op1',{closingAt:now,state:'closing'}));
- assert.equal(await fleet.setAdmittedFleetOnline({db,operatorId:'op1',fleetUpdate:{available:true},markets:[market],now}),false,
+ assert.equal(await fleet.setGeographicFleetOnline({db,operatorId:'op1',fleetUpdate:{available:true},markets:[market],now}),false,
    'a concurrently written closing fence forces the duty transaction to retry and refuse');
  assert.equal(db.rows.get('operators/op1').available,false);
  // A signed Connect downgrade concurrent with a stale positive GPS heartbeat must win.
@@ -94,7 +94,7 @@ function fakeDb() {
    db.set('operators/op1',{...db.rows.get('operators/op1'),
      payoutsEnabled:false,available:false,stripeCheckedAt:verifiedAt+1});
  });
- const oldRenewal=await fleet.setAdmittedFleetOnline({
+ const oldRenewal=await fleet.setGeographicFleetOnline({
    db,operatorId:'op1',fleetUpdate:{available:true,
      payoutsEnabled:true,stripeAccountId:'acct_operator_1',stripeCheckedAt:verifiedAt},
    markets:[market],now,
@@ -104,14 +104,14 @@ function fakeDb() {
    'Operator remains unavailable after the raced webhook');
  db.set('operators/op1',{marketId:market.id,available:false,payoutsEnabled:false,
    stripeCheckedAt:verifiedAt+1}); // legacy signed webhook record without account ID
- assert.equal(await fleet.setAdmittedFleetOnline({
+ assert.equal(await fleet.setGeographicFleetOnline({
    db,operatorId:'op1',fleetUpdate:{available:true,payoutsEnabled:true,
      stripeAccountId:'acct_operator_1',stripeCheckedAt:verifiedAt},
    markets:[market],now,
  }),false,'old fleet records without account ID must also preserve newer downgrades');
  // A subsequent actual Stripe retrieval is newer than the hold and can restore
  // availability. This cannot be achieved by an old cached GPS heartbeat.
- const verifiedRecovery=await fleet.setAdmittedFleetOnline({
+ const verifiedRecovery=await fleet.setGeographicFleetOnline({
    db,operatorId:'op1',fleetUpdate:{available:true,
      payoutsEnabled:true,stripeAccountId:'acct_operator_1',stripeCheckedAt:verifiedAt+2},
    markets:[market],now,
