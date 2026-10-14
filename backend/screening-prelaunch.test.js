@@ -22,8 +22,8 @@ assert.match(server, /req\.screeningPolicy = gate\.policy/,
   'the server binds the verified screening policy to the request');
 assert.doesNotMatch(server, /region\.jurisdiction\?\.stateCode !== 'FL'/,
   'the route no longer hard-codes one state');
-assert.match(server, /app\.post\('\/operator\/qualification\/submit', requireAuth, LIMITS\.qualification, requireActiveOperatingMarket/,
-  'qualification remains fully admission-gated');
+assert.match(server, /app\.post\('\/operator\/qualification\/submit', requireAuth, LIMITS\.qualification, async/,
+  'individual qualification can proceed without county-level admission');
 assert.match(server, /app\.post\('\/operator\/online', requireAuth, requireFreshAuth, requireOperationalReadiness/,
   'duty requires launch readiness');
 assert.match(server, /filed\?\.stored \|\| !filed\?\.caseNo/,
