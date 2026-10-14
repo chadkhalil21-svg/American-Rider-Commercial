@@ -67,6 +67,8 @@ function fakeDb() {
  assert.equal((await admission.inspectMarket({db,market,region,now})).readyToActivate,true);
  assert.equal(await fleet.setGeographicFleetOnline({db,operatorId:'op1',fleetUpdate:{available:true},markets:[market],now}),true,
    'the stale regional record does not block an eligible Operator');
+ // The HTTP refusal path marks the Operator unavailable before a closing-account retry.
+ db.set('operators/op1',{...db.rows.get('operators/op1'),available:false});
  db.set(key,{status:'active',manifestVersion:version,evidence,fleetCleanupPending:false});
  db.set('account_closures/op1',{closingAt:now,state:'closing'});
  assert.equal(await fleet.setGeographicFleetOnline({db,operatorId:'op1',fleetUpdate:{available:true},markets:[market],now}),false,
