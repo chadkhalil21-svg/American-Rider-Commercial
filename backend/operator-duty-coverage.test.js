@@ -29,7 +29,9 @@ assert.match(online, /insuranceExpiry: expiry/, 'dispatch receives the confirmed
 assert.doesNotMatch(online, /const expiry = String\(b\.insuranceExpiry/,
   'caller-supplied dates cannot override or extend verified policy expiry');
 assert.match(online, /assessOperator\(/, 'existing qualification and independent insurance gates remain');
-assert.match(online, /setAdmittedFleetOnline\(/, 'market admission remains transactional');
+assert.match(online, /setFleetOnlineIfOpen\(/, 'individual duty stays transactional');
+assert.doesNotMatch(online, /setAdmittedFleetOnline\(/,
+  'region-wide admission record does not control individual duty');
 const presence = fs.readFileSync(path.resolve(__dirname, '../src/backend/presence.ts'), 'utf8');
 assert.match(presence, /background: true/, 'the native background task uses the same endpoint');
-console.log('PASS background duty uses accepted server policy expiry; safety and admission gates remain');
+console.log('PASS background duty uses accepted server policy expiry; safety gates remain independent of regional admission');
