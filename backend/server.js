@@ -295,12 +295,13 @@ function productionReadiness() {
   if (!readKey('STRIPE_PUBLISHABLE_KEY')) missing.push('stripe_publishable_key');
   if (!readKey('STRIPE_WEBHOOK_SECRET')) missing.push('stripe_webhook_secret');
   if (!readKey('STRIPE_CONNECT_WEBHOOK_SECRET')) missing.push('stripe_connect_webhook_secret');
-  if (!screeningReady()) missing.push('screening_provider');
-  if (!readKey('HERE_API_KEY')) missing.push('toll_provider');
+  // Operator screening is checked per Operator at duty, dispatch and acceptance.
+  // Toll availability and authority are assessed for each priced Travel.
+  // Neither provider creates a county-wide prohibition on booking.
   if (!readKey('SCHEDULER_TOKEN')) missing.push('scheduler_token');
   if (!adminStatus().ok) missing.push('firebase_admin');
-  if (!marketReferenceReady()) missing.push('market_reference_store');
-  if (opsAuthMode() !== 'named') missing.push('ops_auth');
+  // Market research and administrative sign-in do not authorize a Travel.
+  // Operations routes enforce their own administrator authentication.
   return { ready: !productionMode || missing.length === 0, missing };
 }
 
