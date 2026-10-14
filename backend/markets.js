@@ -69,5 +69,5 @@ function tripOutsideMarkets(pickup,dest){
 }
 function listMarkets(){return markets().filter(m=>m.geographicallyAvailable||m.status==='active'||m.regionId)
   .map(({id,name,state,fips,regionId,status,geographicallyAvailable})=>
-    ({id,name,state,fips,regionId,status,geographicallyAvailable}));}}
+    ({id,name,state,fips,regionId,status,geographicallyAvailable}));}
 module.exports={marketFor,marketStatus,servesPoint,tripOutsideMarkets,listMarkets,markets,SHORE_M,boundaryPackages};
