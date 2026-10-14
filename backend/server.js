@@ -2334,7 +2334,8 @@ function operatingMarketGate(user) {
 }
 
 const marketBody = (m) => (m ? { id: m.id, name: m.name, state: m.state, status: m.status,
-  geographicallyAvailable: m.geographicallyAvailable === true, regionId: m.regionId,
+  geographicallyAvailable: m.geographicallyAvailable === true,
+  geographicStatus: m.geographicStatus || 'unconfigured', regionId: m.regionId,
   timeZone: REGIONS.find((r) => r.id === m.regionId)?.timezone || null } : null);
 
 // Public discovery may use a short cache; actual charges and offers always read durable state.
