@@ -9,6 +9,8 @@ assert.equal(counties.length,67,'all 67 Florida counties are loaded');
 assert.equal(listed.length,67,'all counties appear in Florida discovery');
 assert.equal(counties.filter(x=>x.geographicallyAvailable).length,67);
 assert.equal(listed.filter(x=>x.geographicallyAvailable).length,67);
+assert.equal(counties.filter(x=>x.geographicStatus==='open').length,67,
+ 'all Florida geography is OPEN independent of commercial admission');
 for(const c of counties) assert.ok(listed.some(x=>x.id===c.id));
 for(const [city,pt,county] of [
  ['Miami',{lat:25.7617,lng:-80.1918},'fl-miami-dade'],
@@ -24,4 +26,12 @@ for(const [city,pt,county] of [
 }
 assert.equal(counties.filter(x=>x.status==='active').length,3,
  'paid market configuration and geographic availability are independent');
-console.log('PASS: all 67 Florida counties geographically available, three existing service configurations unaffected');
+// A Founder closure is explicit; it never happens because a provider check failed.
+process.env.FOUNDER_CLOSED_FLORIDA_MARKETS='fl-monroe,fl-orange';
+assert.equal(markets().filter(x=>x.state==='FL'&&x.geographicStatus==='open').length,65);
+assert.equal(markets().find(x=>x.id==='fl-monroe')?.geographicStatus,'closed');
+assert.equal(markets().find(x=>x.id==='fl-orange')?.geographicStatus,'closed');
+assert.equal(listMarkets().filter(x=>x.state==='FL').length,65);
+delete process.env.FOUNDER_CLOSED_FLORIDA_MARKETS;
+assert.equal(markets().filter(x=>x.state==='FL'&&x.geographicStatus==='open').length,67);
+console.log('PASS: 67 Florida regions OPEN by default; explicit Founder closure independently enforced');
