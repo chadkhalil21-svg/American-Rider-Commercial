@@ -1,8 +1,8 @@
 // National market geography engine.
 //
-// Geography and authorization are separate. Boundary files identify where a point is; region
-// records and the admission contract decide whether American Rider may operate there. A missing
-// state/county/region is WAITLIST, never permission.
+// County boundaries identify geographic coverage. The configured region's active-market FIPS
+// set is the sole county service switch; no second market_admission approval is required.
+// A missing state, county, or service region remains outside the active coverage area.
 //
 // Boundary packages are Census county datasets placed in backend/markets/*-counties.json.
 // Adding Texas, California, or another jurisdiction is data ingestion, not a code fork.
@@ -10,7 +10,6 @@ const fs=require('node:fs');
 const path=require('node:path');
 const {regionById,regionFor,REGIONS}=require('./regions');
 const {readKey}=require('./env');
-const {regionReady}=require('./market-admission');
 const SHORE_M=100;
 const slug=s=>String(s).toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
 
@@ -36,14 +35,13 @@ function buildMarkets(){
   for(const c of pack.counties||[]){
    const r=regionForCounty(state,c.fips,c.name);
    const id=`${state.toLowerCase()}-${slug(c.name)}`;
-   let status=r&&Array.isArray(r.activeMarketFips)&&r.activeMarketFips.includes(c.fips)&&regionReady(r)?'active':'waitlist';
+   let status=r&&Array.isArray(r.activeMarketFips)&&r.activeMarketFips.includes(c.fips)?'active':'waitlist';
    if(overrides[id]){
-    if(overrides[id]==='active'&&!(r&&regionReady(r)))console.error(`[markets] activation refused: ${id} has no admissible configured region`);
+    if(overrides[id]==='active'&&!r)console.error(`[markets] activation refused: ${id} has no configured service region`);
     else status=overrides[id];
    }
-   // Geography is OPEN statewide by default. Only an explicit Founder closure
-   // changes that geographic designation. This field is separate from the
-   // readiness of a paid booking, which is not inferred from an open county.
+   // Geographic discovery remains open statewide; paid pickup availability is
+   // determined by this county's active service configuration alone.
    const founderClosedHere=state==='FL'&&founderClosed.has(id);
    if(founderClosedHere)status='waitlist';
    const geographicallyAvailable=state==='FL'&&!founderClosedHere;
