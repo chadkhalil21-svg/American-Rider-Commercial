@@ -15,18 +15,19 @@ for(let pass=0;pass<2;pass++) for(const id of ids){
  assert.ok(state.founderDeclaredFrameworks.every(x=>
    x.policyDecision==='founder_finalized' &&
    x.policySatisfied===true &&
-   x.marketEvidenceState==='record_absent' &&
+   x.marketEvidenceState==='retired_from_region_admission' &&
    x.approvalGrantsMarketAccess===false));
  assert.equal(state.executivePolicyReadinessSatisfied,true);
  assert.equal(state.readinessScope.individualOperatorRowsRequired,false);
  assert.equal(state.readyToActivate,false);
  assert.equal(state.status,'waitlist');
- for(const name of external) assert.ok(state.missing.some(x=>x.id===name));
+ for(const name of external) assert.ok(!state.missing.some(x=>x.id===name));
  assert.ok(state.missing.some(x=>x.id==='provider:screening_provider'));
  const tampered={...region,geographyEvidence:{status:'not_verified'}};
  assert.deepEqual(readinessFor({market,region:tampered}).founderDeclaredFrameworks,[]);
  assert.equal(readinessFor({market,region:tampered}).executivePolicyReadinessSatisfied,false);
 }
 assert.equal(new Set(declarations.domains).size,11);
-assert.ok(declarations.domains.every(x=>REQUIRED_EVIDENCE.includes(x)));
-console.log('PASS twice: 11 Founder-finalized frameworks visible without fake market evidence');
+assert.ok(declarations.domains.every(x=>!REQUIRED_EVIDENCE.includes(x)));
+assert.equal(REQUIRED_EVIDENCE.length,3);
+console.log('PASS twice: founder-policy declarations and retired regional evidence records remain distinct from provider readiness');
