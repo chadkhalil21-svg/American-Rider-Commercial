@@ -7,20 +7,16 @@ const { evidenceProblem } = require('./market-evidence-diagnosis');
 const {configuredControls,mappedConfiguredSubcontrols}=require('./market-runtime-controls');
 const founderDeclarations = require('./founder-platform-declarations.json');
 
-const SCHEMA_VERSION = 2;
+const SCHEMA_VERSION = 3;
+// The eleven former regional document attestations are RETIRED as admission
+// prerequisites. They are neither renamed nor auto-filled with synthetic proof.
+// Configured FL already verifies the remaining three built-in rule types in code.
+// Live external provider health, Operator qualification and authorization still
+// have independent runtime checks; this is not a statement of legal clearance.
 const REQUIRED_EVIDENCE = Object.freeze([
-  'jurisdiction_authority', 'company_insurance_bound', 'operator_insurance_process',
-  'screening_agreement', 'disclosure_and_retention', 'pricing_and_taxes',
-  'routing_and_toll_rights', 'payment_and_reconciliation', 'provider_contracts',
-  'safety_coverage', 'accessible_service', 'qualified_operator_supply',
-  'backup_restore_drill', 'device_and_release_tests',
+  'jurisdiction_authority', 'operator_insurance_process', 'screening_agreement',
 ]);
-// Approval to spend on screening, document review and Connect is narrower than permission
-// to sell Travel. Operator supply and device-release tests must be proven afterwards.
-const ONBOARDING_EVIDENCE = Object.freeze([
-  'jurisdiction_authority', 'company_insurance_bound', 'operator_insurance_process',
-  'screening_agreement', 'disclosure_and_retention', 'provider_contracts', 'safety_coverage',
-]);
+const ONBOARDING_EVIDENCE = Object.freeze([...REQUIRED_EVIDENCE]);
 const ONBOARDING_PROVIDERS = new Set(['stripe_live_key', 'screening_provider', 'firebase_admin', 'ops_auth']);
 const COLLECTION = 'market_admission';
 
@@ -46,11 +42,9 @@ function requirementsFor(manifest, record = {}, now = Date.now(), providerMissin
   if (!manifest) return [{ id: 'source', reason: 'No configured market or service region' }];
   const missing = manifest.sourceProblems.map((reason) => ({ id: 'source', reason }));
   if (record.fleetCleanupPending) missing.push({ id: 'fleet_cleanup', reason: 'Operator availability cleanup after a market pause has not completed' });
-  // The FL statutory/geographic rule, Operator insurance enforcement and
-  // provider-neutral screening gates already run in production. They must not
-  // demand three further paper 'approvals' per county. Importantly, *actual*
-  // coverage, authenticated screening delivery, each Operator's checks, money
-  // and physical-service evidence still have separate hard gates.
+  // No mandatory eleven-domain market_admission document checklist.
+  // The remaining built-in controls are validated at their proper runtime
+  // boundaries; never infer the presence of a real external insurer or CRA.
   const redundant=new Set(configuredControls(manifest));
   for (const id of level === 'onboarding' ? ONBOARDING_EVIDENCE : REQUIRED_EVIDENCE) {
     if(redundant.has(id))continue;
@@ -72,7 +66,8 @@ function founderDeclaredFrameworks(manifest, missing) {
     domain,
     policyDecision: 'founder_finalized',
     policySatisfied: true, // Founder-authorized internal policy, NOT external commissioning.
-    marketEvidenceState: outstanding.get(domain) || 'verified_record',
+    marketEvidenceState: REQUIRED_EVIDENCE.includes(domain)
+      ? (outstanding.get(domain) || 'verified_record') : 'retired_from_region_admission',
     approvalGrantsMarketAccess: false,
   }));
 }
@@ -99,7 +94,7 @@ function readinessFor({ market, region, record = {}, now = Date.now(), providerM
     // requirementsFor(), readyToActivate, or paid-Travel authorization.
     executivePolicyReadinessSatisfied:
       founderDeclaredFrameworks(manifest, missing).length === founderDeclarations.domains.length,
-    // Regional activation reads market_admission and verified platform/provider proof.
+    // Regional activation reads the county state plus runtime provider conditions.
     // It never requires individual users/ or operators/ documents. Those are
     // checked at qualification, duty, dispatch and acceptance, not here.
     readinessScope: {
