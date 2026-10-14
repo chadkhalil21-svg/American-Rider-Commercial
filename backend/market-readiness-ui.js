@@ -340,4 +340,21 @@ document.querySelectorAll('form.pause').forEach(form=>form.addEventListener('sub
 }));
 </script>`, '');
 }
-module.exports = { marketChecklistPage };
+// Current Operations view: geographic service status, not an approval checklist.
+function geographyMarketPage(markets) {
+  const active = markets.filter((market) => market.status === 'active');
+  const rows = markets.map((market) =>
+    '<li><strong>' + esc(market.name) + '</strong> · ' +
+    (market.status === 'active' ? 'Open for Travel' : 'Outside active service area') +
+    '</li>').join('');
+  return page('Service geography · Operations',
+    '<h1>Service geography</h1>' +
+    '<p>County availability comes from the configured service area. ' +
+    'No additional county approval is required for bookings.</p>' +
+    '<p>Operator applications, insurance, screening and duty eligibility are checked individually.</p>' +
+    '<p><strong>' + active.length + ' active counties</strong></p>' +
+    '<ul>' + rows + '</ul>' +
+    '<p>Changing service geography requires updating the service-region configuration. ' +
+    'Restricted pickup locations and individual Travel controls remain separate.</p>', '');
+}
+module.exports = { marketChecklistPage, geographyMarketPage };
