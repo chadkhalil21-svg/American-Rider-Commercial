@@ -83,7 +83,8 @@ const input={reference:'verified-regional-external-reference',issuer:'Independen
  }
  const server=fs.readFileSync(path.join(__dirname,'server.js'),'utf8');
  const ui=fs.readFileSync(path.join(__dirname,'market-readiness-ui.js'),'utf8');
- assert.match(server,/app\.post\('\/ops\/markets\/regions\/:regionId\/evidence', requireOps, requireOpsMutation/);
+ assert.equal(server.includes("app.post('/ops/markets/regions/:regionId/evidence'"),false,
+   'obsolete per-county evidence recording route is not mounted in the commercial backend');
  assert.match(ui,/id="region-evidence-form"/);
  assert.match(ui,/allCountiesVerified:true/);
  assert.match(ui,/Independent review confirms this exact source covers Miami-Dade, Broward and Palm Beach/);
