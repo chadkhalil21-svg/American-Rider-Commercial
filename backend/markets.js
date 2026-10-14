@@ -39,7 +39,10 @@ function buildMarkets(){
     if(overrides[id]==='active'&&!(r&&regionReady(r)))console.error(`[markets] activation refused: ${id} has no admissible configured region`);
     else status=overrides[id];
    }
-   out.push(Object.freeze({id,name:`${c.name} County`,county:c.name,state,fips:c.fips,regionId:r?.id||null,status,geometry:c.geometry}));
+   out.push(Object.freeze({id,name:`${c.name} County`,county:c.name,state,fips:c.fips,regionId:r?.id||null,status,
+      // All Florida counties are included in geographic discovery by default.
+      // This does not claim an operator, fare, or paid-booking authorization.
+      geographicallyAvailable:state==='FL',geometry:c.geometry}));
   }
  }
  return out;
@@ -66,5 +69,7 @@ function tripOutsideMarkets(pickup,dest){
  }
  return destRegion?.id===r.id ? null : 'destination';
 }
-function listMarkets(){return markets().filter(m=>m.status==='active'||m.regionId).map(({id,name,state,fips,regionId,status})=>({id,name,state,fips,regionId,status}));}
+function listMarkets(){return markets().filter(m=>m.geographicallyAvailable||m.status==='active'||m.regionId)
+  .map(({id,name,state,fips,regionId,status,geographicallyAvailable})=>
+    ({id,name,state,fips,regionId,status,geographicallyAvailable}));}
 module.exports={marketFor,marketStatus,servesPoint,tripOutsideMarkets,listMarkets,markets,SHORE_M,boundaryPackages};
