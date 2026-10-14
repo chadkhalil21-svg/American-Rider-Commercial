@@ -54,17 +54,17 @@ function jsonrpc(id, result) { return { jsonrpc: '2.0', id, result }; }
 function error(id, code, message) { return { jsonrpc: '2.0', id, error: { code, message } }; }
 function toolResult(result) { return { content: [{ type: 'text', text: JSON.stringify(result) }], isError: result.ok === false }; }
 const TOOLS = [
-  { name: 'market_status', title: 'Check market readiness', description: 'Read live protected market admission and blockers for configured regions, without confidential evidence references. Use before opening a region.',
+  { name: 'market_status', title: 'Check service geography', description: 'Read the configured county service status. Operator eligibility is independent; no extra market admission approval is consulted.',
     inputSchema: { type: 'object', properties: { regionId: { type: 'string', description: 'Optional configured region ID, e.g. fl-southeast.' } }, additionalProperties: false },
     annotations: { readOnlyHint: true }, scope: 'market:read' },
   { name: 'prepare_market', title: 'Prepare a new jurisdiction', description: 'Record a noncommercial expansion plan for a U.S. state and optionally an imported county. Does not activate service or approve legal evidence.',
     inputSchema: { type: 'object', properties: { stateCode: { type: 'string' }, marketId: { type: 'string' }, city: { type: 'string' } }, required: ['stateCode'], additionalProperties: false },
     annotations: { readOnlyHint: false, destructiveHint: false }, scope: 'market:plan' },
-  { name: 'open_region', title: 'Open an eligible region', description: 'Consequential: atomically open ALL counties in an already configured region only when current production legal, insurance, screening, payments and safety evidence passes. Never bypass blockers. Requires explicit founder command and ChatGPT confirmation.',
-    inputSchema: { type: 'object', properties: { regionId: { type: 'string' }, confirmation: { type: 'string', description: 'Must exactly equal OPEN followed by a space and the requested region ID.' } }, required: ['regionId', 'confirmation'], additionalProperties: false },
+  { name: 'open_region', title: 'Check region opening', description: 'Confirm that the configured service geography for all counties in a region is active. If not configured active, return configuration_change_required. Do not write a separate approval.',
+    inputSchema: { type: 'object', properties: { regionId: { type: 'string' } }, required: ['regionId'], additionalProperties: false },
     annotations: { readOnlyHint: false, destructiveHint: true }, scope: 'market:activate' },
-  { name: 'pause_market', title: 'Pause a market', description: 'Consequential: stop new paid Travel in a configured county using the existing audited market pause and fleet-cleanup path. Requires explicit founder command and ChatGPT confirmation.',
-    inputSchema: { type: 'object', properties: { marketId: { type: 'string' }, reason: { type: 'string', minLength: 8, maxLength: 500 }, confirmation: { type: 'string', description: 'Must exactly equal PAUSE followed by a space and the market ID.' } }, required: ['marketId', 'reason', 'confirmation'], additionalProperties: false },
+  { name: 'pause_market', title: 'Request service closure', description: 'Report whether a county is configured open; a closure requires changing its authoritative geographic service configuration, not a market admission record.',
+    inputSchema: { type: 'object', properties: { marketId: { type: 'string' }, reason: { type: 'string' } }, required: ['marketId'], additionalProperties: false },
     annotations: { readOnlyHint: false, destructiveHint: true }, scope: 'market:pause' },
 ].map(t => ({...t, securitySchemes: [{type:'oauth2',scopes:[t.scope]}],
   _meta: { securitySchemes: [{type:'oauth2',scopes:[t.scope]}]}}));
@@ -275,54 +275,28 @@ function mount(app, express, deps) {
         const entries = configured.filter(m => !regionId || m.regionId === regionId);
         if (regionId && !deps.regions.some(r => r.id === regionId)) out = {ok:false,code:'unknown_region'};
         else if (entries.length > 100) out = {ok:false,code:'too_many_markets'};
-        else out = {ok:true,markets:await Promise.all(entries.map(async market => {
-          const state = await deps.inspectMarket({db:db(),market,region:deps.regions.find(r => r.id === market.regionId),
-            providerMissing:deps.productionReadiness().missing});
-          return {marketId:market.id,regionId:market.regionId,status:state.status,
-            readyToActivate:state.readyToActivate,missing:state.missing.map(m => m.id)};
+        else out = {ok:true,markets:entries.map(market => ({
+          marketId:market.id,regionId:market.regionId,status:market.status,
+          geographicallyAvailable:market.geographicallyAvailable===true,
         }))};
       } else if (chosen.name === 'prepare_market') {
         out = await deps.proposeMarket({db:db(),actor:auth.actor,input:{
           stateCode:String(args.stateCode||''),marketId:String(args.marketId||''),city:String(args.city||''),
         }});
       } else if (chosen.name === 'open_region') {
-        const regionId = String(args.regionId||'');
-        if (!operational()) out={ok:false,code:'production_authority_required'};
-        else if (args.confirmation !== 'OPEN '+regionId) out={ok:false,code:'explicit_confirmation_required'};
-        else {
-          const region = deps.regions.find(r=>r.id===regionId);
-          const entries=configured.filter(m=>m.regionId===regionId);
-          if (!region || !entries.length) out={ok:false,code:'unknown_or_unconfigured_region'};
-          else {
-            const expectedVersions = Object.fromEntries(entries.map(m => [
-              m.id, deps.manifestFor(m,region)?.version,
-            ]));
-            out = await deps.activateRegion({
-              db:db(),entries:entries.map(m=>({market:m,region})),actor:auth.actor,
-              expectedVersions,providerMissing:deps.productionReadiness().missing,
-              auditMethod:'oauth_delegated_mfa',
-            });
-          }
-        }
+        const regionId=String(args.regionId||'');
+        const region=deps.regions.find(r=>r.id===regionId);
+        const entries=configured.filter(m=>m.regionId===regionId);
+        if(!region || !entries.length) out={ok:false,code:'unknown_or_unconfigured_region'};
+        else if(entries.every(m=>m.status==='active')) out={ok:true,code:'already_active',
+          regionId,status:'active',marketIds:entries.map(m=>m.id)};
+        else out={ok:false,code:'configuration_change_required',regionId,
+          inactiveMarkets:entries.filter(m=>m.status!=='active').map(m=>m.id)};
       } else if (chosen.name === 'pause_market') {
-        const marketId=String(args.marketId||''), reason=String(args.reason||'');
-        const market=configured.find(m=>m.id===marketId);
-        if (!operational()) out={ok:false,code:'production_authority_required'};
-        else if (!market) out={ok:false,code:'unknown_market'};
-        else if (args.confirmation !== 'PAUSE '+marketId || reason.trim().length < 8 || reason.length > 500)
-          out={ok:false,code:'explicit_confirmation_required'};
-        else {
-          out=await deps.pauseMarket({db:db(),market,actor:auth.actor,reason,auditMethod:'oauth_delegated_mfa'});
-          if (out.ok) {
-            try {
-              out.fleetCleanup = await deps.deactivateMarketFleet({db:db(),market,maxPages:2});
-            } catch {
-              out.fleetCleanup = {ok:false,done:false,reason:'fleet_cleanup_unconfirmed'};
-            }
-          }
-        }
+        const market=configured.find(m=>m.id===String(args.marketId||''));
+        out=market ? {ok:false,code:'configuration_change_required',marketId:market.id,
+          status:market.status} : {ok:false,code:'unknown_market'};
       }
-      if (out?.ok && ['open_region','pause_market'].includes(chosen.name)) deps.invalidatePublicMarkets();
       return res.json(jsonrpc(id,toolResult(out || {ok:false,code:'action_unavailable'})));
     } catch {
       return res.status(503).json(error(id,-32000,'Operations temporarily unavailable; verify live status before retry.'));
