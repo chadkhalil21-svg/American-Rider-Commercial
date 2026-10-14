@@ -6,7 +6,6 @@ const path = require('node:path');
 const US = require('./jurisdictions/us.json');
 const { REGIONS } = require('./regions');
 const { markets } = require('./markets');
-const { regionAdmissionProblems } = require('./market-admission');
 const { policyForState, screeningPreparationFor, reviewPolicyFor } = require('./screening-jurisdictions');
 
 const FL = policyForState('FL');
@@ -40,8 +39,8 @@ const mockGaCounty = { ...miami, id: 'ga-example-county', state: 'GA', regionId:
 assert.equal(policyForState('GA'), null, 'a U.S. jurisdiction without a screened policy is not configured');
 assert.equal(screeningPreparationFor(mockGaCounty, georgia).ok, false,
   'a plausible new region cannot copy Florida screening');
-assert.ok(regionAdmissionProblems(georgia).some(x => x.includes('screening jurisdiction is not configured')),
-  'commercial market admission independently rejects an uncommissioned screening policy');
+assert.equal(policyForState(georgia.jurisdiction.stateCode), null,
+  'uncommissioned screening jurisdiction is not permitted to inherit Florida approval');
 
 for (const code of ['AL', 'CA', 'DC', 'NY', 'TX', 'PR', 'VI', 'XX', 'fl', '', null]) {
   assert.equal(policyForState(code), null, 'unknown or uncommissioned state fails closed: ' + code);

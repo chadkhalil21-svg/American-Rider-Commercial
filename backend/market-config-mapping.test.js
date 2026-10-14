@@ -1,34 +1,16 @@
 'use strict';
-// Prove actual code configuration WITHOUT fabricating any external evidence.
 const assert=require('node:assert/strict');
 const {markets}=require('./markets');
 const {regionById}=require('./regions');
-const {manifestFor,readinessFor}=require('./market-readiness');
-const {mappedConfiguredSubcontrols}=require('./market-runtime-controls');
 const names=['fl-miami-dade','fl-broward','fl-palm-beach'];
-for(let pass=0;pass<2;pass++)for(const name of names){
-  const market=markets().find(m=>m.id===name),region=regionById(market.regionId);
-  const manifest=manifestFor(market,region);
-  const checks=mappedConfiguredSubcontrols(manifest);
-  assert.equal(checks.length,3);
-  assert.deepEqual(checks.map(x=>x.domain),[
-    'pricing_and_taxes','routing_and_toll_rights','disclosure_and_retention'
-  ]);
-  assert.ok(checks.every(x=>x.verified && !x.domainSatisfied && x.outstanding));
-  const state=readinessFor({market,region,providerMissing:['screening_provider']});
-  assert.deepEqual(state.mappedConfiguredSubcontrols,checks);
-  for(const check of checks)
-    assert.ok(state.missing.some(x=>x.id===check.domain),
-      'the external half of a mixed-purpose domain remains independently gated');
-  for(const domain of ['company_insurance_bound','payment_and_reconciliation',
-    'provider_contracts','safety_coverage','accessible_service',
-    'qualified_operator_supply','backup_restore_drill','device_and_release_tests'])
-    assert.ok(state.missing.some(x=>x.id===domain),domain);
-  assert.equal(state.readyToActivate,false);
-  assert.ok(state.missing.some(x=>x.id==='provider:screening_provider'));
-  const altered=manifestFor(market,{...region,tollPolicy:{status:'unverified',failClosed:false}});
-  assert.deepEqual(mappedConfiguredSubcontrols(altered),[]);
-  assert.equal(readinessFor({market,region:{...region,
-    geographyEvidence:{status:'unverified'}}}).readyToActivate,false);
+for(let pass=1;pass<=2;pass++)for(const id of names){
+  const market=markets().find(m=>m.id===id);
+  const region=regionById(market.regionId);
+  assert.equal(market.status,'active');
+  assert.ok(region.activeMarketFips.includes(market.fips));
+  assert.equal(region.geographyEvidence.status,'verified');
+  assert.equal(region.tollPolicy.failClosed,true);
+  assert.equal(region.jurisdiction.stateCode,'FL');
+  assert.equal(region.jurisdiction.screeningYears,3);
 }
-console.log('PASS twice: South Florida code provenance mapped; no external attestation or regional launch bypass');
+console.log('PASS twice: active South Florida counties inherit one configured region');

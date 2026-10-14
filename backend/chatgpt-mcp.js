@@ -1,7 +1,8 @@
 'use strict';
 // Private founder-only ChatGPT MCP gateway. No new market authority is created here.
 // OAuth 2.1 authorization-code/PKCE is bound to the existing named Ops MFA session.
-// Token material is never stored in plaintext; all commercial checks remain in market-readiness.
+// Token material is never stored in plaintext; commercial booking checks remain in
+// configured service geography, payment verification, and individual Operator eligibility.
 const crypto = require('node:crypto');
 const { readKey } = require('./env');
 const { withinDeadline, OPS_MFA_DEADLINE_MS } = require('./opslatency');
