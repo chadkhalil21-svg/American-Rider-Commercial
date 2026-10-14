@@ -160,9 +160,9 @@ const run = (db,extra={}) => M.activateRegion({
     assert.equal(db.writes,6,'all deny cases have zero mutations');
   }
   const server = require('fs').readFileSync(require('path').join(__dirname,'server.js'),'utf8');
-  assert.doesNotMatch(server,/app\\.post\\('\\/ops\\/markets\\/regions\\/:regionId\\/activate'/,
+  assert.equal(server.includes("app.post('/ops/markets/regions/:regionId/activate'"),false,
     'old county admission endpoint retired');
-  assert.match(server,/app\\.get\\('\\/ops\\/markets', requireOps/,
+  assert.equal(server.includes("app.get('/ops/markets', requireOps"),true,
     'Operations now displays configured service geography without admission forms');
   assert.doesNotMatch(server,/requireAdmittedPickup|requireAdmittedTravel/,
     'commercial booking never calls the obsolete market admission middleware');
