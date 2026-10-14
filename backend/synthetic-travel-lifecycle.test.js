@@ -1,6 +1,6 @@
 'use strict';
 // One continuous, deterministic synthetic Traveler + Operator lifecycle using REAL
-// backend eligibility, Travel progression, qualification and region admission code.
+// backend eligibility, Travel progression, qualification and service-geography code.
 // No live Stripe, Firebase, Resend, CRA, insurance or device access; no real money.
 // Artificial provider answers must never be described as production attestations.
 const assert = require('node:assert/strict');
@@ -8,8 +8,8 @@ const { acceptOffer } = require('./eligibility');
 const { progressTravel } = require('./travelprogress');
 const { initialMonitoringFromDocument, applyIndependentConfirmation } = require('./insurance-monitoring');
 const { DISCLOSURE_VERSION } = require('./disclosure');
-const { manifestFor, readinessFor, REQUIRED_EVIDENCE } = require('./market-readiness');
-const { markets } = require('./markets');
+const { readinessForRoute } = require('./booking-readiness');
+const { markets, marketFor, servesPoint } = require('./markets');
 const { regionById } = require('./regions');
 
 const NOW = Date.parse('2026-10-11T04:00:00.000Z');
@@ -245,51 +245,31 @@ async function adverseBeforeAcceptance(kind) {
     kind + ' must remove unsafe Operator from dispatch');
 }
 
-async function triCountyAdmission() {
-  const marketList = markets().filter(x => ['fl-miami-dade', 'fl-broward', 'fl-palm-beach'].includes(x.id));
-  check(marketList.length === 3, 'all three intended counties must be configured');
-  for (const market of marketList) {
-    const region = regionById(market.regionId);
-    const manifest = manifestFor(market, region);
-    check(manifest && manifest.sourceProblems.length === 0,
-      market.id + ' must have a coherent geographic manifest');
-    const cold = readinessFor({ market, region, now: NOW });
-    check(!cold.readyToActivate && cold.status === 'waitlist',
-      market.id + ' geography never authorizes real bookings');
-    check(cold.missing.length === cold.evidenceCount,
-      market.id + ' genuinely required evidence must be accounted for');
-
-    // These records are intentionally SYNTHETIC and used only in this memory
-    // test. They may not be copied to live market_admission or signoff.
-    const evidence = Object.fromEntries(REQUIRED_EVIDENCE.map(id => [id, {
-      reference: 'synthetic-not-real-' + id,
-      issuer: 'test_fixture_not_provider',
-      verifiedBy: 'unit_test_only',
-      reviewedAt: NOW - 1, validUntil: NOW + 500,
-      manifestVersion: manifest.version,
-    }]));
-    const record = { status: 'active', manifestVersion: manifest.version, evidence };
-    check(readinessFor({ market, region, record, now: NOW }).status === 'active',
-      market.id + ' fixture may pass an IN-MEMORY positive control only');
-    check(readinessFor({ market, region, record, now: NOW + 501 }).status !== 'active',
-      market.id + ' expiry must revoke even fixture admission');
-    check(readinessFor({ market, region, record, now: NOW, providerMissing: ['firebase_admin'] }).status !== 'active',
-      market.id + ' a failed live provider must deny admission');
-    check(readinessFor({ market, region, record: { ...record, manifestVersion: 'stale' }, now: NOW }).status !== 'active',
-      market.id + ' source drift must revoke admission');
-    for (const missing of REQUIRED_EVIDENCE) {
-      const copy = clone(evidence);
-      delete copy[missing];
-      const status=readinessFor({ market, region, record: { ...record, evidence: copy }, now: NOW });
-      if(cold.enforcedInCode.includes(missing)) {
-        check(status.readyToActivate,
-          market.id + ' code-enforced check must not demand another paper certificate: ' + missing);
-      } else {
-        check(!status.readyToActivate,
-          market.id + ' cannot omit independently reviewable real-world evidence: ' + missing);
-      }
-    }
+async function triCountyGeography() {
+  const ids=['fl-miami-dade','fl-broward','fl-palm-beach'];
+  const points=[
+    {lat:25.7617,lng:-80.1918},
+    {lat:26.1224,lng:-80.1373},
+    {lat:26.7153,lng:-80.0534},
+  ];
+  const counties=markets().filter(x=>ids.includes(x.id));
+  check(counties.length===3,'all three intended counties remain configured');
+  for(let i=0;i<ids.length;i++){
+    const county=counties.find(m=>m.id===ids[i]);
+    check(county?.status==='active',ids[i]+' configured open');
+    check(regionById(county.regionId)?.jurisdiction?.stateCode==='FL',
+      ids[i]+' retains independent Florida jurisdiction configuration');
+    check(marketFor(points[i])?.id===ids[i]&&servesPoint(points[i]),
+      ids[i]+' serves geographic pickups without a county evidence record');
   }
+  check(!servesPoint({lat:28.5383,lng:-81.3792}),
+    'an unserved county still refuses geographic booking');
+  check(readinessForRoute({path:'/travel/dispatch',production:true,
+    missing:['ops_auth','market_reference_store','screening_provider']}).ready,
+    'separate administrative systems are not second county booking approvals');
+  check(!readinessForRoute({path:'/travel/dispatch',production:true,
+    missing:['stripe_live_key']}).ready,
+    'individual paid Travel still requires its real payment provider');
 }
 
 (async () => {
@@ -300,7 +280,7 @@ async function triCountyAdmission() {
     'screening_expired', 'screening_missing',
     'account_disabled', 'disclosure_stale', 'payout_blocked',
   ]) await adverseBeforeAcceptance(type);
-  await triCountyAdmission();
-  console.log('PASS synthetic continuous Traveler/Operator Travel, Teen pickup, paid-receipt gate, 8 adverse cases, three-county admission');
+  await triCountyGeography();
+  console.log('PASS synthetic continuous Traveler/Operator Travel, Teen pickup, paid-receipt gate, 8 adverse cases, three-county geography');
   console.log('PASS ' + assertions + ' deterministic assertions, in-memory only; no provider or real-device certification');
 })().catch(error => { console.error(error); process.exitCode = 1; });
