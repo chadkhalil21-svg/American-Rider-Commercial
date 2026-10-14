@@ -2,13 +2,15 @@ const assert = require('node:assert/strict');
 const { marketChecklistPage } = require('./market-readiness-ui');
 const market = { id: 'fl-miami-dade', name: '<County & others>', state: 'FL' };
 const state = { status: 'waitlist', manifestVersion: 'abc123', readyToActivate: false,
-  missing: [{ id: 'company_insurance_bound', reason: 'Signed carrier binder absent' }] };
+  enforcedInCode: ['jurisdiction_authority','operator_insurance_process','screening_agreement'],
+  missing: [{ id: 'provider:screening_provider', reason: 'Provider still requires verification' }] };
 const waiting = marketChecklistPage([{ market, state }], { production: true });
 assert.ok(waiting.includes('&lt;County &amp; others&gt;'));
 assert.equal(waiting.includes('<County & others>'), false);
 assert.match(waiting, /class="activate"[^>]*disabled/);
 assert.ok(waiting.includes('role="status" aria-live="polite"'));
-assert.ok(waiting.includes('Record independently reviewed evidence'));
+assert.equal(waiting.includes('Record independently reviewed evidence'), false);
+assert.equal(waiting.includes('id="region-evidence-form"'), false);
 assert.ok(waiting.includes('x-ar-ops-action'));
 const intake = marketChecklistPage([{ market, state: { ...state, readyToOnboard: true } }], { production: true });
 assert.match(intake, /class="onboard"[^>]*data-version="abc123"[^>]*>Authorize prelaunch/);
@@ -29,18 +31,17 @@ const triCounty = ['Miami-Dade','Broward','Palm Beach'].map((name, i) => ({
   state: { ...state,
     missing: [
       { id:'provider:screening_provider', reason:'No commissioned provider handoff' },
-      { id:'company_insurance_bound', reason:'Actual coverage evidence required' },
+
     ],
   },
 }));
 const grouped = marketChecklistPage(triCounty, { production: true });
 assert.match(grouped, /Commission markets here, not in Operator screening/);
-assert.match(grouped, /two separate controls/i);
+
 assert.equal((grouped.match(/Screening Provider/g)||[]).length, 1,
   'one platform dependency must not be repeated per county');
-assert.equal((grouped.match(/<li><strong>Company Insurance Bound<\/strong>/g)||[]).length, 3,
-  'legally scoped county proof remains required per county');
-assert.match(grouped, /may be referenced only where their actual coverage and validity apply/);
+assert.equal((grouped.match(/<li><strong>Company Insurance Bound<\/strong>/g)||[]).length, 0);
+assert.match(grouped, /Eleven retired regional document requirements are not requested/);
 assert.equal((grouped.match(/class="activate"[^>]*disabled/g)||[]).length, 3,
   'shared missing dependency may never enable activation');
 const unblockedLocally = marketChecklistPage([{market,state:{
