@@ -38,12 +38,8 @@ const quoteViewContract=require('./quote-view-contract');
 const quoteViewStore=require('./quote-view-store');
 const {distanceBand:quoteDistanceBand}=require('./market-reference-service');
 const { forMarket: insuranceForMarket, publicConfig: publicInsuranceConfig } = require('./insurance-jurisdictions');
-const { manifestFor, inspectMarket, recordEvidence, recordRegionEvidence, activateMarket, activateRegion, authorizeOnboarding, pauseMarket } = require('./market-readiness');
-const { conciseMarketIssues } = require('./market-launch-summary');
-const { sweepFounderMarketIntents } = require('./founder-market-intents');
-const { setAdmittedFleetOnline, setFleetOnlineIfOpen, deactivateMarketFleet, sweepPausedMarketFleet } = require('./market-fleet');
-const { marketChecklistPage } = require('./market-readiness-ui');
-const { catalog: expansionCatalog, proposeMarket, listPlans: listMarketPlans } = require('./market-expansion');
+const { setFleetOnlineIfOpen } = require('./market-fleet');
+const { proposeMarket } = require('./market-expansion');
 const { disputePage } = require('./disputeevidence-ui');
 const { pointFromWaitlist, coarseAreaFor } = require('./waitlistgeo');
 const { listOpsCases, actOnCase } = require('./opscases');
@@ -321,7 +317,7 @@ function requireOperationalReadiness(req, res, next) {
 // Geographic service authorization has one source: backend/markets.js.
 // No market_admission record, second county approval, or Operator onboarding
 // document is required to quote or book a Travel.
-function serviceMarketState(market) {
+async function serviceMarketState(market) {
   return { status: market?.status === 'active' ? 'active' : 'waitlist' };
 }
 function requireServedPickup(req, res, next) {
@@ -1966,7 +1962,6 @@ app.post('/charge-ride', requireAuth, LIMITS.payments, requireOperationalReadine
 // without the configured token fail closed before any operational work begins.
 let lastSweep = { at: 0, report: null };
 const maintenanceCadence = createSweepCadence();
-const founderIntentLoggedStates = new Map();
 const quotaBackoff = createQuotaBackoff();
 const criticalRecoveryGate = createCriticalRecoveryGate({ intervalMs:60_000 });
 const maintenanceSweep = (name, work) => maintenanceCadence.run(name, work);
@@ -2023,34 +2018,6 @@ async function runAllSweeps({criticalOnly=false}={}) {
       ]);
       return {...reference,publicRates,ok:reference.ok!==false && publicRates.ok!==false};
     }),
-    marketFleet: async () => {
-      // Founder commands ride on the existing optional leased sweep; never a
-      // second interval, internet-facing control endpoint or new paid service.
-      // Failures are independently reported and cannot stop paused-fleet cleanup.
-      const [fleetSettled, intentSettled] = await Promise.allSettled([
-        sweepPausedMarketFleet({ db: adminDb(), marketById: (id) => allMarkets().find((m) => m.id === id) }),
-        maintenanceSweep('founderMarketIntent', () => sweepFounderMarketIntents({
-          db: adminDb(), markets: allMarkets(), regions: REGIONS,
-          production: DEPLOYMENT_MODE === 'production' && keyMode === 'live',
-          providerMissing: productionReadiness().missing,
-          onOpened: invalidatePublicMarkets,
-        })),
-      ]);
-      const fleet = fleetSettled.status === 'fulfilled'
-        ? fleetSettled.value : {ok:false,code:'fleet_cleanup_unavailable'};
-      const intent = intentSettled.status === 'fulfilled'
-        ? intentSettled.value : {ok:false,code:'founder_admission_unavailable'};
-      // Log only changed summaries. Never disclose evidence references or personal data.
-      for (const row of intent?.results || []) {
-        const summary = JSON.stringify({code:row.code,summary:conciseMarketIssues((row.missing||[]).map(id=>({id,code:row.missingRecordStates?.[id]||'unverified'}))),missing:row.missing || [],recordStates:row.missingRecordStates || {}});
-        if (founderIntentLoggedStates.get(row.regionId) !== summary) {
-          founderIntentLoggedStates.set(row.regionId,summary);
-          console.info('[founder market command]',row.regionId,summary);
-        }
-      }
-      return {...fleet,founderAdmission:intent,
-        ok:fleet?.ok!==false && intent?.ok!==false};
-    },
     accountDeletion: () => maintenanceSweep('accountDeletion', () => sweepAccountDeletion({ db: adminDb(), auth: adminStatus().ok ? require('firebase-admin/auth').getAuth() : null })),
   }, {criticalOnly});
 }
@@ -2295,19 +2262,6 @@ function operatingMarketOf(user) {
   return id ? allMarkets().find((m) => m.id === id) || null : null;
 }
 
-/** null when the operator may proceed; else the refusal body. */
-function operatingMarketGate(user) {
-  const m = operatingMarketOf(user);
-  if (m && m.status === 'active') return null;
-  return {
-    code: 'market_waitlist',
-    error: m
-      ? `American Rider does not operate in ${m.name} yet. Your interest is recorded.`
-      : 'Choose the county you will operate in before continuing.',
-    market: m ? { id: m.id, name: m.name, status: m.status } : null,
-  };
-}
-
 const marketBody = (m) => (m ? { id: m.id, name: m.name, state: m.state, status: m.status,
   geographicallyAvailable: m.geographicallyAvailable === true,
   geographicStatus: m.geographicStatus || 'unconfigured', regionId: m.regionId,
@@ -2389,23 +2343,7 @@ async function requireScreeningRequestMarket(req, res, next) {
   }
 }
 
-async function requireActiveOperatingMarket(req, res, next) {
-  const db = adminDb();
-  if (!db) return res.status(503).json({ error: adminStatus().reason, code: 'no_admin_db' });
-  try {
-    const snap = await db.collection('users').doc(String(req.uid)).get();
-    const gate = operatingMarketGate(snap.exists ? snap.data() : null);
-    if (gate) return res.status(409).json(gate);
-    if (productionMode) {
-      const market = operatingMarketOf(snap.data());
-      const admitted = await serviceMarketState(market);
-      if (!['onboarding', 'active'].includes(admitted.status)) return res.status(409).json({ code: 'market_waitlist', error: 'Operator onboarding is not authorized in this market.', marketId: market.id });
-    }
-    next();
-  } catch (e) {
-    res.status(502).json({ error: e.message });
-  }
-}
+// Operator onboarding has no separate county-admission middleware.
 
 // Public: one cached status per configured county, never evidence or confidential references.
 async function publicMarketResponse(req, res) {
@@ -2483,138 +2421,19 @@ app.get('/ops/disputes', requireOps, async (req, res) => {
     return res.status(503).send('Dispute evidence cannot be loaded; retry or check the index.');
   }
 });
-app.get('/ops/markets', requireOps, async (req, res) => {
-  const markets = allMarkets().filter((m) => m.regionId);
-  const [items, plans] = await Promise.all([
-    Promise.all(markets.map(async market => ({ market, state: await serviceMarketState(market) }))),
-    listMarketPlans(adminDb()),
-  ]);
-  res.type('html').send(marketChecklistPage(items, {
-    production: DEPLOYMENT_MODE === 'production' && keyMode === 'live',
-    expansion: { catalog: expansionCatalog(), ...plans },
-  }));
+// County operations are determined by the geographic service configuration.
+// There is no market_admission checklist, per-county activation evidence, or
+// extra booking authorization in this repository.
+app.get('/ops/markets', requireOps, (req, res) => {
+  const items = allMarkets().filter(m => m.regionId).map(marketBody);
+  return res.json({ok:true,markets:items,authority:'geographic_service_configuration'});
 });
-// This is ONLY a national expansion PROPOSAL, never a new county activation.
-// The commissioning lifecycle still requires approved state law, geography,
-// policies, permits, independent evidence and a deliberate market-admission record.
 app.post('/ops/markets/plan', requireOps, requireOpsMutation, async (req, res) => {
-  if (opsAuthMode() !== 'named') return res.status(403).json({ code:'named_ops_required' });
+  if (opsAuthMode() !== 'named') return res.status(403).json({code:'named_ops_required'});
   try {
-    const out=await proposeMarket({ db:adminDb(), actor:req.opsUser, input:req.body });
+    const out=await proposeMarket({db:adminDb(),actor:req.opsUser,input:req.body});
     return res.status(out.ok ? 200 : out.code==='named_operations_required' ? 403 : 400).json(out);
-  } catch { return res.status(503).json({ code:'market_expansion_plan_unavailable' }); }
-});
-// One authenticated founder action opens an entire configured region atomically.
- // Never create regulatory evidence, bypass missing provider dependencies or partially
- // open a multi-county region. Future configured regions reuse exactly this endpoint.
-app.post('/ops/markets/regions/:regionId/activate', requireOps, requireOpsMutation, async (req, res) => {
-  if (DEPLOYMENT_MODE !== 'production' || keyMode !== 'live' || opsAuthMode() !== 'named')
-    return res.status(409).json({ code: 'production_authority_required' });
-  const region = REGIONS.find((r) => r.id === req.params.regionId);
-  if (!region) return res.status(404).json({ code: 'unknown_region' });
-  const regionMarkets = allMarkets().filter((m) => m.regionId === region.id);
-  if (!regionMarkets.length) return res.status(409).json({ code: 'region_not_configured' });
-  try {
-    const out = await activateRegion({
-      db: adminDb(), entries: regionMarkets.map((market) => ({ market, region })),
-      actor: req.opsUser, expectedVersions: req.body?.manifestVersions,
-      providerMissing: productionReadiness().missing,
-    });
-    if (out.ok) invalidatePublicMarkets();
-    return res.status(out.ok ? 200 : out.code === 'region_not_ready' ? 409 : 400).json(out);
-  } catch (e) {
-    console.error('[markets] region activation unavailable:', e?.message || e);
-    return res.status(503).json({ code: 'region_activation_unavailable' });
-  }
-});
-// Shared real-world documents are reviewed once, but only if their verified
-// coverage includes every county. This is not an alternate activation route.
-app.post('/ops/markets/regions/:regionId/evidence', requireOps, requireOpsMutation, async (req,res)=>{
-  if(opsAuthMode()!=='named')return res.status(403).json({code:'named_ops_required'});
-  const region=REGIONS.find(r=>r.id===req.params.regionId);
-  if(!region)return res.status(404).json({code:'unknown_region'});
-  const markets=allMarkets().filter(m=>m.regionId===region.id);
-  if(!markets.length)return res.status(409).json({code:'region_not_configured'});
-  try{
-    const result=await recordRegionEvidence({
-      db:adminDb(),entries:markets.map(market=>({market,region})),
-      domain:req.body?.domain,input:req.body,actor:req.opsUser,
-      expectedVersions:req.body?.manifestVersions,
-    });
-    if(!result.ok)return res.status(400).json(result);
-    invalidatePublicMarkets();
-    // State changed to paused. Any on-duty fleet must be cleared before
-    // a region may reopen. Ignore neither failure nor pending cleanup.
-    const cleanup=await Promise.all(markets.map(market=>
-      deactivateMarketFleet({db:adminDb(),market,maxPages:2})
-        .catch(()=>({ok:false,done:false,reason:'cleanup_unavailable'}))));
-    return res.json({...result,cleanupPending:cleanup.some(x=>x.done!==true)});
-  }catch{
-    return res.status(503).json({code:'region_evidence_unavailable'});
-  }
-});
-app.get('/ops/markets/:id/readiness', requireOps, async (req, res) => {
-  const market = opsMarket(req, res);
-  if (!market) return;
-  const region = REGIONS.find((r) => r.id === market.regionId);
-  return res.json({ ...await serviceMarketState(market), manifest: manifestFor(market, region) });
-});
-app.post('/ops/markets/:id/evidence', requireOps, requireOpsMutation, async (req, res) => {
-  const market = opsMarket(req, res);
-  if (!market) return;
-  if (opsAuthMode() !== 'named') return res.status(403).json({ code: 'named_ops_required' });
-  try {
-    const region = REGIONS.find((r) => r.id === market.regionId);
-    const out = await recordEvidence({ db: adminDb(), market, region, domain: req.body?.domain,
-      input: req.body, actor: req.opsUser, expectedVersion: req.body?.manifestVersion });
-    if (!out.ok) return res.status(400).json(out);
-    invalidatePublicMarkets();
-    let fleetCleanup;
-    try { fleetCleanup = await deactivateMarketFleet({ db: adminDb(), market, maxPages: 2 }); }
-    catch (e) { fleetCleanup = { ok: false, reason: e.message, done: false }; }
-    return res.json({ ...out, fleetCleanup });
-  } catch { return res.status(503).json({ code: 'market_evidence_unavailable' }); }
-});
-app.post('/ops/markets/:id/onboard', requireOps, requireOpsMutation, async (req, res) => {
-  const market = opsMarket(req, res);
-  if (!market) return;
-  if (DEPLOYMENT_MODE !== 'production' || keyMode !== 'live' || opsAuthMode() !== 'named') {
-    return res.status(409).json({ code: 'production_authority_required' });
-  }
-  const region = REGIONS.find((r) => r.id === market.regionId);
-  try {
-    const out = await authorizeOnboarding({ db: adminDb(), market, region, actor: req.opsUser,
-      expectedVersion: req.body?.manifestVersion, providerMissing: productionReadiness().missing });
-    if (out.ok) invalidatePublicMarkets();
-    return res.status(out.ok ? 200 : 409).json(out);
-  } catch { return res.status(503).json({ code: 'market_onboarding_unavailable' }); }
-});
-app.post('/ops/markets/:id/activate', requireOps, requireOpsMutation, async (req, res) => {
-  const market = opsMarket(req, res);
-  if (!market) return;
-  if (DEPLOYMENT_MODE !== 'production' || keyMode !== 'live' || opsAuthMode() !== 'named') {
-    return res.status(409).json({ code: 'production_authority_required' });
-  }
-  const region = REGIONS.find((r) => r.id === market.regionId);
-  try {
-    const out = await activateMarket({ db: adminDb(), market, region, actor: req.opsUser,
-      expectedVersion: req.body?.manifestVersion, providerMissing: productionReadiness().missing });
-    if (out.ok) invalidatePublicMarkets();
-    return res.status(out.ok ? 200 : 409).json(out);
-  } catch { return res.status(503).json({ code: 'market_activation_unavailable' }); }
-});
-app.post('/ops/markets/:id/pause', requireOps, requireOpsMutation, async (req, res) => {
-  const market = opsMarket(req, res);
-  if (!market) return;
-  try {
-    const out = await pauseMarket({ db: adminDb(), market, actor: req.opsUser, reason: req.body?.reason });
-    if (!out.ok) return res.status(409).json(out);
-    invalidatePublicMarkets();
-    let fleetCleanup;
-    try { fleetCleanup = await deactivateMarketFleet({ db: adminDb(), market, maxPages: 2 }); }
-    catch (e) { fleetCleanup = { ok: false, reason: e.message, done: false }; }
-    return res.json({ ...out, fleetCleanup });
-  } catch { return res.status(503).json({ code: 'market_pause_unavailable' }); }
+  } catch { return res.status(503).json({code:'market_expansion_plan_unavailable'}); }
 });
 
 // The operator names the county they will operate in — or sends a position and it is derived.
@@ -3624,8 +3443,7 @@ mountOps(app, express, { checks: qualificationChecks, liveMoney: () => operation
 mountFounderMcp(app, express, {
   db: adminDb, opsSignedIn, actorFingerprint: oauthActorFingerprint, authMode: opsAuthMode,
   isProduction: () => DEPLOYMENT_MODE === 'production' && keyMode === 'live',
-  markets: allMarkets, regions: REGIONS, inspectMarket, manifestFor, activateRegion,
-  pauseMarket, proposeMarket, productionReadiness, deactivateMarketFleet, invalidatePublicMarkets,
+  markets: allMarkets, regions: REGIONS, proposeMarket, invalidatePublicMarkets,
   oauthLimit: LIMITS.founderOauthIp, mcpLimit: LIMITS.founderMcpIp,
 });
 
