@@ -318,36 +318,33 @@ function requireOperationalReadiness(req, res, next) {
   return next();
 }
 
-// Every consequential new booking checks the durable market admission document. This is
-// intentionally NOT cached: a carrier lapse or Operations pause must prevent new money.
-// Existing emergency, cancellation, refund, settlement and already-running Travels stay open.
-async function admittedMarket(market) {
-  const region = market?.regionId ? REGIONS.find((r) => r.id === market.regionId) : null;
-  return inspectMarket({ db: adminDb(), market, region, providerMissing: productionReadiness().missing });
+// Geographic service authorization has one source: backend/markets.js.
+// No market_admission record, second county approval, or Operator onboarding
+// document is required to quote or book a Travel.
+function serviceMarketState(market) {
+  return { status: market?.status === 'active' ? 'active' : 'waitlist' };
 }
-async function requireAdmittedPickup(req, res, next) {
-  if (!productionMode) return next();
-  const point = req.body?.pickup;
-  const market = marketFor(point);
-  if (!market || market.status !== 'active') return res.status(409).json({ code: 'market_waitlist', error: 'Travel is not available in this market yet.' });
-  const state = await admittedMarket(market);
-  if (state.status !== 'active') return res.status(409).json({ code: 'market_waitlist', error: 'Travel is not available in this market yet.', marketId: market.id });
+function requireServedPickup(req, res, next) {
+  if (!servesPoint(req.body?.pickup)) {
+    return res.status(409).json({ code: 'outside_market', error: outsideMarketMessage('pickup') });
+  }
   return next();
 }
-async function requireAdmittedTravel(req, res, next) {
-  if (!productionMode) return next();
+async function requireServedTravel(req, res, next) {
   const db = adminDb();
-  if (!db) return res.status(503).json({ code: 'market_admission_unavailable' });
+  if (!db) return res.status(503).json({ code: 'no_admin_db' });
   try {
     const snap = await db.collection('rides').doc(String(req.body?.rideId || '')).get();
-    if (!snap.exists || String(snap.data().travelerUid || '') !== String(req.uid)) return res.status(404).json({ code: 'no_travel' });
+    if (!snap.exists || String(snap.data().travelerUid || '') !== String(req.uid)) {
+      return res.status(404).json({ code: 'no_travel' });
+    }
     const ride = snap.data();
-    const market = marketFor({ lat: ride.pickupLat, lng: ride.pickupLng });
-    const state = await admittedMarket(market);
-    if (state.status !== 'active') return res.status(409).json({ code: 'market_waitlist', error: 'New charges and offers are paused in this market.' });
+    if (!servesPoint({ lat: ride.pickupLat, lng: ride.pickupLng })) {
+      return res.status(409).json({ code: 'outside_market', error: outsideMarketMessage('pickup') });
+    }
     return next();
   } catch {
-    return res.status(503).json({ code: 'market_admission_unavailable' });
+    return res.status(503).json({ code: 'travel_unavailable' });
   }
 }
 
@@ -917,7 +914,7 @@ async function operatorRecord(uid) {
 }
 
 // POST /connect/onboard — start or resume Stripe-hosted onboarding for the signed-in operator.
-app.post('/connect/onboard', requireAuth, LIMITS.connect, requireActiveOperatingMarket, async (req, res) => {
+app.post('/connect/onboard', requireAuth, LIMITS.connect, async (req, res) => {
   if (keyMode === 'no-key') return res.status(500).json({ error: 'No Stripe key configured' });
   const db = adminDb();
   if (!db) {
@@ -1052,15 +1049,7 @@ app.post('/operator/online', requireAuth, requireFreshAuth, requireOperationalRe
       return refuse({ code: 'account_disabled', error: 'This account cannot accept travel.' });
     }
     const rec = (await operatorRecord(req.uid)) || {};
-    if (productionMode) {
-      const point = { lat: Number(req.body?.lat), lng: Number(req.body?.lng) };
-      const selected = operatingMarketOf(rec) || marketFor(point);
-      const physical = marketFor(point);
-      const [selection, location] = await Promise.all([admittedMarket(selected), admittedMarket(physical)]);
-      if (selection.status !== 'active' || location.status !== 'active') {
-        return refuse({ code: 'market_waitlist', error: 'New Operator offers are paused in this market.' });
-      }
-    }
+    // Individual eligibility applies at duty entry. Physical service area is checked below.
     // Location renewals are not financial events. Reuse only a recent, server-bound
     // Connect status from a direct provider check or a verified account.updated event.
     // Recheck Stripe on first duty entry, after expiry, and at each paid acceptance.
@@ -1184,8 +1173,6 @@ app.post('/operator/online', requireAuth, requireFreshAuth, requireOperationalRe
         user = { ...(user || {}), operatingMarket };
       }
     }
-    const marketGate = operatingMarketGate(user);
-    if (marketGate) return refuse(marketGate);
     if (!servesPoint({ lat, lng })) {
       return refuse({ code: 'outside_active_market', error: 'You are outside the counties American Rider operates in.' });
     }
@@ -1245,17 +1232,9 @@ app.post('/operator/online', requireAuth, requireFreshAuth, requireOperationalRe
         available: b.available !== false,
         onlineAt: Date.now(),
     };
-    if (productionMode) {
-      const physical = marketFor({ lat, lng });
-      const selected = operatingMarketOf(rec) || physical;
-      if (!physical || !selected) return refuse({ code: 'market_waitlist', error: 'No admitted market at this position.' });
-      const saved = await setAdmittedFleetOnline({ db, operatorId: req.uid, fleetUpdate,
-        markets: [physical, selected], providerMissing: productionReadiness().missing });
-      if (!saved) return refuse({ code: 'market_waitlist', error: 'Operator duty was paused in this market.' });
-    } else {
-      const saved=await setFleetOnlineIfOpen({db,operatorId:req.uid,fleetUpdate});
-      if(!saved)return refuse({code:'account_closing',error:'Complete account deletion before returning to duty.'});
-    }
+    const saved = await setFleetOnlineIfOpen({db,operatorId:req.uid,fleetUpdate});
+    if (!saved) return refuse({code:'duty_not_available',
+      error:'Account closure or a newer payout restriction prevents duty.'});
     res.json({ ok: true, operatorId: String(req.uid), available: b.available !== false });
   } catch (e) {
     res.status(502).json({ error: e.message });
@@ -1632,7 +1611,7 @@ app.post('/quote', LIMITS.quoteIp, (req, res) => {
 // when the trip can't be routed — the app then keeps its straight-line fallback. Like
 // /fare-quote this is unauthenticated (it reveals nothing private), but it only answers inside
 // a served region (regions.js), so it can't be farmed as a free worldwide routing proxy.
-app.post('/route', LIMITS.routeIp, requireAdmittedPickup, async (req, res) => {
+app.post('/route', LIMITS.routeIp, requireServedPickup, async (req, res) => {
   // No routing for a pickup that is not in an active market: nothing can be booked from there.
   if (!servesPoint(req.body?.pickup)) return res.status(409).json({ error: outsideMarketMessage('pickup'), code: 'outside_market', where: 'pickup' });
   const route = await fetchRoute(req.body?.pickup, req.body?.dest);
@@ -1648,7 +1627,7 @@ app.post('/route', LIMITS.routeIp, requireAdmittedPickup, async (req, res) => {
 //   503 { status: 'unavailable' }     the planner is not answering — the app says so
 // This used to 404 when rail "did not win", and the app read 404 as "do not show". That gate
 // is withdrawn: the server reports; the client decides emphasis.
-app.post('/smart-quote', LIMITS.routeIp, requireOperationalReadiness, requireAdmittedPickup, async (req, res) => {
+app.post('/smart-quote', LIMITS.routeIp, requireOperationalReadiness, requireServedPickup, async (req, res) => {
   // OLDER APPS GET THE OLDER ANSWER. TestFlight build 36 reads any 200 as a plan and would
   // render `{ status: 'none' }` as a card reading "Save $NaN", then crash on its legs. An app
   // that does not name the new contract (header X-AR-Smart: 2) is answered the way the old
@@ -1690,7 +1669,7 @@ app.get('/destinations', LIMITS.quoteIp, async (req, res) => {
   if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
     return res.status(400).json({ error: 'lat and lng are required' });
   }
-  if (productionMode && (await admittedMarket(marketFor({ lat, lng }))).status !== 'active') return res.json([]);
+  if (!servesPoint({ lat, lng })) return res.json([]);
   res.json(destinationsNear({ lat, lng }, limit));
 });
 
@@ -1711,7 +1690,7 @@ app.get('/place-search', LIMITS.placeSearchIp, async (req, res) => {
 // any government fee inside that price (name, payee, cents) so a screen can say what it is;
 // `travelerPays` already contains it — nothing is added on top of the number shown.
 // No login needed: this only reveals pricing, and a traveler must see the price before booking.
-app.post('/fare-quote', attachAuth, LIMITS.quoteIp, requireOperationalReadiness, requireAdmittedPickup, async (req, res) => {
+app.post('/fare-quote', attachAuth, LIMITS.quoteIp, requireOperationalReadiness, requireServedPickup, async (req, res) => {
   const priced = await authoritativeFare({
     body: req.body, uid: req.uid, email: req.email, db: adminDb(), cardCountryFor: defaultCardCountry,
   });
@@ -1847,7 +1826,7 @@ app.delete('/payment-methods/:id', requireAuth, LIMITS.payments, async (req, res
   }
 });
 
-app.post('/create-payment-intent', requireAuth, LIMITS.payments, requireFreshAuth, requireOperationalReadiness, requireAdmittedTravel, async (req, res) => {
+app.post('/create-payment-intent', requireAuth, LIMITS.payments, requireFreshAuth, requireOperationalReadiness, requireServedTravel, async (req, res) => {
   if (keyMode === 'no-key') {
     return res.status(500).json({ error: 'No Stripe secret key configured. Add STRIPE_SECRET_KEY to backend/.env' });
   }
@@ -2006,7 +1985,7 @@ async function runAllSweeps({criticalOnly=false}={}) {
   const checkMarket = async (pickup) => {
     const market = marketFor(pickup);
     if (!market) return 'waitlist';
-    if (!marketStatuses.has(market.id)) marketStatuses.set(market.id, admittedMarket(market).then((state) => state.status));
+    if (!marketStatuses.has(market.id)) marketStatuses.set(market.id, Promise.resolve(market.status));
     return marketStatuses.get(market.id);
   };
   // Work is invoked lazily inside settleSweepJobs: optional tasks are never
@@ -2014,7 +1993,7 @@ async function runAllSweeps({criticalOnly=false}={}) {
   return settleSweepJobs({
     scheduled: () => sweepScheduled({ checkMarket: async (pickup) => {
       const market = marketFor(pickup);
-      return market ? (await admittedMarket(market)).status : 'waitlist';
+      return market?.status === 'active' ? 'active' : 'waitlist';
     } }),
     monitor: () => sweepMonitor(),
     pushReceipts: () => maintenanceSweep('pushReceipts', () => sweepPushReceipts()),
@@ -2150,7 +2129,7 @@ async function runSweep(req, res) {
 // --- Private file storage. -----------------------------------------------------------------
 // The mobile app may request a five-minute upload URL only for its own namespace. R2 remains
 // private; credentials never leave this server. Object keys, not public URLs, are persisted.
-app.post('/storage/upload-url', requireAuth, LIMITS.document, requireFreshAuth, requireActiveOperatingMarket, async (req, res) => {
+app.post('/storage/upload-url', requireAuth, LIMITS.document, requireFreshAuth, async (req, res) => {
   if (!r2Ready()) return res.status(503).json({ error: 'Private storage is not configured.', code: 'storage_not_configured' });
   const purpose = String(req.body?.purpose || '');
   const kind = String(req.body?.kind || '');
@@ -2180,7 +2159,7 @@ app.get('/storage/object', requireAuth, LIMITS.document, requireFreshAuth, async
 // information about transactions or experiences between the consumer and the report-maker.
 // Nothing here is looked up about the person — see the header of backend/documents.js for the
 // other edge of that line, which is CFPB Circular 2024-06.
-app.post('/operator/document', requireAuth, LIMITS.document, requireFreshAuth, requireActiveOperatingMarket, async (req, res) => {
+app.post('/operator/document', requireAuth, LIMITS.document, requireFreshAuth, async (req, res) => {
   const db = adminDb();
   if (!db) return res.status(503).json({ error: adminStatus().reason, code: 'no_admin_db' });
 
@@ -2205,11 +2184,7 @@ app.post('/operator/document', requireAuth, LIMITS.document, requireFreshAuth, r
     const u = userSnap.exists ? userSnap.data() : {};
     const o = opSnap.exists ? opSnap.data() : {};
 
-    // ONLY IN AN ACTIVE MARKET. Reviewing a document starts a
-    // regulated workflow; an operator whose declared operating market is on the waitlist gets
-    // neither. See POST /operator/market.
-    const gate = operatingMarketGate(u);
-    if (gate) return res.status(409).json(gate);
+    // Document review belongs to individual onboarding, independent of county duty status.
 
     // THE SAME UPLOAD IS READ ONCE. A retry, a double tap or a loop that re-sends one file gets
     // the stored reading back instead of consuming another OCR/human-review slot.
@@ -2346,7 +2321,7 @@ async function publicPickupStatus(market) {
   const previous=pickupMarketCache.get(market.id);
   if(previous?.value&&Date.now()<previous.until)return previous.value;
   if(previous?.pending)return previous.pending;
-  const pending=admittedMarket(market).then((state)=>{
+  const pending=serviceMarketState(market).then((state)=>{
     const value={...marketBody(market),status:state.missing?.includes('database')?'unavailable':
       state.status==='active'?'active':'waitlist'};
     if(pickupMarketCache.get(market.id)?.pending===pending)
@@ -2366,7 +2341,7 @@ async function publicMarkets() {
   publicMarketCache.pending = (async () => {
     const items = await Promise.all(allMarkets().filter((m) => m.regionId || m.geographicallyAvailable).map(async (m) => {
       if (m.status !== 'active') return marketBody(m);
-      const state = await admittedMarket(m);
+      const state = await serviceMarketState(m);
       return { ...marketBody(m), status: state.missing?.includes('database') ? 'unavailable' :
         state.status === 'active' ? 'active' : 'waitlist' };
     }));
@@ -2386,7 +2361,7 @@ async function operatorMarketOptions() {
   if (!productionMode) return listMarkets();
   return Promise.all(allMarkets().filter((m) => m.regionId).map(async (m) => {
     if (m.status !== 'active') return marketBody(m);
-    const state = await admittedMarket(m);
+    const state = await serviceMarketState(m);
     return { ...marketBody(m), status: state.status };
   }));
 }
@@ -2423,7 +2398,7 @@ async function requireActiveOperatingMarket(req, res, next) {
     if (gate) return res.status(409).json(gate);
     if (productionMode) {
       const market = operatingMarketOf(snap.data());
-      const admitted = await admittedMarket(market);
+      const admitted = await serviceMarketState(market);
       if (!['onboarding', 'active'].includes(admitted.status)) return res.status(409).json({ code: 'market_waitlist', error: 'Operator onboarding is not authorized in this market.', marketId: market.id });
     }
     next();
@@ -2511,7 +2486,7 @@ app.get('/ops/disputes', requireOps, async (req, res) => {
 app.get('/ops/markets', requireOps, async (req, res) => {
   const markets = allMarkets().filter((m) => m.regionId);
   const [items, plans] = await Promise.all([
-    Promise.all(markets.map(async market => ({ market, state: await admittedMarket(market) }))),
+    Promise.all(markets.map(async market => ({ market, state: await serviceMarketState(market) }))),
     listMarketPlans(adminDb()),
   ]);
   res.type('html').send(marketChecklistPage(items, {
@@ -2582,7 +2557,7 @@ app.get('/ops/markets/:id/readiness', requireOps, async (req, res) => {
   const market = opsMarket(req, res);
   if (!market) return;
   const region = REGIONS.find((r) => r.id === market.regionId);
-  return res.json({ ...await admittedMarket(market), manifest: manifestFor(market, region) });
+  return res.json({ ...await serviceMarketState(market), manifest: manifestFor(market, region) });
 });
 app.post('/ops/markets/:id/evidence', requireOps, requireOpsMutation, async (req, res) => {
   const market = opsMarket(req, res);
@@ -3380,7 +3355,7 @@ app.get('/operator/commission', requireAuth, LIMITS.qualification, async (req, r
 
 // The operator says they are done. Kept as the app's explicit moment, but it decides nothing a
 // document reading has not already decided: it assesses and reports.
-app.post('/operator/qualification/submit', requireAuth, LIMITS.qualification, requireActiveOperatingMarket, async (req, res) => {
+app.post('/operator/qualification/submit', requireAuth, LIMITS.qualification, async (req, res) => {
   const db = adminDb();
   if (!db) return res.status(503).json({ error: adminStatus().reason, code: 'no_admin_db' });
   try {
@@ -3728,7 +3703,7 @@ function travelNumberFor(documentId, pickup) {
 
 // The immutable, server-priced booking exists before Stripe's PaymentSheet is opened.
 // A duplicate device request returns the same ride id, not another PaymentIntent/travel.
-app.post('/travel/prepare', requireAuth, LIMITS.dispatch, requireFreshAuth, requireOperationalReadiness, requireAdmittedPickup, async (req, res) => {
+app.post('/travel/prepare', requireAuth, LIMITS.dispatch, requireFreshAuth, requireOperationalReadiness, requireServedPickup, async (req, res) => {
   const db = adminDb();
   if (!db) return res.status(503).json({ error: adminStatus().reason, code: 'no_admin_db' });
   const b = req.body || {};
@@ -3841,7 +3816,7 @@ app.post('/travel/prepare', requireAuth, LIMITS.dispatch, requireFreshAuth, requ
 
 // This endpoint no longer creates a fresh ride or trusts a client-provided fare, Operator or
 // payment assertion. It can only offer the existing, freshly provider-confirmed paid Travel.
-app.post('/travel/dispatch', requireAuth, LIMITS.dispatch, requireFreshAuth, requireOperationalReadiness, requireAdmittedTravel, async (req, res) => {
+app.post('/travel/dispatch', requireAuth, LIMITS.dispatch, requireFreshAuth, requireOperationalReadiness, requireServedTravel, async (req, res) => {
   const db = adminDb();
   if (!db) return res.status(503).json({ error: adminStatus().reason, code: 'no_admin_db' });
   const id = String(req.body?.rideId || '');
@@ -3912,7 +3887,7 @@ app.delete('/travel/schedule/:id', requireAuth, requireFreshAuth, async (req, re
 
 // Create a scheduled reservation with the same server authority as immediate dispatch.
 // The time and labels are traveler inputs. Fare, distance, fees and Travel Number are not.
-app.post('/travel/schedule', requireAuth, LIMITS.dispatch, requireFreshAuth, requireOperationalReadiness, requireAdmittedPickup, async (req, res) => {
+app.post('/travel/schedule', requireAuth, LIMITS.dispatch, requireFreshAuth, requireOperationalReadiness, requireServedPickup, async (req, res) => {
   const db = adminDb();
   if (!db) return res.status(503).json({ error: adminStatus().reason, code: 'no_admin_db' });
   const b = req.body || {};
