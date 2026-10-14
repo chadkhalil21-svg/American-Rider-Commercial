@@ -2366,11 +2366,6 @@ async function publicMarketResponse(req, res) {
 app.get('/markets', LIMITS.quoteIp, publicMarketResponse);
 app.post('/markets/at', LIMITS.quoteIp, publicMarketResponse);
 
-function opsMarket(req, res) {
-  const m = allMarkets().find((item) => item.id === String(req.params.id || ''));
-  if (!m) res.status(404).json({ code: 'unknown_market' });
-  return m;
-}
 function requireOpsMutation(req, res, next) {
   if (req.get('x-ar-ops-action') !== '1' || !req.is('application/json')) {
     return res.status(403).json({ code: 'ops_action_header_required' });
