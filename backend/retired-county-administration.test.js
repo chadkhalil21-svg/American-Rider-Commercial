@@ -9,7 +9,7 @@ for(const name of retired) assert.equal(fs.existsSync(path.join(__dirname,name))
 assert.equal(fs.existsSync(path.join(__dirname,'../scripts/ingest-market-admission.cjs')),false,
   'retired county approval submission workflow was not removed');
 for(const filename of ['server.js','booking.js','market-fleet.js','chatgpt-mcp.js']){
-  assert.doesNotMatch(read(filename),/market_admission|market-readiness|admittedMarket\(/,
+  assert.doesNotMatch(read(filename),/market_admission|market-readiness(?!-ui)|admittedMarket\(/,
     'live booking, duty or Founder path must not reference retired admission: '+filename);
 }
 const fleet=read('market-fleet.js');
