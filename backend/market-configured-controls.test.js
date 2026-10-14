@@ -58,6 +58,7 @@ for(let pass=1;pass<=2;pass++){
     'independent production screening handoff remains a hard launch gate');
   assert.match(server,/providerMissing: productionReadiness\(\).missing/,
     'actual production dependencies reach the market-opening command');
-  assert.match(server,/requireAdmittedPickup/,'paid-Travel admission still reads runtime market');
+  assert.match(server,/function requireServedPickup/,'paid Travel checks configured geography');
+  assert.doesNotMatch(server,/requireAdmittedPickup/,'no additional county approval is required for paid Travel');
 }
 console.log('PASS twice: eliminate 3 redundant regional forms in all counties; retain external carrier, screening, funds, safety, mobile and unknown-state gates');
