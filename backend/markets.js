@@ -26,6 +26,8 @@ function regionForCounty(state,fips,name){
  ))||null;
 }
 function buildMarkets(){
+ const founderClosed = new Set(String(readKey('FOUNDER_CLOSED_FLORIDA_MARKETS')||'')
+   .split(',').filter(x=>/^fl-[a-z0-9-]+$/.test(x)));
  const overrides={};
  for(const pair of String(readKey('MARKET_STATUS')||'').split(',')){const [id,st]=pair.split(':');if(id&&['active','waitlist'].includes(st))overrides[id]=st;}
  const out=[];
@@ -39,14 +41,22 @@ function buildMarkets(){
     if(overrides[id]==='active'&&!(r&&regionReady(r)))console.error(`[markets] activation refused: ${id} has no admissible configured region`);
     else status=overrides[id];
    }
-   out.push(Object.freeze({id,name:`${c.name} County`,county:c.name,state,fips:c.fips,regionId:r?.id||null,status,
-      geographicallyAvailable:state==='FL',geometry:c.geometry}));
+   // Geography is OPEN statewide by default. Only an explicit Founder closure
+   // changes that geographic designation. This field is separate from the
+   // readiness of a paid booking, which is not inferred from an open county.
+   const founderClosedHere=state==='FL'&&founderClosed.has(id);
+   if(founderClosedHere)status='waitlist';
+   const geographicallyAvailable=state==='FL'&&!founderClosedHere;
+   out.push(Object.freeze({id,name:`${c.name} County`,county:c.name,state,fips:c.fips,
+      regionId:r?.id||null,status,geographicallyAvailable,
+      geographicStatus:state==='FL'?(founderClosedHere?'closed':'open'):'unconfigured',
+      geometry:c.geometry}));
   }
  }
  return out;
 }
 let _cache=null,_key=null;
-function markets(){const key=readKey('MARKET_STATUS')||'';if(!_cache||key!==_key){_cache=buildMarkets();_key=key;}return _cache;}
+function markets(){const key=(readKey('MARKET_STATUS')||'')+'|'+(readKey('FOUNDER_CLOSED_FLORIDA_MARKETS')||'');if(!_cache||key!==_key){_cache=buildMarkets();_key=key;}return _cache;}
 const isCoord=p=>!!p&&Number.isFinite(Number(p.lat))&&Number.isFinite(Number(p.lng))&&Math.abs(Number(p.lat))<=90&&Math.abs(Number(p.lng))<=180;
 function inRing(x,y,ring){let c=false;for(let i=0,j=ring.length-1;i<ring.length;j=i++){const [xi,yi]=ring[i],[xj,yj]=ring[j];if(yi>y!==yj>y&&x<((xj-xi)*(y-yi))/(yj-yi)+xi)c=!c;}return c;}
 const polygons=g=>g.type==='Polygon'?[g.coordinates]:g.coordinates;
@@ -68,6 +78,6 @@ function tripOutsideMarkets(pickup,dest){
  return destRegion?.id===r.id ? null : 'destination';
 }
 function listMarkets(){return markets().filter(m=>m.geographicallyAvailable||m.status==='active'||m.regionId)
-  .map(({id,name,state,fips,regionId,status,geographicallyAvailable})=>
-    ({id,name,state,fips,regionId,status,geographicallyAvailable}));}
+  .map(({id,name,state,fips,regionId,status,geographicallyAvailable,geographicStatus})=>
+    ({id,name,state,fips,regionId,status,geographicallyAvailable,geographicStatus}));}
 module.exports={marketFor,marketStatus,servesPoint,tripOutsideMarkets,listMarkets,markets,SHORE_M,boundaryPackages};
