@@ -1,39 +1,26 @@
 // Pausing paid offers is atomic with the booking and on-duty transactions. Clearing the
 // denormalized fleet availability flag is separately retryable, bounded operational work.
 const { marketFor } = require('./markets');
-const { regionById } = require('./regions');
-const { readinessFor } = require('./market-readiness');
 const PAGE_SIZE = 200;
 const MAX_PAGES = 5;
 
-async function setAdmittedFleetOnline({ db, operatorId, fleetUpdate, markets, providerMissing = [], now = Date.now() }) {
-  if (!db || !operatorId || !fleetUpdate || !markets?.length || markets.some((m) => !m)) return false;
-  const selected = [...new Map(markets.map((m) => [m.id, m])).values()];
+// The county must be served geographically. Individual Operator and payout checks
+// remain independent. An Operations admission record is not read here.
+async function setGeographicFleetOnline({ db, operatorId, fleetUpdate, markets }) {
+  if (!db || !operatorId || !fleetUpdate || !Array.isArray(markets) || !markets.length ||
+      markets.some((m) => m?.status !== 'active')) return false;
   return db.runTransaction(async (tx) => {
-    const closure=await tx.get(db.collection('account_closures').doc(String(operatorId)));
-    if(closure.exists&&closure.data()?.closingAt)return false;
-    for (const market of selected) {
-      const snap = await tx.get(db.collection('market_admission').doc(market.id));
-      const state = readinessFor({ market, region: regionById(market.regionId),
-        record: snap.exists ? snap.data() : {}, providerMissing, now });
-      if (state.status !== 'active') return false;
-    }
-    // A signed Stripe downgrade can arrive while an /operator/online renewal is
-    // evaluating an older positive status. Read the same fleet doc in this
-    // transaction: Firestore retries if the webhook races the write. Never let
-    // stale GPS state clear a newer financial hold.
-    if (fleetUpdate.available === true && fleetUpdate.payoutsEnabled === true) {
-      const opRef = db.collection('operators').doc(String(operatorId));
-      const current = await tx.get(opRef);
-      const status = current.exists ? current.data() || {} : {};
-      // Historic webhook records may predate the fleet account-ID field. A newer
-      // signed negative status must win even without that optional metadata.
-      if (status.payoutsEnabled === false &&
-          Number(status.stripeCheckedAt || 0) >= Number(fleetUpdate.stripeCheckedAt || 0)) {
-        return false;
-      }
-    }
-    tx.set(db.collection('operators').doc(String(operatorId)), fleetUpdate, { merge: true });
+    const closure = await tx.get(db.collection('account_closures').doc(String(operatorId)));
+    if (closure.exists && closure.data()?.closingAt) return false;
+    const opRef = db.collection('operators').doc(String(operatorId));
+    const current = await tx.get(opRef);
+    const status = current.exists ? current.data() || {} : {};
+    // A newer signed payout downgrade must defeat a stale GPS renewal.
+    if (fleetUpdate.available === true && fleetUpdate.payoutsEnabled === true &&
+        status.payoutsEnabled === false &&
+        Number(status.stripeCheckedAt || 0) >= Number(fleetUpdate.stripeCheckedAt || 0))
+      return false;
+    tx.set(opRef, fleetUpdate, { merge: true });
     return true;
   });
 }
@@ -107,5 +94,5 @@ async function sweepPausedMarketFleet({ db, marketById, limit = 4 } = {}) {
   return { ok: results.every((r) => r.ok), considered: snap.docs.length, results,
     saturated: snap.docs.length >= 4 };
 }
-module.exports = { PAGE_SIZE, MAX_PAGES, setAdmittedFleetOnline, setFleetOnlineIfOpen,
+module.exports = { PAGE_SIZE, MAX_PAGES, setGeographicFleetOnline, setFleetOnlineIfOpen,
   deactivateMarketFleet, sweepPausedMarketFleet };

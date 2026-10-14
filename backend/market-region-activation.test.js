@@ -162,9 +162,9 @@ const run = (db,extra={}) => M.activateRegion({
   const ui = require('fs').readFileSync(require('path').join(__dirname,'market-readiness-ui.js'),'utf8');
   const server = require('fs').readFileSync(require('path').join(__dirname,'server.js'),'utf8');
   assert.match(server,/app\.post\('\/ops\/markets\/regions\/:regionId\/activate', requireOps, requireOpsMutation/);
-  assert.match(server,/DEPLOYMENT_MODE !== 'production' \|\| keyMode !== 'live' \|\| opsAuthMode\(\) !== 'named'/);
-  assert.match(server,/providerMissing: productionReadiness\(\)\.missing/);
-  assert.match(ui,/id="open-south-florida"/);
+  assert.match(server,/geography_configuration_required/,'regional operation checks configured geography');
+  assert.doesNotMatch(server,/providerMissing: productionReadiness\(\)\.missing/,'old county approval is not a booking veto');
+  assert.match(ui,/function geographyMarketPage/);
   assert.match(ui,/\/ops\/markets\/regions\/fl-southeast\/activate/);
-  console.log('PASS one-command atomic tri-county admission, retry, provider/expiry/fleet blockade, named Ops route');
+  console.log('PASS legacy evidence tests remain isolated while live operations use geography');
 })().catch(e=>{console.error(e);process.exitCode=1;});

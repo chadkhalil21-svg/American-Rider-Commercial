@@ -54,16 +54,16 @@ function jsonrpc(id, result) { return { jsonrpc: '2.0', id, result }; }
 function error(id, code, message) { return { jsonrpc: '2.0', id, error: { code, message } }; }
 function toolResult(result) { return { content: [{ type: 'text', text: JSON.stringify(result) }], isError: result.ok === false }; }
 const TOOLS = [
-  { name: 'market_status', title: 'Check market readiness', description: 'Read live protected market admission and blockers for configured regions, without confidential evidence references. Use before opening a region.',
+  { name: 'market_status', title: 'Check service geography', description: 'Read the configured service area, without a second county approval.',
     inputSchema: { type: 'object', properties: { regionId: { type: 'string', description: 'Optional configured region ID, e.g. fl-southeast.' } }, additionalProperties: false },
     annotations: { readOnlyHint: true }, scope: 'market:read' },
   { name: 'prepare_market', title: 'Prepare a new jurisdiction', description: 'Record a noncommercial expansion plan for a U.S. state and optionally an imported county. Does not activate service or approve legal evidence.',
     inputSchema: { type: 'object', properties: { stateCode: { type: 'string' }, marketId: { type: 'string' }, city: { type: 'string' } }, required: ['stateCode'], additionalProperties: false },
     annotations: { readOnlyHint: false, destructiveHint: false }, scope: 'market:plan' },
-  { name: 'open_region', title: 'Open an eligible region', description: 'Consequential: atomically open ALL counties in an already configured region only when current production legal, insurance, screening, payments and safety evidence passes. Never bypass blockers. Requires explicit founder command and ChatGPT confirmation.',
+  { name: 'open_region', title: 'Verify an open region', description: 'Confirm that all counties in a configured service region are open. Individual Operator eligibility and payment controls are enforced separately.',
     inputSchema: { type: 'object', properties: { regionId: { type: 'string' }, confirmation: { type: 'string', description: 'Must exactly equal OPEN followed by a space and the requested region ID.' } }, required: ['regionId', 'confirmation'], additionalProperties: false },
     annotations: { readOnlyHint: false, destructiveHint: true }, scope: 'market:activate' },
-  { name: 'pause_market', title: 'Pause a market', description: 'Consequential: stop new paid Travel in a configured county using the existing audited market pause and fleet-cleanup path. Requires explicit founder command and ChatGPT confirmation.',
+  { name: 'pause_market', title: 'Request geographic closure', description: 'A county closure must be applied to the geographic service configuration. The retired county admission register cannot suspend service.',
     inputSchema: { type: 'object', properties: { marketId: { type: 'string' }, reason: { type: 'string', minLength: 8, maxLength: 500 }, confirmation: { type: 'string', description: 'Must exactly equal PAUSE followed by a space and the market ID.' } }, required: ['marketId', 'reason', 'confirmation'], additionalProperties: false },
     annotations: { readOnlyHint: false, destructiveHint: true }, scope: 'market:pause' },
 ].map(t => ({...t, securitySchemes: [{type:'oauth2',scopes:[t.scope]}],
@@ -275,11 +275,10 @@ function mount(app, express, deps) {
         const entries = configured.filter(m => !regionId || m.regionId === regionId);
         if (regionId && !deps.regions.some(r => r.id === regionId)) out = {ok:false,code:'unknown_region'};
         else if (entries.length > 100) out = {ok:false,code:'too_many_markets'};
-        else out = {ok:true,markets:await Promise.all(entries.map(async market => {
-          const state = await deps.inspectMarket({db:db(),market,region:deps.regions.find(r => r.id === market.regionId),
-            providerMissing:deps.productionReadiness().missing});
-          return {marketId:market.id,regionId:market.regionId,status:state.status,
-            readyToActivate:state.readyToActivate,missing:state.missing.map(m => m.id)};
+        else out = {ok:true,markets:entries.map(market => ({
+          marketId:market.id,regionId:market.regionId,status:market.status,
+          geographicStatus:market.geographicStatus,
+          countyApprovalRequired:false,operatorEligibility:'individual',
         }))};
       } else if (chosen.name === 'prepare_market') {
         out = await deps.proposeMarket({db:db(),actor:auth.actor,input:{
@@ -294,14 +293,11 @@ function mount(app, express, deps) {
           const entries=configured.filter(m=>m.regionId===regionId);
           if (!region || !entries.length) out={ok:false,code:'unknown_or_unconfigured_region'};
           else {
-            const expectedVersions = Object.fromEntries(entries.map(m => [
-              m.id, deps.manifestFor(m,region)?.version,
-            ]));
-            out = await deps.activateRegion({
-              db:db(),entries:entries.map(m=>({market:m,region})),actor:auth.actor,
-              expectedVersions,providerMissing:deps.productionReadiness().missing,
-              auditMethod:'oauth_delegated_mfa',
-            });
+            const inactive=entries.filter(m=>m.status!=='active').map(m=>m.id);
+            out=inactive.length
+              ? {ok:false,code:'geography_configuration_required',regionId,inactiveMarkets:inactive}
+              : {ok:true,code:'already_active',regionId,status:'active',
+                marketIds:entries.map(m=>m.id)};
           }
         }
       } else if (chosen.name === 'pause_market') {
@@ -311,18 +307,9 @@ function mount(app, express, deps) {
         else if (!market) out={ok:false,code:'unknown_market'};
         else if (args.confirmation !== 'PAUSE '+marketId || reason.trim().length < 8 || reason.length > 500)
           out={ok:false,code:'explicit_confirmation_required'};
-        else {
-          out=await deps.pauseMarket({db:db(),market,actor:auth.actor,reason,auditMethod:'oauth_delegated_mfa'});
-          if (out.ok) {
-            try {
-              out.fleetCleanup = await deps.deactivateMarketFleet({db:db(),market,maxPages:2});
-            } catch {
-              out.fleetCleanup = {ok:false,done:false,reason:'fleet_cleanup_unconfirmed'};
-            }
-          }
-        }
+        else out={ok:false,code:'geography_configuration_required',marketId,
+          message:'Change the configured service area to close this county.'};
       }
-      if (out?.ok && ['open_region','pause_market'].includes(chosen.name)) deps.invalidatePublicMarkets();
       return res.json(jsonrpc(id,toolResult(out || {ok:false,code:'action_unavailable'})));
     } catch {
       return res.status(503).json(error(id,-32000,'Operations temporarily unavailable; verify live status before retry.'));

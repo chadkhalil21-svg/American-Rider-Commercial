@@ -138,35 +138,33 @@ async function main() {
     const prepared = await prepareBooking({ db: live, uid: 'adult', key: 'market-test-key-0001', fingerprint: 'geometry', record: quote, now });
     const liveId = prepared.body.rideId;
     live.data.set(`rides/${liveId}`, { ...live.data.get(`rides/${liveId}`), paymentIntentId: `pi_${liveId}` });
-    const blocked = await assignPaidTravel({ db: live, uid: 'adult', rideId: liveId,
-      payment: provider(liveId, 'adult'), candidate: { operator }, now });
-    assert.equal(blocked.body.code, 'market_waitlist');
-    assert.equal(live.data.has('operators/operator-1'), false);
+    // A geographically active pickup is served without a county approval record.
     const { marketFor } = require('./markets');
-    const { regionById } = require('./regions');
-    const readiness = require('./market-readiness');
     const market = marketFor({ lat: quote.pickupLat, lng: quote.pickupLng });
-    const version = readiness.manifestFor(market, regionById(market.regionId)).version;
-    const evidence = Object.fromEntries(readiness.REQUIRED_EVIDENCE.map((domain) => [domain, {
-      reference: `external-record-${domain}`, issuer: 'Independent issuer', verifiedBy: 'named-ops',
-      reviewedAt: now - 1, validUntil: now + 86_400_000, manifestVersion: version,
-    }]));
-    const core = Object.fromEntries(readiness.ONBOARDING_EVIDENCE.map((domain) => [domain, evidence[domain]]));
-    live.data.set(`market_admission/${market.id}`, { status: 'onboarding', manifestVersion: version, evidence: core });
-    const prelaunch = await assignPaidTravel({ db: live, uid: 'adult', rideId: liveId,
-      payment: provider(liveId, 'adult'), candidate: { operator }, now });
-    assert.equal(prelaunch.body.code, 'market_waitlist', 'core intake evidence is not commercial ride authority');
-    live.data.set(`market_admission/${market.id}`, { status: 'active', manifestVersion: version, evidence });
+    assert.equal(market?.status, 'active');
     live.data.set('operators/operator-1', operator);
+    live.data.set(`market_admission/${market.id}`, { status: 'paused' });
     const offered = await assignPaidTravel({ db: live, uid: 'adult', rideId: liveId,
       payment: provider(liveId, 'adult'), candidate: { operator }, now });
-    assert.equal(offered.body.matched.id, operator.id);
-    live.data.set(`market_admission/${market.id}`, { status: 'paused', manifestVersion: version, evidence });
-    const secondPaid = await prepareBooking({ db: live, uid: 'adult2', key: 'market-test-key-0002', fingerprint: 'geometry', record: quote, now });
-    live.data.set(`rides/${secondPaid.body.rideId}`, { ...live.data.get(`rides/${secondPaid.body.rideId}`), paymentIntentId: `pi_${secondPaid.body.rideId}` });
-    const afterPause = await assignPaidTravel({ db: live, uid: 'adult2', rideId: secondPaid.body.rideId,
-      payment: provider(secondPaid.body.rideId, 'adult2'), candidate: null, now });
-    assert.equal(afterPause.body.code, 'market_waitlist', 'a paused county cannot reoffer a paid ride');
+    assert.equal(offered.body.matched.id, operator.id,
+      'a stale county approval must not block an otherwise valid paid Travel');
+    const secondPaid = await prepareBooking({ db: live, uid: 'adult2',
+      key: 'market-test-key-0002', fingerprint: 'geometry', record: quote, now });
+    live.data.set(`rides/${secondPaid.body.rideId}`,
+      { ...live.data.get(`rides/${secondPaid.body.rideId}`), paymentIntentId: `pi_${secondPaid.body.rideId}` });
+    const unassigned = await assignPaidTravel({ db: live, uid: 'adult2',
+      rideId: secondPaid.body.rideId, payment: provider(secondPaid.body.rideId, 'adult2'),
+      candidate: null, now });
+    assert.equal(unassigned.status, 200);
+    const third = await prepareBooking({ db: live, uid: 'adult3',
+      key: 'market-test-key-0003', fingerprint: 'outside',
+      record: { ...quote, pickupLat: 28.5383, pickupLng: -81.3792 }, now });
+    live.data.set(`rides/${third.body.rideId}`,
+      { ...live.data.get(`rides/${third.body.rideId}`), paymentIntentId: `pi_${third.body.rideId}` });
+    const outside = await assignPaidTravel({ db: live, uid: 'adult3',
+      rideId: third.body.rideId, payment: provider(third.body.rideId, 'adult3'),
+      candidate: null, now });
+    assert.equal(outside.body.code, 'outside_market', 'unserved pickup is still refused');
   } finally {
     if (previousMode === undefined) delete process.env.DEPLOYMENT_MODE;
     else process.env.DEPLOYMENT_MODE = previousMode;

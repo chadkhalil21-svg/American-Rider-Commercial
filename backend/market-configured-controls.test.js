@@ -56,8 +56,9 @@ for(let pass=1;pass<=2;pass++){
   const server=fs.readFileSync(path.join(__dirname,'server.js'),'utf8');
   assert.match(server,/if \(!screeningReady\(\)\) missing.push\('screening_provider'\)/,
     'independent production screening handoff remains a hard launch gate');
-  assert.match(server,/providerMissing: productionReadiness\(\).missing/,
-    'actual production dependencies reach the market-opening command');
-  assert.match(server,/requireAdmittedPickup/,'paid-Travel admission still reads runtime market');
+  assert.doesNotMatch(server,/providerMissing: productionReadiness\(\).missing/,
+    'regional evidence paperwork must not gate geographically active bookings');
+  assert.match(server,/function requireServedPickup/,'paid Travel checks configured geography');
+  assert.doesNotMatch(server,/requireAdmittedPickup/,'no additional county approval is required for paid Travel');
 }
 console.log('PASS twice: eliminate 3 redundant regional forms in all counties; retain external carrier, screening, funds, safety, mobile and unknown-state gates');
