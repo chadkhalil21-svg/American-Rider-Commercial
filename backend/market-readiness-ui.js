@@ -75,7 +75,8 @@ function marketChecklistPage(items, { production = false, expansion = null } = {
     : '<p>No further launch exceptions reported by the current checklist.</p>';
   // Show THREE types of source work, not 14 purported regulatory permits
   // or 3 separate county approvals. A missing record is NOT a failed audit.
-  const resolution = founderResolutionPlan(southFlorida.flatMap(({state})=>state.missing||[]));
+  const resolution = founderResolutionPlan(southFlorida.flatMap(({state})=>state.missing||[]))
+    .filter(stream=>Array.isArray(stream.records)&&stream.records.length>0);
   const resolutionHtml = resolution.length ? `<details id="founder-resolution">
     <summary>Resolve the existing evidence once — ${resolution.length} source workstreams</summary>
     <p>Our founder's region-opening instruction is already recorded. None of these groups requests another founder decision.</p>
@@ -96,7 +97,7 @@ function marketChecklistPage(items, { production = false, expansion = null } = {
     <p id="south-florida-result" role="status" aria-live="polite">One action. The server rechecks all counties and either opens them together or tells you exactly what remains. No partial launch.</p>
     ${exceptionHtml}
     ${resolutionHtml}
-    <details id="regional-source-proof">
+    ${southernPaperIds.length ? `<details id="regional-source-proof">
       <summary>Record one verified document covering all three counties</summary>
       <p>Only for a genuine source whose scope has been checked. Use county-specific records if the source does not cover all three.</p>
       <form id="region-evidence-form">
@@ -110,7 +111,7 @@ function marketChecklistPage(items, { production = false, expansion = null } = {
         <button type="submit">Record source for all three counties</button>
       </form>
       <p id="region-evidence-result" role="status" aria-live="polite"></p>
-    </details>
+    </details>` : ''}
   </section>`;
   const cards = items.map(({ market, state }) => {
     const localMissing = (state.missing || []).filter(m => !m.id?.startsWith('provider:'));
@@ -121,17 +122,17 @@ function marketChecklistPage(items, { production = false, expansion = null } = {
     return `<section data-market="${id}">
   <details class="county-review">
     <summary>${esc(market.name)} · ${esc(market.state)} · ${esc(state.status)} ${ready ? '· Ready for final authorization' : ''}</summary>
-    <p>County-specific commissioning evidence and controls are available below.</p>
+    <p>Regional opening and independent Operator eligibility are separate.</p>
   <p>${state.status === 'active' ? 'New bookings are admitted in this county.' : state.status === 'onboarding' ? 'Only approved Operator intake is allowed; no paid Travel or duty is admitted.' : 'No paid Travel or expensive Operator onboarding is admitted in this county.'} Evidence references must be independently checked against real contracts, coverage and staffed service.</p>
   <p>Manifest ${esc(state.manifestVersion?.slice(0, 16) || 'not configured')} ·
      ${localMissing.length} county evidence or configuration requirement${localMissing.length === 1 ? '' : 's'} ·
      ${sharedDependencies.length} shared production dependenc${sharedDependencies.length === 1 ? 'y' : 'ies'}.</p>
-  <p>County status reflects BOTH the production dependencies shown above and this county's own approved evidence. Shared Florida-wide documents need not be purchased again for each county, but they may be referenced only where their actual coverage and validity apply.</p>
+  <p>County status is controlled by configured geography, county opening state and applicable live service dependencies. Eleven retired regional document requirements are not requested.</p>
   ${state.fleetCleanupPending ? '<p role="alert"><strong>Fleet shutdown pending:</strong> new offers are blocked, but some Operator devices may still show on-duty. The leased cleanup must finish and be checked before reactivation.</p>' : ''}
   ${state.onboardingMissing?.length ? `<p>Prelaunch intake needs: ${state.onboardingMissing.map((m) => esc(title(m.id))).join(', ')}.</p>` : ''}
   ${localMissing.length ? `<ul>${localMissing.map((m) => `<li><strong>${esc(title(m.id))}</strong>: ${esc(m.reason)}</li>`).join('')}</ul>` :
     '<p>No remaining county-specific evidence or geography blockers. This is not permission to activate while shared dependencies are missing.</p>'}
-  <details><summary>Record independently reviewed evidence</summary>
+  ${paperIds.length ? `<details><summary>Record independently reviewed evidence</summary>
     <p>Paste only a document reference, independent issuer and expiry, not personal data or the document itself. This pauses an active county until it is re-approved.</p>
     <form class="evidence" data-market="${id}" data-version="${esc(state.manifestVersion || '')}">
       <label>Requirement <select name="domain">${paperIds.map((r) => `<option value="${esc(r)}">${esc(title(r))}</option>`).join('')}</select></label>
@@ -140,7 +141,7 @@ function marketChecklistPage(items, { production = false, expansion = null } = {
       <label>Valid through <input name="validUntil" type="date" required></label>
       <button type="submit">Record evidence and pause market</button>
     </form>
-  </details>
+  </details>` : ''}
   <button class="onboard" data-market="${id}" data-version="${esc(state.manifestVersion || '')}" ${canOnboard ? '' : 'disabled'}>Authorize prelaunch Operator intake</button>
   <button class="activate" data-market="${id}" data-version="${esc(state.manifestVersion || '')}" ${ready ? '' : 'disabled'}>Activate ${esc(market.name)}</button>
   <form class="pause" data-market="${id}">
