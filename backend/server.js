@@ -2333,7 +2333,9 @@ function operatingMarketGate(user) {
   };
 }
 
-const marketBody = (m) => (m ? { id: m.id, name: m.name, status: m.status, regionId: m.regionId,
+const marketBody = (m) => (m ? { id: m.id, name: m.name, state: m.state, status: m.status,
+  geographicallyAvailable: m.geographicallyAvailable === true,
+  geographicStatus: m.geographicStatus || 'unconfigured', regionId: m.regionId,
   timeZone: REGIONS.find((r) => r.id === m.regionId)?.timezone || null } : null);
 
 // Public discovery may use a short cache; actual charges and offers always read durable state.
@@ -2362,7 +2364,7 @@ async function publicMarkets() {
   if (publicMarketCache.value && Date.now() < publicMarketCache.until) return publicMarketCache.value;
   if (publicMarketCache.pending) return publicMarketCache.pending;
   publicMarketCache.pending = (async () => {
-    const items = await Promise.all(allMarkets().filter((m) => m.regionId).map(async (m) => {
+    const items = await Promise.all(allMarkets().filter((m) => m.regionId || m.geographicallyAvailable).map(async (m) => {
       if (m.status !== 'active') return marketBody(m);
       const state = await admittedMarket(m);
       return { ...marketBody(m), status: state.missing?.includes('database') ? 'unavailable' :
@@ -2443,7 +2445,9 @@ async function publicMarketResponse(req, res) {
     }
     const available = await publicMarkets();
     const nearby = Number.isFinite(lat) && Number.isFinite(lng) ? marketFor({ lat, lng }) : null;
-    res.json({ active: available.filter((m) => m.status === 'active'), here: listedMarket(nearby, available) });
+    res.json({ active: available.filter((m) => m.status === 'active'),
+      florida: available.filter((m) => m.state === 'FL' && m.geographicallyAvailable),
+      here: listedMarket(nearby, available) });
   } catch { res.status(503).json({code:'market_status_unavailable'}); }
 }
 app.get('/markets', LIMITS.quoteIp, publicMarketResponse);
