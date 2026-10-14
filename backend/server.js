@@ -40,7 +40,7 @@ const {distanceBand:quoteDistanceBand}=require('./market-reference-service');
 const { forMarket: insuranceForMarket, publicConfig: publicInsuranceConfig } = require('./insurance-jurisdictions');
 const { setGeographicFleetOnline, setFleetOnlineIfOpen } = require('./market-fleet');
 const { geographyMarketPage } = require('./market-readiness-ui');
-const { catalog: expansionCatalog, proposeMarket, listPlans: listMarketPlans } = require('./market-expansion');
+const { catalog: expansionCatalog, proposeMarket } = require('./market-expansion');
 const { disputePage } = require('./disputeevidence-ui');
 const { pointFromWaitlist, coarseAreaFor } = require('./waitlistgeo');
 const { listOpsCases, actOnCase } = require('./opscases');
@@ -2290,7 +2290,6 @@ const marketBody = (m) => (m ? { id: m.id, name: m.name, state: m.state, status:
 // Public and Operator geographic availability share the configured county source.
 async function publicPickupStatus(market) { return marketBody(market); }
 async function publicMarkets() { return listMarkets(); }
-function invalidatePublicMarkets() { /* geographic configuration is read directly */ }
 function listedMarket(market, listed) {
   if (!market) return null;
   return listed.find((item) => item.id === market.id) || marketBody(market);
@@ -3464,8 +3463,7 @@ mountOps(app, express, { checks: qualificationChecks, liveMoney: () => operation
 mountFounderMcp(app, express, {
   db: adminDb, opsSignedIn, actorFingerprint: oauthActorFingerprint, authMode: opsAuthMode,
   isProduction: () => DEPLOYMENT_MODE === 'production' && keyMode === 'live',
-  markets: allMarkets, regions: REGIONS, inspectMarket, manifestFor, activateRegion,
-  pauseMarket, proposeMarket, productionReadiness, deactivateMarketFleet, invalidatePublicMarkets,
+  markets: allMarkets, regions: REGIONS, proposeMarket,
   oauthLimit: LIMITS.founderOauthIp, mcpLimit: LIMITS.founderMcpIp,
 });
 
