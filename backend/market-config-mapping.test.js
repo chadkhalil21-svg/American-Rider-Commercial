@@ -18,12 +18,12 @@ for(let pass=0;pass<2;pass++)for(const name of names){
   const state=readinessFor({market,region,providerMissing:['screening_provider']});
   assert.deepEqual(state.mappedConfiguredSubcontrols,checks);
   for(const check of checks)
-    assert.ok(state.missing.some(x=>x.id===check.domain),
-      'the external half of a mixed-purpose domain remains independently gated');
+    assert.ok(!state.missing.some(x=>x.id===check.domain),
+      'retired regional records do not appear among outstanding items');
   for(const domain of ['company_insurance_bound','payment_and_reconciliation',
     'provider_contracts','safety_coverage','accessible_service',
     'qualified_operator_supply','backup_restore_drill','device_and_release_tests'])
-    assert.ok(state.missing.some(x=>x.id===domain),domain);
+    assert.ok(!state.missing.some(x=>x.id===domain),domain);
   assert.equal(state.readyToActivate,false);
   assert.ok(state.missing.some(x=>x.id==='provider:screening_provider'));
   const altered=manifestFor(market,{...region,tollPolicy:{status:'unverified',failClosed:false}});
