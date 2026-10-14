@@ -159,12 +159,12 @@ const run = (db,extra={}) => M.activateRegion({
       'invalid_admission_authority','cannot invent a new admission authority');
     assert.equal(db.writes,6,'all deny cases have zero mutations');
   }
-  const ui = require('fs').readFileSync(require('path').join(__dirname,'market-readiness-ui.js'),'utf8');
   const server = require('fs').readFileSync(require('path').join(__dirname,'server.js'),'utf8');
-  assert.match(server,/app\.post\('\/ops\/markets\/regions\/:regionId\/activate', requireOps, requireOpsMutation/);
-  assert.match(server,/DEPLOYMENT_MODE !== 'production' \|\| keyMode !== 'live' \|\| opsAuthMode\(\) !== 'named'/);
-  assert.match(server,/providerMissing: productionReadiness\(\)\.missing/);
-  assert.match(ui,/id="open-south-florida"/);
-  assert.match(ui,/\/ops\/markets\/regions\/fl-southeast\/activate/);
-  console.log('PASS one-command atomic tri-county admission, retry, provider/expiry/fleet blockade, named Ops route');
+  assert.doesNotMatch(server,/app\\.post\\('\\/ops\\/markets\\/regions\\/:regionId\\/activate'/,
+    'old county admission endpoint retired');
+  assert.match(server,/app\\.get\\('\\/ops\\/markets', requireOps/,
+    'Operations now displays configured service geography without admission forms');
+  assert.doesNotMatch(server,/requireAdmittedPickup|requireAdmittedTravel/,
+    'commercial booking never calls the obsolete market admission middleware');
+  console.log('PASS legacy admission engine unit invariants isolated from commercial runtime');
 })().catch(e=>{console.error(e);process.exitCode=1;});
