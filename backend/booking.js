@@ -2,9 +2,6 @@ const { createHash } = require('node:crypto');
 const { matchOperator, distanceMiles } = require('./matching');
 const { ageOn, MIN_AGE, MAX_AGE } = require('./family');
 const { marketFor } = require('./markets');
-const { regionById } = require('./regions');
-const { readinessFor } = require('./market-readiness');
-const { readKey } = require('./env');
 
 const deny = (status, code, error) => ({ status, body: { ok: false, code, error } });
 const digest = (value) => createHash('sha256').update(String(value)).digest('hex');
@@ -68,19 +65,11 @@ async function assignPaidTravel({ db, uid, rideId, payment, candidate, now = Dat
     if (!rideSnap.exists) return deny(404, 'no_travel', 'No such Travel');
     const ride = rideSnap.data();
     if (String(ride.travelerUid) !== String(uid)) return deny(403, 'not_yours', 'This Travel belongs to another Traveler');
-    // Atomic with activation/pause, not a cached HTTP preflight. Monitor reoffers and the
-    // unattended scheduled worker use this same transaction without going through HTTP.
-    const liveMoney = String(readKey('DEPLOYMENT_MODE') || '').toLowerCase() === 'production' ||
-      /^(sk|rk)_live_/.test(readKey('STRIPE_SECRET_KEY') || '');
-    if (liveMoney) {
-      const market = marketFor({ lat: ride.pickupLat, lng: ride.pickupLng });
-      if (!market) return deny(409, 'market_waitlist', 'No new Operator offers are admitted in this market');
-      const admitRef = db.collection('market_admission').doc(market.id);
-      const admitSnap = await tx.get(admitRef);
-      const admission = readinessFor({ market, region: regionById(market.regionId),
-        record: admitSnap.exists ? admitSnap.data() : {}, now });
-      if (admission.status !== 'active') return deny(409, 'market_waitlist', 'New Operator offers are paused in this market');
-    }
+    // County service comes from configured geography; payment and individual Operator
+    // eligibility remain checked below within this same assignment transaction.
+    const market = marketFor({ lat: ride.pickupLat, lng: ride.pickupLng });
+    if (market?.status !== 'active')
+      return deny(409, 'outside_market', 'Travel is not available from this pickup');
     if (ride.party?.teen && (!ride.teenPickup?.required || !/^[0-9a-f]{64}$/.test(String(ride.teenPickup.hash || '')))) {
       return deny(409, 'teen_pin_unavailable', 'Teen pickup code has not been securely prepared');
     }
