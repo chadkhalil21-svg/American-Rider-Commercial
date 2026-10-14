@@ -46,7 +46,7 @@ const mockApp={
 };
 const express={urlencoded:()=>()=>{}};
 let online=true, actor='founder', production=true;
-const market={id:'fl-miami-dade',regionId:'fl-southeast'},region={id:'fl-southeast'};
+const market={id:'fl-miami-dade',regionId:'fl-southeast',status:'active',geographicStatus:'open'},region={id:'fl-southeast'};
 const deps={
  db:()=>db,opsSignedIn:()=>actor,authMode:()=>online?'named':'off',
  actorFingerprint:(identity)=>identity==='founder' && online?'fingerprint123':null,isProduction:()=>production,
@@ -123,16 +123,18 @@ function request(method,path,{body={},query={},headers={}}={}){
  const list=await request('POST','/mcp',{body:{id:2,method:'tools/call',params:{name:'market_status',arguments:{}}},headers:bearer}).run();
  assert.equal(list.body.result.content[0].type,'text');
  const got=JSON.parse(list.body.result.content[0].text);
- assert.deepEqual(got.markets[0].missing,['screening_agreement']);
+ assert.equal(got.markets[0].status,'active');
+ assert.equal(got.markets[0].countyApprovalRequired,false);
  assert.equal(JSON.stringify(got).includes('secret-must-not-appear'),false);
  const reject=await request('POST','/mcp',{body:{id:3,method:'tools/call',params:{name:'open_region',arguments:{regionId:'fl-southeast',confirmation:'OPEN NO'}}},headers:bearer}).run();
  assert.equal(JSON.parse(reject.body.result.content[0].text).code,'explicit_confirmation_required');
  assert.equal(changes.includes('activate'),false);
  const activated=await request('POST','/mcp',{body:{id:4,method:'tools/call',params:{name:'open_region',arguments:{regionId:'fl-southeast',confirmation:'OPEN fl-southeast'}}},headers:bearer}).run();
- assert.equal(JSON.parse(activated.body.result.content[0].text).code,'region_not_ready');
- assert.ok(changes.includes('activate'));
+ assert.equal(JSON.parse(activated.body.result.content[0].text).code,'already_active');
+ assert.equal(changes.includes('activate'),false,'retired approval engine must not be called');
  const paused=await request('POST','/mcp',{body:{id:5,method:'tools/call',params:{name:'pause_market',arguments:{marketId:market.id,reason:'Safety hold',confirmation:'PAUSE '+market.id}}},headers:bearer}).run();
- assert.equal(JSON.parse(paused.body.result.content[0].text).fleetCleanup.done,true);
+ assert.equal(JSON.parse(paused.body.result.content[0].text).code,'geography_configuration_required');
+ assert.equal(changes.includes('pause'),false,'obsolete approval records cannot offline Operators');
  const renewal=await request('POST','/ar/oauth/token',{body:{
   grant_type:'refresh_token',client_id:pending.client_id,resource:M.RESOURCE,
   refresh_token:tokens.body.refresh_token
