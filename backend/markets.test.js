@@ -102,15 +102,15 @@ const route = (sig) => (server.match(new RegExp(`app\\.${sig}[\\s\\S]*?\\n\\}\\)
 const dispatch = route("post\\('\\/travel\\/dispatch'");
 check('dispatch: the PICKUP must be in an active market (not the device position)', /servesPoint\(pickup\)/.test(dispatch));
 const online = route("post\\('\\/operator\\/online'");
-check('go on duty: declared market active and position in an active market', /operatingMarketGate\(user\)/.test(online) && /servesPoint\(\{ lat, lng \}\)/.test(online));
+check('go on duty: physical location in an active market, with no second county approval', !/operatingMarketGate\(user\)/.test(online) && /servesPoint\(\{ lat, lng \}\)/.test(online));
 const doc = route("post\\('\\/operator\\/document'");
-check('document reading (a model call) only in an active market', /operatingMarketGate\(u\)/.test(doc));
+check('operator document reading uses per-operator identity, not regional approval', !/operatingMarketGate\(u\)/.test(doc) && /r2Owns\(objectKey, req.uid, 'operator-document'\)/.test(doc));
 check(
   'screening report intake is tied to the configured jurisdiction registry before commercial activation',
   /app\.post\('\/operator\/screening\/existing', requireAuth, LIMITS\.screening, requireScreeningRequestMarket/.test(server) &&
     /const gate = screeningPreparationFor\(market, region\)/.test(server) && /req\.screeningPolicy = gate\.policy/.test(server),
 );
-check('Stripe Connect onboarding: only in an active market', /app\.post\('\/connect\/onboard', requireAuth, LIMITS\.connect, requireActiveOperatingMarket/.test(server));
+check('Stripe Connect onboarding independent of county admission', /app\.post\('\/connect\/onboard', requireAuth, LIMITS\.connect, async/.test(server));
 check('waitlist is lightweight: one record, rate-limited, nothing started', /app\.post\('\/waitlist', requireAuth, LIMITS\.waitlist/.test(server) && !/checkr|readDocument|connectAccountFor/.test(route("post\\('\\/waitlist'")));
 check('restricted places stay separate from county activation', /permitRequired/.test(server));
 check('routing is not run for a pickup outside the active markets', /servesPoint\(req\.body\?\.pickup\)/.test(route("post\\('\\/route'")));
