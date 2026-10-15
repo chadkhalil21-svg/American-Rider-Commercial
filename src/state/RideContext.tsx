@@ -1016,6 +1016,11 @@ export function RideProvider({ children }: { children: React.ReactNode }) {
       smartJourneyRef.current = next;
       setSmartJourney(next);
       setTravelParty({...next.party});
+      // A manually moved pin belongs to the preceding Travel, not this second car leg.
+      // Clear both the synchronous dispatch reference and the quote/UI state before
+      // switching to the transit station's authoritative pickup coordinates.
+      pickupPinRef.current = null;
+      setPickupPin(null);
       setDeparture({ name: plan.to.name, short: plan.to.name, lat: from.lat, lng: from.lng, resolved: true });
       setArrival({ ...destination, cost: leg.cents / 100 });
       setTripCoords({ pickup: from, dest: destCoords });
