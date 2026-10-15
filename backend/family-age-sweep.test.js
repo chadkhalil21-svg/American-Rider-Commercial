@@ -37,9 +37,16 @@ function query(col,filters=[],limit=null){return {
    assert(Number.isInteger(limit)&&limit<=100,'queries must be page-bounded');
    queryLimitMax=Math.max(queryLimitMax,limit);
   }
+  if(col==='family_links'){
+   assert(filters.some(([f,o,v])=>f==='status'&&o==='=='&&v==='active'),'only active Families may be read');
+   assert(filters.some(([f,o,v])=>f==='teenDob'&&o==='<='&&v==='2008-10-15'),'age-out query must be bounded by the current birth-date threshold');
+   assert(Number.isInteger(limit)&&limit<=101,'Family scan must have a hard limit');
+  }
   const docs=Object.keys(rows[col]||{}).filter(id=>filters.every(([f,o,v])=>{
-   assert.equal(o,'==');
-   return f.split('.').reduce((value,key)=>value?.[key],rows[col][id])===v;
+   const actual=f.split('.').reduce((value,key)=>value?.[key],rows[col][id]);
+   if(o==='==')return actual===v;
+   if(o==='<=')return typeof actual==='string'&&actual<=v;
+   throw new Error('Unknown query operator '+o);
   })).sort().slice(0,limit??Infinity).map(id=>({...snapshot(col,id)}));
   return {docs};
  }

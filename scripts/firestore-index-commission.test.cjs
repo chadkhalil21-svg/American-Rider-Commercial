@@ -2,7 +2,17 @@
 const assert = require('node:assert/strict');
 const { normalize, summarize, listIndexes, isCompositeDefinition } = require('./firestore-index-commission.cjs');
 const manifest = require('../firestore.indexes.json');
-assert.equal(manifest.indexes.length, 12, 'manifest must list only necessary composite indexes');
+assert.equal(manifest.indexes.length, 13, 'manifest must list only necessary composite indexes');
+const familyAgeIndexes = manifest.indexes.filter((index) => index.collectionGroup === 'family_links');
+assert.equal(familyAgeIndexes.length, 1, 'age-out needs exactly one Family composite index');
+assert.deepEqual(familyAgeIndexes[0], {
+  collectionGroup: 'family_links',
+  queryScope: 'COLLECTION',
+  fields: [
+    { fieldPath: 'status', order: 'ASCENDING' },
+    { fieldPath: 'teenDob', order: 'ASCENDING' },
+  ],
+}, 'Family age-out composite index must match the bounded status and birthdate query');
 for (const index of manifest.indexes) {
   assert(index.collectionGroup && index.queryScope, 'index must have collection group and query scope');
   assert(index.fields.length > 0, 'index must have fields');
