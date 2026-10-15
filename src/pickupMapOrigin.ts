@@ -10,10 +10,12 @@ export function validMapCoordinate(lat: unknown, lng: unknown): lat is number {
     Math.abs(lat) <= 90 && Math.abs(lng) <= 180;
 }
 
+export type PickupMapCenter = { latitude: number; longitude: number } | null;
+
 export function pickupMapOrigin(
   selected: PickupMapPoint,
   departure: ResolvedPickupMapPoint,
-): { latitude: number; longitude: number } | null {
+): PickupMapCenter {
   const known = selected && validMapCoordinate(selected.lat, selected.lng)
     ? selected
     : departure?.resolved && validMapCoordinate(departure.lat, departure.lng)
