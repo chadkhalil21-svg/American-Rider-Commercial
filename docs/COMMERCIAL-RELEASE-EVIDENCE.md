@@ -14,7 +14,7 @@ Record jurisdiction, statute/version reviewed, reviewer/counsel or broker, execu
 
 Capture the deployed revision and `/health` response with secrets absent/redacted. Production passes only when `deployment=production`, `operationalReady=true`, `operationalMissing=[]`, and the deployed SHA equals the candidate SHA.
 
-Then prove provider behavior, not merely key presence: Stripe API connectivity + signed webhook delivery; approved screening-provider production connectivity and authoritative report/event delivery; Firebase Admin read/write; scheduler authenticated execution; HERE known-toll and no-toll responses; OTP current itinerary and realtime behavior where configured; receipt/support email delivery; phone verification; private document storage/read; named operations authentication; push delivery; platform calling if the call control is exposed.
+Then prove provider behavior, not merely key presence: Stripe API connectivity + signed webhook delivery; production connectivity and independently verifiable reports/events from **any qualified, approved screening provider** (no exclusive vendor requirement); Firebase Admin read/write; scheduler authenticated execution; HERE known-toll and no-toll responses; OTP current itinerary and realtime behavior where configured; receipt/support email delivery; phone verification; private document storage/read; named operations authentication; push delivery; platform calling if the call control is exposed.
 
 For each provider record: environment, test identifier, UTC timestamp, expected result, observed result, provider-side identifier/log reference and American Rider-side identifier/log reference. Never put credentials in the evidence file.
 
