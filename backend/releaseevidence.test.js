@@ -1,8 +1,10 @@
 const assert=require('node:assert/strict');const fs=require('node:fs');const path=require('node:path');
 const pkg=require('../package.json');const tpl=require('../release-evidence.template.json');
 assert.equal(pkg.scripts['release:evidence'],'node scripts/verify-release-evidence.mjs','release evidence has an executable validator');
-const required=['insurance','productionConfiguration','stripe','checkr','firebase','scheduler','routingTolls','transit','emailSupport','phoneVerification','documentStorage','push','iosPhysicalDevices','androidPhysicalDevice','smartTravelLive','liveMoneyReconciliation','uxRubric'];
+const required=['insurance','productionConfiguration','stripe','screeningProvider','firebase','scheduler','routingTolls','transit','emailSupport','phoneVerification','documentStorage','push','iosPhysicalDevices','androidPhysicalDevice','smartTravelLive','liveMoneyReconciliation','uxRubric'];
 for(const k of required)assert.ok(tpl.gates[k],k+' external gate is represented');
+assert.equal(Object.hasOwn(tpl.gates, 'checkr'), false, 'screening evidence must be provider-neutral');
+assert.ok(tpl.gates.screeningProvider, 'verified independent screening remains required');
 const verifier=fs.readFileSync(path.join(__dirname,'..','scripts','verify-release-evidence.mjs'),'utf8');
 assert.ok(verifier.includes("m.candidateSha !== expectedSha"),'evidence from another build cannot release this candidate');
 assert.ok(verifier.includes("g.result !== 'pass'"),'pending/failing external gates cannot release');
@@ -11,5 +13,7 @@ assert.ok(verifier.includes("operationalMissing must be []"),'production readine
 assert.ok(verifier.includes("englishDisclosureReviewed"),'insurance disclosure review is mandatory');
 assert.ok(verifier.includes("continuingStatusMonitoringValidated"),'continuing insurance monitoring evidence is mandatory');
 assert.ok(verifier.includes("adverseStatusLockoutValidated"),'adverse insurance status lockout evidence is mandatory');
+assert.ok(verifier.includes("'screeningProvider'"), 'all qualifying CRA providers use the same release evidence gate');
+assert.ok(!verifier.includes("'checkr'"), 'release proof cannot demand one named screening vendor');
 assert.ok(verifier.includes("uxRubric:"),'whole-product UX doctrine is enforced by the release verifier');
 console.log('all external release-evidence contract tests passed');
