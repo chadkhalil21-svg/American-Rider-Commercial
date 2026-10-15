@@ -1,0 +1,40 @@
+name: Submit current tested iPhone build
+
+# GitHub exposes manual workflow controls only for files on the default branch.
+# No outdated default-branch application source is built or uploaded by this file.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: write
+
+concurrency:
+  group: american-rider-iphone-submission-launcher
+  cancel-in-progress: false
+
+jobs:
+  dispatch-tested-release:
+    if: github.ref == 'refs/heads/approved/account-security-2026-09-27'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Verify live source and all six successful test campaigns
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          RELEASE_SHA="$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/heads/release/current" --jq '.object.sha')"
+          [[ "$RELEASE_SHA" =~ ^[0-9a-f]{40}$ ]] || { echo "::error::Cannot verify release/current commit."; exit 1; }
+          RUNS="$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs?branch=release%2Fcurrent&per_page=100")"
+          for NAME in "Release Gate" "Live Firebase Auth Commissioning" "Scale Stress Twice" "Deterministic Commissioning" "Whole Platform Adversarial Trace" "Exhaustive Release Campaign Twice"; do
+            if ! jq -e --arg name "$NAME" --arg sha "$RELEASE_SHA" '[.workflow_runs[] | select(.name == $name and .head_sha == $sha and .status == "completed" and .conclusion == "success")] | length > 0' <<< "$RUNS" >/dev/null; then
+              echo "::error::Required successful test missing on exact release/current SHA: $NAME"
+              exit 1
+            fi
+          done
+          echo "Six passing test campaigns confirmed for release/current SHA $RELEASE_SHA"
+          gh workflow run submit-certified-ios-testflight.yml --repo "$GITHUB_REPOSITORY" --ref release/current --field "certified_sha=$RELEASE_SHA"
+          echo "Dispatched verified release to existing iOS TestFlight build-and-upload workflow."
+          echo "App Store publication is separate and still requires Apple review."
