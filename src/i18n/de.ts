@@ -899,6 +899,7 @@ export default {
     smartDirectInstead: 'Neue direkte Fahrt buchen',
     smartDirectInsteadNote: 'Die erste Autofahrt wurde separat bezahlt. Wenn der Nahverkehr sich ändert oder entfällt, kehren Sie zur Startseite zurück und wählen Sie einen neuen Abholort. Bestätigen Sie den Preis vor jeder weiteren Zahlung.',
     smartAfterFirstFare: 'Die erste Autofahrt wurde bereits bezahlt. Nahverkehr und zweite Autofahrt werden erneut geprüft; deren Endpreis wird vor der Zahlung separat bestätigt.',
+    smartFirstCarRequired: 'Schließen Sie die erste Autofahrt ab, bevor Sie die zweite buchen.',
     transitChanged: "Der Transitverkehr hat sich seit der Planung dieser Reise geändert. Der zweite Travel mit dem Auto bleibt zurückgehalten, bis der aktuelle Dienst bestätigt ist.",
     transitNoLongerAvailable: "Der geplante Transitverkehr ist nicht mehr verfügbar. Der zweite Travel mit dem Auto wurde nicht disponiert.",
     transitVerificationUnavailable: "Der aktuelle Transitverkehr kann nicht bestätigt werden. Der zweite Travel mit dem Auto wurde nicht disponiert.",
