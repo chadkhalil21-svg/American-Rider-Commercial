@@ -839,7 +839,7 @@ export function RideProvider({ children }: { children: React.ReactNode }) {
         if (!preparedIdRef.current) {
           if (smartJourneyRef.current?.stage === 'leg2') {
             const key = smartSecondCarKey(smartJourneyRef.current.leg1No);
-            if (!key) throw new Error('The first Smart Travel car must be completed before the second car can be booked.');
+            if (!key) throw new Error(tr('traveler.smartFirstCarRequired'));
             bookingKeyRef.current = key;
           } else bookingKeyRef.current ||= Crypto.randomUUID();
           const prepared = await prepareRide({
