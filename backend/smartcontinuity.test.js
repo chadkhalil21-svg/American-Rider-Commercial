@@ -14,7 +14,7 @@ function dbWith(rows){
   return { collection(){
     const q={filters:[],where(k,_op,v){this.filters.push([k,v]);return this;},limit(){return this;},async get(){
       const matches=rows.filter((x)=>this.filters.every(([k,v])=>String(x[k]||'')===String(v)));
-      return {docs:matches.map((x)=>({data:()=>x}))};
+      return {docs:matches.map((x)=>({id:'a'.repeat(40),data:()=>x}))};
     }};
     return q;
   }};
@@ -43,9 +43,10 @@ assert.ok(ride.includes("journeyNo: smartJourneyRef.current?.stage === 'leg2' ? 
 assert.ok(money.includes('expectedTripNo: ride.tripNo || null'),'settlement must bind payout to the Travel payment/number');
 
 (async()=>{
-  const base={travelerUid:'u',tripNo:'AR-LEG1',paymentIntentId:'pi_1',status:'completed',travelCostCents:1000};
-  assert.ok(await journeyFor({db:dbWith([base]),uid:'u',journeyNo:'AR-LEG1'}),'completed paid leg 1 must authorize continuation after restart');
-  assert.equal(await journeyFor({db:dbWith([{...base,status:'accepted'}]),uid:'u',journeyNo:'AR-LEG1'}),null,'unfinished leg 1 must not authorize continuation after restart');
-  assert.equal(await journeyFor({db:dbWith([{...base,paymentIntentId:null}]),uid:'u',journeyNo:'AR-LEG1'}),null,'unpaid leg 1 must not authorize continuation after restart');
+  const NOW=Date.parse('2026-10-15T12:00:00Z');
+  const base={travelerUid:'u',tripNo:'AR-LEG1',paymentIntentId:'pi_1',status:'completed',completedAt:NOW-60000,travelCostCents:1000};
+  assert.ok(await journeyFor({db:dbWith([base]),uid:'u',journeyNo:'AR-LEG1',now:NOW}),'completed paid leg 1 must authorize continuation after restart');
+  assert.equal(await journeyFor({db:dbWith([{...base,status:'accepted'}]),uid:'u',journeyNo:'AR-LEG1',now:NOW}),null,'unfinished leg 1 must not authorize continuation after restart');
+  assert.equal(await journeyFor({db:dbWith([{...base,paymentIntentId:null}]),uid:'u',journeyNo:'AR-LEG1',now:NOW}),null,'unpaid leg 1 must not authorize continuation after restart');
   console.log('all Smart Travel restart/cancellation/authority invariants passed');
 })().catch((e)=>{console.error(e);process.exitCode=1;});
