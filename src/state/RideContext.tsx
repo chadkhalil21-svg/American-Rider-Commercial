@@ -488,6 +488,21 @@ export function RideProvider({ children }: { children: React.ReactNode }) {
   const [rideActive, setRideActive] = useState(false);
   const [matchedOp, setMatchedOp] = useState<MatchedOp | null>(null);
   const [operatorLivePosition, setOperatorLivePosition] = useState<LiveVehiclePosition | null>(null);
+  // A lost GPS stream must remove the last icon after 60 seconds, even when the
+  // database emits no later change. One local timer, no polling/database reads.
+  useEffect(() => {
+    if (!operatorLivePosition) return;
+    const ms = operatorLivePosition.at + 60000 - Date.now();
+    if (ms <= 0) {
+      setOperatorLivePosition(null);
+      return;
+    }
+    const at = operatorLivePosition.at;
+    const timeout = setTimeout(() => {
+      setOperatorLivePosition((current) => current?.at === at ? null : current);
+    }, ms + 1);
+    return () => clearTimeout(timeout);
+  }, [operatorLivePosition]);
 
   // The operator's approach: from where he was matched to the pickup. Re-fetched if the
   // traveler moves the pickup pin while he's en route (tripCoords re-keys this effect).
