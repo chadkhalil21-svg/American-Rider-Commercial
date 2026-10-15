@@ -30,7 +30,6 @@ jobs:
         uses: actions/checkout@v4
         with:
           ref: ${{ env.CERTIFIED_SHA }}
-          persist-credentials: false
 
       - uses: actions/setup-node@v4
         with:
@@ -41,7 +40,7 @@ jobs:
         run: |
           set -euo pipefail
           test "$(git rev-parse HEAD)" = "$CERTIFIED_SHA" || { echo "::error::Incorrect checkout."; exit 1; }
-          git -c http.extraheader="AUTHORIZATION: basic $(printf 'x-access-token:%s' '${{ github.token }}' | base64 -w0)" fetch origin release/current --depth=1
+          git fetch origin release/current --depth=1
           test "$(git rev-parse FETCH_HEAD)" = "$CERTIFIED_SHA" || { echo "::error::This is not the current release/current commit."; exit 1; }
           node - <<'NODE'
           const fs = require('fs');
