@@ -1,0 +1,76 @@
+name: Build certified Android app bundle for Google Play
+
+on:
+  workflow_dispatch:
+    inputs:
+      certified_sha:
+        description: 'Exact tested release/current SHA to build (40 hexadecimal characters)'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  build-certified-android:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+      CERTIFIED_SHA: ${{ inputs.certified_sha }}
+    steps:
+      - name: Require exact revision and Expo account
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$CERTIFIED_SHA" =~ ^[0-9a-f]{40}$ ]] || { echo "::error::A 40-character commit SHA is required."; exit 1; }
+          test -n "$EXPO_TOKEN" || { echo "::error::EXPO_TOKEN is not configured."; exit 1; }
+
+      - name: Check out the exact release
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.CERTIFIED_SHA }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Verify this is the current tested release
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$CERTIFIED_SHA" || { echo "::error::Incorrect checkout."; exit 1; }
+          git fetch origin release/current --depth=1
+          test "$(git rev-parse FETCH_HEAD)" = "$CERTIFIED_SHA" || { echo "::error::This is not the current release/current commit."; exit 1; }
+          node - <<'NODE'
+          const fs = require('fs');
+          const app = JSON.parse(fs.readFileSync('app.json','utf8')).expo;
+          const eas = JSON.parse(fs.readFileSync('eas.json','utf8'));
+          if (app.android?.package !== 'com.americanrider.app') throw Error('Unexpected Android package.');
+          if (eas.build?.production?.distribution === 'internal') throw Error('Not a store build.');
+          if (eas.build?.production?.android?.buildType === 'apk') throw Error('Google Play requires an app bundle.');
+          if (!eas.build?.production) throw Error('Production build profile is missing.');
+          console.log('Verified current Android app identity and store build profile.');
+          NODE
+
+      - name: Install application dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Build signed production Android bundle
+        shell: bash
+        run: |
+          set -euo pipefail
+          npx --yes eas-cli@latest build --platform android --profile production --non-interactive --wait --json > "$RUNNER_TEMP/eas-android.json"
+          node - "$RUNNER_TEMP/eas-android.json" <<'NODE'
+          const fs = require('fs');
+          const data = JSON.parse(fs.readFileSync(process.argv[2], 'utf8'));
+          const b = Array.isArray(data) ? data[0] : data;
+          if (!b?.id || String(b.platform).toLowerCase() !== 'android' || String(b.status).toLowerCase() !== 'finished') {
+            throw Error('EAS did not confirm a completed Android build.');
+          }
+          console.log('Completed Android EAS build:', b.id);
+          fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY,
+            '### Android store candidate built\n\nExact source: `' + process.env.CERTIFIED_SHA +
+            '`\n\nEAS build ID: `' + b.id +
+            '`\n\n**Not submitted to or approved by Google Play.** Play Console review and physical-device validation remain separate.\n');
+          NODE
