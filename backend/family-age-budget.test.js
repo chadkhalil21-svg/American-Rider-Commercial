@@ -53,8 +53,9 @@ delete require.cache[familyPath];
 (async()=>{try{
  const {sweepFamilyAgeOut}=require('./family');
  const manifest=JSON.parse(fs.readFileSync(path.join(__dirname,'..','firestore.indexes.json'),'utf8'));
- assert(manifest.indexes.some(x=>x.collectionGroup==='family_links'&&
-  x.fields[0]?.fieldPath==='status'&&x.fields[1]?.fieldPath==='teenDob'),
+ assert(manifest.indexes.some(x=>x.collectionGroup==='family_links'&&x.queryScope==='COLLECTION'&&
+  x.fields[0]?.fieldPath==='status'&&x.fields[0]?.order==='ASCENDING'&&
+  x.fields[1]?.fieldPath==='teenDob'&&x.fields[1]?.order==='ASCENDING'),
   'bounded age-out query needs declared composite index');
  const first=await sweepFamilyAgeOut({now});
  assert.equal(first.ok,false,'age-out beyond the bounded work budget must remain visible');
