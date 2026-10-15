@@ -99,7 +99,7 @@ export default function PickupMap() {
       const lat = e?.coordinates?.latitude;
       const lng = e?.coordinates?.longitude;
       if (!validMapCoordinate(lat, lng)) return;
-      const c = { latitude: lat, longitude: lng };
+      const c = { latitude: Number(lat), longitude: Number(lng) };
       addressRevision.current++;
       setCenter(c);
       setLooking(true);
