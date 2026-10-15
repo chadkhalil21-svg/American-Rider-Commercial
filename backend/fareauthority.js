@@ -36,18 +36,27 @@ function priceRoute(body, selectedRoute = null) {
   return null;
 }
 
-async function journeyFor({ db, uid, journeyNo }) {
+async function journeyFor({ db, uid, journeyNo, now = Date.now() }) {
   const no = String(journeyNo || '').slice(0, 24);
   if (!db || !uid || !no) return null;
   const snap = await db.collection('rides')
     .where('travelerUid', '==', String(uid)).where('tripNo', '==', no).limit(1).get();
-  const leg = snap.docs[0]?.data();
+  const first = snap.docs[0];
+  const leg = first?.data();
   if (!leg || !leg.paymentIntentId || leg.status !== 'completed' || !(leg.travelCostCents > 0)) return null;
-  // Leg 2 may reference only a first car Travel, never another leg 2. This prevents chaining
-  // completed Travels to keep subtracting previously paid platform fees.
-  if (leg.journeyNo) return null;
+  // Smart continuation is a short, single-use extension of a completed Travel.
+  // A random old ordinary Travel must not confer a repeatable second-leg fee.
+  const completedAt = leg.completedAt;
+  if (!Number.isSafeInteger(completedAt) || completedAt > now ||
+      now - completedAt > 48 * 60 * 60 * 1000) return null;
+  // Leg 2 stores its link in journey.journeyNo, NOT a top-level journeyNo.
+  // Checking only the old top-level field allowed unlimited chained continuations.
+  if (leg.journeyNo || leg.journey?.journeyNo || leg.smartContinuationRideId) return null;
+  // The booking transaction will re-check the original paid Travel under the lock.
+  if (!/^[a-f0-9]{40}$/.test(String(first?.id || ''))) return null;
   return {
     journeyNo: no,
+    leg1RideId: first.id,
     leg1FareCents: Number(leg.travelCostCents),
     leg1GovernmentFeeCents: Math.max(0, Number(leg.governmentFeeCents) || 0),
     leg1TollCents: Math.max(0, Number(leg.tollCents) || 0),
