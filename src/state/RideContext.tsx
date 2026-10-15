@@ -120,6 +120,12 @@ export type SmartStatus = 'idle' | 'checking' | 'ok' | 'none' | 'unavailable';
 // journey has one combined platform-fee requirement sized for BOTH car PaymentIntents; leg 1
 // carries the ordinary first-leg amount and leg 2 carries only the incremental remainder.
 const SMART_JOURNEY_STORAGE_KEY = 'american-rider.smart-journey.v1';
+// A Smart second car retains one booking identity even after the phone restarts.
+// The authenticated server also ties that key to the sign-in account.
+export const smartSecondCarKey = (leg1No: string | null | undefined): string | null =>
+  typeof leg1No === 'string' && /^AR-[0-9A-F]{8}-(?:MIA|FLL|PBI|SFL)$/.test(leg1No)
+    ? `smart2-${leg1No}` : null;
+
 
 export type SmartJourney = {
   plan: SmartPlan;
@@ -799,14 +805,6 @@ export function RideProvider({ children }: { children: React.ReactNode }) {
       /* ignore — offline / no rides yet */
     }
   }, []);
-
-  // A Smart journey's first confirmed Travel Number is stable across app restarts.
-  // Use it as the second-car booking identity, always scoped to the signed-in account
-  // by the server. Never replace an incomplete/malformed first Travel with a random
-  // booking key that could create another second car.
-  const smartSecondCarKey = (leg1No: string | null | undefined): string | null =>
-    typeof leg1No === 'string' && /^AR-[0-9A-F]{8}-(?:MIA|FLL|PBI|SFL)$/.test(leg1No)
-      ? `smart2-${leg1No}` : null;
 
   // Retained across retries: no second booking or payment for one confirmation.
   const bookingKeyRef = useRef<string | null>(null);
