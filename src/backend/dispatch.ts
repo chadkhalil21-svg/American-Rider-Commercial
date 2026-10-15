@@ -40,6 +40,9 @@ export type Operator = {
 // file has a second copy of the dispatch rules at all.
 const PRESENCE_STALE_MS = 5 * 60 * 1000;
 
+import { validLiveVehiclePosition, type LiveVehiclePosition } from '../liveVehiclePosition';
+export type { LiveVehiclePosition } from '../liveVehiclePosition';
+
 export type MatchedOp = {
   id: string;
   /**
@@ -401,6 +404,7 @@ export function watchRide(
   // for the traveler. Optional so existing callers are unaffected.
   onMonitor?: (m: TravelMonitor | null) => void,
   onAssignment?: (matched: MatchedOp | null) => void,
+  onPosition?: (position: LiveVehiclePosition | null) => void,
 ): () => void {
   if (!rideId) return () => {};
   try {
@@ -412,7 +416,10 @@ export function watchRide(
           operatorId?: string; operatorName?: string; operatorCar?: string; operatorPlate?: string;
           operatorLat?: number; operatorLng?: number; operatorEtaMin?: number;
           operatorMiles?: number; operatorDemo?: boolean; tripNo?: string;
+          opLat?: number; opLng?: number; opAt?: number;
         } | undefined;
+        // Reuse this existing Travel listener: no extra Firestore reads per GPS fix.
+        onPosition?.(validLiveVehiclePosition(data));
         if (onAssignment) {
           onAssignment(data?.operatorId && !data.releasedAt &&
             ['assigned', 'accepted', 'arrived', 'onboard'].includes(String(data.status)) ? {
