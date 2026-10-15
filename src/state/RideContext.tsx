@@ -800,6 +800,14 @@ export function RideProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  // A Smart journey's first confirmed Travel Number is stable across app restarts.
+  // Use it as the second-car booking identity, always scoped to the signed-in account
+  // by the server. Never replace an incomplete/malformed first Travel with a random
+  // booking key that could create another second car.
+  const smartSecondCarKey = (leg1No: string | null | undefined): string | null =>
+    typeof leg1No === 'string' && /^AR-[0-9A-F]{8}-(?:MIA|FLL|PBI|SFL)$/.test(leg1No)
+      ? `smart2-${leg1No}` : null;
+
   // Retained across retries: no second booking or payment for one confirmation.
   const bookingKeyRef = useRef<string | null>(null);
   const preparedIdRef = useRef<string | null>(null);
@@ -836,7 +844,11 @@ export function RideProvider({ children }: { children: React.ReactNode }) {
       setMatchedOp(null); setDispatchState('searching');
       try {
         if (!preparedIdRef.current) {
-          bookingKeyRef.current ||= Crypto.randomUUID();
+          if (smartJourneyRef.current?.stage === 'leg2') {
+            const key = smartSecondCarKey(smartJourneyRef.current.leg1No);
+            if (!key) throw new Error('The first Smart Travel car must be completed before the second car can be booked.');
+            bookingKeyRef.current = key;
+          } else bookingKeyRef.current ||= Crypto.randomUUID();
           const prepared = await prepareRide({
             bookingKey: bookingKeyRef.current, pickup: from, destinationPoint: dest,
             agreedTotalCents:quotedTotalRef.current,
@@ -1003,6 +1015,9 @@ export function RideProvider({ children }: { children: React.ReactNode }) {
         return true;
       }
       const journey = smartJourneyRef.current;
+      // Smart leg 2 must be tied to a real first car, not a restored demo number
+      // or a newly opened Smart screen without completed car-leg authority.
+      if (!journey || !smartSecondCarKey(journey.leg1No)) return false;
       const lastTransit = plan.legs.map((l) => l.kind).lastIndexOf('transit');
       const leg = plan.legs[lastTransit + 1];
       if (!leg || leg.kind !== 'car') return false;
@@ -1087,8 +1102,11 @@ export function RideProvider({ children }: { children: React.ReactNode }) {
       smartJourneyRef.current = stamped;
       setSmartJourney(stamped);
     }
-    // A fresh confirmation has a fresh idempotency key. Retries of this confirmation keep it.
-    bookingKeyRef.current = Crypto.randomUUID();
+    // A restarted Smart leg 2 must reuse the identical booking key; a fresh
+    // UUID would conflict with the server's single-use Smart continuation claim.
+    // Ordinary car Travels retain independent random booking keys.
+    bookingKeyRef.current = journey?.stage === 'leg2'
+      ? smartSecondCarKey(journey.leg1No) : Crypto.randomUUID();
     preparedIdRef.current = null;
     paymentRef.current = { status: 'idle' };
     setPayment({ status: 'idle' });
