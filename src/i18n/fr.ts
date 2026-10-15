@@ -905,6 +905,7 @@ export default {
     smartDirectInstead: 'Réserver un nouveau trajet direct',
     smartDirectInsteadNote: 'Le premier trajet en voiture a été facturé séparément. Si le transport change ou disparaît, revenez à l’accueil et choisissez un nouveau départ. Son prix devra être confirmé avant toute nouvelle facturation.',
     smartAfterFirstFare: 'Le premier trajet en voiture a déjà été facturé. Le transport et un éventuel deuxième trajet sont revérifiés ; son prix final est confirmé séparément avant paiement.',
+    smartFirstCarRequired: 'Terminez le premier trajet en voiture avant de réserver le second.',
     transitChanged: "Le service de transport a changé depuis la planification de ce trajet. Le second Travel en voiture est retenu jusqu’à vérification du service actuel.",
     transitNoLongerAvailable: "Le service de transport prévu n’est plus disponible. Le second Travel en voiture n’a pas été dépêché.",
     transitVerificationUnavailable: "Le service de transport actuel ne peut pas être vérifié. Le second Travel en voiture n’a pas été dépêché.",
