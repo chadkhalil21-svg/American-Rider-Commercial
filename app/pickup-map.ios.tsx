@@ -98,7 +98,7 @@ export default function PickupMap() {
     (e: { coordinates?: { latitude?: number; longitude?: number } }) => {
       const lat = e?.coordinates?.latitude;
       const lng = e?.coordinates?.longitude;
-      if (!validMapCoordinate(lat, lng)) return;
+      if (!validMapCoordinate(lat, lng) || typeof lng !== 'number') return;
       const c = { latitude: Number(lat), longitude: Number(lng) };
       addressRevision.current++;
       setCenter(c);
