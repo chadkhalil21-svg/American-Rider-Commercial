@@ -114,23 +114,28 @@ async function listGuardianActiveTravels({guardianUid}){
 }
 async function sweepFamilyAgeOut({now=Date.now()}={}){
  const db=adminDb();if(!db)return {ok:false,reason:adminStatus().reason};
- const q=await db.collection(COLLECTION).where('status','==','active').get();let agedOut=0,cancelledScheduledTravels=0;
- let incomplete=false;
- for(const d of q.docs){const x=d.data()||{},age=ageOn(x.teenDob,now);if(age!==null&&age>=MIN_AGE&&age<=MAX_AGE)continue;
-  await d.ref.set({status:'aged_out',agedOutAt:now,updatedAt:now},{merge:true});agedOut++;
-  // Query only this Family's reserved journeys. Reading EVERY reservation once per
-  // aged-out Teen was unbounded in Firestore reads and could grow quadratically.
-  // The existing compound index covers party.familyLinkId + status.
-  let more=false;
+ const today=new Date(now);
+ // YYYY-MM-DD birth dates sort chronologically in Firestore. The composite
+ // status + teenDob index avoids reading EVERY active Family each hour.
+ const cutoff=new Date(Date.UTC(today.getUTCFullYear()-18,today.getUTCMonth(),today.getUTCDate()))
+   .toISOString().slice(0,10);
+ // Read 101 solely to distinguish full completion from deferred age-outs.
+ const due=await db.collection(COLLECTION).where('status','==','active')
+   .where('teenDob','<=',cutoff).limit(101).get();
+ let agedOut=0,cancelledScheduledTravels=0,incomplete=due.docs.length>100;
+ for(const d of due.docs.slice(0,100)){
+  const x=d.data()||{},age=ageOn(x.teenDob,now);
+  if(age===null||age<18)continue;
+  let reservationsDrained=false;
+  // All affected reservations must be reconciled BEFORE removing the Family
+  // from the active index, or a 2,000-booking budget exhaustion would cause
+  // later sweeps to overlook them forever.
   for(let page=0;page<20;page++){
    const reserved=await db.collection('scheduled_rides')
     .where('party.familyLinkId','==',String(d.id)).where('status','==','reserved').limit(100).get();
-   if(!reserved.docs.length){more=false;break;}
-   more=true;
+   if(!reserved.docs.length){reservationsDrained=true;break;}
    let changed=0;
    for(const r of reserved.docs){
-    // A scheduler can claim a reserved journey after the query. Check again
-    // inside a transaction; never cancel a Travel that has begun dispatch.
     const cancelled=await db.runTransaction(async tx=>{
      const latest=await tx.get(r.ref),v=latest.exists?latest.data():null;
      if(v?.status!=='reserved'||v.party?.teen!==true||
@@ -140,13 +145,23 @@ async function sweepFamilyAgeOut({now=Date.now()}={}){
     });
     if(cancelled){changed++;cancelledScheduledTravels++;}
    }
-   // Invalid/non-Teen rows must not trap a scheduled sweep in an infinite retry.
+   // A scheduler can race the query, but no stale record may be cancelled.
+   // Uncertain residue remains visible to the NEXT maintenance pass.
    if(changed===0)break;
   }
-  if(more)incomplete=true;
+  if(!reservationsDrained){incomplete=true;continue;}
+  const updated=await db.runTransaction(async tx=>{
+   const latest=await tx.get(d.ref),link=latest.exists?latest.data():null;
+   // A guardian may revoke consent during maintenance. Never overwrite it
+   // with an administrative aged_out state after our earlier query.
+   if(!link||link.status!=='active'||ageOn(link.teenDob,now)<18)return false;
+   tx.update(d.ref,{status:'aged_out',agedOutAt:now,updatedAt:now});
+   return true;
+  });
+  if(updated)agedOut++;
  }
  return {ok:!incomplete,agedOut,cancelledScheduledTravels,
-   ...(incomplete?{reason:'Some age-out reservations need another bounded reconciliation pass.'}:{})};
+  ...(incomplete?{reason:'Age-out reconciliation is not complete; remaining Families will be checked on the next bounded pass.'}:{})};
 }
 function operatorTeenView(p={}){return p.teen===true?{travelerName:clean(p.travelerName),bookedForAnother:p.bookedForAnother===true,teen:true,guardianName:clean(p.guardianName),pinRequired:true}:{travelerName:clean(p.travelerName||'Traveler'),bookedForAnother:p.bookedForAnother===true,teen:false};}
 module.exports={COLLECTION,MIN_AGE,MAX_AGE,ageOn,createFamilyInvite,acceptFamilyInvite,revokeFamilyLink,listFamilyLinks,activeFamilyLink,normalizeTeenParty,listGuardianActiveTravels,sweepFamilyAgeOut,operatorTeenView};
