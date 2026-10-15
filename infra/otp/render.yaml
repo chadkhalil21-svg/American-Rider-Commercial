@@ -26,8 +26,10 @@ services:
     dockerfilePath: infra/otp/Dockerfile
     dockerContext: infra/otp
     plan: pro
-    # No region is set so it lands in the same default region (Oregon) as the backend service in
-    # /render.yaml; private networking only works between services in one region.
+    # Production American-Rider-Server runs in Render's Ohio region (verified 2026-10-15).
+    # An omitted region would default elsewhere and break private-network OTP_URL connectivity.
+    # Keep this region aligned with the actual backend region when commissioning/migrating.
+    region: ohio
     # Java has 120 seconds to load the 229 MB graph before Render decides the service is down.
     # Loading measured 4 seconds locally; the allowance covers a slow disk.
     healthCheckPath: /otp/actuators/health
