@@ -25,6 +25,13 @@ function dbWith(rows){
 const cancel=ride.slice(ride.indexOf('const cancelRide:'),ride.indexOf('const threadFor',ride.indexOf('const cancelRide:')));
 assert.ok(cancel.includes('smartJourneyRef.current = null')&&cancel.includes('setSmartJourney(null)'),'cancelled Smart car leg must end the journey');
 
+// Every new Smart car leg starts from its own station or selected pickup, never a
+// manually moved pin left over from Travel 1. The synchronous dispatch ref and the
+// React state must both be cleared before the leg-2 departure/coordinates are set.
+const legTwo = ride.slice(ride.indexOf('const beginSmartLeg ='),ride.indexOf('const endSmartJourney ='));
+assert.ok(legTwo.includes('pickupPinRef.current = null;'),'leg 2 must reset the dispatch pickup override');
+assert.match(legTwo, /setPickupPin\(null\);[\s\S]*setDeparture\(\{ name: plan\.to\.name/,'leg 2 must clear stale UI/quote pin before setting its station');
+
 // Unknown agency fare: never represented as a known zero-dollar fare.
 assert.ok(smart.includes('if (cents == null) out.fareUnknown = true'));
 assert.ok(smart.includes('const transitFareUnknown = ours.some((l) => l.fareUnknown)'));
