@@ -34,6 +34,7 @@ import {
   RideRecord,
   watchRide,
   type TravelMonitor,
+  type LiveVehiclePosition,
   distanceMiles,
 } from '../backend/dispatch';
 import { Coords, fetchQuote, isUnavailable } from '../backend/fares';
@@ -217,6 +218,7 @@ export type RideStore = {
   boardRide: () => void; // "I'm in the car" — resumes the trip from the arrival hold
   cancelRide: () => Promise<boolean>;
   matchedOp: MatchedOp | null; // the real operator matched from the live database
+  operatorLivePosition: LiveVehiclePosition | null; // fresh Operator GPS, or unknown
   dispatchState: DispatchState; // how the search for an operator is going
   retryDispatch: () => void; // try matching an operator again after none/error
   myRides: RideRecord[]; // the traveler's own rides, read from the live database
@@ -485,6 +487,7 @@ export function RideProvider({ children }: { children: React.ReactNode }) {
   const [status, setStatus] = useState(0);
   const [rideActive, setRideActive] = useState(false);
   const [matchedOp, setMatchedOp] = useState<MatchedOp | null>(null);
+  const [operatorLivePosition, setOperatorLivePosition] = useState<LiveVehiclePosition | null>(null);
 
   // The operator's approach: from where he was matched to the pickup. Re-fetched if the
   // traveler moves the pickup pin while he's en route (tripCoords re-keys this effect).
@@ -1157,6 +1160,7 @@ export function RideProvider({ children }: { children: React.ReactNode }) {
     // two ways a travel ends — and nowhere else, so a change of operator can never detach
     // the subscription mid-journey again.
     setWatchedRideId(null);
+    setOperatorLivePosition(null);
   }, [refreshMyRides, trySettle]);
 
   finishTravelRef.current = finishTravel;
@@ -1275,10 +1279,14 @@ export function RideProvider({ children }: { children: React.ReactNode }) {
         setMatchedOp(null);
         setDispatchState((current) => current === 'none' ? current : 'searching');
       }
-    });
+    },
+    setOperatorLivePosition);
     // Keyed on the TRAVEL. It used to be [matchedOp], which re-subscribed on every operator
     // change and unsubscribed entirely when there was none.
   }, [watchedRideId]);
+
+  // A new or ended Travel cannot retain the last vehicle's location.
+  useEffect(() => { setOperatorLivePosition(null); }, [watchedRideId]);
 
   /**
    * Answer the platform's check-in: 'ok' or 'help'.
@@ -1712,6 +1720,7 @@ export function RideProvider({ children }: { children: React.ReactNode }) {
     boardRide,
     cancelRide,
     matchedOp,
+    operatorLivePosition,
     dispatchState,
     retryDispatch: runDispatch,
     myRides,
