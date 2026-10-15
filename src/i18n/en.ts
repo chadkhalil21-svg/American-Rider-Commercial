@@ -919,6 +919,7 @@ export default {
     smartDirectInstead: 'Book a new direct Travel',
     smartDirectInsteadNote: 'The first car Travel was charged separately. If transit changes or disappears, return to Home and choose a new pickup for a fresh Travel. Its price must be confirmed before any new charge.',
     smartAfterFirstFare: 'Your first car Travel is already charged. Remaining transit and any second car Travel are rechecked; its final price is confirmed separately before payment.',
+    smartFirstCarRequired: 'Complete your first car Travel before booking the second.',
     transitChanged: "Transit service has changed since this journey was planned. The second car Travel is held until the current service is verified.",
     transitNoLongerAvailable: "The planned transit service is no longer available. The second car Travel has not been dispatched.",
     transitVerificationUnavailable: "Current transit service cannot be verified. The second car Travel has not been dispatched.",
