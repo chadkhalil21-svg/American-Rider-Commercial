@@ -40,7 +40,7 @@
       "reviewer": null,
       "evidence": []
     },
-    "checkr": {
+    "screeningProvider": {
       "result": "pending",
       "executedAt": null,
       "executor": null,
