@@ -915,6 +915,7 @@ export default {
     smartDirectInstead: 'Reservar un viaje directo nuevo',
     smartDirectInsteadNote: 'El primer viaje en coche se cobró por separado. Si cambia o desaparece el transporte público, vuelva al inicio y elija un nuevo punto de recogida. Confirme el precio antes de cualquier nuevo cobro.',
     smartAfterFirstFare: 'El primer viaje en coche ya se cobró. Se vuelven a comprobar el transporte público y el segundo coche; su precio definitivo se confirma antes de pagar.',
+    smartFirstCarRequired: 'Complete el primer viaje en coche antes de reservar el segundo.',
     transitChanged: "El servicio de transporte ha cambiado desde que se planificó este trayecto. El segundo Travel en automóvil queda retenido hasta verificar el servicio actual.",
     transitNoLongerAvailable: "El servicio de transporte planificado ya no está disponible. El segundo Travel en automóvil no ha sido despachado.",
     transitVerificationUnavailable: "No se puede verificar el servicio de transporte actual. El segundo Travel en automóvil no ha sido despachado.",
