@@ -13,7 +13,7 @@ const failures=[];
 if (!/^[0-9a-f]{40}$/i.test(expectedSha)) failures.push('expected candidate SHA must be a full 40-character git SHA');
 if (m.candidateSha !== expectedSha) failures.push('manifest candidateSha does not equal candidate under review');
 if (!m.environment || !/production/i.test(m.environment)) failures.push('environment must identify production/production-validation');
-const required=['insurance','productionConfiguration','stripe','checkr','firebase','scheduler','routingTolls','transit','emailSupport','phoneVerification','documentStorage','push','iosPhysicalDevices','androidPhysicalDevice','smartTravelLive','liveMoneyReconciliation','marketCommissioning','stagingLoad','uxRubric'];
+const required=['insurance','productionConfiguration','stripe','screeningProvider','firebase','scheduler','routingTolls','transit','emailSupport','phoneVerification','documentStorage','push','iosPhysicalDevices','androidPhysicalDevice','smartTravelLive','liveMoneyReconciliation','marketCommissioning','stagingLoad','uxRubric'];
 for (const name of required) {
   const g=m.gates?.[name];
   if (!g) { failures.push(name+': missing gate'); continue; }
