@@ -898,6 +898,7 @@ export default {
     smartDirectInstead: 'Prenota una nuova corsa diretta',
     smartDirectInsteadNote: 'La prima corsa in auto è stata pagata separatamente. Se il trasporto pubblico cambia o non è disponibile, torna alla schermata iniziale e scegli un nuovo punto di partenza. Conferma il prezzo prima di qualsiasi nuovo addebito.',
     smartAfterFirstFare: 'La prima corsa in auto è già stata pagata. Il trasporto pubblico e la seconda corsa vengono ricontrollati; il prezzo finale è confermato separatamente prima del pagamento.',
+    smartFirstCarRequired: 'Completa la prima corsa in auto prima di prenotare la seconda.',
     transitChanged: "Il servizio di trasporto è cambiato da quando è stato pianificato questo viaggio. Il secondo Travel in auto resta sospeso finché il servizio attuale non viene verificato.",
     transitNoLongerAvailable: "Il servizio di trasporto pianificato non è più disponibile. Il secondo Travel in auto non è stato assegnato.",
     transitVerificationUnavailable: "Il servizio di trasporto attuale non può essere verificato. Il secondo Travel in auto non è stato assegnato.",
