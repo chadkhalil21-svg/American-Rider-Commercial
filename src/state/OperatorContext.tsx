@@ -15,7 +15,7 @@ import React, {
 import { accountInitials, accountName } from '../account';
 import { APP_FEE, coordinationFee, fareFromTotal } from '../data';
 import { goOffline, goOnline, settlePendingPayouts, submitForReview } from '../backend/connect';
-import { startBackgroundPresence, stopBackgroundPresence } from '../backend/presence';
+import { confirmOperatorBackgroundLocationUse, startBackgroundPresence, stopBackgroundPresence } from '../backend/presence';
 import { startHeartbeat } from '../backend/heartbeat';
 import {
   acceptTravel,
@@ -1256,6 +1256,16 @@ tr('traveler.gateCoverageExpired'),
       }
       setOnlineBusy(true);
       (async () => {
+        // Google Play requires a visible explanation before the Android location prompt.
+        // A refusal leaves duty OFF and does not request or collect a new position.
+        const consented = await confirmOperatorBackgroundLocationUse();
+        if (attempt !== dutyAttemptRef.current) return;
+        if (!consented) {
+          setOnlineBusy(false);
+          setOnlineState(false);
+          setOnlineError(tr('traveler.bgLocationConsentDeclined'));
+          return;
+        }
         const here = await resolveOperatorDutyPosition({ requestPermission: true });
         if (attempt !== dutyAttemptRef.current) return;
         // Coordinates are optional on a DepPlace (a named pickup has none), and dispatch
