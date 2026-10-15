@@ -1,5 +1,6 @@
 import type { SmartPlan } from '../backend/smart';
 import { DEFAULT_DEPARTURE } from '../location';
+import { smartSecondCarKey } from '../smartBookingKey';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Crypto from 'expo-crypto';
 import type { FeeLine } from '../data';
@@ -120,12 +121,6 @@ export type SmartStatus = 'idle' | 'checking' | 'ok' | 'none' | 'unavailable';
 // journey has one combined platform-fee requirement sized for BOTH car PaymentIntents; leg 1
 // carries the ordinary first-leg amount and leg 2 carries only the incremental remainder.
 const SMART_JOURNEY_STORAGE_KEY = 'american-rider.smart-journey.v1';
-// A Smart second car retains one booking identity even after the phone restarts.
-// The authenticated server also ties that key to the sign-in account.
-export const smartSecondCarKey = (leg1No: string | null | undefined): string | null =>
-  typeof leg1No === 'string' && /^AR-[0-9A-F]{8}-(?:MIA|FLL|PBI|SFL)$/.test(leg1No)
-    ? `smart2-${leg1No}` : null;
-
 
 export type SmartJourney = {
   plan: SmartPlan;
