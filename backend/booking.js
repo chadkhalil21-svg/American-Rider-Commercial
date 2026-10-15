@@ -26,6 +26,34 @@ async function prepareBooking({ db, uid, key, fingerprint, record, now = Date.no
       }
       return { status: 200, body: { rideId: id, tripNo: previous.tripNo, status: previous.status, reused: true } };
     }
+    // A Smart second car may consume the paid first Travel exactly once.
+    // Use the original Travel as the single authority: one indexed document read,
+    // one atomic update, no new collection or background cleanup. Concurrent
+    // bookings on other phones cannot both claim the same first Travel.
+    let firstRef = null;
+    if (record.journey) {
+      const firstId = String(record.journey.leg1RideId || '');
+      if (!/^[a-f0-9]{40}$/.test(firstId) || firstId === id) {
+        return deny(409, 'smart_continuation_invalid', 'The first Travel cannot be verified');
+      }
+      firstRef = db.collection('rides').doc(firstId);
+      const firstSnap = await tx.get(firstRef);
+      const first = firstSnap.exists ? firstSnap.data() : null;
+      const completedAt = first?.completedAt;
+      if (!first || first.travelerUid !== String(uid) ||
+          first.tripNo !== record.journey.journeyNo ||
+          first.status !== 'completed' || !first.paymentIntentId ||
+          !Number.isSafeInteger(completedAt) || completedAt > now ||
+          now - completedAt > 48 * 60 * 60 * 1000 ||
+          first.journey || first.journeyNo ||
+          first.refundId || first.refundPending ||
+          Number(first.travelCostCents) !== Number(record.journey.leg1FareCents)) {
+        return deny(409, 'smart_continuation_invalid', 'The completed first Travel is no longer valid');
+      }
+      if (first.smartContinuationRideId) {
+        return deny(409, 'smart_continuation_exists', 'The first Travel already has its second car reserved');
+      }
+    }
     tx.create(ref, {
       ...record,
       travelerUid: String(uid),
@@ -34,6 +62,7 @@ async function prepareBooking({ db, uid, key, fingerprint, record, now = Date.no
       createdAt: now,
       statusAt: now,
     });
+    if (firstRef) tx.update(firstRef, { smartContinuationRideId: id, smartContinuationAt: now });
     return { status: 201, body: { rideId: id, tripNo: record.tripNo, status: 'awaiting_payment', reused: false } };
   });
 }
