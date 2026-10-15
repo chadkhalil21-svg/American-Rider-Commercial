@@ -115,12 +115,38 @@ async function listGuardianActiveTravels({guardianUid}){
 async function sweepFamilyAgeOut({now=Date.now()}={}){
  const db=adminDb();if(!db)return {ok:false,reason:adminStatus().reason};
  const q=await db.collection(COLLECTION).where('status','==','active').get();let agedOut=0,cancelledScheduledTravels=0;
+ let incomplete=false;
  for(const d of q.docs){const x=d.data()||{},age=ageOn(x.teenDob,now);if(age!==null&&age>=MIN_AGE&&age<=MAX_AGE)continue;
   await d.ref.set({status:'aged_out',agedOutAt:now,updatedAt:now},{merge:true});agedOut++;
-  const reserved=await db.collection('scheduled_rides').where('status','==','reserved').get();
-  for(const r of reserved.docs){const v=r.data()||{};if(v.party?.teen===true&&String(v.party?.familyLinkId)===String(d.id)){await r.ref.set({status:'cancelled',cancelledAt:now,closedReason:'Teen Traveler is no longer age-eligible.'},{merge:true});cancelledScheduledTravels++;}}
+  // Query only this Family's reserved journeys. Reading EVERY reservation once per
+  // aged-out Teen was unbounded in Firestore reads and could grow quadratically.
+  // The existing compound index covers party.familyLinkId + status.
+  let more=false;
+  for(let page=0;page<20;page++){
+   const reserved=await db.collection('scheduled_rides')
+    .where('party.familyLinkId','==',String(d.id)).where('status','==','reserved').limit(100).get();
+   if(!reserved.docs.length){more=false;break;}
+   more=true;
+   let changed=0;
+   for(const r of reserved.docs){
+    // A scheduler can claim a reserved journey after the query. Check again
+    // inside a transaction; never cancel a Travel that has begun dispatch.
+    const cancelled=await db.runTransaction(async tx=>{
+     const latest=await tx.get(r.ref),v=latest.exists?latest.data():null;
+     if(v?.status!=='reserved'||v.party?.teen!==true||
+       String(v.party?.familyLinkId)!==String(d.id))return false;
+     tx.update(r.ref,{status:'cancelled',cancelledAt:now,closedReason:'Teen Traveler is no longer age-eligible.'});
+     return true;
+    });
+    if(cancelled){changed++;cancelledScheduledTravels++;}
+   }
+   // Invalid/non-Teen rows must not trap a scheduled sweep in an infinite retry.
+   if(changed===0)break;
+  }
+  if(more)incomplete=true;
  }
- return {ok:true,agedOut,cancelledScheduledTravels};
+ return {ok:!incomplete,agedOut,cancelledScheduledTravels,
+   ...(incomplete?{reason:'Some age-out reservations need another bounded reconciliation pass.'}:{})};
 }
 function operatorTeenView(p={}){return p.teen===true?{travelerName:clean(p.travelerName),bookedForAnother:p.bookedForAnother===true,teen:true,guardianName:clean(p.guardianName),pinRequired:true}:{travelerName:clean(p.travelerName||'Traveler'),bookedForAnother:p.bookedForAnother===true,teen:false};}
 module.exports={COLLECTION,MIN_AGE,MAX_AGE,ageOn,createFamilyInvite,acceptFamilyInvite,revokeFamilyLink,listFamilyLinks,activeFamilyLink,normalizeTeenParty,listGuardianActiveTravels,sweepFamilyAgeOut,operatorTeenView};
