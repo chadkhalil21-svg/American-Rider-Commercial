@@ -26,7 +26,7 @@
 // be hours apart; it is designed for refreshing content, not for liveness. Location updates
 // arrive on movement or on the distance filter, which is exactly the signal we want, and they
 // are the same updates dispatch needs anyway to match by distance.
-import { Platform } from 'react-native';
+import { Alert, Platform } from 'react-native';
 import * as Location from 'expo-location';
 import * as TaskManager from 'expo-task-manager';
 
@@ -81,6 +81,30 @@ if (Platform.OS !== 'web') {
     // two, and the next location delivery tries again. Throwing here would have iOS treat the
     // task as faulty and back it off.
     }
+  });
+}
+
+/** Google Play requires a clear choice before an Operator requests background location.
+ * This is shown only on Android and only if the permission is not already granted.
+ * Refusing leaves the Operator off duty; it never silently enables background tracking.
+ */
+export async function confirmOperatorBackgroundLocationUse(): Promise<boolean> {
+  if (Platform.OS !== 'android') return true;
+  try {
+    if ((await Location.getBackgroundPermissionsAsync()).granted) return true;
+  } catch {
+    // An unavailable permission status does not mean the Operator has consented.
+  }
+  return new Promise<boolean>((resolve) => {
+    Alert.alert(
+      t('traveler.bgLocationConsentTitle'),
+      t('traveler.bgLocationConsentExplanation'),
+      [
+        { text: t('traveler.bgLocationConsentNotNow'), style: 'cancel', onPress: () => resolve(false) },
+        { text: t('traveler.bgLocationConsentContinue'), onPress: () => resolve(true) },
+      ],
+      { cancelable: false },
+    );
   });
 }
 
