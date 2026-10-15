@@ -828,6 +828,7 @@ export default {
     keepMyAccount: 'Mein Konto behalten',
     configureThisTravel: 'Ihre Kabinenpräferenzen gelten für künftige Fahrten.',
     completedTravelAppears: "Der abgeschlossene Travel wird hier mit Beleg und Details angezeigt.",
+    pickupMapLocationUnavailable: 'Der Abholort kann nicht ermittelt werden',
     mapNeedsApp: 'Die Abholung auf der Karte zu wählen erfordert die iPhone-App',
     searchByNameInstead: 'Sie können einen Abholpunkt nach Namen suchen.',
     shareTravelBtn: 'Fahrt Teilen',
