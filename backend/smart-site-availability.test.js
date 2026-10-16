@@ -14,7 +14,10 @@ for (let pass = 0; pass < 2; pass++) {
     'show available normal Travel as the alternative');
   const backend = require('node:fs').readFileSync(require('node:path').join(__dirname,'server.js'),'utf8');
   const route = backend.split("app.post('/smart-quote'")[1]?.split("app.post('/smart-revalidate'")[0];
-  assert.ok(route && !route.includes('await smartQuote('),
-    'publicly unavailable Smart must not make planning requests');
+  assert.ok(route && route.includes('SMART_TRAVEL_NEW_BOOKINGS_ENABLED = false'),
+    'server must keep the founder-authorized pause'); 
+  assert.ok(route.indexOf('if (!SMART_TRAVEL_NEW_BOOKINGS_ENABLED)') >= 0 &&
+    route.indexOf('if (!SMART_TRAVEL_NEW_BOOKINGS_ENABLED)') < route.indexOf('await smartQuote('),
+    'unavailable Smart quote must return before planner work; keep planner code for future launch');
 }
 console.log('PASS twice: truthful public Smart Travel availability and no obsolete fare claim');
