@@ -754,6 +754,7 @@ export default {
     selectTravelForCase: 'Wählen Sie die betreffende Fahrt ›',
     yourCases: 'Ihre Fälle',
     casesCouldNotLoad: 'Ihr Fallverlauf konnte nicht geladen werden. Bereits angezeigte Fälle sind möglicherweise veraltet.',
+    caseHistoryPartial: 'Es wird nur ein Teil Ihres Fallverlaufs angezeigt. Für ältere Fälle schreiben Sie an support@americanrider.app.',
     retryCases: 'Fallverlauf erneut laden',
     caseStatusReceived: 'Eingegangen — noch nicht bestätigt',
     caseStatusAcknowledged: 'Vom Betrieb bestätigt',
