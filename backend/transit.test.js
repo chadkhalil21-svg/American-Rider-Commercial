@@ -84,6 +84,28 @@ const windowed = T.mapPlan(reliableSource, {
 check('an 18-minute wait at the actual weekday boarding stop rejects bus but retains rail',
   windowed.status === 'ok' && windowed.itineraries.length === 1 &&
   windowed.itineraries[0].legs.some((leg) => leg.mode === 'rail'), JSON.stringify(windowed));
+// Date-aware profiles are selected using South Florida local time. The legacy
+// single-file list remains readable until new agency schedules are commissioned.
+const profiles = { profiles: {
+  weekday: [{ gtfsId: 'MDT:WEEKDAY' }],
+  saturday: [{ gtfsId: 'MDT:SATURDAY' }],
+  sunday: [{ gtfsId: 'MDT:SUNDAY' }],
+}};
+const dateIds = (atTime) => T.busRoutesFrom(profiles, new Date(atTime), 'America/New_York');
+check('weekday profile never includes Saturday or Sunday routes',
+  [...dateIds('2026-10-15T14:00:00Z')].join(',') === 'MDT:WEEKDAY');
+check('Saturday profile includes only Saturday service',
+  [...dateIds('2026-10-17T14:00:00Z')].join(',') === 'MDT:SATURDAY');
+check('Sunday profile includes only Sunday service',
+  [...dateIds('2026-10-18T14:00:00Z')].join(',') === 'MDT:SUNDAY');
+check('a Friday evening UTC date uses the correct local weekday',
+  [...dateIds('2026-10-17T01:00:00Z')].join(',') === 'MDT:WEEKDAY');
+check('missing weekend evidence excludes buses rather than borrowing weekday schedules',
+  T.busRoutesFrom({ profiles: { weekday: ['MDT:1'] } }, new Date('2026-10-17T14:00:00Z'), 'America/New_York') === null);
+check('invalid transit timezone excludes profiled buses',
+  T.busRoutesFrom(profiles, new Date('2026-10-17T14:00:00Z'), 'Bad/TZ') === null);
+check('legacy unprofiled data remains a valid, conservative allow-list',
+  [...T.busRoutesFrom({ routes: [{ gtfsId: 'MDT:1' }] }, new Date('2026-10-17T14:00:00Z'))].join(',') === 'MDT:1');
 const busOff = T.mapPlan({ planConnection: { routingErrors: [], edges: [busTrip(BUS_150)] } }, { busRoutes: null });
 check('with no allow-list every bus is dropped: none', busOff.status === 'none', JSON.stringify(busOff));
 const railWithoutList = T.mapPlan({ planConnection: { routingErrors: [], edges: [railTrip] } }, { busRoutes: null });
