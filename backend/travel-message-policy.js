@@ -10,7 +10,7 @@ async function authorizeTravelMessage({ db, ride, uid, lostItemId = null }) {
       ? 'guardian' : null;
   if (!side) return { ok: false, status: 403, code: 'not_a_participant' };
 
-  if (status === 'assigned' && side !== 'operator' ||
+  if ((status === 'assigned' && side !== 'operator') ||
       ['accepted', 'arrived', 'onboard'].includes(status)) {
     if (lostItemId) return { ok: false, status: 409, code: 'lost_item_not_completed' };
     return { ok: true, from: side, lostItemId: null };
