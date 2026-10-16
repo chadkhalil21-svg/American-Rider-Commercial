@@ -375,6 +375,20 @@ export async function fetchMyRides(): Promise<RideRecord[]> {
   return (await fetchMyRidesPage()).rides;
 }
 
+// An unfinished Travel must remain recoverable even if 25 newer documents exist.
+// This is a SECOND narrowly indexed query, never an unbounded history scan.
+// Kept separate from the History cursor so old active records cannot corrupt paging.
+export async function fetchRecoverableMyRide(): Promise<RideRecord | null> {
+  const uid = auth.currentUser?.uid;
+  if (!uid) return null;
+  const q = query(collection(db, 'rides'),
+    where('travelerUid', '==', uid),
+    where('status', 'in', ['assigned', 'accepted', 'arrived', 'onboard', 'awaiting_payment', 'awaiting_assignment']),
+    limit(12));
+  const snap = await getDocs(q);
+  return snap.docs.map(rideFromSnapshot).sort((a, b) => b.createdAt - a.createdAt)[0] ?? null;
+}
+
 // True all-time figures, without reading every Travel document onto a telephone.
 // Aggregations charge indexed reads and require the matching deployed Firestore index.
 export async function fetchCompletedTravelStats(): Promise<{ trips: number; spent: number }> {
