@@ -17,9 +17,9 @@ async function request(path:string, method: 'GET'|'POST'='GET', body?: unknown) 
 
 // No non-secret Travel-Number formula exists in the client.
 export async function travelerPickupCode(rideId:string):Promise<Status&{pin:string|null}>{
-  const x=await request('/travel/adult-pickup/code?rideId='+encodeURIComponent(rideId));
+  const x=await request('/travel/pickup/code?rideId='+encodeURIComponent(rideId));
   return {enabled:x.enabled===true,required:x.required===true,
-    verified:x.verified===true,pin:/^\d{6}$/.test(String(x.pin||''))?x.pin:null};
+    verified:x.verified===true,pin:/^\d{4}(?:\d{2})?$/.test(String(x.pin||''))?x.pin:null};
 }
 export async function operatorPickupStatus(rideId:string):Promise<Status>{
   const x=await request('/travel/adult-pickup/status?rideId='+encodeURIComponent(rideId));
