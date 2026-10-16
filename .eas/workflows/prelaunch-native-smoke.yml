@@ -1,0 +1,27 @@
+# Deliberately manual-only. Trigger with: eas workflow:run .eas/workflows/prelaunch-native-smoke.yml
+# Requires an authenticated Expo account and available EAS build credits.
+# Only exercises the no-payment front door; device and full authenticated journeys remain unverified.
+name: prelaunch-native-smoke
+jobs:
+  build_ios:
+    type: build
+    params:
+      platform: ios
+      profile: prelaunch-ui-e2e
+  test_ios:
+    needs: [build_ios]
+    type: maestro
+    params:
+      build_id: ${{ needs.build_ios.outputs.build_id }}
+      flow_path: ['.maestro/prelaunch-front-door.yml']
+  build_android:
+    type: build
+    params:
+      platform: android
+      profile: prelaunch-ui-e2e
+  test_android:
+    needs: [build_android]
+    type: maestro
+    params:
+      build_id: ${{ needs.build_android.outputs.build_id }}
+      flow_path: ['.maestro/prelaunch-front-door.yml']
