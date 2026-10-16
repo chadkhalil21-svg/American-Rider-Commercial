@@ -154,6 +154,12 @@ check('insurance status refreshed automatically when phone returns from broker c
   insuranceMobile.includes('void refresh();') &&
   insuranceMobile.includes('previousDocumentState.current !== op.docs.insurance'));
 
+const reviewMobile = fs.readFileSync(path.join(__dirname,'../app/operator/review.tsx'),'utf8');
+check('pending qualification refreshes on phone resume without 30-second background polling',
+ reviewMobile.includes('useFocusEffect(useCallback(') &&
+ reviewMobile.includes("AppState.addEventListener('change'") &&
+ reviewMobile.includes('}, 120_000)') &&
+ !reviewMobile.includes('setInterval(check, 30000)'));
 let bad = 0;
 for (const r of R) { if (!r.ok) bad++; console.log(`${r.ok ? 'PASS' : 'FAIL'}  ${r.l}${r.ok ? '' : '  <-- ' + r.d}`); }
 console.log(`\n${R.length - bad}/${R.length} passed`);
