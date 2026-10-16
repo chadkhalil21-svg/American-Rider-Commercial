@@ -49,7 +49,7 @@ export default function History() {
 
   // Make sure the real travels are loaded even if the user deep-links straight here.
   useEffect(() => {
-    if (user) ride.refreshMyRides();
+    if (user) ride.refreshMyRides({ useCache: true });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
@@ -196,6 +196,18 @@ export default function History() {
         )}
       </Card>
 
+      {ride.hasOlderMyRides && (
+        <Pressable accessibilityRole="button" onPress={() => void ride.loadOlderMyRides()}
+          disabled={ride.loadingOlderMyRides} style={styles.more}>
+          <Text style={styles.moreText}>
+            {ride.loadingOlderMyRides ? t('traveler.olderTravelLoading') : t('traveler.loadOlderTravel')}
+          </Text>
+        </Pressable>
+      )}
+      {ride.hasOlderMyRides && <Text style={styles.partial}>
+        {t('traveler.travelTotalsShownOnly')}
+      </Text>}
+
       {/* DOWNLOAD STATEMENT REMOVED 16 Aug 2026. It announced "A monthly statement PDF
           has been generated and saved" and then changed to "Statement generated ✓" — but
           nothing was generated and nothing was saved. It set a flag. This is worse than a
@@ -209,6 +221,9 @@ export default function History() {
 }
 
 const styles = StyleSheet.create({
+  more: { alignSelf: 'center', minHeight: 48, justifyContent: 'center', paddingHorizontal: 18, marginBottom: 8 },
+  moreText: { fontSize: 14, fontWeight: '600', color: colors.accent },
+  partial: { fontSize: 12, color: colors.muted, textAlign: 'center', marginBottom: 12 },
   filterRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 9, marginTop: 18 },
   summary: { fontSize: 13.5, color: colors.ink2, marginTop: 16, lineHeight: 19 },
   listCard: { marginTop: 14, paddingVertical: 2, paddingHorizontal: 20, marginBottom: 16 },
