@@ -16,6 +16,8 @@ const crypto = require('crypto');
 const { page, T } = require('./shell');
 const { adminDb, adminStatus } = require('./firebase-admin');
 const { readKey } = require('./env');
+const { owns: r2Owns, readUrl: r2ReadUrl } = require('./r2');
+const { loadPrivateReviewDocument } = require('./operator-document-review');
 const { webhookReady } = require('./webhook');
 const { emailReady } = require('./email');
 const { screeningReady } = require('./screening');
@@ -236,7 +238,9 @@ function exceptionCard(u) {
     // One set of actions per document, however many findings it has.
     if (b.item && REQUIRED_DOCS.includes(b.item) && DOC_CODES.test(b.code) && !shown.has(b.item) && shown.add(b.item)) {
       const d = u.documents?.[b.item] || {};
-      const image = d.imageUrl ? `<br><a href="${esc(d.imageUrl)}" target="_blank" rel="noopener">View document</a>` : '';
+      const image = d.objectKey && r2Owns(d.objectKey, u.id, 'operator-document')
+        ? `<br><a href="/ops/operators/document-view?uid=${encodeURIComponent(u.id)}&kind=${encodeURIComponent(b.item)}" target="_blank" rel="noopener noreferrer">View private document</a>`
+        : '';
       const read = d.evidence?.fields ? `<br>Read: ${esc(JSON.stringify(d.evidence.fields))}` : '';
       const box = (name, label) => `<label style="font-size:13px;margin-right:10px;"><input type="checkbox" name="${name}" value="yes"> ${label}</label>`;
       // What a person states they read on the policy. The same Florida rules then judge it.
@@ -660,6 +664,35 @@ function mount(app, express, deps = {}) {
         res.status(500).send(esc(e.message));
       }
     });
+
+  // Original uploaded files are private. Only a named/MFA Operations reviewer may view
+  // the precise uploaded document belonging to this Operator. Never expose a signed
+  // object-store URL in the review HTML; the backend proxies a bounded, verified image.
+  app.get('/ops/operators/document-view', async (req, res) => {
+    res.set('Cache-Control', 'private, no-store');
+    res.set('X-Content-Type-Options', 'nosniff');
+    if (!configured() || !signedIn(req)) return res.status(401).send('Operations sign-in required');
+    if (opsAuthMode() !== 'named') return res.status(403).send('Named Operations access required');
+    const uid = String(req.query?.uid || '');
+    const kind = String(req.query?.kind || '');
+    const db = dbOf();
+    if (!db) return res.status(503).send('Private document review temporarily unavailable');
+    try {
+      if (!uid || uid.length > 128) return res.sendStatus(404);
+      const snap = await db.collection('users').doc(uid).get();
+      if (!snap.exists) return res.sendStatus(404);
+      const result = await loadPrivateReviewDocument({
+        uid, kind, documents: snap.data()?.documents,
+        owns: r2Owns, readUrl: r2ReadUrl,
+      });
+      if (result.status !== 200) return res.sendStatus(result.status);
+      res.set('Content-Security-Policy', "default-src 'none'; sandbox");
+      return res.type(result.contentType).status(200).send(result.body);
+    } catch (e) {
+      console.error('[operations] Private document review unavailable:', String(e?.code || 'unexpected').slice(0, 40));
+      return res.status(502).send('Document temporarily unavailable');
+    }
+  });
 
   // Provider-neutral screening queue: includes pending reports that are NOT qualification
   // exceptions yet. A real case, authorized by the Operator, is required for each decision.
