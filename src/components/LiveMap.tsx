@@ -1,9 +1,9 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, Easing, StyleSheet, View } from 'react-native';
-import { Text } from './AppText';
 import Svg, { Circle, Line, Path, PathProps } from 'react-native-svg';
-import { useLanguage } from '../state/LanguageContext';
-import { colors, mono } from '../theme';
+import { colors } from '../theme';
+import { RouteMap } from './RouteMap';
+import { useRide } from '../state/RideContext';
 import { useNative } from './anim';
 
 // Route from the prototype: cubic bezier in a 358x170 design space.
@@ -39,8 +39,18 @@ const PathSansCollapsable = React.forwardRef<Path, PathProps & { collapsable?: u
 );
 const AnimatedPath = Animated.createAnimatedComponent(PathSansCollapsable);
 
+// Real Android Travel uses the actual street route. Never draw a moving car on
+// a fabricated six-second repeating path when an Operator is genuinely assigned.
+// The iPhone-specific implementation draws a real car only from fresh Operator GPS.
 export function LiveMap() {
-  const { t } = useLanguage();
+  const { matchedOp, tripCoords, route } = useRide();
+  if (!matchedOp?.demo) {
+    return tripCoords ? <RouteMap pickup={tripCoords.pickup} dest={tripCoords.dest} route={route} /> : null;
+  }
+  return <DemoLiveMap />;
+}
+
+function DemoLiveMap() {
   const [width, setWidth] = useState(0);
   const scale = width > 0 ? width / W : 0;
 
@@ -212,9 +222,6 @@ export function LiveMap() {
               ]}
             />
           </Animated.View>
-          <View style={styles.badge}>
-            <Text style={styles.badgeText}>{t('traveler.liveMiami')}</Text>
-          </View>
         </>
       )}
     </View>
@@ -250,20 +257,5 @@ const styles = StyleSheet.create({
     position: 'absolute',
     borderRadius: 1.5,
     backgroundColor: 'rgba(255,255,255,0.5)',
-  },
-  badge: {
-    position: 'absolute',
-    left: 12,
-    top: 10,
-    backgroundColor: 'rgba(255,255,255,0.85)',
-    borderRadius: 999,
-    paddingVertical: 5,
-    paddingHorizontal: 11,
-  },
-  badgeText: {
-    fontFamily: mono.regular,
-    fontSize: 9,
-    letterSpacing: 1.4,
-    color: colors.muted,
   },
 });
