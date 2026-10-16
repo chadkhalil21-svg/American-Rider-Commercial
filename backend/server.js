@@ -1639,6 +1639,12 @@ app.post('/route', LIMITS.routeIp, requireServedPickup, async (req, res) => {
 // This used to 404 when rail "did not win", and the app read 404 as "do not show". That gate
 // is withdrawn: the server reports; the client decides emphasis.
 app.post('/smart-quote', LIMITS.routeIp, requireOperationalReadiness, requireServedPickup, async (req, res) => {
+  // Founder hold, 15 Oct 2026. No new Smart Travel can be priced or booked while
+  // real GTFS/OTP and handset handoff are not commissioned. Legacy clients receive
+  // the existing 404; current clients receive 503/unavailable. No planner call.
+  if (req.get('x-ar-smart') !== '2') return res.status(404).json({ error: 'Smart Travel is currently unavailable' });
+  return res.status(503).json({ status: 'unavailable', code: 'smart_travel_not_commissioned' });
+  /*
   // OLDER APPS GET THE OLDER ANSWER. TestFlight build 36 reads any 200 as a plan and would
   // render `{ status: 'none' }` as a card reading "Save $NaN", then crash on its legs. An app
   // that does not name the new contract (header X-AR-Smart: 2) is answered the way the old
@@ -1649,6 +1655,7 @@ app.post('/smart-quote', LIMITS.routeIp, requireOperationalReadiness, requireSer
   if (out.status === 'unavailable') return res.status(503).json({ status: 'unavailable' });
   if (out.status !== 'ok') return res.json({ status: 'none' });
   res.json(out.plan);
+  */
 });
 
 app.post('/smart-revalidate', LIMITS.routeIp, requireOperationalReadiness, async (req, res) => {
