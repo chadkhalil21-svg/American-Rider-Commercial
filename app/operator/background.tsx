@@ -1,5 +1,6 @@
 import React from 'react';
-import { Linking, Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { useFocusEffect } from 'expo-router';
+import { AppState, Linking, Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { Text } from '../../src/components/AppText';
 import { useGoBack } from '../../src/components/nav';
 import { BadgeOk } from '../../src/components/operator';
@@ -39,12 +40,40 @@ export default function OperatorBackground() {
   const [releaseAuthorized, setReleaseAuthorized] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
-  const refresh = React.useCallback(() => fetchScreening().then(setStatus), []);
-  React.useEffect(() => { void refresh(); }, [refresh]);
+  // A single-phone Operator often returns from a CRA portal without remounting this
+  // screen. Refresh on return/focus and use a bounded two-minute check only when
+  // a report is pending. This avoids the old one-time snapshot and excess Firestore
+  // reads during an eight-hour shift.
+  const statusRef = React.useRef<ScreeningStatus | null>(null);
+  const refresh = React.useCallback(async () => {
+    const result = await fetchScreening();
+    statusRef.current = result;
+    setStatus(result);
+  }, []);
+  useFocusEffect(React.useCallback(() => {
+    let onScreen = true;
+    const update = async () => {
+      const next = await fetchScreening();
+      if (onScreen) { statusRef.current = next; setStatus(next); }
+    };
+    void update();
+    const resume = AppState.addEventListener('change', next => {
+      if (next === 'active' && onScreen) void update();
+    });
+    const timer = setInterval(() => {
+      const decision = statusRef.current?.screening?.decision;
+      if (AppState.currentState === 'active' &&
+          ['awaiting_agency', 'in_progress', 'invited', 'ordered', 'review', 'pre_adverse'].includes(String(decision || '')))
+        void update();
+    }, 120_000);
+    return () => { onScreen = false; resume.remove(); clearInterval(timer); };
+  }, []));
 
   const record = status?.screening || null;
   const decision = record?.decision;
-  const passed = decision === 'pass' && Number(record?.recheckDue) > Date.now();
+  // The server stops new Travel 24 hours before the three-year recheck expires.
+  // Never show an Operator as "verified" while dispatch already says renew.
+  const passed = decision === 'pass' && Number(record?.recheckDue) > Date.now() + 24 * 60 * 60 * 1000;
   const needsRenewal = decision === 'pass' && !passed;
 
   React.useEffect(() => {

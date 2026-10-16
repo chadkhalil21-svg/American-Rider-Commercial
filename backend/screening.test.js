@@ -10,7 +10,8 @@ for (const [rel, exports] of [
   const p = require.resolve(path.join(ROOT, rel));
   require.cache[p] = { id: p, filename: p, loaded: true, exports, children: [], paths: [] };
 }
-const { adjudicate, evaluateExistingReport } = require(path.join(ROOT, 'screening.js'));
+const { adjudicate, evaluateExistingReport, screeningCurrent, SCREENING_ADVANCE_MARGIN_MS } = require(path.join(ROOT, 'screening.js'));
+const fs = require('node:fs');
 
 const now = Date.parse('2026-08-23T12:00:00Z');
 const yearsAgo = (y) => new Date(now - y * 365 * 24 * 3600 * 1000).toISOString().slice(0, 10);
@@ -127,6 +128,38 @@ check('no partial evidence state is ever an acceptance',
   [ex(['nationwide_criminal','sex_offender']), ex(['driving_history'])]
     .every((v) => v.accept === false && v.review === true));
 
+// Mobile must not claim a report is verified during the 24-hour advance
+// lockout, and must refresh after an outside-CRA portal returns to the app.
+const mobile = fs.readFileSync(path.join(__dirname,'../app/operator/background.tsx'),'utf8');
+const margin = SCREENING_ADVANCE_MARGIN_MS;
+check('Operator app and server use the same 24-hour early-screening lockout',
+  margin === 24*60*60*1000 &&
+  mobile.includes("Number(record?.recheckDue) > Date.now() + 24 * 60 * 60 * 1000"));
+check('server requires more than 24 hours left for fresh screening',
+  !screeningCurrent({decision:'pass',recheckDue:now+margin},now) &&
+  !screeningCurrent({decision:'pass',recheckDue:now+margin-1},now) &&
+  screeningCurrent({decision:'pass',recheckDue:now+margin+1},now));
+check('Operator screening refreshes after returning from CRA portal',
+  mobile.includes("useFocusEffect(") &&
+  mobile.includes("AppState.addEventListener('change'") &&
+  mobile.includes("next === 'active'"));
+check('only pending screening status gets bounded foreground polling',
+  mobile.includes("}, 120_000)") && mobile.includes("['awaiting_agency', 'in_progress'") &&
+  mobile.includes("AppState.currentState === 'active'"));
+const insuranceMobile = fs.readFileSync(path.join(__dirname, '../app/operator/insurance.tsx'),'utf8');
+check('insurance status refreshed automatically when phone returns from broker confirmation',
+  insuranceMobile.includes('useFocusEffect(useCallback(') &&
+  insuranceMobile.includes("AppState.addEventListener('change'") &&
+  insuranceMobile.includes("state === 'active'") &&
+  insuranceMobile.includes('void refresh();') &&
+  insuranceMobile.includes('previousDocumentState.current !== op.docs.insurance'));
+
+const reviewMobile = fs.readFileSync(path.join(__dirname,'../app/operator/review.tsx'),'utf8');
+check('pending qualification refreshes on phone resume without 30-second background polling',
+ reviewMobile.includes('useFocusEffect(useCallback(') &&
+ reviewMobile.includes("AppState.addEventListener('change'") &&
+ reviewMobile.includes('}, 120_000)') &&
+ !reviewMobile.includes('setInterval(check, 30000)'));
 let bad = 0;
 for (const r of R) { if (!r.ok) bad++; console.log(`${r.ok ? 'PASS' : 'FAIL'}  ${r.l}${r.ok ? '' : '  <-- ' + r.d}`); }
 console.log(`\n${R.length - bad}/${R.length} passed`);

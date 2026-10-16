@@ -1,8 +1,8 @@
 // Continuing coverage is a qualification, not a quote or automatic approval.
 // Law, platform policy, carrier judgment and verification are distinct authorities.
-import React, { useCallback, useEffect, useState } from 'react';
-import { Alert, Linking, Pressable, Share, StyleSheet, TextInput, View } from 'react-native';
-import { useRouter } from 'expo-router';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { Alert, AppState, Linking, Pressable, Share, StyleSheet, TextInput, View } from 'react-native';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { Text } from '../../src/components/AppText';
 import { pickDocument } from '../../src/backend/documentUpload';
 import {
@@ -45,7 +45,25 @@ export default function OperatorInsurance() {
       setContactType(nextStatus.contact.type);
     }
   }, []);
-  useEffect(() => { void refresh(); }, [refresh, op.docs.insurance]);
+  // Carrier/broker confirmation is asynchronous and happens outside the app.
+  // Refresh automatically when this phone returns or the Operator revisits the
+  // Insurance screen, rather than requiring a Founder or Operator to force it.
+  useFocusEffect(useCallback(() => {
+    void refresh();
+    const resume = AppState.addEventListener('change', state => {
+      if (state === 'active') void refresh();
+    });
+    return () => resume.remove();
+  }, [refresh]));
+  // The focus hook owns initial fetching. Refresh a second time only when
+  // this document status actually CHANGES (not on the initial screen mount).
+  const previousDocumentState = useRef(op.docs.insurance);
+  useEffect(() => {
+    if (previousDocumentState.current !== op.docs.insurance) {
+      previousDocumentState.current = op.docs.insurance;
+      void refresh();
+    }
+  }, [refresh, op.docs.insurance]);
 
   const authorizeStatus = async () => {
     setStatusBusy(true);
