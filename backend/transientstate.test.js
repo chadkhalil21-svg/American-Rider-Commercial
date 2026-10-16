@@ -28,7 +28,8 @@ assert.match(issues, /submissionFailed && <Text/);
 const pickup = read('app/operator/pickup.tsx');
 assert.doesNotMatch(pickup, /op\.cancelOp\(\)/);
 assert.match(pickup, /const ok = await op\.confirmArrival\(\)/);
-assert.match(pickup, /const ok = await op\.beginTrip\(\)/);
+assert.match(pickup, /const ok = await op\.beginTrip\(active\.teen \? pickupEntry : undefined\)/,
+  'Operator must submit private Teen code before requesting Travel progression');
 const trip = read('app/operator/trip.tsx');
 assert.match(trip, /const ok = await op\.completeOp\(\)/);
 assert.match(trip, /disabled=\{completing\}/);
