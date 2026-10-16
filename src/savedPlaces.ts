@@ -18,6 +18,10 @@ import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { auth, db } from './firebase';
 
 const KEY_PREFIX = 'ar:saved-places:v2:';
+// Per-account memory window: revisiting Home should not re-read the same Firestore
+// document every few seconds. Save/delete invalidates and cross-account use is isolated.
+const SAVED_PLACES_CACHE_MS = 60_000;
+let memoryPlaces: { key: string; at: number; value: SavedPlaces } | null = null;
 const storageKey = () => KEY_PREFIX + (auth.currentUser?.uid || 'preview');
 export const MAX_FAVORITES = 8;
 
@@ -32,6 +36,9 @@ const ok = (p?: SavedPlace | null): SavedPlace | undefined =>
     : undefined;
 
 export async function loadSavedPlaces(): Promise<SavedPlaces> {
+  const key = storageKey();
+  if (memoryPlaces?.key === key && Date.now() - memoryPlaces.at < SAVED_PLACES_CACHE_MS)
+    return memoryPlaces.value;
   let local: SavedPlaces = { favorites: [] };
   try {
     const raw = await AsyncStorage.getItem(storageKey());
@@ -48,7 +55,10 @@ export async function loadSavedPlaces(): Promise<SavedPlaces> {
   }
 
   const uid = auth.currentUser?.uid;
-  if (!uid) return local;
+  if (!uid) {
+    memoryPlaces = { key, at: Date.now(), value: local };
+    return local;
+  }
 
   try {
     const snap = await getDoc(doc(db, 'users', uid));
@@ -61,6 +71,7 @@ export async function loadSavedPlaces(): Promise<SavedPlaces> {
         .slice(0, MAX_FAVORITES);
       const remote = { home: ok(v.home), work: ok(v.work), favorites };
       await AsyncStorage.setItem(storageKey(), JSON.stringify(remote)).catch(() => {});
+      memoryPlaces = { key, at: Date.now(), value: remote };
       return remote;
     }
 
@@ -71,6 +82,7 @@ export async function loadSavedPlaces(): Promise<SavedPlaces> {
   } catch {
     // Offline or rules unavailable: the account-scoped local cache remains usable.
   }
+  memoryPlaces = { key, at: Date.now(), value: local };
   return local;
 }
 
@@ -93,6 +105,7 @@ async function persist(next: SavedPlaces): Promise<SavedPlaces> {
     }
   }
   if (!localSaved && !remoteSaved) throw new Error('saved-place-persist-failed');
+  memoryPlaces = { key: storageKey(), at: Date.now(), value: next };
   return next;
 }
 

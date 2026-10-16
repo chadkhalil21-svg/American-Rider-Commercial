@@ -29,7 +29,10 @@ import {
 import {
   dispatchRide,
   prepareRide,
-  fetchMyRides,
+  fetchMyRidesPage,
+  fetchCompletedTravelStats,
+  fetchRecoverableMyRide,
+  type TravelCursor,
   MatchedOp,
   recordTravelReview,
   RideRecord,
@@ -39,6 +42,7 @@ import {
   distanceMiles,
 } from '../backend/dispatch';
 import { Coords, fetchQuote, isUnavailable } from '../backend/fares';
+import { auth } from '../firebase';
 import { sendTravelMessage } from '../backend/messages';
 import { cancelTravel, payForRide, settleTravel } from '../backend/payments';
 import { answerCheckIn } from '../backend/checkin';
@@ -223,7 +227,11 @@ export type RideStore = {
   dispatchState: DispatchState; // how the search for an operator is going
   retryDispatch: () => void; // try matching an operator again after none/error
   myRides: RideRecord[]; // the traveler's own rides, read from the live database
-  refreshMyRides: () => void;
+  refreshMyRides: (options?: { useCache?: boolean }) => void;
+  /** A bounded page is fetched only when the Traveler requests older records. */
+  loadOlderMyRides: () => Promise<void>;
+  hasOlderMyRides: boolean;
+  loadingOlderMyRides: boolean;
   payment: PaymentState; // the live payment for the ride being booked
 
 
@@ -524,6 +532,12 @@ export function RideProvider({ children }: { children: React.ReactNode }) {
   }, [matchedOp, tripCoords]);
   const [dispatchState, setDispatchState] = useState<DispatchState>('idle');
   const [myRides, setMyRides] = useState<RideRecord[]>([]);
+  const [hasOlderMyRides, setHasOlderMyRides] = useState(false);
+  const [loadingOlderMyRides, setLoadingOlderMyRides] = useState(false);
+  const ridesCursorRef = useRef<TravelCursor | null>(null);
+  const olderInFlightRef = useRef(false);
+  const recentRefreshInFlightUidRef = useRef<string | null>(null);
+  const recentLoadedAtRef = useRef({ uid: '', at: 0 });
   const [payment, setPayment] = useState<PaymentState>({ status: 'idle' });
   const [tripSeq, setTripSeq] = useState(2047);
   const [lastTrip, setLastTrip] = useState<Trip>(EMPTY_TRIP);
@@ -720,15 +734,67 @@ export function RideProvider({ children }: { children: React.ReactNode }) {
     return true;
   },[myRides,startBooking]);
 
-  const refreshMyRides = useCallback(async () => {
+  const refreshMyRides = useCallback(async (options?: { useCache?: boolean }) => {
+    const uid = auth.currentUser?.uid;
+    if (!uid) {
+      setMyRides([]);
+      ridesCursorRef.current = null;
+      setHasOlderMyRides(false);
+      recentLoadedAtRef.current = { uid: '', at: 0 };
+      setStats({ trips: 0, spent: 0 });
+      return;
+    }
+    if (recentLoadedAtRef.current.uid && recentLoadedAtRef.current.uid !== uid) {
+      setMyRides([]);
+      ridesCursorRef.current = null;
+      setHasOlderMyRides(false);
+      setStats({ trips: 0, spent: 0 });
+      recentLoadedAtRef.current = { uid: '', at: 0 };
+    }
+    // Returning to Home or History within 30 seconds reuses the current window.
+    // Payment/dispatch/safety callbacks continue to request fresh data by default.
+    if (options?.useCache && recentLoadedAtRef.current.uid === uid &&
+        Date.now() - recentLoadedAtRef.current.at < 30_000) return;
+    // Context restoration and Home mounting may overlap on first sign-in. Reuse
+    // the ongoing retrieval instead of making a second identical Firestore query.
+    if (options?.useCache && recentRefreshInFlightUidRef.current === uid) return;
+    recentRefreshInFlightUidRef.current = uid;
     try {
-      const rides = await fetchMyRides();
+      const page = await fetchMyRidesPage();
+      if (auth.currentUser?.uid !== uid) return;
+      let rides = page.rides;
+      // An unfinished Travel can predate 25 newer records. Preserve restore semantics
+      // without ever fetching the complete historical collection.
+      if (page.hasMore && !rideActiveRef.current && !activeRideId.current &&
+          !rides.some((r) => ['assigned', 'accepted', 'arrived', 'onboard', 'awaiting_payment', 'awaiting_assignment'].includes(r.status))) {
+        const recoverable = await fetchRecoverableMyRide().catch(() => null);
+        if (auth.currentUser?.uid !== uid) return;
+        if (recoverable && !rides.some((r) => r.id === recoverable.id)) rides = [...rides, recoverable];
+      }
       setMyRides(rides);
-      const completed = rides.filter((r) => r.status === 'completed');
-      setStats({ trips: completed.length, spent: completed.reduce((sum, r) => sum + r.totalCents, 0) / 100 });
-      // Continue this traveler's trip numbers past the rides they already have, so a
-      // fresh launch doesn't hand out AR-2048 again on every first booking.
-      setTripSeq((s) => Math.max(s, 2047 + rides.length));
+      ridesCursorRef.current = page.cursor;
+      setHasOlderMyRides(page.hasMore);
+      recentLoadedAtRef.current = { uid, at: Date.now() };
+      // If all history fits in one page, the local exact sum costs NO aggregation read.
+      // Only older accounts need the server-side indexed count/sum query.
+      if (!page.hasMore) {
+        const done = rides.filter((r) => r.status === 'completed');
+        setStats({ trips: done.length,
+          spent: done.reduce((total, r) => total + r.totalCents, 0) / 100 });
+      } else {
+        // A missing index leaves the old value alone, never invents totals from 25 rows.
+        void fetchCompletedTravelStats().then((totals) => {
+          if (auth.currentUser?.uid === uid) setStats(totals);
+        }).catch(() => {});
+      }
+      // Historic client-generated Travel Numbers must not restart at 2072 when an
+      // account has 1,000 records but we load only 25. Carry forward the highest
+      // real sequence visible in the most-recent chronological page.
+      const maxObserved = rides.reduce((max, r) => {
+        const match = /^AR-(\d+)-/.exec(r.tripNo);
+        return match ? Math.max(max, Number(match[1])) : max;
+      }, 2047);
+      setTripSeq((current) => Math.max(current, maxObserved));
       // A TRAVEL SURVIVES THE APP CLOSING. Everything about a live travel — that one is
       // running at all, its status, the matched operator, the trip record — was React state
       // and nothing else, so a traveler whose phone slept or whose app was swept away came
@@ -817,6 +883,32 @@ export function RideProvider({ children }: { children: React.ReactNode }) {
       }
     } catch {
       /* ignore — offline / no rides yet */
+    } finally {
+      if (recentRefreshInFlightUidRef.current === uid) recentRefreshInFlightUidRef.current = null;
+    }
+  }, []);
+
+  const loadOlderMyRides = useCallback(async () => {
+    const uid = auth.currentUser?.uid;
+    if (!uid || !ridesCursorRef.current || olderInFlightRef.current) return;
+    if (recentLoadedAtRef.current.uid !== uid) return;
+    const startingCursor = ridesCursorRef.current;
+    olderInFlightRef.current = true;
+    setLoadingOlderMyRides(true);
+    try {
+      const page = await fetchMyRidesPage(startingCursor);
+      if (auth.currentUser?.uid !== uid || ridesCursorRef.current !== startingCursor) return;
+      setMyRides((previous) => {
+        const seen = new Set(previous.map((r) => r.id));
+        return [...previous, ...page.rides.filter((r) => !seen.has(r.id))];
+      });
+      ridesCursorRef.current = page.cursor;
+      setHasOlderMyRides(page.hasMore);
+    } catch {
+      // Keep the cursor so the user may retry, rather than silently skipping a page.
+    } finally {
+      olderInFlightRef.current = false;
+      setLoadingOlderMyRides(false);
     }
   }, []);
 
@@ -1742,6 +1834,9 @@ export function RideProvider({ children }: { children: React.ReactNode }) {
     retryDispatch: runDispatch,
     myRides,
     refreshMyRides,
+    loadOlderMyRides,
+    hasOlderMyRides,
+    loadingOlderMyRides,
     payment,
     lastTrip,
     viewTrip,

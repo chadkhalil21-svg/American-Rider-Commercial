@@ -54,4 +54,4 @@ jobs:
       - run: npm ci --prefix backend
       - run: npm ci --prefix infra/rules-emulator
       - name: Run Firestore emulator rule suite
-        run: npx --yes firebase-tools emulators:exec --only firestore "node infra/rules-emulator/messages.rules.test.mjs && node infra/rules-emulator/recovery-cursor.test.cjs && node infra/rules-emulator/monitor-load.test.cjs && node infra/rules-emulator/push-receipts.test.cjs && node infra/rules-emulator/provider-duplicate-intent.test.cjs"
+        run: npx --yes firebase-tools emulators:exec --only firestore "node infra/rules-emulator/messages.rules.test.mjs && node infra/rules-emulator/recovery-cursor.test.cjs && node infra/rules-emulator/monitor-load.test.cjs && node infra/rules-emulator/push-receipts.test.cjs && node infra/rules-emulator/provider-duplicate-intent.test.cjs && node infra/rules-emulator/travel-history-pagination.test.cjs"

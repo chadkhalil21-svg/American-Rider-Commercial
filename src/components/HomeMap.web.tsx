@@ -15,7 +15,8 @@ import { useLanguage } from '../state/LanguageContext';
 
 const MAP_ASPECT = 2.4; // must match MonoMap.tsx
 
-export function HomeMap({ lat, lng }: { lat?: number | null; lng?: number | null }) {
+// Static web design proxy intentionally cannot enter native MapLibre exploration mode.
+export function HomeMap({ lat, lng }: { lat?: number | null; lng?: number | null; onExploringChange?: (exploring: boolean) => void }) {
   const { t } = useLanguage();
   const hasFix = typeof lat === 'number' && typeof lng === 'number';
 

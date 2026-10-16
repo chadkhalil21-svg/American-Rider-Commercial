@@ -182,6 +182,7 @@ export default function Home() {
   // that once however many times it was visited; the most recent travel to it is the one
   // whose receipt the row opens. A traveler with three different destinations still sees
   // three rows, so nothing is hidden — only the repetition goes.
+  const [mapExploring, setMapExploring] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [cancellingScheduled, setCancellingScheduled] = useState(false);
   const [scheduledCancelError, setScheduledCancelError] = useState<string | null>(null);
@@ -239,7 +240,7 @@ export default function Home() {
 
   // Load this traveler's real rides from the database once their account is ready.
   useEffect(() => {
-    if (user) ride.refreshMyRides();
+    if (user) ride.refreshMyRides({ useCache: true });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
@@ -396,7 +397,7 @@ export default function Home() {
   ];
 
   return (
-    <Screen note={note}>
+    <Screen note={note} scrollEnabled={!mapExploring}>
       {/* bar('menu') — the one shared letterhead, so home can never drift from the
           other screens again. It owns the demo's 24px gap below itself. */}
       <LetterheadBar onMenu={() => setMenuOpen(true)} />
@@ -408,7 +409,8 @@ export default function Home() {
           cannot see, no LIVE badge over a position the device gave us a moment ago. It draws
           only once a real fix has resolved, so it never presents a guessed location as a
           known one, and it is absent on web and Android until our own tiles exist. */}
-      <HomeMap lat={ride.departure.lat} lng={ride.departure.lng} />
+      <HomeMap lat={ride.departure.lat} lng={ride.departure.lng}
+        onExploringChange={setMapExploring} />
 
       {/* NO WELCOME BLOCK — removed 15 Aug 2026. Two independent standards condemned
           it. (1) Chad's web demo has no equivalent; it was an undisclosed addition that
