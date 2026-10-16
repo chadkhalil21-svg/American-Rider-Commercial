@@ -114,6 +114,11 @@ function followPage(r) {
   }
   const status = String(r.status || '');
   const ended = !ACTIVE.includes(status);
+  // No route, Operator, plate or last position after the Travel is over.
+  // A public bearer link may outlive completion briefly only to say it ended.
+  if (ended) return page('Travel',
+    `<h1>${esc(STATUS_WORDS[status] || 'This travel has ended')}</h1>
+     <p>This Travel is no longer being shared.</p>`);
   const stale = !Number.isFinite(Number(r.opAt)) || Date.now() - Number(r.opAt) > 5 * 60 * 1000;
 
   // A POSITION WE CANNOT VOUCH FOR IS NOT SHOWN. An old pin is worse than none: a contact
