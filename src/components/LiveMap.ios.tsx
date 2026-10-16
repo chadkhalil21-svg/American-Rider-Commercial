@@ -6,27 +6,19 @@
 // Apple Maps is free and needs no key, which is why it's the provider for an iOS-first launch.
 // See docs/MAPS.md for the decision and when Google becomes worth paying for.
 //
-// WHAT THE TRAVELER SEES (the Uber-style contract):
-//  · From the moment an operator is matched, his car is ON the map, driving his actual
-//    street path toward the pickup — and the camera follows, zooming in as he gets close.
-//  · Once the ride starts, the camera pulls back to frame the whole trip and the car
-//    drives the trip route to the destination.
-//  · Routes come from our server. If routing is ever down, the car drives a straight
-//    line instead — the feature degrades, it never disappears. A ride never fails
-//    because a route lookup did.
+// Live Operator marker authority: use only a recent position from the Operator's phone,
+// received through the existing Travel listener. Route and status are not evidence
+// that a vehicle physically moved. Without a fresh report the marker is hidden.
+// Demonstration-only operators may animate, but never on a paid production Travel.
+// The map must not default to Miami when the journey's coordinates are unavailable.
 import { AppleMaps } from 'expo-maps';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
-import { Text } from './AppText';
 import { useRide } from '../state/RideContext';
-import { useLanguage } from '../state/LanguageContext';
-import { colors, mono } from '../theme';
+import { colors } from '../theme';
 
 // Matches the SVG version's proportions so the ride screen doesn't jump between platforms.
 const ASPECT = 358 / 170;
-
-// Downtown Miami — what we show before a trip has coordinates.
-const MIAMI = { latitude: 25.7743, longitude: -80.1937 };
 
 // Pick a zoom that fits a span with a little breathing room.
 // Apple's zoom is logarithmic: +1 halves the visible span.
@@ -86,8 +78,7 @@ const toLatLng = (c: { lat: number; lng: number }): LatLng => ({
 });
 
 export function LiveMap() {
-  const { t } = useLanguage();
-  const { tripCoords, route, approachRoute, status, matchedOp } = useRide();
+  const { tripCoords, route, approachRoute, status, matchedOp, operatorLivePosition } = useRide();
 
   const phase: 'approach' | 'trip' = status <= 2 ? 'approach' : 'trip';
 
@@ -136,13 +127,16 @@ export function LiveMap() {
     return () => clearInterval(timer);
   }, [status, phase]);
 
-  const carPos =
-    carPath && carPathLengths ? pointAlong(carPath, carPathLengths, shownFraction) : null;
+  // Production never moves a car based on status or elapsed time. Use the fresh,
+  // authenticated Travel's reported GPS; without one show NO car marker.
+  const carPos = matchedOp?.demo === true
+    ? (carPath && carPathLengths ? pointAlong(carPath, carPathLengths, shownFraction) : null)
+    : (matchedOp && operatorLivePosition ? toLatLng(operatorLivePosition) : null);
 
   const { camera, markers, polylines } = useMemo(() => {
     if (!tripCoords) {
       return {
-        camera: { coordinates: MIAMI, zoom: 11 },
+        camera: null as { coordinates: LatLng; zoom: number } | null,
         markers: [] as Marker[],
         polylines: [] as Polyline[],
       };
@@ -199,6 +193,9 @@ export function LiveMap() {
     return { camera, markers: markerList, polylines: lines };
   }, [tripCoords, phase, carPath, carPos, route]);
 
+  // Unknown endpoints are not an excuse to show a fixed Miami map.
+  if (!tripCoords || !camera) return null;
+
   return (
     <View style={styles.map}>
       <AppleMaps.View
@@ -207,9 +204,6 @@ export function LiveMap() {
         markers={markers}
         polylines={polylines}
       />
-      <View style={styles.badge} pointerEvents="none">
-        <Text style={styles.badgeText}>{t('traveler.liveMiami')}</Text>
-      </View>
     </View>
   );
 }
@@ -222,20 +216,5 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     backgroundColor: colors.mapBg,
     overflow: 'hidden',
-  },
-  badge: {
-    position: 'absolute',
-    left: 12,
-    top: 10,
-    backgroundColor: 'rgba(255,255,255,0.85)',
-    borderRadius: 999,
-    paddingVertical: 5,
-    paddingHorizontal: 11,
-  },
-  badgeText: {
-    fontFamily: mono.regular,
-    fontSize: 9,
-    letterSpacing: 1.4,
-    color: colors.muted,
   },
 });

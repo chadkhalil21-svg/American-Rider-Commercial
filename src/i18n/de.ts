@@ -773,7 +773,6 @@ export default {
     metrorail: 'Metrorail',
     checkIn: 'Check-in',
     orDescribeIt: 'Oder beschreiben Sie es',
-    liveMiami: 'LIVE · MIAMI',
     protectedLabel: 'Geschützt',
     unlock: 'Entsperren',
     findCoverage: 'Versicherung finden',

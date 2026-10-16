@@ -789,7 +789,6 @@ export default {
     metrorail: 'Metrorail',
     checkIn: 'Registro',
     orDescribeIt: 'O descríbalo',
-    liveMiami: 'EN VIVO · MIAMI',
     protectedLabel: 'Protegido',
     unlock: 'Desbloquear',
     findCoverage: 'Buscar cobertura',

@@ -34,6 +34,7 @@ import {
   RideRecord,
   watchRide,
   type TravelMonitor,
+  type LiveVehiclePosition,
   distanceMiles,
 } from '../backend/dispatch';
 import { Coords, fetchQuote, isUnavailable } from '../backend/fares';
@@ -217,6 +218,7 @@ export type RideStore = {
   boardRide: () => void; // "I'm in the car" — resumes the trip from the arrival hold
   cancelRide: () => Promise<boolean>;
   matchedOp: MatchedOp | null; // the real operator matched from the live database
+  operatorLivePosition: LiveVehiclePosition | null; // fresh Operator GPS, or unknown
   dispatchState: DispatchState; // how the search for an operator is going
   retryDispatch: () => void; // try matching an operator again after none/error
   myRides: RideRecord[]; // the traveler's own rides, read from the live database
@@ -485,6 +487,22 @@ export function RideProvider({ children }: { children: React.ReactNode }) {
   const [status, setStatus] = useState(0);
   const [rideActive, setRideActive] = useState(false);
   const [matchedOp, setMatchedOp] = useState<MatchedOp | null>(null);
+  const [operatorLivePosition, setOperatorLivePosition] = useState<LiveVehiclePosition | null>(null);
+  // A lost GPS stream must remove the last icon after 60 seconds, even when the
+  // database emits no later change. One local timer, no polling/database reads.
+  useEffect(() => {
+    if (!operatorLivePosition) return;
+    const ms = operatorLivePosition.at + 60000 - Date.now();
+    if (ms <= 0) {
+      setOperatorLivePosition(null);
+      return;
+    }
+    const at = operatorLivePosition.at;
+    const timeout = setTimeout(() => {
+      setOperatorLivePosition((current) => current?.at === at ? null : current);
+    }, ms + 1);
+    return () => clearTimeout(timeout);
+  }, [operatorLivePosition]);
 
   // The operator's approach: from where he was matched to the pickup. Re-fetched if the
   // traveler moves the pickup pin while he's en route (tripCoords re-keys this effect).
@@ -1157,6 +1175,7 @@ export function RideProvider({ children }: { children: React.ReactNode }) {
     // two ways a travel ends — and nowhere else, so a change of operator can never detach
     // the subscription mid-journey again.
     setWatchedRideId(null);
+    setOperatorLivePosition(null);
   }, [refreshMyRides, trySettle]);
 
   finishTravelRef.current = finishTravel;
@@ -1219,6 +1238,9 @@ export function RideProvider({ children }: { children: React.ReactNode }) {
   // Only ever forward. A late snapshot must not walk a traveler back from Onboard to
   // En Route.
   useEffect(() => {
+    // Reset before attaching the replacement listener so a stale prior operator
+    // cannot render while the new Travel's first snapshot arrives.
+    setOperatorLivePosition(null);
     const rideId = watchedRideId;
     if (!rideId) return;
     return watchRide(rideId, (s) => {
@@ -1275,7 +1297,8 @@ export function RideProvider({ children }: { children: React.ReactNode }) {
         setMatchedOp(null);
         setDispatchState((current) => current === 'none' ? current : 'searching');
       }
-    });
+    },
+    setOperatorLivePosition);
     // Keyed on the TRAVEL. It used to be [matchedOp], which re-subscribed on every operator
     // change and unsubscribed entirely when there was none.
   }, [watchedRideId]);
@@ -1712,6 +1735,7 @@ export function RideProvider({ children }: { children: React.ReactNode }) {
     boardRide,
     cancelRide,
     matchedOp,
+    operatorLivePosition,
     dispatchState,
     retryDispatch: runDispatch,
     myRides,
