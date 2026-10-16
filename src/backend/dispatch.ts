@@ -8,6 +8,14 @@ import {
   doc,
   getDocs,
   getDocsFromServer,
+  getAggregateFromServer,
+  count,
+  sum,
+  limit,
+  orderBy,
+  startAfter,
+  type QueryDocumentSnapshot,
+  type DocumentData,
   onSnapshot,
   query,
   updateDoc,
@@ -303,49 +311,79 @@ export type RideRecord = {
   receiptSentAt?: number;
 };
 
-// Read the signed-in traveler's own rides from Firestore (newest first).
-export async function fetchMyRides(): Promise<RideRecord[]> {
+// A fixed, index-backed page prevents one long-standing account from loading years of
+// Firestore documents whenever the home screen appears. Never use offset(), which charges
+// for skipped records. A cursor stays tied to the last row actually presented.
+export const TRAVEL_PAGE_SIZE = 25;
+export type TravelCursor = QueryDocumentSnapshot<DocumentData>;
+export type TravelPage = { rides: RideRecord[]; cursor: TravelCursor | null; hasMore: boolean };
+
+function rideFromSnapshot(d: QueryDocumentSnapshot<DocumentData>): RideRecord {
+  const x = d.data() as any;
+  return {
+    id: d.id,
+    tripNo: x.tripNo ?? '',
+    dep: typeof x.dep === 'string' ? x.dep : '',
+    arr: x.dest ?? '',
+    pickupLat: typeof x.pickupLat === 'number' ? x.pickupLat : undefined,
+    pickupLng: typeof x.pickupLng === 'number' ? x.pickupLng : undefined,
+    destinationLat: typeof x.destinationLat === 'number' ? x.destinationLat : undefined,
+    destinationLng: typeof x.destinationLng === 'number' ? x.destinationLng : undefined,
+    operatorName: x.operatorName ?? '',
+    operatorId: x.operatorId ?? '',
+    totalCents: x.costCents ?? 0,
+    status: x.status ?? '',
+    createdAt: x.createdAt ?? 0,
+    paymentIntentId: typeof x.paymentIntentId === 'string' ? x.paymentIntentId : undefined,
+    paidAt: typeof x.paidAt === 'number' ? x.paidAt : undefined,
+    refundPending: x.refundPending === true,
+    miles: typeof x.miles === 'number' ? x.miles : undefined,
+    onboardAt: typeof x.onboardAt === 'number' ? x.onboardAt : undefined,
+    completedAt: typeof x.completedAt === 'number' ? x.completedAt : undefined,
+    feeLines: Array.isArray(x.feeLines) ? x.feeLines : undefined,
+    operatorCar: typeof x.operatorCar === 'string' ? x.operatorCar : undefined,
+    operatorPlate: typeof x.operatorPlate === 'string' ? x.operatorPlate : undefined,
+    operatorDemo: typeof x.operatorDemo === 'boolean' ? x.operatorDemo : undefined,
+    operatorLat: typeof x.operatorLat === 'number' ? x.operatorLat : undefined,
+    operatorLng: typeof x.operatorLng === 'number' ? x.operatorLng : undefined,
+    operatorEtaMin: typeof x.operatorEtaMin === 'number' ? x.operatorEtaMin : undefined,
+    operatorMiles: typeof x.operatorMiles === 'number' ? x.operatorMiles : undefined,
+    governmentFeeCents: typeof x.governmentFeeCents === 'number' ? x.governmentFeeCents : undefined,
+    travelClass: typeof x.travelClass === 'string' ? x.travelClass : undefined,
+    paidWith: shapePaidWith(x.paidWith),
+    receiptSentAt: typeof x.receiptSentAt === 'number' ? x.receiptSentAt : undefined,
+  };
+}
+
+export async function fetchMyRidesPage(cursor: TravelCursor | null = null, pageSize = TRAVEL_PAGE_SIZE): Promise<TravelPage> {
   const uid = auth.currentUser?.uid;
-  if (!uid) return [];
-  const snap = await getDocs(query(collection(db, 'rides'), where('travelerUid', '==', uid)));
-  return snap.docs
-    .map((d) => {
-      const x = d.data() as any;
-      return {
-        id: d.id,
-        tripNo: x.tripNo ?? '',
-        dep: typeof x.dep === 'string' ? x.dep : '',
-        arr: x.dest ?? '',
-        pickupLat: typeof x.pickupLat === 'number' ? x.pickupLat : undefined,
-        pickupLng: typeof x.pickupLng === 'number' ? x.pickupLng : undefined,
-        destinationLat: typeof x.destinationLat === 'number' ? x.destinationLat : undefined,
-        destinationLng: typeof x.destinationLng === 'number' ? x.destinationLng : undefined,
-        operatorName: x.operatorName ?? '',
-        operatorId: x.operatorId ?? '',
-        totalCents: x.costCents ?? 0,
-        status: x.status ?? '',
-        createdAt: x.createdAt ?? 0,
-        paymentIntentId: typeof x.paymentIntentId === 'string' ? x.paymentIntentId : undefined,
-        paidAt: typeof x.paidAt === 'number' ? x.paidAt : undefined,
-        refundPending: x.refundPending === true,
-        miles: typeof x.miles === 'number' ? x.miles : undefined,
-        onboardAt: typeof x.onboardAt === 'number' ? x.onboardAt : undefined,
-        completedAt: typeof x.completedAt === 'number' ? x.completedAt : undefined,
-        feeLines: Array.isArray(x.feeLines) ? x.feeLines : undefined,
-        operatorCar: typeof x.operatorCar === 'string' ? x.operatorCar : undefined,
-        operatorPlate: typeof x.operatorPlate === 'string' ? x.operatorPlate : undefined,
-        operatorDemo: typeof x.operatorDemo === 'boolean' ? x.operatorDemo : undefined,
-        operatorLat: typeof x.operatorLat === 'number' ? x.operatorLat : undefined,
-        operatorLng: typeof x.operatorLng === 'number' ? x.operatorLng : undefined,
-        operatorEtaMin: typeof x.operatorEtaMin === 'number' ? x.operatorEtaMin : undefined,
-        operatorMiles: typeof x.operatorMiles === 'number' ? x.operatorMiles : undefined,
-        governmentFeeCents: typeof x.governmentFeeCents === 'number' ? x.governmentFeeCents : undefined,
-        travelClass: typeof x.travelClass === 'string' ? x.travelClass : undefined,
-        paidWith: shapePaidWith(x.paidWith),
-        receiptSentAt: typeof x.receiptSentAt === 'number' ? x.receiptSentAt : undefined,
-      };
-    })
-    .sort((a, b) => b.createdAt - a.createdAt);
+  if (!uid) return { rides: [], cursor: null, hasMore: false };
+  if (!Number.isInteger(pageSize) || pageSize < 1 || pageSize > 50) throw new Error('invalid-travel-page-size');
+  const parts = [where('travelerUid', '==', uid), orderBy('createdAt', 'desc'), limit(pageSize + 1)];
+  if (cursor) parts.push(startAfter(cursor));
+  const snap = await getDocs(query(collection(db, 'rides'), ...parts));
+  const visible = snap.docs.slice(0, pageSize);
+  return {
+    rides: visible.map(rideFromSnapshot),
+    cursor: snap.docs.length > pageSize ? (visible[visible.length - 1] ?? null) : null,
+    hasMore: snap.docs.length > pageSize,
+  };
+}
+
+// Bounded compatibility method for callers that need only the current travel window.
+export async function fetchMyRides(): Promise<RideRecord[]> {
+  return (await fetchMyRidesPage()).rides;
+}
+
+// True all-time figures, without reading every Travel document onto a telephone.
+// Aggregations charge indexed reads and require the matching deployed Firestore index.
+export async function fetchCompletedTravelStats(): Promise<{ trips: number; spent: number }> {
+  const uid = auth.currentUser?.uid;
+  if (!uid) return { trips: 0, spent: 0 };
+  const q = query(collection(db, 'rides'), where('travelerUid', '==', uid), where('status', '==', 'completed'));
+  const snap = await getAggregateFromServer(q, { trips: count(), cents: sum('costCents') });
+  const data = snap.data();
+  return { trips: data.trips, spent: Number((data.cents / 100).toFixed(2)) };
 }
 
 /**
