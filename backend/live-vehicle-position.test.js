@@ -38,4 +38,8 @@ assert.match(map,/operatorLivePosition \? toLatLng\(operatorLivePosition\)/,'rea
 assert.match(map,/if \(!tripCoords \|\| !camera\) return null/,'unknown trip coordinates must hide map');
 assert.doesNotMatch(map,/const MIAMI\s*=|liveMiami|25\.7743|-80\.1937/,'no hardcoded region or false live Miami');
 assert.doesNotMatch(map,/setInterval\([\s\S]*setMatchedOp/,'timer cannot invent Operator position');
+const crossPlatform=fs.readFileSync(path.join(root,'src','components','LiveMap.tsx'),'utf8');
+assert.match(crossPlatform,/if \(!matchedOp\?\.demo\)/,'web and Android cannot run demo animation for real Operators');
+assert.match(crossPlatform,/<RouteMap pickup=\{tripCoords\.pickup\} dest=\{tripCoords\.dest\} route=\{route\}/,'Android must use actual route geometry');
+assert.doesNotMatch(crossPlatform,/liveMiami/,'a location-neutral map cannot claim LIVE MIAMI');
 console.log('PASS 18 live vehicle GPS cases + single-listener feed, no fabricated car for paid production, no Miami map');
