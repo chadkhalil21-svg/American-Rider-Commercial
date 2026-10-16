@@ -13,10 +13,12 @@ export function Screen({
   children,
   scroll = true,
   note,
+  scrollEnabled = true,
 }: {
   children: React.ReactNode;
   scroll?: boolean;
   note?: string | null;
+  scrollEnabled?: boolean;
 }) {
   const insets = useSafeAreaInsets();
   // .pad{ padding:58px 24px 40px }. The demo draws its own status bar area into that
@@ -105,6 +107,7 @@ export function Screen({
         style={styles.screen}
         contentContainerStyle={[styles.grow, pad]}
         keyboardShouldPersistTaps="handled"
+        scrollEnabled={scrollEnabled}
       >
         {children}
       </ScrollView>
