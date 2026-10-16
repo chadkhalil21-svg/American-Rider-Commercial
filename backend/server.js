@@ -4035,36 +4035,35 @@ app.post('/travel/return-operator', requireAuth, LIMITS.dispatch, requireOperati
     return res.status(502).json({ error: e.message, code: 'relationship_unreadable' });
   }
 
-  let fleet;
-  try {
-    const snap = await db.collection('operators').get();
-    fleet = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-  } catch (e) {
-    return res.status(502).json({ error: e.message, code: 'fleet_unreadable' });
-  }
-
-  // The operator who drove the travel is tried first, and is held to the same gates as
-  // anybody else — a lost item does not entitle somebody to dispatch an operator whose
-  // insurance has lapsed or whose disclosure has moved on.
+  // A lost-item return must not read the entire Operator collection. The original
+  // Operator is a known document; try them first. Only then search capped local
+  // geohash cells, using the same eligibility gates as ordinary dispatch.
   const strip = (o, path, cents) => ({
     path, operator: { id: String(o.id), name: o.name || '' }, costCents: cents,
   });
 
   if (originalId) {
-    const still = matchOperator(
-      fleet.filter((o) => String(o.id) === originalId),
-      destination,
-      'Standard',
-      { requireScreening: operationalMode },
-    );
+    let original;
+    try {
+      const snap = await db.collection('operators').doc(originalId).get();
+      original = snap.exists ? { id: snap.id, ...snap.data() } : null;
+    } catch (e) {
+      return res.status(502).json({ error: e.message, code: 'operator_unreadable' });
+    }
+    const still = matchOperator(original ? [original] : [], destination, 'Standard',
+      { requireScreening: operationalMode });
     if (still) return res.json(strip(still.operator, 'original-operator', 0));
   }
-  const next = matchOperator(
-    fleet.filter((o) => String(o.id) !== originalId),
-    destination,
-    'Standard',
-    { requireScreening: operationalMode },
-  );
+
+  let nearby;
+  try {
+    nearby = await availableOperatorCandidates(db, destination,
+      new Set(originalId ? [originalId] : []));
+  } catch (e) {
+    return res.status(502).json({ error: e.message, code: 'fleet_unreadable' });
+  }
+  const next = matchOperator(nearby, destination, 'Standard',
+    { requireScreening: operationalMode });
   if (!next) return res.json({ path: null, operator: null });
   const priced = await authoritativeFare({
     body: { pickup: { lat: Number(next.operator.lat), lng: Number(next.operator.lng) }, dest: destination, travelClass: 'Standard' },
