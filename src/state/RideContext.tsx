@@ -759,8 +759,14 @@ export function RideProvider({ children }: { children: React.ReactNode }) {
       void fetchCompletedTravelStats().then((totals) => {
         if (auth.currentUser?.uid === uid) setStats(totals);
       }).catch(() => {});
-      // Trip numbers are server-owned; avoid deriving a global count from this page.
-      setTripSeq((s) => Math.max(s, 2047 + rides.length));
+      // Historic client-generated Travel Numbers must not restart at 2072 when an
+      // account has 1,000 records but we load only 25. Carry forward the highest
+      // real sequence visible in the most-recent chronological page.
+      const maxObserved = rides.reduce((max, r) => {
+        const match = /^AR-(\\d+)-/.exec(r.tripNo);
+        return match ? Math.max(max, Number(match[1])) : max;
+      }, 2047);
+      setTripSeq((current) => Math.max(current, maxObserved));
       // A TRAVEL SURVIVES THE APP CLOSING. Everything about a live travel — that one is
       // running at all, its status, the matched operator, the trip record — was React state
       // and nothing else, so a traveler whose phone slept or whose app was swept away came
