@@ -55,6 +55,7 @@ const LIMITS = {
   // A model runs on each of these and a person may read it. Generous for anybody real: a
   // traveler with a bad day files two or three, not twenty.
   support: perAccount({ name: 'support', limit: 8, windowMs: 60 * 60 * 1000 }),
+  message: perAccount({ name: 'travel-message', limit: 120, windowMs: 60 * 60 * 1000 }),
   lostItem: perAccount({ name: 'lost-item', limit: 6, windowMs: 60 * 60 * 1000 }),
   // COUNTED, NEVER REFUSED. See ratelimit.js — an alarm that answers "too many times" to
   // somebody in trouble has failed at the one thing it must not fail at.
@@ -3944,7 +3945,7 @@ app.get('/travel/teen-pickup/code', requireAuth, LIMITS.document, requireFreshAu
 app.post('/travel/teen-pickup/verify', requireAuth, requireFreshAuth, async (req,res)=>{const out=await verifyTeenPin({rideId:req.body?.rideId,operatorUid:req.uid,pin:req.body?.pin});return res.status(out.status||500).json(out);});
 // One server-stamped three-party thread. The client supplies words and the Travel id; the
 // server derives every participant id from the Travel so nobody can forge a correspondent.
-app.post('/travel/message', requireAuth, async (req,res)=>{
+app.post('/travel/message', requireAuth, LIMITS.message, async (req,res)=>{
  const db=adminDb();if(!db)return res.status(503).json({error:adminStatus().reason});const rideId=String(req.body?.rideId||''),text=String(req.body?.text||'').trim().slice(0,2000);
  if(!rideId||!text)return res.status(400).json({error:'Travel and message text are required'});const snap=await db.collection('rides').doc(rideId).get();if(!snap.exists)return res.status(404).json({error:'No such Travel'});const r=snap.data()||{},uid=String(req.uid);
  // Server-stamped identities, acceptance and the reported item, never the client's claim.
