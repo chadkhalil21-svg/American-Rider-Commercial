@@ -40,6 +40,7 @@
 const fs = require('fs');
 const path = require('path');
 const { regionForTrip, defaultRegion } = require('./regions');
+const { acceptableBusBoardingWait } = require('./smart-bus-boarding-policy');
 
 const DEFAULT_URL = 'http://localhost:8080';
 const DEFAULT_TIMEOUT_MS = 8000;
@@ -356,7 +357,7 @@ function mapItinerary(node, busRoutes) {
  * Maps a planConnection response body (`data`) to the planTransit() contract. Exported so
  * the mapping can be tested against a saved OTP answer without a server.
  */
-function mapPlan(data, { busRoutes = null, errors = [] } = {}) {
+function mapPlan(data, { busRoutes = null, errors = [], requestedAt = null, timezone = 'America/New_York' } = {}) {
   const pc = data && data.planConnection;
   if (!pc) {
     return { status: 'unavailable', reason: errors.length ? `otp: ${errorText(errors)}` : 'otp: empty answer' };
@@ -365,7 +366,7 @@ function mapPlan(data, { busRoutes = null, errors = [] } = {}) {
   const itineraries = [];
   for (const edge of edges) {
     const it = mapItinerary(edge && edge.node, busRoutes);
-    if (it) itineraries.push(it);
+    if (it && acceptableBusBoardingWait(it.legs, requestedAt, timezone)) itineraries.push(it);
   }
   if (itineraries.length === 0) {
     const codes = (Array.isArray(pc.routingErrors) ? pc.routingErrors : []).map((e) => e && e.code).filter(Boolean);
@@ -413,7 +414,7 @@ async function planTransit({ from, to, when, access = 'WALK', egress = 'WALK', f
     if (unsupportedMode(r.errors, access, egress)) out.code = 'unsupported_mode';
     return out;
   }
-  return mapPlan(r.data, { busRoutes, errors: r.errors });
+  return mapPlan(r.data, { busRoutes, errors: r.errors, requestedAt: depart, timezone: region.timezone });
 }
 
 /**
