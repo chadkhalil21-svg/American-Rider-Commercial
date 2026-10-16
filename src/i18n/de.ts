@@ -517,7 +517,7 @@ export default {
     driveInControl: 'Unabhängige Dispositionsautonomie',
     driveInControlBody: 'Fahren Sie, wann und wo Sie wollen. American Rider weist Ihnen nie ein Gebiet zu und bestraft Sie nie für eine abgelehnte Fahrt.',
     drivePayouts: 'Kapitalabrechnung',
-    emgLocationShared: 'Ihr Standort wurde geteilt.',
+    emgLocationShared: 'Die Freigabe-App wurde geöffnet. Die Zustellung an den Empfänger ist nicht bestätigt.',
     emgNoShareSheet: 'Dieses Gerät konnte keinen Weg zum Senden der Nachricht öffnen.',
     emgNoCalls: 'Dieses Gerät kann keine Anrufe tätigen. Verwenden Sie ein anderes Telefon, um 911 zu wählen.',
     switchToOperator: 'Zur Betreiberansicht wechseln',
