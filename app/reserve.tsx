@@ -27,7 +27,7 @@ import { Text } from '../src/components/AppText';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 import { destinationsNear, type Destination } from '../src/backend/destinations';
 import { searchPlaces, type PlaceSuggestion } from '../src/backend/placeSearch';
-import { fetchQuote, geocodePlace, isUnavailable, recordVisibleStandardQuote } from '../src/backend/fares';
+import { fetchQuote, geocodePlace, isUnavailable, recordVisibleStandardQuote, type QuoteFailureCode } from '../src/backend/fares';
 import { joinWaitlist } from '../src/backend/connect';
 import { fetchSmartQuote } from '../src/backend/smart';
 import { useGoBack } from '../src/components/nav';
@@ -122,6 +122,7 @@ export default function TravelConfirmation() {
 
   const [pricing, setPricing] = useState(false);
   const [priceFailed, setPriceFailed] = useState(false);
+  const [quoteFailure, setQuoteFailure] = useState<QuoteFailureCode | null>(null);
   // Somewhere we do not go. Kept apart from priceFailed because the two need different words:
   // one asks the traveler to try again, the other must not.
   const [unavailable, setUnavailable] = useState<string | null>(null);
@@ -154,6 +155,8 @@ export default function TravelConfirmation() {
       }
       setPricing(true);
       setPriceFailed(false);
+      setQuoteFailure(null);
+      setUnavailable(null);
 
       // ANCHORED TO THE TRAVELER, NOT TO MIAMI. A loose destination name is resolved against
       // the city they are standing in — "las olas" means the one four miles away, not the
@@ -163,9 +166,18 @@ export default function TravelConfirmation() {
         (ride.departure.lat != null && ride.departure.lng != null
           ? { lat: ride.departure.lat, lng: ride.departure.lng }
           : null);
-      const dest = place.lat != null && place.lng != null
+      let dest = place.lat != null && place.lng != null
         ? { lat: place.lat, lng: place.lng }
         : await geocodePlace(place.name, anchor);
+      // Apple can fail to geocode a named neighborhood even when our server can
+      // resolve it. Consult the existing place search only on that failure.
+      // Exact-name matching avoids silently choosing a different destination.
+      if (!dest) {
+        const options = await searchPlaces(place.name, anchor);
+        const normalize = (v: string) => v.trim().toLowerCase().replace(/\s+/g, ' ');
+        const exact = options.find((item) => normalize(item.title) === normalize(place.name));
+        if (exact) dest = { lat: exact.lat, lng: exact.lng };
+      }
       // Pickup, most precise source first: a dropped pin is exact; a named place carries its
       // own coordinates; only a hand-typed pickup needs the geocoder. Labels like "Current
       // location — Brickell" must never be geocoded — they aren't addresses, and when the
@@ -175,11 +187,21 @@ export default function TravelConfirmation() {
         (ride.departure.lat != null && ride.departure.lng != null
           ? { lat: ride.departure.lat, lng: ride.departure.lng }
           : await geocodePlace(ride.departure.name, ride.pickupPin ?? null));
+      // No name-only pricing: the server requires both real coordinates.
+      // A failed location lookup must not become an apparently cheap fare.
+      if (!pickup || !dest) {
+        if (req === priceReq.current) {
+          setQuoteFailure('route_geometry_required');
+          setPriceFailed(true);
+          setPricing(false);
+        }
+        return;
+      }
       const quote = await fetchQuote({
         pickup,
         dest,
         travelClass:ride.travelClass,
-        destination: place.short, // fallback for web, where there's no OS geocoder
+        onFailure: (code) => { if (req === priceReq.current) setQuoteFailure(code); },
       });
 
       if (req !== priceReq.current) return; // a newer pick superseded this quote
@@ -254,15 +276,20 @@ export default function TravelConfirmation() {
     ride.setQuotedFareCents(null);
     ride.setQuotedFeeLines([]);
     ride.setResearchQuoteToken(null);
-    setPricing(true);setPriceFailed(false);
-    void fetchQuote({pickup,dest,travelClass:ride.travelClass,journeyNo})
+    setPricing(true);setPriceFailed(false);setQuoteFailure(null);setUnavailable(null);
+    void fetchQuote({pickup,dest,travelClass:ride.travelClass,journeyNo,
+      onFailure: (code) => { if (live && seq === priceReq.current) setQuoteFailure(code); },
+    })
       .then(q=>{
         if(!live||seq!==priceReq.current)return;
         if(q&&!isUnavailable(q)){
           ride.setQuotedServerPrice(q.travelCostCents,q.travelerPays,ride.travelClass);
           ride.setQuotedFeeLines(q.feeLines);
           ride.setResearchQuoteToken(q.researchQuoteToken??null);
-        }else setPriceFailed(true);
+        } else if(q && isUnavailable(q)) {
+          setUnavailable(q.unavailable);
+          setPriceFailed(false);
+        } else setPriceFailed(true);
       })
       .catch(()=>{if(live&&seq===priceReq.current)setPriceFailed(true);})
       .finally(()=>{if(live&&seq===priceReq.current)setPricing(false);});
@@ -420,6 +447,10 @@ export default function TravelConfirmation() {
   const busy = pricing || ride.repricing;
   const partyReady = travelPartyReady(ride.travelParty);
   const canReserve = payConfig.canTakePayment && partyReady && authoritativePriceReady && !!ride.tripCoords && !busy && !priceFailed && !unavailable;
+  const quoteFailureText = quoteFailure === 'toll_unavailable' ? t('traveler.quoteTollUnavailable')
+    : quoteFailure === 'route_geometry_required' ? t('traveler.quoteLocationUnresolved')
+    : quoteFailure === 'network_unavailable' ? t('traveler.errNetwork')
+    : t('traveler.quoteServiceUnavailable');
   // Explicit informed consent, not a background price quote or a passive screen
   // render, is the only way the research endpoint receives a view observation.
   // This checkbox never affects payment, route selection or booking eligibility.
@@ -886,7 +917,15 @@ export default function TravelConfirmation() {
               )
             )}
             {priceFailed && !unavailable && !pricing && (
-              <Text style={styles.stateNote}>{t('traveler.selectDestAgain')}</Text>
+              <View>
+                <Text style={styles.stateNote}>{quoteFailureText}</Text>
+                <Pressable accessibilityRole="button"
+                  accessibilityLabel={t('traveler.retryTravelCost')}
+                  onPress={() => { void chooseDestination(ride.arrival); }}
+                  style={{ paddingVertical: 8 }}>
+                  <Text style={styles.modify}>{t('traveler.retryTravelCost')} ›</Text>
+                </Pressable>
+              </View>
             )}
             {modeNote && <Text style={styles.payNote}>{modeNote}</Text>}
             {!!ride.researchQuoteToken && authoritativePriceReady &&
