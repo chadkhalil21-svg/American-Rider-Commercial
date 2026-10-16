@@ -1644,18 +1644,6 @@ app.post('/smart-quote', LIMITS.routeIp, requireOperationalReadiness, requireSer
   // the existing 404; current clients receive 503/unavailable. No planner call.
   if (req.get('x-ar-smart') !== '2') return res.status(404).json({ error: 'Smart Travel is currently unavailable' });
   return res.status(503).json({ status: 'unavailable', code: 'smart_travel_not_commissioned' });
-  /*
-  // OLDER APPS GET THE OLDER ANSWER. TestFlight build 36 reads any 200 as a plan and would
-  // render `{ status: 'none' }` as a card reading "Save $NaN", then crash on its legs. An app
-  // that does not name the new contract (header X-AR-Smart: 2) is answered the way the old
-  // server answered it: 404 and no card. Removable once every tester is on a newer build.
-  const speaksV2 = req.get('x-ar-smart') === '2';
-  const out = await smartQuote(req.body?.pickup, req.body?.dest);
-  if (!speaksV2) return res.status(404).json({ error: 'Smart Travel needs the current app' });
-  if (out.status === 'unavailable') return res.status(503).json({ status: 'unavailable' });
-  if (out.status !== 'ok') return res.json({ status: 'none' });
-  res.json(out.plan);
-  */
 });
 
 app.post('/smart-revalidate', LIMITS.routeIp, requireOperationalReadiness, async (req, res) => {
