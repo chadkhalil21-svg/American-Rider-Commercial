@@ -117,8 +117,8 @@ export async function fetchMyCases(): Promise<{ cases: SupportCase[]; unavailabl
   try {
     const res = await fetch(`${PAYMENT_SERVER_URL}/support/cases`, { headers: await authHeaders() });
     if (!res.ok) return { cases: [], unavailable: `server_${res.status}` };
-    const d = (await res.json().catch(() => ({}))) as { cases?: SupportCase[] };
-    return { cases: Array.isArray(d.cases) ? d.cases : [] };
+    const d = (await res.json().catch(() => ({}))) as { cases?: SupportCase[]; possiblyIncomplete?: boolean };
+    return { cases: Array.isArray(d.cases) ? d.cases : [], possiblyIncomplete: d.possiblyIncomplete === true };
   } catch {
     return { cases: [], unavailable: 'unreachable' };
   }
