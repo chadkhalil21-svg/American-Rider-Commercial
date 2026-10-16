@@ -633,6 +633,9 @@ app.get('/about', (req, res) => res.type('html').send(ABOUT_HTML));
 // at the moment they are worried. The token is the authorisation; see backend/follow.js for
 // why that is the right trade and what keeps it safe.
 app.get('/follow/:token', async (req, res) => {
+  // Bearer-link safety information must not persist in CDN/browser caches.
+  res.set('Cache-Control','private, no-store, max-age=0');
+  res.set('Referrer-Policy','no-referrer');
   const r = await travelForToken(req.params.token);
   res.type('html').send(followPage(r));
 });
