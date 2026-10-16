@@ -259,6 +259,7 @@ export default {
     doneExploringMap: "Fertig",
     recenterPickup: "Auf Abholpunkt zentrieren",
     loadOlderTravel: "Ältere Fahrten laden",
+    moreTravelMayMatch: "Beim Laden älterer Einträge können weitere Fahrten erscheinen.",
     olderTravelLoading: "Ältere Fahrten werden geladen…",
     travelTotalsShownOnly: "Die Summen beziehen sich nur auf die angezeigten Fahrten. Ältere Fahrten können nachgeladen werden.",
     viewAll: 'Alle anzeigen',
