@@ -276,6 +276,7 @@ export default {
     doneExploringMap: "Done",
     recenterPickup: "Center on pickup",
     loadOlderTravel: "Load older Travel",
+    moreTravelMayMatch: "Additional Travel may appear when older records are loaded.",
     olderTravelLoading: "Loading older Travel…",
     travelTotalsShownOnly: "Totals include only the Travel currently shown. Load older Travel for more.",
     viewAll: 'See All',
