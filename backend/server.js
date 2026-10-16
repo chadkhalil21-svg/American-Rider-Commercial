@@ -152,7 +152,7 @@ const { mount: mountOps, opsAuthMode, signedIn: opsSignedIn, actorOf: opsActorOf
 const { mount: mountFounderMcp } = require('./chatgpt-mcp');
 const { readDocument, documentsReady, READER_VERSION } = require('./documents');
 const { ready: r2Ready, uploadUrl: r2UploadUrl, readUrl: r2ReadUrl, owns: r2Owns } = require('./r2');
-const { assessOperator, assessAndRecord } = require('./qualification');
+const { assessOperator, assessAndRecord, qualifyingInsuranceDocument } = require('./qualification');
 const {
   STATUS_DUE_MS, STATUS_MAX_AGE_MS,
   initialMonitoringFromDocument, continuingStatus, applyOperatorAttestation, applyIndependentConfirmation,
@@ -2225,7 +2225,7 @@ app.post('/operator/document', requireAuth, LIMITS.document, requireFreshAuth, r
     // qualification rules answer "does this policy satisfy the standard today?" This record
     // starts the continuing-status clock that answers "has it since been cancelled or changed?"
     // It is refreshed only by fresh evidence, never merely by the passage of time.
-    if (kind === 'insurance' && out.verdict === 'accept') {
+    if (kind === 'insurance') {
       const monitoringDoc = {
         verdict: out.verdict,
         expiry: out.expiry,
@@ -2771,7 +2771,7 @@ app.post('/operator/insurance/authorize-status', requireAuth, LIMITS.qualificati
     const ref = db.collection('users').doc(String(req.uid));
     const snap = await ref.get();
     const u = snap.exists ? snap.data() : {};
-    if (!u?.documents?.insurance || u.documents.insurance.verdict !== 'accept') {
+    if (!qualifyingInsuranceDocument(u)) {
       return res.status(409).json({ error: 'A qualifying insurance policy must be verified first.', code: 'insurance_document_required' });
     }
     const m = u.insuranceMonitoring || {};
@@ -2793,7 +2793,9 @@ app.get('/operator/insurance/status', requireAuth, LIMITS.qualification, async (
   try {
     const snap = await db.collection('users').doc(String(req.uid)).get();
     const u = snap.exists ? snap.data() : {};
-    return res.json({ ...continuingStatus(u), contact: u.insuranceMonitoring?.contact || null, authorized: !!u.insuranceMonitoring?.statusAuthorization?.acceptedAt, verificationIssue: u.insuranceMonitoring?.verificationIssue || null, instructions: providerInstructions() });
+    return res.json({ ...continuingStatus(u), documentApproved: qualifyingInsuranceDocument(u),
+      policyExpiry: u.documents?.insurance?.decision?.expiry || u.documents?.insurance?.expiry || null,
+      contact: u.insuranceMonitoring?.contact || null, authorized: !!u.insuranceMonitoring?.statusAuthorization?.acceptedAt, verificationIssue: u.insuranceMonitoring?.verificationIssue || null, instructions: providerInstructions() });
   } catch (e) {
     return res.status(502).json({ error: e.message });
   }
@@ -2809,7 +2811,7 @@ app.post('/operator/insurance/attest', requireAuth, LIMITS.qualification, async 
     const result = await db.runTransaction(async (tx) => {
       const snap = await tx.get(ref);
       const u = snap.exists ? snap.data() : {};
-      if (!u?.documents?.insurance || u.documents.insurance.verdict !== 'accept') {
+      if (!qualifyingInsuranceDocument(u)) {
         return { error: 'A qualifying insurance policy must be verified first.', code: 'insurance_document_required', status: 409 };
       }
       const m = u.insuranceMonitoring || {};
