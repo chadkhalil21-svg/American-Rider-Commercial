@@ -265,6 +265,7 @@ export default {
     doneExploringMap: "Terminé",
     recenterPickup: "Recentrer sur le point de départ",
     loadOlderTravel: "Charger les trajets précédents",
+    moreTravelMayMatch: "D'autres trajets peuvent apparaître en chargeant les anciens dossiers.",
     olderTravelLoading: "Chargement des trajets…",
     travelTotalsShownOnly: "Les totaux portent uniquement sur les trajets affichés. Chargez les trajets précédents pour en voir davantage.",
     viewAll: 'Tout voir',
