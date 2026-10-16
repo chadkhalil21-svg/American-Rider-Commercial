@@ -2,7 +2,19 @@
 const assert = require('node:assert/strict');
 const { normalize, summarize, listIndexes, isCompositeDefinition } = require('./firestore-index-commission.cjs');
 const manifest = require('../firestore.indexes.json');
-assert.equal(manifest.indexes.length, 12, 'manifest must list only necessary composite indexes');
+assert.equal(manifest.indexes.length, 15, 'manifest must contain exactly the approved composite indexes');
+// Read-efficient Travel history must preserve chronology, all-time totals and unfinished
+// Travel recovery. Each is a real composite and needs commissioning before app release.
+for (const fields of [
+  [{fieldPath:'travelerUid',order:'ASCENDING'},{fieldPath:'createdAt',order:'DESCENDING'}],
+  [{fieldPath:'travelerUid',order:'ASCENDING'},{fieldPath:'status',order:'ASCENDING'},
+   {fieldPath:'costCents',order:'ASCENDING'}],
+  [{fieldPath:'travelerUid',order:'ASCENDING'},{fieldPath:'status',order:'ASCENDING'}],
+]) {
+  const expected = {collectionGroup:'rides', queryScope:'COLLECTION', fields};
+  assert(manifest.indexes.some(i => normalize(i) === normalize(expected)),
+    'bounded Travel history composite index is mandatory');
+}
 for (const index of manifest.indexes) {
   assert(index.collectionGroup && index.queryScope, 'index must have collection group and query scope');
   assert(index.fields.length > 0, 'index must have fields');
