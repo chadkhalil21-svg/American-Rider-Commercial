@@ -14,7 +14,7 @@ Reuse the existing Travel listener rather than add an additional database listen
 
 ## Required proof
 
-Synthetic test covers fresh, expired, missing, impossible and future timestamps, canceled/released Travel, demo mode, and no false city. Verify on signed iPhone and Android with real Operator GPS, background lock and lost-signal tests; the Android SVG path is separately unverified and must not be certified by this iPhone change. Stress and fee decisions are unchanged.
+Synthetic test covers fresh, expired, missing, impossible and future timestamps, canceled/released Travel, demo mode, and no false city. Verify on signed iPhone and Android with real Operator GPS, background lock and lost-signal tests. The old Android/web SVG was a repeating six-second fake vehicle path: real Android Travel now uses the native MapLibre route map with no unverified moving car icon; web omits the mock animation for real Travel. Android live GPS vehicle display still requires an audited native implementation and physical-device validation. Stress and fee decisions are unchanged.
 
 ## Reference rubric
 
