@@ -133,7 +133,7 @@ export default function History() {
 
       <Card style={styles.listCard}>
         {trips.length === 0 ? (
-          <Text style={styles.empty}>{t('traveler.completedTravelAppears')}</Text>
+          <Text style={styles.empty}>{ride.hasOlderMyRides ? t('traveler.moreTravelMayMatch') : t('traveler.completedTravelAppears')}</Text>
         ) : (
           trips.map((r, i) => {
             const dep = prettyPlace(r.dep);
