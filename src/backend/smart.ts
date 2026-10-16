@@ -78,6 +78,11 @@ export type SmartPlan = {
   transitFareUnknown?: boolean;
 };
 
+// Founder temporary hold: Smart Travel must not be offered until authentic
+// timetable, multimodal routing and physical handoff evidence are verified.
+// The disabled path makes ZERO routing/provider/Firestore calls.
+export const SMART_TRAVEL_AVAILABLE = false;
+
 export type SmartQuoteStatus = 'ok' | 'none' | 'unavailable';
 
 export type SmartQuote =
@@ -89,6 +94,7 @@ export async function fetchSmartQuote(
   pickup: { lat: number; lng: number },
   dest: { lat: number; lng: number },
 ): Promise<SmartQuote> {
+  if (!SMART_TRAVEL_AVAILABLE) return { status: 'unavailable', plan: null };
   try {
     const res = await fetch(`${PAYMENT_SERVER_URL}/smart-quote`, {
       method: 'POST',
