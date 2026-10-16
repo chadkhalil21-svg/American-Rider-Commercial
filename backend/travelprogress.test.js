@@ -30,7 +30,7 @@ const R=[];const check=(l,c,d)=>R.push({l,ok:!!c,d});
    check('Teen PIN: '+name+' is not verified',o.status===409&&
      o.body.code==='teen_pickup_unverified'&&h.data.rides.r1.status==='arrived');
  }
- {const h=dbFor({...base,status:'arrived',party:{teen:true},teenPickup:{verifiedAt:now-1}},atPickup);const o=await progressTravel({db:h.db,uid:'op1',rideId:'r1',status:'onboard',now});check('verified Teen can board',o.status===200&&h.data.rides.r1.status==='onboard');}
+ {const h=dbFor({...base,status:'arrived',party:{teen:true},teenPickup:{verifiedAt:now-1,verifiedBy:'op1'}},atPickup);const o=await progressTravel({db:h.db,uid:'op1',rideId:'r1',status:'onboard',now});check('verified Teen can board',o.status===200&&h.data.rides.r1.status==='onboard');}
  {const h=dbFor({...base,status:'arrived',party:{teen:false},adultPickup:{required:true,verifiedAt:null}},atPickup);const o=await progressTravel({db:h.db,uid:'op1',rideId:'r1',status:'onboard',now});check('enrolled adult requires verified pickup',o.body.code==='adult_pickup_unverified');}
  {const h=dbFor({...base,status:'arrived',party:{teen:false},adultPickup:{required:true,verifiedAt:now-100,verifiedBy:'previous-operator'}},atPickup);const o=await progressTravel({db:h.db,uid:'op1',rideId:'r1',status:'onboard',now});check('previous Operator cannot verify new assignment',o.body.code==='adult_pickup_unverified');}
  {const h=dbFor({...base,status:'arrived',party:{teen:false},adultPickup:{required:true,verifiedAt:now-100,verifiedBy:'op1'}},atPickup);const o=await progressTravel({db:h.db,uid:'op1',rideId:'r1',status:'onboard',now});check('current verified Operator can board adult',o.status===200);}
