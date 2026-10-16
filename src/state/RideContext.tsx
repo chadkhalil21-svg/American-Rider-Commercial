@@ -765,7 +765,7 @@ export function RideProvider({ children }: { children: React.ReactNode }) {
       let rides = page.rides;
       // An unfinished Travel can predate 25 newer records. Preserve restore semantics
       // without ever fetching the complete historical collection.
-      if (!rideActiveRef.current && !activeRideId.current &&
+      if (page.hasMore && !rideActiveRef.current && !activeRideId.current &&
           !rides.some((r) => ['assigned', 'accepted', 'arrived', 'onboard', 'awaiting_payment', 'awaiting_assignment'].includes(r.status))) {
         const recoverable = await fetchRecoverableMyRide().catch(() => null);
         if (auth.currentUser?.uid !== uid) return;
