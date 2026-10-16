@@ -32,8 +32,6 @@ export default function OperatorPickup() {
   useEffect(() => {
     if (!active && !hadOp.current) router.replace('/operator');
   }, [active, router]);
-  if (!active) return <Screen scroll={false}>{null}</Screen>;
-
   const arrived = op.arrived;
   useEffect(() => {
     let live=true;
@@ -44,6 +42,7 @@ export default function OperatorPickup() {
     }).catch(()=>{ /* commencement rechecks with the authoritative server */ });
     return () => {live=false;};
   },[active?.rideId,arrived,active?.teen]);
+  if (!active) return <Screen scroll={false}>{null}</Screen>;
 
   return (
     <Screen>
