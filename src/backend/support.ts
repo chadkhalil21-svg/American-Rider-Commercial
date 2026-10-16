@@ -109,15 +109,16 @@ export type SupportCase = {
   createdAt: number;
   tripNo: string | null;
   status: string;
+  acknowledgedAt?: number | null;
 };
 
 /** The traveler's filed cases, newest first. Never throws; an unreachable server is said. */
-export async function fetchMyCases(): Promise<{ cases: SupportCase[]; unavailable?: string }> {
+export async function fetchMyCases(): Promise<{ cases: SupportCase[]; unavailable?: string; possiblyIncomplete?: boolean }> {
   try {
     const res = await fetch(`${PAYMENT_SERVER_URL}/support/cases`, { headers: await authHeaders() });
     if (!res.ok) return { cases: [], unavailable: `server_${res.status}` };
-    const d = (await res.json().catch(() => ({}))) as { cases?: SupportCase[] };
-    return { cases: Array.isArray(d.cases) ? d.cases : [] };
+    const d = (await res.json().catch(() => ({}))) as { cases?: SupportCase[]; possiblyIncomplete?: boolean };
+    return { cases: Array.isArray(d.cases) ? d.cases : [], possiblyIncomplete: d.possiblyIncomplete === true };
   } catch {
     return { cases: [], unavailable: 'unreachable' };
   }

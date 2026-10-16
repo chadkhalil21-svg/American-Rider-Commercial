@@ -22,6 +22,15 @@ const { readKey } = require('./env');
 const { adminDb, adminStatus } = require('./firebase-admin');
 const crypto = require('node:crypto');
 
+// Operator qualification and screening are Operations cases, not Patron
+// complaints, even when the same signed-in account has both roles.
+function isOperatorCase(ticket) {
+  const category = String(ticket?.category || '');
+  const reason = String(ticket?.reason || '');
+  return /^operator(?:[-\s]|$)/i.test(category) ||
+    /^Operator screening — review (?:existing|new) provider report$/.test(reason);
+}
+
 // WAS: a require inside a try/catch that swallowed the reason, against a package that was
 // not in package.json — so this returned false forever and every ticket silently vanished.
 // See backend/firebase-admin.js for the full account of it.
@@ -37,6 +46,7 @@ async function notifyByEmail(ticket) {
   const key = readKey('RESEND_API_KEY');
   if (!to || !key) return false; // not configured — the caller must not claim otherwise
   const emergency = ticket.kind === 'emergency';
+  const operatorRelations = !emergency && isOperatorCase(ticket);
   const paymentDeadline = ticket.reason === 'Payment disputed';
   try {
     const r = await fetch('https://api.resend.com/emails', {
@@ -54,7 +64,7 @@ async function notifyByEmail(ticket) {
           ? // First word in the inbox says what it is. Nothing else we send is capitalised
             // like this, so an emergency cannot be mistaken for a billing question.
             `EMERGENCY · ${ticket.caseNo} · ${ticket.trip?.no || 'no travel number'}`
-          : `${ticket.caseNo} · Patron Support · ${ticket.trip?.no || 'no travel number'}`,
+          : `${ticket.caseNo} · ${operatorRelations ? 'Operator Relations' : 'Patron Support'} · ${ticket.trip?.no || 'no travel number'}`,
         text:
           `Case ${ticket.caseNo}\n` +
           `Traveler: ${ticket.email || ticket.uid}\n` +
@@ -230,11 +240,16 @@ async function notifyLocationByEmail(ticket) {
  */
 async function listTickets(uid, { limit = 20, database } = {}) {
   const d = database || db();
-  if (!d || !uid) return [];
-  const snap = await d.collection('support_tickets').where('uid', '==', String(uid)).get();
-  return snap.docs
+  if (!uid) return [];
+  if (!d) throw new Error('Support case records are unavailable');
+  // This query needs no new index. Cap reads so case-history growth cannot
+  // create unlimited Firestore costs. If the cap is reached, the app explicitly
+  // warns that these are only SOME cases, not necessarily the newest.
+  const snap = await d.collection('support_tickets').where('uid', '==', String(uid))
+    .limit(100).get();
+  const cases = snap.docs
     .map((doc) => (typeof doc.data === 'function' ? doc.data() : doc) || {})
-    .filter((x) => x && x.caseNo)
+    .filter((x) => x && x.caseNo && !isOperatorCase(x))
     .sort((a, b) => (Number(b.createdAt) || 0) - (Number(a.createdAt) || 0))
     .slice(0, limit)
     .map((x) => ({
@@ -243,7 +258,10 @@ async function listTickets(uid, { limit = 20, database } = {}) {
       createdAt: Number(x.createdAt) || 0,
       tripNo: x.trip && typeof x.trip === 'object' && x.trip.no ? String(x.trip.no) : null,
       status: typeof x.status === 'string' && x.status ? x.status : 'open',
+      acknowledgedAt: Number(x.acknowledgedAt) || null,
     }));
+  cases.possiblyIncomplete = snap.docs.length >= 100;
+  return cases;
 }
 
 /**
@@ -267,4 +285,4 @@ async function resolveTicket({ caseNo, resolution, actor = 'operations', now = D
   return { ok: true };
 }
 
-module.exports = { fileTicket, newCaseNo, updateTicketLocation, listTickets, resolveTicket };
+module.exports = { fileTicket, newCaseNo, updateTicketLocation, listTickets, resolveTicket, isOperatorCase };

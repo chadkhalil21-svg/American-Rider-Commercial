@@ -55,6 +55,7 @@ const LIMITS = {
   // A model runs on each of these and a person may read it. Generous for anybody real: a
   // traveler with a bad day files two or three, not twenty.
   support: perAccount({ name: 'support', limit: 8, windowMs: 60 * 60 * 1000 }),
+  message: perAccount({ name: 'travel-message', limit: 120, windowMs: 60 * 60 * 1000 }),
   lostItem: perAccount({ name: 'lost-item', limit: 6, windowMs: 60 * 60 * 1000 }),
   // COUNTED, NEVER REFUSED. See ratelimit.js — an alarm that answers "too many times" to
   // somebody in trouble has failed at the one thing it must not fail at.
@@ -122,6 +123,7 @@ const { bookingId, prepareBooking, paymentMatches, assignPaidTravel } = require(
 const { progressTravel } = require('./travelprogress');
 const { payForTravel, cancelTravel: cancelTravelFor, settleTravel: settleTravelFor } = require('./travelmoney');
 const { authorizeVoiceTravel, lostItemTravel, authorizeAnnouncement, claimAnnouncement } = require('./trustboundaries');
+const { authorizeTravelMessage } = require('./travel-message-policy');
 const { TERMS_HTML, PRIVACY_HTML, ABOUT_HTML, ACCOUNT_DELETION_HTML, legalPage, LEGAL_LANGUAGES } = require('./legal');
 const {
   HOME_HTML, OPERATE_HTML, SUPPORT_HTML, TRAVEL_HTML, SAFETY_HTML, SMART_HTML,
@@ -829,7 +831,7 @@ app.post('/operator/support', requireAuth, requireVerifiedEmail, LIMITS.support,
 app.get('/support/cases', requireAuth, async (req, res) => {
   try {
     const cases = await listTickets(req.uid);
-    return res.json({ cases });
+    return res.json({ cases, possiblyIncomplete: cases.possiblyIncomplete === true });
   } catch (e) {
     return res.status(502).json({ error: 'Your cases could not be read', detail: String(e && e.message || e) });
   }
@@ -3422,6 +3424,7 @@ app.post('/operator/screening/existing', requireAuth, LIMITS.screening, requireS
     const filed = await fileTicket({
       uid: req.uid, email: req.email, kind: 'support',
       reason: mode === 'new' ? 'Operator screening — review new provider report' : 'Operator screening — review existing provider report',
+      category: 'operator-screening',
       description:
         'The Operator instructed ' + agency + (mode === 'new' ? ' to send the report when completed.' : ' to release the existing screening report for American Rider review.') + ' ' +
         'Jurisdiction: ' + policy.stateCode + '; policy: ' + policy.id + '; market: ' + req.screeningMarket.id + '. ' +
@@ -3942,12 +3945,15 @@ app.get('/travel/teen-pickup/code', requireAuth, LIMITS.document, requireFreshAu
 app.post('/travel/teen-pickup/verify', requireAuth, requireFreshAuth, async (req,res)=>{const out=await verifyTeenPin({rideId:req.body?.rideId,operatorUid:req.uid,pin:req.body?.pin});return res.status(out.status||500).json(out);});
 // One server-stamped three-party thread. The client supplies words and the Travel id; the
 // server derives every participant id from the Travel so nobody can forge a correspondent.
-app.post('/travel/message', requireAuth, async (req,res)=>{
+app.post('/travel/message', requireAuth, LIMITS.message, async (req,res)=>{
  const db=adminDb();if(!db)return res.status(503).json({error:adminStatus().reason});const rideId=String(req.body?.rideId||''),text=String(req.body?.text||'').trim().slice(0,2000);
  if(!rideId||!text)return res.status(400).json({error:'Travel and message text are required'});const snap=await db.collection('rides').doc(rideId).get();if(!snap.exists)return res.status(404).json({error:'No such Travel'});const r=snap.data()||{},uid=String(req.uid);
- const from=uid===String(r.travelerUid)?'traveler':uid===String(r.operatorId)?'operator':r.party?.teen===true&&uid===String(r.party?.guardianUid)?'guardian':null;
- if(!from)return res.status(403).json({error:'This account is not a participant in that Travel'});if(!['assigned','accepted','arrived','onboard'].includes(String(r.status))&&!req.body?.lostItemId)return res.status(409).json({error:'This Travel thread is closed'});
- await db.collection('messages').add({rideId,tripNo:r.tripNo||rideId,from,travelerUid:r.travelerUid||null,operatorId:r.operatorId||null,guardianUid:r.party?.teen?r.party.guardianUid||null:null,lostItemId:req.body?.lostItemId||null,text,createdAt:Date.now()});return res.json({ok:true});
+ // Server-stamped identities, acceptance and the reported item, never the client's claim.
+ let permission;
+ try { permission=await authorizeTravelMessage({db,ride:r,uid,lostItemId:req.body?.lostItemId||null}); }
+ catch { return res.status(503).json({error:'Conversation authorization could not be verified'}); }
+ if(!permission.ok) return res.status(permission.status).json({error:'This Travel conversation is unavailable',code:permission.code});
+ await db.collection('messages').add({rideId,tripNo:r.tripNo||rideId,from:permission.from,travelerUid:r.travelerUid||null,operatorId:r.operatorId||null,guardianUid:r.party?.teen?r.party.guardianUid||null:null,lostItemId:permission.lostItemId,text,createdAt:Date.now()});return res.json({ok:true});
 });
 
 // POST /travel/accept { rideId } — the operator accepts the travel offered to them.

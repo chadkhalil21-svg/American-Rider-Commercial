@@ -186,15 +186,10 @@ service cloud.firestore {
       // Reading stays keyed on the two uids stored on each message, which this rule has just
       // verified against the ride, so each message is readable by exactly the two parties it
       // was written between.
-      allow create: if signedIn()
-                    && request.resource.data.keys().hasOnly(['rideId', 'tripNo', 'from', 'travelerUid', 'operatorId', 'guardianUid', 'lostItemId', 'text', 'createdAt'])
-                    && request.resource.data.rideId is string
-                    && request.resource.data.tripNo is string
-                    && request.resource.data.tripNo.size() <= 24
-                    && request.resource.data.text is string
-                    && request.resource.data.text.size() <= 2000
-                    && exists(/databases/$(database)/documents/rides/$(request.resource.data.rideId))
-                    && messageFitsRide(get(/databases/$(database)/documents/rides/$(request.resource.data.rideId)).data);
+      // All sends use POST /travel/message. The backend re-reads the authoritative
+      // Travel and the real lost-item report and stamps identities itself.
+      // A direct Firestore write could otherwise forge a lostItemId after cancellation.
+      allow create: if false;
 
       // A conversation is a record. Neither side edits or deletes what was said.
       allow update, delete: if false;

@@ -49,15 +49,22 @@ const fromGuardian = (rideId, r, uid = r.party?.guardianUid, over = {}) =>
 const write = (uid, data) => addDoc(collection(as(uid), 'messages'), data);
 
 await seed();
+// The server, not a phone, creates the authorized conversation documents. Read
+// access must still work for each actual participant.
+await env.withSecurityRulesDisabled(async (ctx) => {
+  await addDoc(collection(ctx.firestore(), 'messages'), fromTraveler('rideA', rides.rideA));
+  await addDoc(collection(ctx.firestore(), 'messages'), fromOperator('rideA', rides.rideA));
+  await addDoc(collection(ctx.firestore(), 'messages'), fromGuardian('rideTeen', rides.rideTeen));
+});
 
 // ——— the assigned parties talk normally ————————————————————————————————————————
-await check('assigned traveler can write on their travel', () => assertSucceeds(write('travA', fromTraveler('rideA', rides.rideA))));
-await check('assigned operator can write on their travel', () => assertSucceeds(write('opA', fromOperator('rideA', rides.rideA))));
+await check('assigned traveler cannot write directly, must use the authenticated server', () => assertFails(write('travA', fromTraveler('rideA', rides.rideA))));
+await check('accepted operator cannot bypass authenticated server', () => assertFails(write('opA', fromOperator('rideA', rides.rideA))));
 await check('traveler reads their thread', () => assertSucceeds(getDocs(query(collection(as('travA'), 'messages'), where('tripNo', '==', 'AR-1001-MIA'), where('travelerUid', '==', 'travA')))));
 await check('operator reads their thread', () => assertSucceeds(getDocs(query(collection(as('opA'), 'messages'), where('tripNo', '==', 'AR-1001-MIA'), where('operatorId', '==', 'opA')))));
 
 // ——— Family / Teen three-party conversation boundary ———————————————————————————————
-await check('authorized guardian can write in Teen Travel', () => assertSucceeds(write('guardA', fromGuardian('rideTeen', rides.rideTeen))));
+await check('authorized guardian cannot bypass authenticated server', () => assertFails(write('guardA', fromGuardian('rideTeen', rides.rideTeen))));
 await check('authorized guardian can read Teen Travel thread', () => assertSucceeds(getDocs(query(collection(as('guardA'), 'messages'), where('tripNo','==','AR-1006-MIA'), where('guardianUid','==','guardA')))));
 await check('unrelated account cannot pose as Teen guardian', () => assertFails(write('mallory', fromGuardian('rideTeen', rides.rideTeen, 'mallory'))));
 await check('traveler cannot pose as guardian', () => assertFails(write('teenA', fromGuardian('rideTeen', rides.rideTeen, 'guardA'))));
@@ -96,27 +103,30 @@ await check('an extra field is refused', () => assertFails(write('travA', { ...f
 await check('text over 2,000 characters is refused', () => assertFails(write('travA', fromTraveler('rideA', rides.rideA, 'travA', { text: 'x'.repeat(2001) }))));
 
 // ——— assignment changes and terminal states ————————————————————————————————————————
-await check('before acceptance: the traveler may write', () => assertSucceeds(write('travA', fromTraveler('rideAssigned', rides.rideAssigned))));
+await check('before acceptance: Traveler must use authenticated server', () => assertFails(write('travA', fromTraveler('rideAssigned', rides.rideAssigned))));
 await check('before acceptance: the operator may not', () => assertFails(write('opA', fromOperator('rideAssigned', rides.rideAssigned))));
 await seed({ rideA: { ...rides.rideA, operatorId: 'opC' } }); // re-offered to operator C
 await check('after reassignment: the former operator can no longer write', () =>
   assertFails(write('opA', fromOperator('rideA', { ...rides.rideA }, 'opA'))));
-await check('after reassignment: the new operator can', () =>
-  assertSucceeds(write('opC', fromOperator('rideA', { ...rides.rideA, operatorId: 'opC' }))));
-await check('after reassignment: the traveler writes to the new operator only', async () => {
-  await assertSucceeds(write('travA', fromTraveler('rideA', { ...rides.rideA, operatorId: 'opC' })));
+await check('after reassignment: the new Operator must use authenticated server', () =>
+  assertFails(write('opC', fromOperator('rideA', { ...rides.rideA, operatorId: 'opC' }))));
+await check('after reassignment: neither forged nor real direct sends are allowed', async () => {
+  await assertFails(write('travA', fromTraveler('rideA', { ...rides.rideA, operatorId: 'opC' })));
   await assertFails(write('travA', fromTraveler('rideA', rides.rideA))); // still addressed to opA
 });
 await check('completed travel: no ordinary message', () => assertFails(write('travA', fromTraveler('rideDone', rides.rideDone))));
-await check('completed travel: a lost item message from the traveler is allowed', () =>
-  assertSucceeds(write('travA', fromTraveler('rideDone', rides.rideDone, 'travA', { lostItemId: 'lost1' }))));
-await check('completed travel: the operator may answer a lost item report', () =>
-  assertSucceeds(write('opA', fromOperator('rideDone', rides.rideDone, 'opA', { lostItemId: 'lost1' }))));
+await check('completed travel: a lost item message cannot bypass server verification', () =>
+  assertFails(write('travA', fromTraveler('rideDone', rides.rideDone, 'travA', { lostItemId: 'lost1' }))));
+await check('completed travel: Operator also needs server-verified lost-item report', () =>
+  assertFails(write('opA', fromOperator('rideDone', rides.rideDone, 'opA', { lostItemId: 'lost1' }))));
 await check('cancelled travel: nothing, not even a lost item message', () =>
   assertFails(write('travA', fromTraveler('rideCancelled', rides.rideCancelled, 'travA', { lostItemId: 'lost1' }))));
 await check('messages cannot be edited or deleted', async () => {
   await seed();
-  const ref = await write('travA', fromTraveler('rideA', rides.rideA));
+  let ref;
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    ref = await addDoc(collection(ctx.firestore(), 'messages'), fromTraveler('rideA', rides.rideA));
+  });
   const { updateDoc, deleteDoc } = await import('firebase/firestore');
   await assertFails(updateDoc(doc(as('travA'), 'messages', ref.id), { text: 'changed' }));
   await assertFails(deleteDoc(doc(as('travA'), 'messages', ref.id)));
