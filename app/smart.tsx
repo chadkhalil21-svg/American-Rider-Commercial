@@ -37,6 +37,7 @@ import { carLegs, clockTime, legTitle, placeName, transitLegs } from '../src/sma
 import { useRide } from '../src/state/RideContext';
 import { useLanguage } from '../src/state/LanguageContext';
 import { colors, fmt } from '../src/theme';
+import { SMART_TRAVEL_NEW_BOOKINGS_ENABLED } from '../src/config';
 
 // The demo's glyphs: 19px, white 1.7 stroke on a solid tile (railIcon(), carIcon()),
 // with a walking figure and a bus drawn to the same rule for the legs the demo never had.
@@ -144,13 +145,13 @@ export default function SmartTravel() {
     if (journey?.stage === 'leg1' && journey.leg1No && !ride.rideActive && !revalidation && !checkingTransit) void checkTransit();
   }, [journey?.stage, journey?.leg1No, ride.rideActive, revalidation, checkingTransit, checkTransit]);
 
-  if (!plan) {
+  if ((!SMART_TRAVEL_NEW_BOOKINGS_ENABLED && !journey) || !plan) {
     return (
       <Screen>
         <LetterheadBar onBack={goBack} />
         <Title>{t('traveler.smartTravelTitle')}</Title>
         <Sub>
-          {ride.smartStatus === 'unavailable'
+          {!SMART_TRAVEL_NEW_BOOKINGS_ENABLED || ride.smartStatus === 'unavailable'
             ? t('traveler.transitUnavailable')
             : t('traveler.noTransitRoute')}
         </Sub>

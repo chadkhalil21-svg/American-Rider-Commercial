@@ -57,7 +57,7 @@ import { useLanguage } from '../src/state/LanguageContext';
 import { useAuth } from '../src/state/AuthContext';
 import { colors, fmt } from '../src/theme';
 import { fetchFamily, type FamilyLink } from '../src/backend/family';
-import { LEGAL_URL } from '../src/config';
+import { LEGAL_URL, SMART_TRAVEL_NEW_BOOKINGS_ENABLED } from '../src/config';
 
 // The demo's search-field magnifier: 18px, muted stroke 1.7.
 function Magnifier() {
@@ -283,6 +283,10 @@ export default function TravelConfirmation() {
       setSmartStatus('idle');
       return undefined;
     }
+    if (!SMART_TRAVEL_NEW_BOOKINGS_ENABLED) {
+      setSmartStatus('unavailable');
+      return undefined; // No planner calls, additional service or Firestore reads.
+    }
     setSmartStatus('checking');
     fetchSmartQuote(tripCoords.pickup, tripCoords.dest).then((q) => {
       if (!live) return;
@@ -295,7 +299,7 @@ export default function TravelConfirmation() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tripCoords, smartLeg]);
 
-  const smart = ride.smartPlan;
+  const smart = SMART_TRAVEL_NEW_BOOKINGS_ENABLED ? ride.smartPlan : null;
   // A JOURNEY WHOSE TRANSIT FARE WE DO NOT KNOW (Brightline, Tri-Rail) is not given a total.
   // The card shows what American Rider charges and says the transit fare is on top; a "less
   // than direct" line built without that fare would be a false comparison.
@@ -744,7 +748,8 @@ export default function TravelConfirmation() {
                     <Pressable
                       accessibilityRole="button"
                       onPress={() => router.navigate('/smart')}
-                      disabled={!smart}
+                      disabled={!smart || !SMART_TRAVEL_NEW_BOOKINGS_ENABLED}
+                      accessibilityState={{ disabled: !smart || !SMART_TRAVEL_NEW_BOOKINGS_ENABLED }}
                     >
                       {/* ONE FACT PER ROW: a head row that fits at 320 (tile · title · price),
                           then the mode line and the comparison each on their own line. */}

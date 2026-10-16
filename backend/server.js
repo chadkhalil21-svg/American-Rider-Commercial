@@ -1638,12 +1638,20 @@ app.post('/route', LIMITS.routeIp, requireServedPickup, async (req, res) => {
 //   503 { status: 'unavailable' }     the planner is not answering — the app says so
 // This used to 404 when rail "did not win", and the app read 404 as "do not show". That gate
 // is withdrawn: the server reports; the client decides emphasis.
+// Deliberate launch pause, NOT a transit-data fee or deletion of Smart Travel code.
+const SMART_TRAVEL_NEW_BOOKINGS_ENABLED = false;
 app.post('/smart-quote', LIMITS.routeIp, requireOperationalReadiness, requireServedPickup, async (req, res) => {
   // OLDER APPS GET THE OLDER ANSWER. TestFlight build 36 reads any 200 as a plan and would
   // render `{ status: 'none' }` as a card reading "Save $NaN", then crash on its legs. An app
   // that does not name the new contract (header X-AR-Smart: 2) is answered the way the old
   // server answered it: 404 and no card. Removable once every tester is on a newer build.
   const speaksV2 = req.get('x-ar-smart') === '2';
+  // Keep all existing apps from starting new Smart Travel; existing journeys can
+  // still revalidate and finish the already authorized second car.
+  if (!SMART_TRAVEL_NEW_BOOKINGS_ENABLED) {
+    if (!speaksV2) return res.status(404).json({ error: 'Smart Travel is currently unavailable' });
+    return res.status(503).json({ status: 'unavailable', code: 'smart_travel_paused' });
+  }
   const out = await smartQuote(req.body?.pickup, req.body?.dest);
   if (!speaksV2) return res.status(404).json({ error: 'Smart Travel needs the current app' });
   if (out.status === 'unavailable') return res.status(503).json({ status: 'unavailable' });

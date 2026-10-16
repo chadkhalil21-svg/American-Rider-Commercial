@@ -43,4 +43,5 @@ export const BUILD_STAMP = process.env.EXPO_PUBLIC_BUILD_STAMP || 'ar-commit:uns
 // Pages copy — a free instance that took ~50 seconds to wake, on the one link App Review is
 // guaranteed to open — no longer holds, and one copy of the wording is better than two that
 // can drift. The pages.dev deployment stays up until the App Store listing is updated.
+export const SMART_TRAVEL_NEW_BOOKINGS_ENABLED = false; // Founder launch pause: keep existing journeys recoverable.
 export const LEGAL_URL = 'https://americanrider.app';

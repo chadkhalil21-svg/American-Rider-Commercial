@@ -6,7 +6,7 @@
 //                emphasis, the server does not decide what a traveler may see
 //   none         no transit route exists for this trip — Smart Travel is shown greyed
 //   unavailable  the planner is not answering (503, network, malformed) — the screen says so
-import { PAYMENT_SERVER_URL } from '../config';
+import { PAYMENT_SERVER_URL, SMART_TRAVEL_NEW_BOOKINGS_ENABLED } from '../config';
 import type { FeeLine } from '../data';
 
 export type SmartLegKind = 'walk' | 'car' | 'transit';
@@ -89,6 +89,7 @@ export async function fetchSmartQuote(
   pickup: { lat: number; lng: number },
   dest: { lat: number; lng: number },
 ): Promise<SmartQuote> {
+  if (!SMART_TRAVEL_NEW_BOOKINGS_ENABLED) return { status: 'unavailable', plan: null };
   try {
     const res = await fetch(`${PAYMENT_SERVER_URL}/smart-quote`, {
       method: 'POST',

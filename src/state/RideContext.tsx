@@ -1,6 +1,7 @@
 import type { SmartPlan } from '../backend/smart';
 import { DEFAULT_DEPARTURE } from '../location';
 import { smartSecondCarKey } from '../smartBookingKey';
+import { SMART_TRAVEL_NEW_BOOKINGS_ENABLED } from '../config';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Crypto from 'expo-crypto';
 import type { FeeLine } from '../data';
@@ -1007,6 +1008,7 @@ export function RideProvider({ children }: { children: React.ReactNode }) {
         lng: stop.lng,
       });
       if (which === 1) {
+        if (!SMART_TRAVEL_NEW_BOOKINGS_ENABLED) return false; // Block stale saved plans at action boundary.
         const leg = plan.legs[firstTransit - 1];
         if (!leg || leg.kind !== 'car' || !tripCoords) return false;
         const dest = stopPlace(plan.from, leg.cents / 100);
