@@ -17,6 +17,15 @@
         "EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID": "623854974930-4muug9hi3jjrml3tokaqh3n2tbd0h2ms.apps.googleusercontent.com",
         "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID": "623854974930-4t4u62mvkeopvlrm6ne15eq6rubn25r9.apps.googleusercontent.com"
       }
+    },
+    "prelaunch-ui-e2e": {
+      "withoutCredentials": true,
+      "ios": {
+        "simulator": true
+      },
+      "android": {
+        "buildType": "apk"
+      }
     }
   },
   "submit": {
