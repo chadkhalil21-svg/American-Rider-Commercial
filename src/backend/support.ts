@@ -113,7 +113,7 @@ export type SupportCase = {
 };
 
 /** The traveler's filed cases, newest first. Never throws; an unreachable server is said. */
-export async function fetchMyCases(): Promise<{ cases: SupportCase[]; unavailable?: string }> {
+export async function fetchMyCases(): Promise<{ cases: SupportCase[]; unavailable?: string; possiblyIncomplete?: boolean }> {
   try {
     const res = await fetch(`${PAYMENT_SERVER_URL}/support/cases`, { headers: await authHeaders() });
     if (!res.ok) return { cases: [], unavailable: `server_${res.status}` };
