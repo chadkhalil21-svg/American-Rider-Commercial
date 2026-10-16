@@ -14,6 +14,15 @@ check('dispatch does not query the entire available fleet',
   !/collection\\('operators'\\)\\.where\\('available',\\s*'==',\\s*true\\)\\.get\\(\\)/.test(server) && server.includes('nearbyOperatorCandidates(db, pickup'),
   'Immediate dispatch uses bounded geographic candidate retrieval.');
 
+const lostItemReturn = server.split("app.post('/travel/return-operator'")[1]
+  ?.split("app.post('/travel/announce'")[0] || '';
+check('lost-item return never reads the entire Operator fleet',
+  !!lostItemReturn &&
+  !/collection\\('operators'\\)\\.get\\(\\)/.test(lostItemReturn) &&
+  lostItemReturn.includes("collection('operators').doc(originalId).get()") &&
+  lostItemReturn.includes('availableOperatorCandidates(db, destination'),
+  'The original Operator is read by ID; fallback is bounded and nearby.');
+
 function fleet(n,now){
  const a=new Array(n);
  for(let i=0;i<n;i++){
@@ -46,7 +55,19 @@ check('1M Travel economics invariant',econBad===0,((performance.now()-et)/1000).
 
 // Candidate reads are bounded by two tiers x nine prefixes x a 120-document saturated-cell ceiling. Fleet growth from
 // 1K to 1M Operators does not change this architectural ceiling.
+// Each saturated prefix is fetched TWICE: first 40 documents, then 120.
+// Billing includes both queries. The previous 2,160 figure covered only the
+// second pages and understated worst-case billable reads by one third.
 const maxCandidateDocs=2*9*120;
+const maxBilledCandidateReads=2*9*(40+120);
+check('saturated geographic scans account for both billed query pages',
+  maxBilledCandidateReads===2880,
+  maxBilledCandidateReads+' document reads per saturated search before other work');
+const conservativeFreeTierTrips=Math.floor(Math.min(
+  50000/(2*maxBilledCandidateReads), 20000/40));
+check('two saturated searches can exhaust free reads before 9 bookings',
+  conservativeFreeTierTrips===8,
+  conservativeFreeTierTrips+' hypothetical Travels/day at zero idle reads/writes; NOT measured capacity');
 for(const [ops,travels] of [[1000,10000],[10000,100000],[50000,1000000],[1000000,1000000]]){
  const upper=BigInt(maxCandidateDocs)*BigInt(travels);
  check('bounded dispatch envelope '+ops+' Operators / '+travels+' Travels',maxCandidateDocs===2160,
