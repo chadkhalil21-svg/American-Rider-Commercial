@@ -92,6 +92,7 @@ export default function PatronSupport() {
   // none is tracked anywhere a screen could state truthfully.
   const [cases, setCases] = useState<SupportCase[]>([]);
   const [casesUnavailable, setCasesUnavailable] = useState(false);
+  const [casesPartial, setCasesPartial] = useState(false);
   const [casesLoading, setCasesLoading] = useState(false);
   const [lost, setLost] = useState<LostItem[]>([]);
 
@@ -104,6 +105,7 @@ export default function PatronSupport() {
     if (result.unavailable) setCasesUnavailable(true);
     else {
       setCases(result.cases);
+      setCasesPartial(result.possiblyIncomplete === true);
       setCasesUnavailable(false);
     }
     setCasesLoading(false);
@@ -240,6 +242,11 @@ export default function PatronSupport() {
             onPress={() => { void refreshCases(); }} style={styles.linkRow}>
             <Text style={styles.link}>{t('traveler.retryCases')}</Text>
           </Pressable>
+        </Card>
+      )}
+      {ride.issueState === null && casesPartial && !casesUnavailable && (
+        <Card style={styles.regardingCard}>
+          <Text style={styles.caseMeta}>{t('traveler.caseHistoryPartial')}</Text>
         </Card>
       )}
       {ride.issueState === null && caseRows.length > 0 && (
