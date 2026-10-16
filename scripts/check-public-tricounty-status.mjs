@@ -52,6 +52,16 @@ try {
     console.log('LIVE_COMMERCIAL_WEBHOOK '+field(body.webhook));
     console.log('LIVE_COMMERCIAL_RECEIPTS '+field(body.receipts));
     console.log('LIVE_COMMERCIAL_OPS_AUTH '+field(body.opsAuth));
+    // A paid Travel needs a real eligible Operator. Count registrations and
+    // on-duty indications without leaking identities or pretending that an
+    // available flag proves true dispatch eligibility.
+    const count=value=>Number.isSafeInteger(value)&&value>=0?String(value):'UNKNOWN';
+    console.log('LIVE_FLEET_REGISTERED '+count(body.fleet?.operators));
+    console.log('LIVE_FLEET_AVAILABLE '+count(body.fleet?.available));
+    console.log('LIVE_FLEET_DISPATCHABLE '+count(body.fleet?.dispatchable));
+    console.log('LIVE_FLEET_DIAGNOSTIC '+(body.fleet?.dispatchable===null?'PER_TRAVEL_ELIGIBILITY_REQUIRED':'PUBLIC_COUNT_ONLY'));
+    console.log('LIVE_SUPPORT_REACHABLE '+flag(body.support?.canReachAHuman));
+    console.log('LIVE_SCHEDULED_SWEEP '+flag(body.scheduledTravel?.sweeping));
   }
 }catch(e){
   console.log('LIVE_COMMERCIAL_READINESS_UNVERIFIED: '+String(e?.message||e).slice(0,160));
