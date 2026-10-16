@@ -61,7 +61,7 @@ function uploadContentType(selected: SelectedDocument, blob: Blob): string | nul
   const fromBlob = (blob.type || '').toLowerCase();
   const type = ACCEPTED_TYPES.has(reported) ? reported :
     ACCEPTED_TYPES.has(fromBlob) ? fromBlob :
-    /\\.pdf(?:$|[?#])/i.test(selected.name || selected.uri) ? 'application/pdf' : '';
+    /\.pdf(?:$|[?#])/i.test(selected.name || selected.uri) ? 'application/pdf' : '';
   return type || null;
 }
 
