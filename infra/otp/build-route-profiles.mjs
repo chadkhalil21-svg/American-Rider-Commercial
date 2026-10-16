@@ -2,7 +2,8 @@
 // Build a verified weekday/Saturday/Sunday bus-route allow-list from the exact
 // same refreshed GTFS zip files used to build the OTP graph. Offline and free.
 // Usage: node infra/otp/build-route-profiles.mjs --out /path/routes.json
-// Run only after refreshing all five official feeds and rebuilding OTP's graph.
+// Run after refreshing the three bus agencies' official GTFS files; rail feeds
+// are independent and must never block the bus timetable decision.
 import { spawnSync } from 'node:child_process';
 import { mkdtempSync, readFileSync, writeFileSync, renameSync, rmSync, existsSync } from 'node:fs';
 import { tmpdir, homedir } from 'node:os';
@@ -21,7 +22,6 @@ const dataIndex = args.indexOf('--data');
 const dataDir = resolve(dataIndex >= 0 && args[dataIndex + 1] ? args[dataIndex + 1] : join(homedir(), 'otp-data', 'build'));
 const feeds = [
   ['MDT', 'mdt-gtfs.zip'], ['BCT', 'bct-gtfs.zip'], ['PALMTRAN', 'palmtran-gtfs.zip'],
-  ['SFRTA', 'sfrta-gtfs.zip'], ['BRIGHTLINE', 'brightline-gtfs.zip'],
 ];
 const localDate = new Intl.DateTimeFormat('en-US', {
   timeZone: 'America/New_York', year: 'numeric', month: '2-digit', day: '2-digit',
@@ -48,7 +48,7 @@ try {
   const result = {
     generatedAt: new Date().toISOString(),
     region: 'fl-southeast',
-    source: 'Agency GTFS schedule files used by OpenTripPlanner',
+    source: 'Three public bus-agency GTFS schedule files also used by OpenTripPlanner',
     profiles: {},
     profileReferences: {},
   };
