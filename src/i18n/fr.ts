@@ -577,7 +577,6 @@ export default {
     qualInsurance: 'Assurance Commerciale',
     qualInsuranceSub: 'Couverture transport de personnes',
     qualProgress: '%{n} sur %{total} vérifiés · à compléter dans n’importe quel ordre. Votre progression est enregistrée.',
-    qualVerifyAll: 'Vérifiez les %{total} pour continuer',
     qualSubmitReview: 'Soumettre pour Examen',
     bgScreeningTitle: 'Vérification',
     bgScreeningIntro: 'Effectuez la vérification exigée pour le marché où vous opérez. Vous payez directement le prestataire; American Rider ne facture aucuns frais de vérification.',
