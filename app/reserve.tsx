@@ -57,6 +57,7 @@ import { useLanguage } from '../src/state/LanguageContext';
 import { useAuth } from '../src/state/AuthContext';
 import { colors, fmt } from '../src/theme';
 import { fetchFamily, type FamilyLink } from '../src/backend/family';
+import { travelPartyReady } from '../src/travelPartyReadiness';
 import { LEGAL_URL, SMART_TRAVEL_NEW_BOOKINGS_ENABLED } from '../src/config';
 
 // The demo's search-field magnifier: 18px, muted stroke 1.7.
@@ -417,7 +418,7 @@ export default function TravelConfirmation() {
   // sheet happens to be showing while the server is computing a different one. And a travel
   // that cannot be charged, or that American Rider does not make, is not one to confirm.
   const busy = pricing || ride.repricing;
-  const partyReady = ride.travelParty.mode === 'self' || (ride.travelParty.mode === 'other_adult' && ride.travelParty.travelerName.trim().length > 0);
+  const partyReady = travelPartyReady(ride.travelParty);
   const canReserve = payConfig.canTakePayment && partyReady && authoritativePriceReady && !!ride.tripCoords && !busy && !priceFailed && !unavailable;
   // Explicit informed consent, not a background price quote or a passive screen
   // render, is the only way the research endpoint receives a view observation.
