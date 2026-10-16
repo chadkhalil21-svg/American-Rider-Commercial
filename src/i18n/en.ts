@@ -848,6 +848,7 @@ export default {
     keepMyAccount: 'Keep my account',
     configureThisTravel: 'Your preferred cabin environment is applied to future Travel.',
     completedTravelAppears: 'Completed Travel appears here, with its receipt and details.',
+    pickupMapLocationUnavailable: 'Pickup location is unavailable',
     mapNeedsApp: 'Choosing a pickup on the map needs the iPhone app',
     searchByNameInstead: 'You can still search for a pickup spot by name.',
     shareTravelBtn: 'Share Travel',

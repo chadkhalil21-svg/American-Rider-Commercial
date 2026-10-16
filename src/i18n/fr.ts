@@ -834,6 +834,7 @@ export default {
     keepMyAccount: 'Conserver mon compte',
     configureThisTravel: 'Vos préférences de cabine s’appliquent aux futurs Trajets.',
     completedTravelAppears: "Le Travel terminé apparaît ici, avec son reçu et ses détails.",
+    pickupMapLocationUnavailable: 'Le lieu de prise en charge est indisponible',
     mapNeedsApp: 'Choisir une prise en charge sur la carte nécessite l’application iPhone',
     searchByNameInstead: 'Vous pouvez rechercher un point de prise en charge par son nom.',
     shareTravelBtn: 'Partager le Trajet',

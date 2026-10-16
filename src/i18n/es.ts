@@ -844,6 +844,7 @@ export default {
     keepMyAccount: 'Conservar mi cuenta',
     configureThisTravel: 'Sus preferencias de cabina se aplican a futuros Viajes.',
     completedTravelAppears: "El Travel completado aparece aquí, con su recibo y sus detalles.",
+    pickupMapLocationUnavailable: 'No se puede determinar el punto de recogida',
     mapNeedsApp: 'Elegir la recogida en el mapa requiere la aplicación de iPhone',
     searchByNameInstead: 'Puede buscar un punto de recogida por su nombre.',
     shareTravelBtn: 'Compartir Viaje',

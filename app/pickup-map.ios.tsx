@@ -17,9 +17,9 @@ import { Text } from '../src/components/AppText';
 import { PrimaryButton } from '../src/components/UI';
 import { useRide } from '../src/state/RideContext';
 import { useLanguage } from '../src/state/LanguageContext';
+import { pickupMapOrigin, validMapCoordinate } from '../src/pickupMapOrigin';
 import { colors, radii } from '../src/theme';
 
-const MIAMI = { latitude: 25.7743, longitude: -80.1937 };
 // How long the map must sit still before we ask Apple what address it's over. Reverse-geocoding
 // on every frame of a drag would hammer the OS and make the label flicker.
 const SETTLE_MS = 450;
@@ -33,6 +33,8 @@ export default function PickupMap() {
   const [start, setStart] = useState<{ latitude: number; longitude: number } | null>(null);
   const [label, setLabel] = useState(t('traveler.moveMapToSetPickup'));
   const [looking, setLooking] = useState(false);
+  const [locationUnavailable, setLocationUnavailable] = useState(false);
+  const addressRevision = useRef(0);
   const settleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Open on the traveler's own location when they've allowed it — that's almost always where
@@ -40,32 +42,34 @@ export default function PickupMap() {
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const existing = ride.pickupPin;
-      if (existing) {
-        if (!cancelled) setStart({ latitude: existing.lat, longitude: existing.lng });
+      // A previously selected pin or verified departure takes priority. No Miami default.
+      const selected = pickupMapOrigin(ride.pickupPin, ride.departure);
+      if (selected) {
+        if (!cancelled) setStart(selected);
         return;
       }
       try {
         const { status } = await Location.requestForegroundPermissionsAsync();
         if (status === 'granted') {
           const pos = await Location.getCurrentPositionAsync({});
-          if (!cancelled) {
-            setStart({ latitude: pos.coords.latitude, longitude: pos.coords.longitude });
+          if (validMapCoordinate(pos.coords.latitude, pos.coords.longitude)) {
+            if (!cancelled) setStart({ latitude: pos.coords.latitude, longitude: pos.coords.longitude });
             return;
           }
         }
       } catch {
-        // Location refused or unavailable — Miami is a reasonable place to start.
+        // A denied or failed location lookup must not invent an origin.
       }
-      if (!cancelled) setStart(MIAMI);
+      if (!cancelled) setLocationUnavailable(true);
     })();
     return () => {
       cancelled = true;
     };
-  }, [ride.pickupPin]);
+  }, [ride.pickupPin, ride.departure.lat, ride.departure.lng, ride.departure.resolved]);
 
   // Ask what address the pin is over, once the map has stopped moving.
   const describe = useCallback(async (c: { latitude: number; longitude: number }) => {
+    const revision = ++addressRevision.current;
     setLooking(true);
     try {
       const [place] = await Location.reverseGeocodeAsync({
@@ -76,28 +80,34 @@ export default function PickupMap() {
         const line = [place.name, place.street, place.city].filter(Boolean);
         // name and street are often the same string ("136 SW"); don't say it twice.
         const deduped = line.filter((v, i) => line.indexOf(v) === i);
-        setLabel(deduped.join(', ') || 'Dropped pin');
+        if (addressRevision.current === revision) setLabel(deduped.join(', ') || 'Dropped pin');
       } else {
-        setLabel('Dropped pin');
+        if (addressRevision.current === revision) setLabel('Dropped pin');
       }
     } catch {
-      setLabel('Dropped pin');
+      if (addressRevision.current === revision) setLabel('Dropped pin');
     } finally {
-      setLooking(false);
+      if (addressRevision.current === revision) setLooking(false);
     }
   }, []);
+
+  // The untouched initial pin needs an address too, before it can be confirmed.
+  useEffect(() => { if (start) void describe(start); }, [start, describe]);
 
   const onCameraMove = useCallback(
     (e: { coordinates?: { latitude?: number; longitude?: number } }) => {
       const lat = e?.coordinates?.latitude;
       const lng = e?.coordinates?.longitude;
-      if (typeof lat !== 'number' || typeof lng !== 'number') return;
-      const c = { latitude: lat, longitude: lng };
+      if (!validMapCoordinate(lat, lng) || typeof lng !== 'number') return;
+      const c = { latitude: Number(lat), longitude: Number(lng) };
+      addressRevision.current++;
       setCenter(c);
+      setLooking(true);
+      setLabel(t('traveler.moveMapToSetPickup'));
       if (settleTimer.current) clearTimeout(settleTimer.current);
       settleTimer.current = setTimeout(() => describe(c), SETTLE_MS);
     },
-    [describe],
+    [describe, t],
   );
 
   useEffect(() => () => {
@@ -106,7 +116,7 @@ export default function PickupMap() {
 
   const confirm = () => {
     const c = center ?? start;
-    if (!c) return;
+    if (!c || looking || label === t('traveler.moveMapToSetPickup')) return;
     const pin = { lat: c.latitude, lng: c.longitude };
     ride.setPickupPin(pin);
     // THE PIN'S COORDINATES TRAVEL WITH IT. This set only a name and a short label, so the
@@ -131,7 +141,13 @@ export default function PickupMap() {
   };
 
   if (!start) {
-    return (
+    return locationUnavailable ? (
+      <View style={styles.unavailable}>
+        <Text style={styles.unavailableTitle}>{t('traveler.pickupMapLocationUnavailable')}</Text>
+        <Text style={styles.unavailableText}>{t('traveler.searchByNameInstead')}</Text>
+        <PrimaryButton label={t('traveler.backToTravel')} onPress={() => router.back()} />
+      </View>
+    ) : (
       <View style={styles.loading}>
         <ActivityIndicator color={colors.blue} />
       </View>
@@ -165,7 +181,7 @@ export default function PickupMap() {
           </Text>
           {looking && <ActivityIndicator size="small" color={colors.muted} />}
         </View>
-        <PrimaryButton label={t('traveler.setPickupHere')} onPress={confirm} />
+        <PrimaryButton label={t('traveler.setPickupHere')} onPress={confirm} disabled={looking || label === t('traveler.moveMapToSetPickup')} />
       </View>
     </View>
   );
@@ -174,6 +190,9 @@ export default function PickupMap() {
 const styles = StyleSheet.create({
   fill: { flex: 1, backgroundColor: colors.mapBg },
   loading: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.bg },
+  unavailable: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 28, gap: 14, backgroundColor: colors.bg },
+  unavailableTitle: { fontSize: 20, fontWeight: '600', color: colors.ink, textAlign: 'center' },
+  unavailableText: { fontSize: 15, color: colors.muted, textAlign: 'center' },
   // The pin sits dead centre, lifted by half the sheet so it isn't hidden behind it.
   pinWrap: {
     position: 'absolute',
