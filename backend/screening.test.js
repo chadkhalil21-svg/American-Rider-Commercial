@@ -151,7 +151,8 @@ check('insurance status refreshed automatically when phone returns from broker c
   insuranceMobile.includes('useFocusEffect(useCallback(') &&
   insuranceMobile.includes("AppState.addEventListener('change'") &&
   insuranceMobile.includes("state === 'active'") &&
-  insuranceMobile.includes('void refresh();'));
+  insuranceMobile.includes('void refresh();') &&
+  insuranceMobile.includes('previousDocumentState.current !== op.docs.insurance'));
 
 let bad = 0;
 for (const r of R) { if (!r.ok) bad++; console.log(`${r.ok ? 'PASS' : 'FAIL'}  ${r.l}${r.ok ? '' : '  <-- ' + r.d}`); }
