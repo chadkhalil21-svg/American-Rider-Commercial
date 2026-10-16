@@ -3,11 +3,11 @@
 // ("You retain final discretion"), Confirm Arrival → Commence Travel.
 import { useRouter } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { Text } from '../../src/components/AppText';
 import { OperatorMap } from '../../src/components/operator';
 import { Avatar, Card, Mono, Num, PrimaryButton, Screen, SectionLabel } from '../../src/components/UI';
-import { verificationCode } from '../../src/verification';
+import { operatorPickupStatus, verifyOperatorPickupCode } from '../../src/backend/pickupVerification';
 import { CheckInCard } from '../../src/components/CheckInCard';
 import { useOperator } from '../../src/state/OperatorContext';
 import { useLanguage } from '../../src/state/LanguageContext';
@@ -20,6 +20,10 @@ export default function OperatorPickup() {
   const active = op.op;
   const [transitioning, setTransitioning] = useState(false);
   const [transitionError, setTransitionError] = useState<string | null>(null);
+  const [pickupEntry, setPickupEntry] = useState('');
+  const [codeRequired, setCodeRequired] = useState(false);
+  const [codeVerified, setCodeVerified] = useState(false);
+  const [pickupChecking, setPickupChecking] = useState(false);
 
   // Cold-open guard only: cancelling clears `op` while its own navigation runs —
   // don't race it.
@@ -31,6 +35,15 @@ export default function OperatorPickup() {
   if (!active) return <Screen scroll={false}>{null}</Screen>;
 
   const arrived = op.arrived;
+  useEffect(() => {
+    let live=true;
+    setPickupEntry('');setCodeRequired(false);setCodeVerified(false);
+    if(!active?.rideId || !arrived || active.teen) return () => {live=false;};
+    void operatorPickupStatus(active.rideId).then(state=>{
+      if(live){setCodeRequired(state.required);setCodeVerified(state.verified);}
+    }).catch(()=>{ /* commencement rechecks with the authoritative server */ });
+    return () => {live=false;};
+  },[active?.rideId,arrived,active?.teen]);
 
   return (
     <Screen>
@@ -95,15 +108,21 @@ export default function OperatorPickup() {
         </View>
       </Card>
 
-      {/* The traveler's screen shows the same code for this travel (src/verification.ts) and
-          asks them to request it before boarding. */}
-      <Card style={styles.codeCard}>
-        <SectionLabel>{t('operator.verificationCode')}</SectionLabel>
-        <Mono size={26} weight="600" style={{ marginTop: 8, letterSpacing: 1.3 }}>
-          {verificationCode(active.tripNo ?? active.no)}
-        </Mono>
-        <Text style={styles.codeBody}>{t('operator.verificationCodeSub')}</Text>
-      </Card>
+      {/* Neither Teen nor adult proof is disclosed to the Operator. The Traveler
+          supplies the code after confirming the car and plate. */}
+      {(active.teen || codeRequired) ? (
+        <Card style={styles.codeCard}>
+          <SectionLabel>{t('operator.verificationCode')}</SectionLabel>
+          <Text style={styles.codeBody}>{t('operator.enterPrivatePickupCode')}</Text>
+          <TextInput accessibilityLabel={t('operator.enterPrivatePickupCode')}
+            keyboardType="number-pad" value={pickupEntry}
+            onChangeText={value=>setPickupEntry(value.replace(/\D/g,'').slice(0,active.teen?4:6))}
+            maxLength={active.teen?4:6}
+            placeholder={active.teen?'••••':'••••••'}
+            style={{fontSize:24,letterSpacing:3,color:colors.ink,paddingVertical:12}}/>
+          {codeVerified ? <Text style={styles.codeBody}>{t('traveler.pickupCodeVerified')}</Text> : null}
+        </Card>
+      ) : null}
 
       {active.cabinPreferences ? (
         <Card style={styles.prefsCard}>
@@ -157,13 +176,33 @@ export default function OperatorPickup() {
         <PrimaryButton
           label={t('operator.commenceTravel')}
           color={colors.green}
-          disabled={transitioning}
+          disabled={transitioning || pickupChecking}
           onPress={async () => {
             setTransitioning(true); setTransitionError(null);
-            const ok = await op.beginTrip();
-            setTransitioning(false);
-            if (ok) router.replace('/operator/trip');
-            else setTransitionError(t('traveler.errGeneric'));
+            try {
+              if (active.teen && !/^\d{4}$/.test(pickupEntry)) {
+                setTransitionError(t('operator.enterPrivatePickupCode'));return;
+              }
+              if (!active.teen && active.rideId) {
+                setPickupChecking(true);
+                const state = await operatorPickupStatus(active.rideId);
+                setCodeRequired(state.required);setCodeVerified(state.verified);
+                if (state.required && !state.verified) {
+                  if (!/^\d{6}$/.test(pickupEntry)) {
+                    setTransitionError(t('operator.enterPrivatePickupCode'));return;
+                  }
+                  if (!await verifyOperatorPickupCode(active.rideId,pickupEntry)) {
+                    setTransitionError(t('traveler.pickupCodeUnavailable'));return;
+                  }
+                  setCodeVerified(true);
+                }
+              }
+              const ok = await op.beginTrip(active.teen ? pickupEntry : undefined);
+              if (ok) router.replace('/operator/trip');
+              else setTransitionError(t('traveler.errGeneric'));
+            } catch {
+              setTransitionError(t('traveler.pickupCodeUnavailable'));
+            } finally { setPickupChecking(false);setTransitioning(false); }
           }}
           style={{ marginTop: 24 }}
         />
