@@ -830,7 +830,7 @@ app.post('/operator/support', requireAuth, requireVerifiedEmail, LIMITS.support,
 app.get('/support/cases', requireAuth, async (req, res) => {
   try {
     const cases = await listTickets(req.uid);
-    return res.json({ cases });
+    return res.json({ cases, possiblyIncomplete: cases.possiblyIncomplete === true });
   } catch (e) {
     return res.status(502).json({ error: 'Your cases could not be read', detail: String(e && e.message || e) });
   }
