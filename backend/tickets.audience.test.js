@@ -17,7 +17,7 @@ const db={collection(name){
  assert.equal(name,'support_tickets');
  return {where(field,op,uid){
  assert.equal(field,'uid'); assert.equal(op,'==');
- return {get:async()=>({docs:cases.filter(c=>c.uid===uid).map(c=>({data:()=>c}))})};
+ return {limit(n){assert.ok(n<=100);return {get:async()=>({docs:cases.filter(c=>c.uid===uid).slice(0,n).map(c=>({data:()=>c}))})};}};
  }};
 }};
 (async()=>{
@@ -25,6 +25,6 @@ const db={collection(name){
  assert.deepEqual(rows.map(r=>r.caseNo),['AR-C-PATRON2','AR-C-PATRON1']);
  assert.equal(rows[0].acknowledgedAt,11);
  assert.equal(rows[1].acknowledgedAt,null);
- await assert.rejects(listTickets('test',{database:null}),/Support case records are unavailable/).catch(()=>{});
+ await assert.rejects(listTickets('test',{database:{collection(){throw Error('case store down')}}}),/case store down/);
  console.log('PASS Operator screening/insurance excluded from Patron history; receipt and acknowledgment retained');
 })().catch(e=>{console.error(e);process.exitCode=1});
