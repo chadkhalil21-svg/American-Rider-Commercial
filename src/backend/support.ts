@@ -109,6 +109,7 @@ export type SupportCase = {
   createdAt: number;
   tripNo: string | null;
   status: string;
+  acknowledgedAt?: number | null;
 };
 
 /** The traveler's filed cases, newest first. Never throws; an unreachable server is said. */
