@@ -48,7 +48,8 @@ async function progressTravel({ db, uid, rideId, status, now = Date.now() }) {
     if (next === 'onboard' && ride.adultPickup?.required === true &&
         ride.party?.teen !== true &&
         (!Number.isSafeInteger(ride.adultPickup?.verifiedAt) ||
-         ride.adultPickup.verifiedAt <= 0 || ride.adultPickup.verifiedAt > now)) {
+         ride.adultPickup.verifiedAt <= 0 || ride.adultPickup.verifiedAt > now ||
+         String(ride.adultPickup.verifiedBy||'') !== String(uid||''))) {
       return fail(409, 'Verify the Traveler pickup code before boarding.', 'adult_pickup_unverified');
     }
 
