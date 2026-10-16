@@ -225,6 +225,46 @@ const codes = (a) => a.blockers.map((b) => b.code);
       /verdict:'review'/.test(src) && /required = 'A qualified person/.test(src));
   }
 
+  // ——— 4c. The real human-review path must not bypass active insurer evidence —————
+  {
+    const reviewed = cleanUser();
+    reviewed.documents.insurance.verdict = 'review';
+    reviewed.documents.insurance.decision = {
+      verdict: 'accept', note: 'Original policy reviewed',
+      expiry: '2028-01-31', commercialUse: 'yes', limitDollars: 1000000,
+      verified: {
+        insuredConfirmed: true, vehicleConfirmed: true,
+        effectiveDate: '2026-01-01', tncUse: 'yes', rideCombinedDollars: 1000000,
+        loggedOnPerPersonDollars: 50000, loggedOnPerIncidentDollars: 100000,
+        loggedOnPropertyDamageDollars: 25000, pipDollars: 10000,
+        uninsuredMotorist: 'yes',
+      },
+    };
+    reviewed.insuranceMonitoring = null;
+    const missing = A(reviewed);
+    check('4c. person accepts policy, but no independent insurer evidence => not qualified',
+      !missing.qualified && codes(missing).includes('insurance_status_unverified'),
+      JSON.stringify(missing.blockers));
+    const { qualifyingInsuranceDocument } = require('./qualification');
+    check('4c. document human approval is valid independently from active insurance', qualifyingInsuranceDocument(reviewed, NOW));
+    reviewed.insuranceMonitoring = {
+      status: 'verified_active', source: 'verified_broker',
+      lastVerifiedAt: NOW - 1000, nextVerificationDueAt: NOW + 30 * 864e5,
+    };
+    check('4c. human-accepted full policy plus independently current insurer status qualifies',
+      A(reviewed).qualified, JSON.stringify(A(reviewed).blockers));
+    reviewed.insuranceMonitoring.status = 'cancelled';
+    check('4c. carrier cancellation after human document approval immediately disqualifies',
+      !A(reviewed).qualified && codes(A(reviewed)).includes('insurance_cancelled'));
+    const server = fs.readFileSync(path.join(__dirname, 'server.js'), 'utf8');
+    check('4c. authorize and attest require effective human-reviewed policy',
+      server.includes('qualifyingInsuranceDocument(u)') &&
+      server.includes('documentApproved: qualifyingInsuranceDocument(u)'));
+    check('4c. even a held replacement document invalidates old insurer status',
+      server.includes("if (kind === 'insurance') {") &&
+      server.includes('initialMonitoringFromDocument(monitoringDoc)'));
+  }
+
   // ——— 5. Checkr screening in production ————————————————————————————————————————————
   {
     check('5. no screening, live money: not qualified', codes(A(cleanUser({ screening: null }))).includes('screening_required'));
