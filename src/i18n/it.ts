@@ -826,6 +826,7 @@ export default {
     keepMyAccount: 'Mantenere il mio account',
     configureThisTravel: 'Le sue preferenze di cabina si applicano ai Viaggi futuri.',
     completedTravelAppears: "Il Travel completato appare qui, con ricevuta e dettagli.",
+    pickupMapLocationUnavailable: 'Il luogo di ritiro non è disponibile',
     mapNeedsApp: 'Scegliere il ritiro sulla mappa richiede l’app per iPhone',
     searchByNameInstead: 'Può cercare un punto di ritiro per nome.',
     shareTravelBtn: 'Condividere il Viaggio',
