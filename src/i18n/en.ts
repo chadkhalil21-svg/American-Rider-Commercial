@@ -537,7 +537,7 @@ export default {
     driveInControl: 'Independent Dispatch Autonomy',
     driveInControlBody: 'Operate when you want and where you want. American Rider never assigns you a zone, and never penalizes you for declining a travel.',
     drivePayouts: 'Capital Settlement',
-    emgLocationShared: 'Your location was shared.',
+    emgLocationShared: 'Your sharing app was opened. Delivery to the recipient is not confirmed.',
     emgNoShareSheet: 'This device could not open a way to send the message.',
     emgNoCalls: 'This device cannot place calls. Use another phone to dial 911.',
     switchToOperator: 'Switch to Operator view',
