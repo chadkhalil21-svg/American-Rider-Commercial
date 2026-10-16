@@ -570,7 +570,6 @@ export default {
     qualInsurance: 'Assicurazione Commerciale',
     qualInsuranceSub: 'Copertura per trasporto di persone',
     qualProgress: '%{n} di %{total} verificati · può completarli in qualsiasi ordine. I suoi progressi sono salvati.',
-    qualVerifyAll: 'Verifichi tutti e %{total} per continuare',
     qualSubmitReview: 'Inviare per l’Esame',
     bgScreeningTitle: 'Verifica',
     bgScreeningIntro: 'Completi la verifica richiesta per il mercato in cui opera. Paga direttamente il fornitore; American Rider non applica alcuna commissione di verifica.',
