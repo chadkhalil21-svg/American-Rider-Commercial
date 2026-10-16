@@ -6,9 +6,9 @@
 // component, so the map reads as part of the app rather than a third party's window in it.
 // This supersedes the 9 September "iPhone = Apple Maps" (Chad, 13 September).
 //
-// CONTEXT, NOT A CONTROL. The frame swallows touches: it neither pans nor zooms nor opens
-// anything, and the screen scrolls straight over it. Every ornament is off; the attribution
-// OpenStreetMap's licence requires is printed beneath the frame, in words, where it can be read.
+// Route previews remain noninteractive to preserve sheet scrolling. The home map opts in to
+// standard gestures, so travelers can pan and zoom instead of looking at a frozen tile.
+// OpenStreetMap attribution remains visible beneath both.
 //
 // NOT ON WEB. MapLibre React Native is native-only; HomeMap.web.tsx and RouteMap.web.tsx render
 // nothing there, and the itinerary is stated in words either way.
@@ -26,25 +26,28 @@ export function MonoMap({
   view,
   frameKey,
   children,
+  interactive = false,
 }: {
   /** Where the camera starts: a centre and zoom, or bounds to fit. */
   view: InitialViewState;
   /** Changes when the map must re-frame (the camera is set once, at mount). */
   frameKey: string;
   children?: React.ReactNode;
+  /** Home map supports pan/zoom; route previews stay noninteractive. */
+  interactive?: boolean;
 }) {
   const { t } = useLanguage();
   return (
     <View style={styles.wrap}>
-      <View style={styles.frame} pointerEvents="none">
+      <View style={styles.frame} pointerEvents={interactive ? "auto" : "none"}>
         <Map
           key={frameKey}
           style={StyleSheet.absoluteFill}
           mapStyle={monoStyle}
-          dragPan={false}
-          touchZoom={false}
-          doubleTapZoom={false}
-          doubleTapHoldZoom={false}
+          dragPan={interactive}
+          touchZoom={interactive}
+          doubleTapZoom={interactive}
+          doubleTapHoldZoom={interactive}
           touchRotate={false}
           touchPitch={false}
           logo={false}
