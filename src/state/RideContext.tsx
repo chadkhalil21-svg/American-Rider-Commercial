@@ -770,11 +770,18 @@ export function RideProvider({ children }: { children: React.ReactNode }) {
       ridesCursorRef.current = page.cursor;
       setHasOlderMyRides(page.hasMore);
       recentLoadedAtRef.current = { uid, at: Date.now() };
-      // All-time totals come from a server-side aggregate, not the first 25 records.
-      // A missing index leaves the old value alone, never invents an all-time total.
-      void fetchCompletedTravelStats().then((totals) => {
-        if (auth.currentUser?.uid === uid) setStats(totals);
-      }).catch(() => {});
+      // If all history fits in one page, the local exact sum costs NO aggregation read.
+      // Only older accounts need the server-side indexed count/sum query.
+      if (!page.hasMore) {
+        const done = rides.filter((r) => r.status === 'completed');
+        setStats({ trips: done.length,
+          spent: done.reduce((total, r) => total + r.totalCents, 0) / 100 });
+      } else {
+        // A missing index leaves the old value alone, never invents totals from 25 rows.
+        void fetchCompletedTravelStats().then((totals) => {
+          if (auth.currentUser?.uid === uid) setStats(totals);
+        }).catch(() => {});
+      }
       // Historic client-generated Travel Numbers must not restart at 2072 when an
       // account has 1,000 records but we load only 25. Carry forward the highest
       // real sequence visible in the most-recent chronological page.
