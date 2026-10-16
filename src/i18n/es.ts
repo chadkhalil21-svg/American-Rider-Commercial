@@ -674,7 +674,6 @@ export default {
     delEveryTrip: 'Se elimina su acceso al historial de viajes y a los recibos.',
     delEverythingDevice: 'Datos Locales de la Aplicación',
     musicSourceOnArrival: 'Elija la fuente o la lista con su Operador al subir.',
-    selectDestAgain: 'Seleccione de nuevo el destino para confirmar el importe.',
     retryTravelCost: 'Reintentar el costo del viaje',
     quoteTollUnavailable: 'No se pueden verificar los peajes por el momento. Inténtelo de nuevo.',
     quoteLocationUnresolved: 'No se pudo localizar con precisión el origen o destino. Elija una dirección o inténtelo de nuevo.',
