@@ -15,7 +15,8 @@ const SERVICE = 's3';
 const ready = () => !!(ACCOUNT_ID && ACCESS_KEY_ID && SECRET_ACCESS_KEY && BUCKET);
 
 const safePart = (v) => String(v || '').replace(/[^a-zA-Z0-9._-]/g, '').slice(0, 100);
-const allowedType = (v) => /^image\/(jpeg|png|webp|heic|heif)$/i.test(String(v || ''));
+const allowedType = (purpose, v) => /^image\/(jpeg|png|webp|heic|heif)$/i.test(String(v || '')) ||
+  (purpose === 'operator-document' && String(v || '').toLowerCase() === 'application/pdf');
 
 function objectKey({ uid, purpose, kind, id }) {
   const owner = safePart(uid);
@@ -63,7 +64,7 @@ function presign({ method, key, expires = 300 }) {
 async function uploadUrl({ uid, purpose, kind, contentType, id }) {
   const key = objectKey({ uid, purpose, kind, id });
   if (!ready() || !key) return { ok: false, code: 'storage_not_configured' };
-  if (!allowedType(contentType)) return { ok: false, code: 'unsupported_type' };
+  if (!allowedType(purpose, contentType)) return { ok: false, code: 'unsupported_type' };
   return { ok: true, key, url: presign({ method: 'PUT', key }) };
 }
 async function readUrl(key) { return presign({ method: 'GET', key }); }

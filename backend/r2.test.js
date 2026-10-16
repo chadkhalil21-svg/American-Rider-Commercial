@@ -18,6 +18,13 @@ const r2 = require('./r2');
   assert.match(a.url, /X-Amz-Expires=300/);
   assert.ok(!a.url.includes('secret123'));
 
+  const pdf = await r2.uploadUrl({ uid: 'user_A', purpose: 'operator-document', kind: 'insurance', contentType: 'application/pdf', id: 'pdf' });
+  assert.equal(pdf.ok, true);
+  assert.equal(r2.owns(pdf.key, 'user_A', 'operator-document'), true);
+  assert.equal(r2.owns(pdf.key, 'user_B', 'operator-document'), false);
+  const lostPdf = await r2.uploadUrl({ uid: 'user_A', purpose: 'lost-item', contentType: 'application/pdf', id: 'not-supported' });
+  assert.equal(lostPdf.code, 'unsupported_type');
+
   const lost = await r2.uploadUrl({ uid: 'user_A', purpose: 'lost-item', contentType: 'image/png', id: 'def' });
   assert.equal(lost.ok, true);
   assert.equal(r2.owns(lost.key, 'user_A', 'lost-item'), true);

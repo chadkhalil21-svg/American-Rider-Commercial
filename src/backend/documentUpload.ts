@@ -5,16 +5,16 @@
 // every one approved by a countdown, and no image ever captured, so there was nothing to
 // approve even in principle.
 //
-// The document now goes to Firebase Storage and its URL to the server, which reads it with
-// Claude and applies the written standard in backend/documents.js. What comes back is one of
-// three answers — accepted, refused with a reason, or held for a person — and an operator
-// never drives on the third.
+// Documents go to private R2 storage. Images are OCR-read and PDFs await qualified
+// human review. No automatically read document is clearance to commence operations.
 import * as ImagePicker from 'expo-image-picker';
+import * as DocumentPicker from 'expo-document-picker';
 import { auth } from '../firebase';
 import { PAYMENT_SERVER_URL } from '../config';
 import { t } from '../i18n';
 
 export type DocKind = 'license' | 'registration' | 'inspection' | 'insurance';
+export type SelectedDocument = { uri: string; mimeType?: string | null; name?: string; size?: number };
 
 export type DocReview = {
   verdict: 'accept' | 'refuse' | 'review';
@@ -25,41 +25,59 @@ export type DocReview = {
 };
 
 /**
- * Photograph the document, or choose one already taken.
- *
- * THE CAMERA FIRST, and that ordering is deliberate. A licence photographed now is a licence
- * the operator is holding; one chosen from the library may be anything. Both are offered —
- * insurance and inspection documents usually arrive as a PDF or an email screenshot, so
- * refusing the library would refuse the ordinary case.
- *
- * Returns a local uri, or null when the operator declined or the picker is unavailable.
+ * Camera photographs or the native Files picker. A PDF policy is a normal file,
+ * not a photo; the old "Choose a file" action silently opened only Photos.
+ * The selected file is copied to cache so fetch(uri) can read it on both phones.
  */
-export async function pickDocument(fromCamera: boolean): Promise<string | null> {
+export async function pickDocument(fromCamera: boolean): Promise<SelectedDocument | null> {
   try {
-    const perm = fromCamera
-      ? await ImagePicker.requestCameraPermissionsAsync()
-      : await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!perm.granted) return null;
-    const res = fromCamera
-      ? await ImagePicker.launchCameraAsync({ quality: 0.75 })
-      : await ImagePicker.launchImageLibraryAsync({ quality: 0.75 });
-    // 0.75 rather than the 0.6 a lost-item photo uses: this one has small print on it, and a
-    // licence number the reader cannot resolve becomes a review a person has to do by hand.
-    return !res.canceled && res.assets?.[0]?.uri ? res.assets[0].uri : null;
+    if (fromCamera) {
+      const perm = await ImagePicker.requestCameraPermissionsAsync();
+      if (!perm.granted) return null;
+      const photo = await ImagePicker.launchCameraAsync({ quality: 0.75 });
+      const asset = photo.canceled ? null : photo.assets?.[0];
+      return asset?.uri ? { uri: asset.uri, mimeType: asset.mimeType || 'image/jpeg', size: asset.fileSize } : null;
+    }
+    const file = await DocumentPicker.getDocumentAsync({
+      type: ['application/pdf', 'image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif'],
+      copyToCacheDirectory: true,
+      multiple: false,
+    });
+    const selected = file.canceled ? null : file.assets?.[0];
+    return selected?.uri
+      ? { uri: selected.uri, mimeType: selected.mimeType, name: selected.name, size: selected.size }
+      : null;
   } catch {
     return null;
   }
 }
 
+const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
+const ACCEPTED_TYPES = new Set([
+  'application/pdf', 'image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif',
+]);
+function uploadContentType(selected: SelectedDocument, blob: Blob): string | null {
+  const reported = (selected.mimeType || '').toLowerCase();
+  const fromBlob = (blob.type || '').toLowerCase();
+  const type = ACCEPTED_TYPES.has(reported) ? reported :
+    ACCEPTED_TYPES.has(fromBlob) ? fromBlob :
+    /\\.pdf(?:$|[?#])/i.test(selected.name || selected.uri) ? 'application/pdf' : '';
+  return type || null;
+}
+
 /** Upload through a short-lived, authenticated R2 URL. Returns the private object key. */
-async function upload(kind: DocKind, uri: string): Promise<string | null> {
+async function upload(kind: DocKind, selected: SelectedDocument): Promise<string | null> {
   const user = auth.currentUser;
   if (!user) return null;
   try {
     const token = await user.getIdToken();
-    const local = await fetch(uri);
+    if (selected.size != null && selected.size > MAX_UPLOAD_BYTES) return null;
+    const local = await fetch(selected.uri);
+    if (!local.ok) return null;
     const blob = await local.blob();
-    const contentType = blob.type || 'image/jpeg';
+    if (blob.size <= 0 || blob.size > MAX_UPLOAD_BYTES) return null;
+    const contentType = uploadContentType(selected, blob);
+    if (!contentType) return null;
     const signed = await fetch(`${PAYMENT_SERVER_URL}/storage/upload-url`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
@@ -81,9 +99,10 @@ async function upload(kind: DocKind, uri: string): Promise<string | null> {
  */
 export async function submitDocument(
   kind: DocKind,
-  uri: string,
+  source: SelectedDocument | string,
 ): Promise<DocReview | { error: string } | null> {
-  const objectKey = await upload(kind, uri);
+  const selected = typeof source === 'string' ? { uri: source } : source;
+  const objectKey = await upload(kind, selected);
   if (!objectKey) return null;
   try {
     const token = await auth.currentUser?.getIdToken().catch(() => null);
