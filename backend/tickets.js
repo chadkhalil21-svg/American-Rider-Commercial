@@ -27,7 +27,7 @@ const crypto = require('node:crypto');
 function isOperatorCase(ticket) {
   const category = String(ticket?.category || '');
   const reason = String(ticket?.reason || '');
-  return /^operator(?:[-\\s]|$)/i.test(category) ||
+  return /^operator(?:[-\s]|$)/i.test(category) ||
     /^Operator screening — review (?:existing|new) provider report$/.test(reason);
 }
 
@@ -64,7 +64,7 @@ async function notifyByEmail(ticket) {
           ? // First word in the inbox says what it is. Nothing else we send is capitalised
             // like this, so an emergency cannot be mistaken for a billing question.
             `EMERGENCY · ${ticket.caseNo} · ${ticket.trip?.no || 'no travel number'}`
-          : `${ticket.caseNo} · ${operatorRelations ? 'Operator Relations' : 'Patron Support'} · ${ticket.trip?.no || 'no travel number'}`
+          : `${ticket.caseNo} · ${operatorRelations ? 'Operator Relations' : 'Patron Support'} · ${ticket.trip?.no || 'no travel number'}`,
         text:
           `Case ${ticket.caseNo}\n` +
           `Traveler: ${ticket.email || ticket.uid}\n` +
