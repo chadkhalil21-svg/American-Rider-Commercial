@@ -12,7 +12,7 @@
 //
 // NOT ON WEB. MapLibre React Native is native-only. Web has a clearly designated static design
 // preview (HomeMap.web.tsx); native iOS/Android use the real vector tile provider.
-import { Camera, Map, type InitialViewState } from '@maplibre/maplibre-react-native';
+import { Camera, Map, type CameraRef, type InitialViewState } from '@maplibre/maplibre-react-native';
 import React from 'react';
 import { StyleSheet, View } from 'react-native';
 import { Text } from './AppText';
@@ -27,6 +27,8 @@ export function MonoMap({
   frameKey,
   children,
   interactive = false,
+  cameraRef,
+  overlay,
 }: {
   /** Where the camera starts: a centre and zoom, or bounds to fit. */
   view: InitialViewState;
@@ -35,11 +37,14 @@ export function MonoMap({
   children?: React.ReactNode;
   /** Home map supports pan/zoom; route previews stay noninteractive. */
   interactive?: boolean;
+  cameraRef?: React.Ref<CameraRef>;
+  overlay?: React.ReactNode;
 }) {
   const { t } = useLanguage();
   return (
     <View style={styles.wrap}>
-      <View style={styles.frame} pointerEvents={interactive ? "auto" : "none"}>
+      <View style={styles.frame}>
+        <View style={StyleSheet.absoluteFill} pointerEvents={interactive ? "auto" : "none"}>
         <Map
           key={frameKey}
           style={StyleSheet.absoluteFill}
@@ -55,9 +60,11 @@ export function MonoMap({
           compass={false}
           scaleBar={false}
         >
-          <Camera initialViewState={view} />
+          <Camera ref={cameraRef} initialViewState={view} />
           {children}
         </Map>
+        </View>
+        {overlay}
       </View>
       <Text style={styles.attribution}>{t('traveler.mapAttribution')}</Text>
     </View>
