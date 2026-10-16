@@ -1238,6 +1238,9 @@ export function RideProvider({ children }: { children: React.ReactNode }) {
   // Only ever forward. A late snapshot must not walk a traveler back from Onboard to
   // En Route.
   useEffect(() => {
+    // Reset before attaching the replacement listener so a stale prior operator
+    // cannot render while the new Travel's first snapshot arrives.
+    setOperatorLivePosition(null);
     const rideId = watchedRideId;
     if (!rideId) return;
     return watchRide(rideId, (s) => {
@@ -1299,9 +1302,6 @@ export function RideProvider({ children }: { children: React.ReactNode }) {
     // Keyed on the TRAVEL. It used to be [matchedOp], which re-subscribed on every operator
     // change and unsubscribed entirely when there was none.
   }, [watchedRideId]);
-
-  // A new or ended Travel cannot retain the last vehicle's location.
-  useEffect(() => { setOperatorLivePosition(null); }, [watchedRideId]);
 
   /**
    * Answer the platform's check-in: 'ok' or 'help'.
