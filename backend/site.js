@@ -65,9 +65,8 @@ const HOME_HTML = page(
 
 <section>
   <h2>Smart Travel</h2>
-  <p>An operator to the station, rail through the city, an operator at the other end. On a
-  Brickell to Dadeland journey, $21.75 against $25.83 direct, fourteen minutes slower.</p>
-  <a class="more" href="/smart-travel">Smart Travel &rsaquo;</a>
+  <p>Currently unavailable. We are verifying transit schedules and journey connections
+  before introducing this option. Ordinary American Rider Travel remains available.</p>
 </section>
 
 <section>
@@ -270,9 +269,8 @@ const TRAVEL_HTML = page(
 
 <section>
   <h2>Smart Travel</h2>
-  <p>Where rail serves the route, a travel can be arranged as an operator to the station, rail
-  through the city, and an operator at the other end — for less than travelling direct.</p>
-  <a class="more" href="/smart-travel">Smart Travel &rsaquo;</a>
+  <p>Currently unavailable. We are verifying transit schedules and journey connections
+  before introducing this option. Ordinary American Rider Travel remains available.</p>
 </section>
 
 <section>
@@ -331,44 +329,15 @@ const SMART_HTML = page(
   'Smart Travel',
   `
 <h1>Smart Travel</h1>
-<p class="lede">An operator to the station, rail through the city, an operator at the other
-end.</p>
-
-<div class="statement">
-  <div class="lbl">Brickell to Dadeland</div>
-  <div class="figure">$21.75</div>
-  <div class="note">against $25.83 direct</div>
-</div>
-
+<p class="lede">Currently unavailable.</p>
 <section>
-  <h2>The journey</h2>
-  <div class="rows">
-    <div><span class="k">First mile · American Rider</span><span class="amount">$9.00</span></div>
-    <div><span class="k">Metrorail · paid at the station</span><span class="amount">$2.25</span></div>
-    <div><span class="k">Last mile · American Rider</span><span class="amount">$9.00</span></div>
-    <div><span class="k">Platform fee</span><span class="amount">$1.50</span></div>
-    <div class="split"><span class="k">Total journey</span><span class="amount">$21.75</span></div>
-  </div>
-  <p style="margin-top:16px">One platform fee covers the journey rather than each leg. Both
-  operators keep 99% of their own fare.</p>
-</section>
-
-<section>
-  <h2>The transit fare</h2>
-  <p>American Rider charges for the legs it drives. The transit fare is paid to the transit
-  authority at the station, and American Rider issues no transit ticket and takes no part of
-  that fare.</p>
-</section>
-
-<section>
-  <h2>What it costs in time</h2>
-  <p>A Smart Travel is slower than travelling direct — on the journey above, fourteen minutes.
-  Both the price and the time are stated before the choice is made.</p>
+  <p>Smart Travel is temporarily unavailable while transit schedules, journey connections
+  and live service reliability are verified. You can continue to reserve ordinary
+  American Rider Travel.</p>
 </section>
 `,
   '/smart-travel',
 );
-
 
 module.exports = { HOME_HTML, OPERATE_HTML, SUPPORT_HTML, TRAVEL_HTML, SAFETY_HTML, SMART_HTML };
 
