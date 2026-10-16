@@ -38,8 +38,20 @@ async function progressTravel({ db, uid, rideId, status, now = Date.now() }) {
     // Teen pickup verification is server-stamped by /travel/teen-pickup/verify.
     const teenVerifiedAt = ride.teenPickup?.verifiedAt;
     if (next === 'onboard' && ride.party?.teen === true &&
-        (!Number.isSafeInteger(teenVerifiedAt) || teenVerifiedAt <= 0 || teenVerifiedAt > now)) {
+        (!Number.isSafeInteger(teenVerifiedAt) || teenVerifiedAt <= 0 || teenVerifiedAt > now ||
+         String(ride.teenPickup?.verifiedBy||'') !== String(uid||''))) {
       return fail(409, 'Verify the Teen pickup code before boarding.', 'teen_pickup_unverified');
+    }
+
+    // A protected adult code is mandatory ONLY if the Traveler opted in on
+    // a supported client. The legacy TestFlight never enrolled an ordinary
+    // Travel, so deploying this check cannot strand its Operators.
+    if (next === 'onboard' && ride.adultPickup?.required === true &&
+        ride.party?.teen !== true &&
+        (!Number.isSafeInteger(ride.adultPickup?.verifiedAt) ||
+         ride.adultPickup.verifiedAt <= 0 || ride.adultPickup.verifiedAt > now ||
+         String(ride.adultPickup.verifiedBy||'') !== String(uid||''))) {
+      return fail(409, 'Verify the Traveler pickup code before boarding.', 'adult_pickup_unverified');
     }
 
     // Arrival and completion require a fresh server-held Operator position near the relevant

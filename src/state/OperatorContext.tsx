@@ -248,7 +248,7 @@ type OperatorState = {
   /** The countdown ran out. Leaves the travel assigned; does NOT record a refusal. */
   lapseRequest: (r: SimRequest) => void;
   /** The traveler has boarded — reported so their screen can follow. */
-  beginTrip: () => Promise<boolean>;
+  beginTrip: (teenPickupCode?: string) => Promise<boolean>;
   /** Why going on duty was refused — shown on the operator home, never swallowed. */
   onlineError: string | null;
   /** The server's machine-readable reason, so a screen can point at the fix. */
@@ -928,10 +928,10 @@ export function OperatorProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   /** The traveler is in the car and the journey proper has begun. */
-  const beginTrip = useCallback(async () => {
+  const beginTrip = useCallback(async (teenPickupCode?: string) => {
     const rideId = opRef.current?.rideId;
     if (!rideId) return false;
-    return await markOnboard(rideId);
+    return await markOnboard(rideId, teenPickupCode);
   }, []);
 
   const cancelOp = useCallback(() => {

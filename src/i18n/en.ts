@@ -218,7 +218,8 @@ export default {
     payoutAccount: 'Payout Account',
     readyForPayouts: 'Ready for payouts',
     whatComesOut: 'What Comes Out',
-    verificationCodeSub: 'The traveler may ask for this code before boarding. It belongs to this travel.',
+
+    enterPrivatePickupCode: 'Ask the Traveler for their private pickup code. Never tell them a code yourself.',
     howItReachesYou: 'How It Reaches You',
     // ---- operator sub-screens ----------------------------------------------------------
     verified: 'Verified',
@@ -536,7 +537,7 @@ export default {
     driveInControl: 'Independent Dispatch Autonomy',
     driveInControlBody: 'Operate when you want and where you want. American Rider never assigns you a zone, and never penalizes you for declining a travel.',
     drivePayouts: 'Capital Settlement',
-    emgLocationShared: 'Your location was shared.',
+    emgLocationShared: 'Your sharing app was opened. Delivery to the recipient is not confirmed.',
     emgNoShareSheet: 'This device could not open a way to send the message.',
     emgNoCalls: 'This device cannot place calls. Use another phone to dial 911.',
     switchToOperator: 'Switch to Operator view',
@@ -1111,7 +1112,12 @@ export default {
     safetySearchRow: 'Share your Travel · Trusted contacts · Emergency assistance',
     safetySub: 'Share Travel details at any point after confirmation. Once an Operator is assigned, American Rider monitors the route for unusual interruptions, and vehicle verification helps confirm the correct vehicle before boarding.',
     shareUnavailable: 'Available once you confirm a Travel.',
-    verifyCodeIntro: 'Ask your operator for this code before you board.',
+
+    pickupSecurityIntro: 'Confirm the vehicle and plate first. Give your private code to the Operator only when ready to board.',
+    pickupCodePendingRollout: 'Secure pickup codes are being activated with the next mobile release. For now, match the Operator and vehicle details before boarding.',
+    pickupCodeVerified: 'Pickup code verified.',
+    pickupCodeUnavailable: 'Unable to obtain or confirm the pickup code. Please try again or contact Patron Support.',
+    getPickupSecurityCode: 'Request private pickup code',
     verifyCodeIdle: 'Vehicle verification becomes available once an Operator is assigned.',
     emgTextMyLocation: 'Text my location',
     emgSendMyLocation: 'Send my location',

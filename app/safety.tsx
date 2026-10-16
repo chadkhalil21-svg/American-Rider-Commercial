@@ -17,7 +17,7 @@ import {
 } from '../src/contacts';
 import { useRide } from '../src/state/RideContext';
 import { followLink } from '../src/backend/follow';
-import { verificationCode } from '../src/verification';
+import { travelerPickupCode } from '../src/backend/pickupVerification';
 import { useLanguage } from '../src/state/LanguageContext';
 import { colors, radii } from '../src/theme';
 
@@ -35,7 +35,21 @@ export default function SafeTravels() {
   // an Operator is actually assigned, because the server-authoritative Travel Number and the
   // Operator's matching code do not exist before dispatch succeeds.
   const activeNo = ride.rideActive ? ride.lastTrip.no : null;
-  const verifiedTravelNo = ride.rideActive && ride.matchedOp ? ride.lastTrip.no : null;
+  const currentRideId = ride.rideActive ? ride.matchedOp?.rideId : null;
+  const [secureCode, setSecureCode] = useState<string | null>(null);
+  const [pickupMessage, setPickupMessage] = useState<'idle'|'working'|'inactive'|'ready'|'verified'|'error'>('idle');
+  const getSecureCode = async () => {
+    if (!currentRideId || pickupMessage === 'working') return;
+    setSecureCode(null); setPickupMessage('working');
+    try {
+      const result = await travelerPickupCode(currentRideId);
+      if (!result.enabled) setPickupMessage('inactive');
+      else if (result.verified) setPickupMessage('verified');
+      else if (result.pin) { setSecureCode(result.pin); setPickupMessage('ready'); }
+      else setPickupMessage('error');
+    } catch { setPickupMessage('error'); }
+  };
+  useEffect(() => { setSecureCode(null); setPickupMessage('idle'); }, [currentRideId]);
 
   useEffect(() => {
     loadContacts().then(setContacts);
@@ -169,15 +183,24 @@ export default function SafeTravels() {
       </Card>
 
       <SectionLabel style={styles.lbl}>{t('traveler.vehicleVerification')}</SectionLabel>
-      {/* One code per travel, the same on the operator's pickup screen (src/verification.ts).
-          The word of the day it replaces was shown to nobody but the traveler. */}
+      {/* Never display the former predictable number-based code as proof of
+          identity. A six-digit code is issued only to this Traveler by the server,
+          and cannot be inferred by an Operator from the Travel Number. */}
       <Card style={styles.verifyCard}>
-        {verifiedTravelNo ? (
+        {currentRideId ? (
           <>
-            <Text style={styles.verifyBody}>{t('traveler.verifyCodeIntro')}</Text>
-            <Mono size={26} weight="600" style={{ marginTop: 8, letterSpacing: 1.3 }}>
-              {verificationCode(verifiedTravelNo)}
-            </Mono>
+            <Text style={styles.verifyBody}>{t('traveler.pickupSecurityIntro')}</Text>
+            {secureCode ? (
+              <Mono size={26} weight="600" style={{marginTop:8,letterSpacing:1.3}}>{secureCode}</Mono>
+            ) : null}
+            {pickupMessage === 'inactive' ? <Text style={styles.verifyBody}>{t('traveler.pickupCodePendingRollout')}</Text> : null}
+            {pickupMessage === 'verified' ? <Text style={styles.verifyBody}>{t('traveler.pickupCodeVerified')}</Text> : null}
+            {pickupMessage === 'error' ? <Text style={styles.verifyBody}>{t('traveler.pickupCodeUnavailable')}</Text> : null}
+            {pickupMessage !== 'ready' && pickupMessage !== 'verified' && (
+              <Pressable accessibilityRole="button" disabled={pickupMessage === 'working'} onPress={() => { void getSecureCode(); }} style={{paddingVertical:10}}>
+                <Text style={styles.addLink}>{pickupMessage === 'working' ? t('traveler.pleaseWait') : t('traveler.getPickupSecurityCode')}</Text>
+              </Pressable>
+            )}
           </>
         ) : (
           <Text style={styles.verifyBody}>{t('traveler.verifyCodeIdle')}</Text>

@@ -35,7 +35,7 @@ async function verifyTeenPin({rideId,operatorUid,pin,now=Date.now()}){
   if(String(r.operatorId)!==String(operatorUid))return {ok:false,status:403,error:'That Travel is not assigned to this Operator'};
   if(r.party?.teen!==true)return {ok:true,status:200,required:false};
   if(!['accepted','arrived'].includes(String(r.status)))return {ok:false,status:409,error:'Pickup verification is not available in this Travel state'};
-  if(r.teenPickup?.verifiedAt)return {ok:true,status:200,required:true,verified:true};
+  if(r.teenPickup?.verifiedAt && String(r.teenPickup.verifiedBy||'')===String(operatorUid))return {ok:true,status:200,required:true,verified:true};
   if(!r.teenPickup?.required||!/^[0-9a-f]{64}$/.test(String(r.teenPickup.hash||'')))return {ok:false,status:409,error:'Pickup code was not securely provisioned',code:'teen_pin_unavailable'};
   if(Number(r.teenPickup.failedAttempts||0)>=5)return {ok:false,status:423,error:'Pickup code is locked. Contact Patron Support.',code:'teen_pin_locked'};
   const entered=/^\d{4}$/.test(String(pin||'')) ? digest(rideId,pin) : '';
@@ -50,6 +50,7 @@ function teenMayBoard(ride, now = Date.now()){
  if(ride?.party?.teen!==true)return true;
  const verifiedAt=ride?.teenPickup?.verifiedAt;
  // The unverified state is explicitly null. Only a genuine server-stamped time is proof.
- return Number.isSafeInteger(verifiedAt)&&verifiedAt>0&&verifiedAt<=now;
+ return Number.isSafeInteger(verifiedAt)&&verifiedAt>0&&verifiedAt<=now&&
+  !!ride.operatorId&&String(ride.teenPickup?.verifiedBy||'')===String(ride.operatorId);
 }
 module.exports={provisionTeenPin,verifyTeenPin,teenMayBoard,teenPinReady,pinForRide};
