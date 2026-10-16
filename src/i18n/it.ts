@@ -205,7 +205,7 @@ export default {
     payoutAccount: 'Conto per i Pagamenti',
     readyForPayouts: 'Pronto per i pagamenti',
     whatComesOut: 'Cosa Viene Detratto',
-    verificationCodeSub: 'Il viaggiatore può chiederle questo codice prima di salire. Appartiene a questo viaggio.',
+
     enterPrivatePickupCode: 'Chieda al Viaggiatore il suo codice privato di prelievo. Non gli comunichi mai un codice.',
     howItReachesYou: 'Come Le Arriva',
     verified: 'Verificato',
@@ -1089,7 +1089,7 @@ export default {
     safetySearchRow: 'Condividere il Viaggio · Contatti fidati · Assistenza d’emergenza',
     safetySub: 'Condivida i dettagli del Viaggio in qualsiasi momento dopo la conferma. Una volta assegnato un Operatore, American Rider monitora il percorso per eventuali interruzioni insolite e la verifica del veicolo aiuta a confermare il veicolo corretto prima di salire.',
     shareUnavailable: 'Disponibile dopo la conferma di un Viaggio.',
-    verifyCodeIntro: 'Chieda questo codice al suo operatore prima di salire.',
+
     pickupSecurityIntro: 'Verifichi prima il veicolo e la targa. Comunichi il codice privato all\'Operatore solo al momento di salire.',
     pickupCodePendingRollout: 'I codici sicuri saranno attivati con la prossima versione mobile. Nel frattempo, verifichi i dati dell\'Operatore e del veicolo.',
     pickupCodeVerified: 'Codice di prelievo verificato.',
