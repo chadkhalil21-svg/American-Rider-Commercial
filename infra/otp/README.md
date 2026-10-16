@@ -82,6 +82,34 @@ TransitWay is represented by its frequency (601, 602), not by a flag.
 The Tri-Rail feed is in the graph but not in this list; run the script on `sfrta-gtfs.zip` with
 `--feed-id SFRTA` if Tri-Rail should be offered.
 
+## Weekday, Saturday and Sunday bus service (15 October 2026 candidate)
+
+The older route list is a *weekday reference*, not proof of weekend operation. Official agency
+GTFS files determine which routes run on each date, and OTP determines the exact scheduled
+boarding stop/time. The application now has review-candidate support for three service-day
+allow-lists: weekday routes meeting the existing 15-minute/30-minute-gap standard, and
+Saturday/Sunday routes meeting a 30-minute headway with no gap over 45 minutes at the busiest
+stop. A second, independent test of each chosen bus boarding rejects waits above 15 minutes
+on weekday 07:00–19:00 or above 30 minutes on weekends and at other hours. Routes where
+calendar proof is absent are excluded, never guessed from another day. No new agency API or
+monthly subscription is necessary for this offline generation.
+
+To prepare authentic data: download and validate the three official **bus** feeds (MDT, BCT, Palm Tran) already named
+in `infra/otp/build.sh`; rebuild OTP's street/transit graph from those **same versions**; then
+run `node infra/otp/build-route-profiles.mjs --out backend/transit-routes.fl-southeast.json`
+from the repository root (pass `--data <folder>` if not using `~/otp-data/build`). The transit planner's **rail** feeds are updated and validated separately; their absence must not suppress bus eligibility. The command
+rejects a missing or invalid feed instead of partially replacing the route list. Inspect
+its profile dates, renew approaching expiry, commit and test at exact SHA, and deploy OTP and
+backend with healthy route responses. **Do not execute this command with the old GTFS files
+and then claim current service.** In particular the historical SFRTA feed expires 20 October
+2026; a subsequent Wednesday sample cannot be authenticated until it is renewed.
+
+The reference model is not a substitute for realtime delays: when agency realtime feeds are
+available they must be integrated, tested and monitored separately. This service has not been
+commissioned in the current Render account. The Render $85 4GB server + $2.50 storage is one
+published hosting option, **not** a mandatory transit-provider fee. Compare other hosting
+arrangements using RAM, actual CPU usage, safe network access and operator toil before spending.
+
 ## Building the graph on a Mac
 
 ```
