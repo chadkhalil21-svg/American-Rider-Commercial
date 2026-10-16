@@ -3947,11 +3947,29 @@ app.post('/travel/teen-pickup/verify', requireAuth, requireFreshAuth, async (req
 // The adult code is given ONLY to the authenticated Traveler. The Operator
 // sees the verification field, not the secret. Disabled by default until
 // both roles have the updated app; existing TestFlight journeys stay operable.
-app.get('/travel/adult-pickup/code', requireAuth, requireFreshAuth, LIMITS.document, async (req,res)=>{
+// One private pickup-code view for adults and Teens. Existing Teen code
+// access remains available for the Family screen. The private code must
+// NEVER be delivered through an Operator endpoint.
+app.get('/travel/pickup/code', requireAuth, requireFreshAuth, LIMITS.document, async (req,res)=>{
   const id=String(req.query?.rideId||'');
   if(!/^[a-f0-9]{40}$/.test(id))return res.status(400).json({code:'ride_required'});
+  const db=adminDb();if(!db)return res.status(503).json({code:'database_unavailable'});
   try{
-    const out=await adultPickup.travelerCode({rideId:id,travelerUid:req.uid});
+    const snap=await db.collection('rides').doc(id).get();
+    if(!snap.exists)return res.status(404).json({code:'travel_not_found'});
+    const ride=snap.data()||{};
+    if(ride.party?.teen===true){
+      const party=ride.party||{};
+      if(![String(party.teenUid),String(party.guardianUid)].includes(String(req.uid)))
+        return res.status(403).json({code:'not_your_travel'});
+      if(!teenPinReady()||!['assigned','accepted','arrived'].includes(ride.status)||
+        !ride.teenPickup?.required||ride.teenPickup.verifiedAt||
+        Number(ride.teenPickup.failedAttempts||0)>=5)
+        return res.status(409).json({code:'teen_pickup_not_available'});
+      return res.json({ok:true,enabled:true,required:true,verified:false,
+        teen:true,pin:pinForRide(id,ride.teenPickup.hash)});
+    }
+    const out=await adultPickup.travelerCode({db,rideId:id,travelerUid:req.uid});
     return res.status(out.status).json(out);
   }catch{return res.status(503).json({code:'pickup_verification_unavailable'});}
 });
