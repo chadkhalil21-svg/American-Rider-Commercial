@@ -770,6 +770,7 @@ export default {
     selectTravelForCase: 'Seleccione el viaje al que se refiere ›',
     yourCases: 'Sus casos',
     casesCouldNotLoad: 'No pudimos cargar el historial de casos. Los casos mostrados anteriormente pueden estar desactualizados.',
+    caseHistoryPartial: 'Solo se pudo mostrar parte del historial de casos. Para un caso anterior, escriba a support@americanrider.app.',
     retryCases: 'Volver a cargar los casos',
     caseStatusReceived: 'Recibido — aún sin confirmar',
     caseStatusAcknowledged: 'Confirmado por Operaciones',
