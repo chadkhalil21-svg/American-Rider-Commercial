@@ -105,9 +105,17 @@ export default function OperatorInsurance() {
     else await refresh();
   };
   const st = op.docs.insurance;
-  const expiring = op.coverageDaysLeft != null && op.coverageDaysLeft <= 30;
-  const canUpload = st !== 'ok' || expiring;
-  const current = st === 'ok' && liveStatus?.ok === true && op.coverageDaysLeft != null && op.coverageDaysLeft >= 0;
+  // Staff may approve the source document after this phone was closed. Use the
+  // authenticated server verdict, not a stale local checklist badge.
+  const policyApproved = liveStatus?.documentApproved === true;
+  const policyExpiry = liveStatus?.policyExpiry || op.insuranceExpiry;
+  const coverageDaysLeft = policyExpiry
+    ? Math.ceil((Date.parse(policyExpiry + 'T23:59:59Z') - Date.now()) / 86_400_000)
+    : null;
+  const expiring = coverageDaysLeft != null && coverageDaysLeft <= 30;
+  const canUpload = !policyApproved || expiring;
+  const current = policyApproved && liveStatus?.ok === true &&
+    coverageDaysLeft != null && coverageDaysLeft >= 0;
   const national = config ? INSURERS.filter((x) => !x.states) : [];
   const regional = config ? INSURERS.filter((x) => x.states?.includes(config.state)) : [];
   const sourceRow = (x: typeof INSURERS[number], i: number) => (
@@ -141,11 +149,11 @@ export default function OperatorInsurance() {
           <Text style={styles.statusTitle}>{current ? t('traveler.insStatusActive') : t('traveler.insStatusNeedsVerification')}</Text>
           {current && <BadgeOk label={t('operator.verified')} />}
         </View>
-        <Text style={styles.body}>{op.coverageDaysLeft == null
+        <Text style={styles.body}>{coverageDaysLeft == null
           ? t('traveler.insNoDateOnFile')
-          : op.coverageDaysLeft < 0 ? t('traveler.insExpired')
-          : op.coverageDaysLeft <= 30 ? t('traveler.insDaysLeft', { n: op.coverageDaysLeft })
-          : t('traveler.insOnFileUntil', { date: op.insuranceExpiry })}</Text>
+          : coverageDaysLeft < 0 ? t('traveler.insExpired')
+          : coverageDaysLeft <= 30 ? t('traveler.insDaysLeft', { n: coverageDaysLeft })
+          : t('traveler.insOnFileUntil', { date: policyExpiry })}</Text>
         {st === 'checking' && <Text style={styles.body}>{t('operator.checking')}</Text>}
         {op.docReviews.insurance?.verdict === 'review' && <Text style={styles.body}>{t('traveler.insUnderPersonReview')}</Text>}
         {op.docReviews.insurance?.verdict === 'refuse' && op.docReviews.insurance.reasons.map((reason, i) => (
@@ -159,9 +167,9 @@ export default function OperatorInsurance() {
         )}
         {canUpload && (
           <>
-          {expiring && st === 'ok' && <Text style={styles.note}>{t('operator.insReplacementCaution')}</Text>}
+          {expiring && policyApproved && <Text style={styles.note}>{t('operator.insReplacementCaution')}</Text>}
           <PrimaryButton
-            label={expiring && st === 'ok' ? t('operator.insReplacePolicy') : t('traveler.submitMyPolicy')}
+            label={expiring && policyApproved ? t('operator.insReplacePolicy') : t('traveler.submitMyPolicy')}
             disabled={st === 'checking' || !config}
             onPress={() => Alert.alert(t('operator.commercialInsurance'), t('traveler.insWhereDecPage'), [
               { text: t('traveler.takePhotograph'), onPress: () => { void submitPolicy(true); } },
@@ -262,7 +270,7 @@ export default function OperatorInsurance() {
       <SectionLabel style={styles.label}>{t('traveler.insStatusTitle')}</SectionLabel>
       <Card style={styles.card}>
         <Text style={styles.body}>{t('operator.insMonitoringIntro')}</Text>
-        {st === 'ok' && <>
+        {policyApproved && <>
           <Text style={styles.cardTitle}>{t('traveler.insAuthorizeTitle')}</Text>
           {liveStatus?.authorized ? <Text style={styles.body}>{t('traveler.insAuthorized')}</Text>
             : <PrimaryButton label={t('traveler.insAuthorizeButton')} onPress={authorizeStatus} disabled={statusBusy} style={styles.action} />}

@@ -251,6 +251,14 @@ function documentFindings(kind, d, now, ctx = {}) {
   return [];
 }
 
+/** Human-accepted insurance must pass ALL underlying statutory document checks.
+ * This is separate from continuing insurer status, which is checked every time.
+ */
+function qualifyingInsuranceDocument(user, now = Date.now()) {
+  return !!user?.documents?.insurance &&
+    documentFindings('insurance', user.documents.insurance, now, { user }).length === 0;
+}
+
 /** The first finding for one document, or null — kept for callers that want one answer. */
 function documentFinding(kind, d, now, ctx = {}) {
   return documentFindings(kind, d, now, ctx)[0] || null;
@@ -290,7 +298,13 @@ function assessOperator({ user, fleet = null, context = 'qualify', liveMoney = f
   // CONTINUING INSURANCE STATUS. A compliant declarations page is a point-in-time fact.
   // Monthly independent confirmation and the Operator's own attestation are separate facts.
   // Any adverse carrier/broker status, or status older than 35 days, blocks qualification.
-  if (u?.documents?.insurance?.verdict === 'accept') {
+  // The raw OCR verdict is deliberately "review". A named human may accept the
+  // original, but that does not prove it remains insured. Check continuing
+  // source status after EITHER a valid original read or independent human
+  // acceptance; otherwise manual review silently bypasses cancellation checks.
+  if (u?.documents?.insurance &&
+      (u.documents.insurance.verdict === 'accept' ||
+       u.documents.insurance.decision?.verdict === 'accept')) {
     const live = continuingStatus(u, now);
     if (!live.ok) {
       add(finding(
@@ -517,6 +531,7 @@ module.exports = {
   dollarFigures,
   documentFinding,
   documentFindings,
+  qualifyingInsuranceDocument,
   insuranceFindings,
   assessOperator,
   assessAndRecord,
