@@ -657,7 +657,6 @@ export default {
     delEveryTrip: 'Il suo accesso alla cronologia dei viaggi e alle ricevute viene rimosso.',
     delEverythingDevice: 'Dati Locali dell’Applicazione',
     musicSourceOnArrival: 'Scelga la sorgente o la playlist con il suo Operatore quando sale a bordo.',
-    selectDestAgain: 'Selezioni di nuovo la destinazione per confermare l’importo.',
     retryTravelCost: 'Riprova il costo del viaggio',
     quoteTollUnavailable: 'La verifica dei pedaggi non è temporaneamente disponibile. Riprovi.',
     quoteLocationUnresolved: 'Non è stato possibile individuare con precisione la partenza o la destinazione. Selezioni un indirizzo o riprovi.',
