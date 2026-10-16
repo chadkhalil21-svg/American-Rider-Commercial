@@ -1,6 +1,7 @@
 'use strict';
 // Synthetic GTFS end-to-end test: zip agency schedules, build 3 profiles from
-// five feeds, consume them through the REAL transit adapter. No external calls.
+// three bus feeds, consume them through the REAL transit adapter. Train feeds
+// are deliberately ABSENT: losing a rail feed cannot suppress eligible buses.
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');
@@ -10,8 +11,7 @@ const T = require('./transit');
 const base = fs.mkdtempSync(path.join(os.tmpdir(), 'ar-smart-profiles-test-'));
 const feeds = [
   ['MDT', 'mdt-gtfs.zip'], ['BCT', 'bct-gtfs.zip'],
-  ['PALMTRAN', 'palmtran-gtfs.zip'], ['SFRTA', 'sfrta-gtfs.zip'],
-  ['BRIGHTLINE', 'brightline-gtfs.zip'],
+  ['PALMTRAN', 'palmtran-gtfs.zip'],
 ];
 const schedule = fs.mkdtempSync(path.join(base, 'feed-'));
 const lines = (header, rows) => [header, ...rows, ''].join('\n');
@@ -53,15 +53,15 @@ try {
     const raw = JSON.parse(fs.readFileSync(output, 'utf8'));
     assert.equal(Object.keys(raw.profiles).length, 3);
     for (const key of ['weekday', 'saturday', 'sunday']) {
-      assert.equal(raw.profiles[key].length, 5);
+      assert.equal(raw.profiles[key].length, 3);
       assert.ok(raw.profiles[key].every((row) => row.referenceDate === raw.profileReferences[key]));
     }
     const weekday = T.busRoutesFrom(raw, new Date('2026-10-15T14:00:00Z'), 'America/New_York');
     const saturday = T.busRoutesFrom(raw, new Date('2026-10-17T14:00:00Z'), 'America/New_York');
     const sunday = T.busRoutesFrom(raw, new Date('2026-10-18T14:00:00Z'), 'America/New_York');
-    assert.equal(weekday.size, 10, 'weekday: 5 x (FAST + rail), not SLOW');
-    assert.equal(saturday.size, 15, 'Saturday: 5 x (FAST + SLOW + rail)');
-    assert.equal(sunday.size, 15, 'Sunday: 5 x (FAST + SLOW + rail)');
+    assert.equal(weekday.size, 6, 'weekday: 3 x (FAST + rail), not SLOW');
+    assert.equal(saturday.size, 9, 'Saturday: 3 x (FAST + SLOW + rail)');
+    assert.equal(sunday.size, 9, 'Sunday: 3 x (FAST + SLOW + rail)');
     assert.equal(weekday.has('MDT:SLOW'), false);
     assert.equal(saturday.has('MDT:SLOW'), true);
     assert.equal(sunday.has('BCT:SLOW'), true);
@@ -74,7 +74,7 @@ try {
   assert.equal(fs.readFileSync(output, 'utf8'), beforeFailure,
     'failure must not overwrite the last valid route list');
 
-  console.log('Smart Travel GTFS 5-feed x 3-day build, 2 passes, fail-closed: passed');
+  console.log('Smart Travel GTFS 3-bus-feed x 3-day build, 2 passes, missing rail allowed, missing bus fails: passed');
 } finally {
   fs.rmSync(base, { recursive: true, force: true });
 }
