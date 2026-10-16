@@ -94,7 +94,7 @@ export default function TravelConfirmation() {
   const router = useRouter();
   const goBack = useGoBack();
   const ride = useRide();
-  const { user } = useAuth();
+  const { user, accountName } = useAuth();
   const payConfig = usePaymentConfig();
   const cabin = useCabinPrefs();
   const params = useLocalSearchParams<{ search?: string; q?: string }>();
@@ -505,7 +505,7 @@ export default function TravelConfirmation() {
                     <View style={{ flex: 1 }}>
                       <Text style={styles.slotLabel}>{t('traveler.whoIsTraveling')}</Text>
                       <Text style={styles.slotValue}>
-                        {ride.travelParty.mode === 'self' ? (user?.displayName?.trim() || t('traveler.me')) : ride.travelParty.travelerName || t('traveler.anotherAdult')}
+                        {ride.travelParty.mode === 'self' ? (user?.displayName?.trim() || accountName || t('traveler.me')) : ride.travelParty.travelerName || t('traveler.anotherAdult')}
                       </Text>
                     </View>
                     <Chev />
