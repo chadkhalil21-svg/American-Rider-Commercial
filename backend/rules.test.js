@@ -96,9 +96,9 @@ check('R2 uploads accept only supported image media types', /allowedType/.test(r
 
 // ——— messages are bounded ————————————————————————————————————————————————————————
 const msgs = (rules.match(/match \/messages\/\{messageId\} \{[\s\S]*?\n {4}\}/) || [''])[0];
-check('messages: only server-authoritative thread fields are admitted', /keys\(\)\.hasOnly\(\['rideId', 'tripNo', 'from', 'travelerUid', 'operatorId', 'guardianUid', 'lostItemId', 'text', 'createdAt'\]\)/.test(msgs));
-check('messages: bound to the ride record the rule reads', /messageFitsRide\(get\(\/databases\/\$\(database\)\/documents\/rides\/\$\(request\.resource\.data\.rideId\)\)\.data\)/.test(msgs));
-check('messages: text is bounded to 2,000 characters', /text\.size\(\) <= 2000/.test(msgs));
+check('messages: phones cannot create conversation records directly', /allow create: if false;/.test(msgs));
+check('messages: server verifies participant and real Travel', serverSource.includes('authorizeTravelMessage({db,ride:r,uid'));
+check('messages: server enforces the message length', /text=String\(req\.body\?\.text\|\|''\)\.trim\(\)\.slice\(0,2000\)/.test(serverSource));
 const writer = fs.readFileSync(path.join(ROOT, 'src', 'backend', 'messages.ts'), 'utf8');
 check('messages: client sends content to authenticated server endpoint instead of writing participant authority',
   writer.includes("fetch(`${PAYMENT_SERVER_URL}/travel/message`")
