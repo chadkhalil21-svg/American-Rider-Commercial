@@ -22,8 +22,8 @@ assert.equal(
 
 const reserve = fs.readFileSync(path.join(__dirname, '..', 'app', 'reserve.tsx'), 'utf8');
 assert.ok(
-  reserve.includes("user?.displayName?.trim() || t('traveler.me')"),
-  'Self Traveler identity should prefer the authenticated profile name over generic “Me”',
+  reserve.includes("user?.displayName?.trim() || accountName || t('traveler.me')"),
+  'Self Traveler identity should prefer the authenticated or stored verified profile name over generic “Me”',
 );
 
 console.log('✓ Patron Support Back retraces issue detail → categories → route parent');
