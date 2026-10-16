@@ -21,6 +21,8 @@ export type InsuranceConfig = {
 export type InsuranceStatus = {
   ok: boolean;
   status: string;
+  documentApproved?: boolean;
+  policyExpiry?: string | null;
   code?: string | null;
   reason?: string | null;
   lastVerifiedAt?: number | null;
