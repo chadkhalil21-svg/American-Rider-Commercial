@@ -1,0 +1,15 @@
+# A native emulator/simulator test, not a simulated payment or production-account flow.
+# Uses only a fictional .invalid address; NEVER submits a credential or books Travel.
+appId: com.americanrider.app
+---
+- launchApp:
+    clearState: true
+- assertVisible: "AMERICAN RIDER"
+- assertVisible: "NATIONAL TRANSPORTATION"
+- tapOn: "Email Address"
+- inputText: "prelaunch@example.invalid"
+- hideKeyboard
+- tapOn: "Continue"
+- assertVisible: "Welcome back"
+- tapOn: "‹ Back"
+- assertVisible: "AMERICAN RIDER"
