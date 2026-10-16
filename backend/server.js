@@ -126,7 +126,7 @@ const { TERMS_HTML, PRIVACY_HTML, ABOUT_HTML, ACCOUNT_DELETION_HTML, legalPage, 
 const {
   HOME_HTML, OPERATE_HTML, SUPPORT_HTML, TRAVEL_HTML, SAFETY_HTML, SMART_HTML,
 } = require('./site');
-const { smartQuote, revalidateTransit } = require('./smart');
+const { revalidateTransit } = require('./smart');
 const { transitHealth } = require('./transit');
 const { sweepScheduled, sweepSettlements } = require('./scheduler');
 const { sweepBookingRecovery } = require('./bookingrecovery');
