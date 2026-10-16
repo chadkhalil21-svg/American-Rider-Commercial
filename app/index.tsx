@@ -239,7 +239,7 @@ export default function Home() {
 
   // Load this traveler's real rides from the database once their account is ready.
   useEffect(() => {
-    if (user) ride.refreshMyRides();
+    if (user) ride.refreshMyRides({ useCache: true });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
