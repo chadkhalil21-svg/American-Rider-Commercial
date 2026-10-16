@@ -742,6 +742,13 @@ export function RideProvider({ children }: { children: React.ReactNode }) {
       setStats({ trips: 0, spent: 0 });
       return;
     }
+    if (recentLoadedAtRef.current.uid && recentLoadedAtRef.current.uid !== uid) {
+      setMyRides([]);
+      ridesCursorRef.current = null;
+      setHasOlderMyRides(false);
+      setStats({ trips: 0, spent: 0 });
+      recentLoadedAtRef.current = { uid: '', at: 0 };
+    }
     // Returning to Home or History within 30 seconds reuses the current window.
     // Payment/dispatch/safety callbacks continue to request fresh data by default.
     if (options?.useCache && recentLoadedAtRef.current.uid === uid &&
@@ -861,11 +868,13 @@ export function RideProvider({ children }: { children: React.ReactNode }) {
   const loadOlderMyRides = useCallback(async () => {
     const uid = auth.currentUser?.uid;
     if (!uid || !ridesCursorRef.current || olderInFlightRef.current) return;
+    if (recentLoadedAtRef.current.uid !== uid) return;
+    const startingCursor = ridesCursorRef.current;
     olderInFlightRef.current = true;
     setLoadingOlderMyRides(true);
     try {
-      const page = await fetchMyRidesPage(ridesCursorRef.current);
-      if (auth.currentUser?.uid !== uid) return;
+      const page = await fetchMyRidesPage(startingCursor);
+      if (auth.currentUser?.uid !== uid || ridesCursorRef.current !== startingCursor) return;
       setMyRides((previous) => {
         const seen = new Set(previous.map((r) => r.id));
         return [...previous, ...page.rides.filter((r) => !seen.has(r.id))];
