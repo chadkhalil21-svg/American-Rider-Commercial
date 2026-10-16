@@ -146,6 +146,13 @@ check('Operator screening refreshes after returning from CRA portal',
 check('only pending screening status gets bounded foreground polling',
   mobile.includes("}, 120_000)") && mobile.includes("['awaiting_agency', 'in_progress'") &&
   mobile.includes("AppState.currentState === 'active'"));
+const insuranceMobile = fs.readFileSync(path.join(__dirname, '../app/operator/insurance.tsx'),'utf8');
+check('insurance status refreshed automatically when phone returns from broker confirmation',
+  insuranceMobile.includes('useFocusEffect(useCallback(') &&
+  insuranceMobile.includes("AppState.addEventListener('change'") &&
+  insuranceMobile.includes("state === 'active'") &&
+  insuranceMobile.includes('void refresh();'));
+
 let bad = 0;
 for (const r of R) { if (!r.ok) bad++; console.log(`${r.ok ? 'PASS' : 'FAIL'}  ${r.l}${r.ok ? '' : '  <-- ' + r.d}`); }
 console.log(`\n${R.length - bad}/${R.length} passed`);
