@@ -91,18 +91,34 @@ export default function PatronSupport() {
   // the status the operator's app has moved it to. No case carries a handling status, because
   // none is tracked anywhere a screen could state truthfully.
   const [cases, setCases] = useState<SupportCase[]>([]);
+  const [casesUnavailable, setCasesUnavailable] = useState(false);
+  const [casesLoading, setCasesLoading] = useState(false);
   const [lost, setLost] = useState<LostItem[]>([]);
+
+  // Failed case-history reads must never be represented as an empty inbox.
+  // Keep the last known cases visible until a successful refresh replaces them.
+  const refreshCases = useCallback(async (live: () => boolean = () => true) => {
+    setCasesLoading(true);
+    const result = await fetchMyCases();
+    if (!live()) return;
+    if (result.unavailable) setCasesUnavailable(true);
+    else {
+      setCases(result.cases);
+      setCasesUnavailable(false);
+    }
+    setCasesLoading(false);
+  }, []);
   // Read again every time the screen comes into view, not once on mount: a report filed a
   // moment ago on the Lost Item screen is listed the moment the traveler comes back here.
   useFocusEffect(
     useCallback(() => {
       let live = true;
-      fetchMyCases().then((r) => live && setCases(r.cases));
+      void refreshCases(() => live);
       fetchMyLostItems().then((items) => live && setLost(items));
       return () => {
         live = false;
       };
-    }, []),
+    }, [refreshCases]),
   );
 
   // THE TRAVEL THE CASE CONCERNS, stated before the traveler writes a word (Chad, 15 Sept
@@ -217,6 +233,15 @@ export default function PatronSupport() {
       )}
 
       {/* ---- the traveler's own cases ---- */}
+      {ride.issueState === null && casesUnavailable && (
+        <Card style={styles.regardingCard}>
+          <Text style={styles.submissionError}>{t('traveler.casesCouldNotLoad')}</Text>
+          <Pressable accessibilityRole="button" disabled={casesLoading}
+            onPress={() => { void refreshCases(); }} style={styles.linkRow}>
+            <Text style={styles.link}>{t('traveler.retryCases')}</Text>
+          </Pressable>
+        </Card>
+      )}
       {ride.issueState === null && caseRows.length > 0 && (
         <>
           <SectionLabel style={styles.lbl}>{t('traveler.yourCases')}</SectionLabel>
@@ -271,6 +296,12 @@ export default function PatronSupport() {
                     {row.c.kind === 'emergency' ? ` · ${t('traveler.emergencyKind')}` : ''}
                   </Text>
                   {meta}
+                  <Text style={styles.caseMeta}>
+                    {row.c.status === 'closed' || row.c.status === 'resolved'
+                      ? t('traveler.caseStatusClosed')
+                      : row.c.acknowledgedAt ? t('traveler.caseStatusAcknowledged')
+                      : t('traveler.caseStatusReceived')}
+                  </Text>
                 </View>
               );
             })}
