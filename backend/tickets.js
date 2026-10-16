@@ -242,8 +242,12 @@ async function listTickets(uid, { limit = 20, database } = {}) {
   const d = database || db();
   if (!uid) return [];
   if (!d) throw new Error('Support case records are unavailable');
-  const snap = await d.collection('support_tickets').where('uid', '==', String(uid)).get();
-  return snap.docs
+  // This query needs no new index. Cap reads so case-history growth cannot
+  // create unlimited Firestore costs. If the cap is reached, the app explicitly
+  // warns that these are only SOME cases, not necessarily the newest.
+  const snap = await d.collection('support_tickets').where('uid', '==', String(uid))
+    .limit(100).get();
+  const cases = snap.docs
     .map((doc) => (typeof doc.data === 'function' ? doc.data() : doc) || {})
     .filter((x) => x && x.caseNo && !isOperatorCase(x))
     .sort((a, b) => (Number(b.createdAt) || 0) - (Number(a.createdAt) || 0))
@@ -256,6 +260,8 @@ async function listTickets(uid, { limit = 20, database } = {}) {
       status: typeof x.status === 'string' && x.status ? x.status : 'open',
       acknowledgedAt: Number(x.acknowledgedAt) || null,
     }));
+  cases.possiblyIncomplete = snap.docs.length >= 100;
+  return cases;
 }
 
 /**
