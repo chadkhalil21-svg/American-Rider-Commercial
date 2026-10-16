@@ -2,7 +2,19 @@
 const assert = require('node:assert/strict');
 const { normalize, summarize, listIndexes, isCompositeDefinition } = require('./firestore-index-commission.cjs');
 const manifest = require('../firestore.indexes.json');
-assert.equal(manifest.indexes.length, 12, 'manifest must list only necessary composite indexes');
+// Index inventory grows through separately reviewed additions. Guard uniqueness and
+// query shape, rather than freezing the launch-era number of indexes forever.
+assert(manifest.indexes.length >= 12, 'do not remove existing commissioned indexes');
+assert.equal(new Set(manifest.indexes.map(normalize)).size, manifest.indexes.length,
+  'duplicate composite definitions are not allowed');
+for (const needed of [
+  [{ fieldPath: 'travelerUid', order: 'ASCENDING' }, { fieldPath: 'createdAt', order: 'DESCENDING' }],
+  [{ fieldPath: 'travelerUid', order: 'ASCENDING' }, { fieldPath: 'status', order: 'ASCENDING' }, { fieldPath: 'costCents', order: 'ASCENDING' }],
+]) {
+  assert(manifest.indexes.some(index => index.collectionGroup === 'rides' &&
+    JSON.stringify(index.fields) === JSON.stringify(needed)),
+    'bounded Traveler history/aggregate indexes must be declared');
+}
 for (const index of manifest.indexes) {
   assert(index.collectionGroup && index.queryScope, 'index must have collection group and query scope');
   assert(index.fields.length > 0, 'index must have fields');
