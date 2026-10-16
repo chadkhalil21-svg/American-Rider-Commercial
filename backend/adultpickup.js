@@ -15,7 +15,8 @@ const codeFor = (id) => String(mac('adult-pickup:code:' + id).readUInt32BE(0) % 
 const digest = (id, code) => mac('adult-pickup:verify:' + id + ':' + code).toString('hex');
 const denied = (status, code) => ({ok:false,status,code});
 const state = (ride) => ({enabled:enabled(),required:ride?.adultPickup?.required === true,
-  verified: Number.isSafeInteger(ride?.adultPickup?.verifiedAt) && ride.adultPickup.verifiedAt > 0});
+  verified: Number.isSafeInteger(ride?.adultPickup?.verifiedAt) && ride.adultPickup.verifiedAt > 0 &&
+    String(ride?.adultPickup?.verifiedBy||'') === String(ride?.operatorId||'')});
 
 async function travelerCode({db=adminDb(),rideId,travelerUid,now=Date.now()}) {
   if(!enabled())return {ok:true,status:200,enabled:false};
@@ -32,7 +33,9 @@ async function travelerCode({db=adminDb(),rideId,travelerUid,now=Date.now()}) {
     const code=codeFor(String(rideId));
     const hash=digest(String(rideId),code);
     const prior=ride.adultPickup;
-    if(prior?.verifiedAt)return {ok:true,status:200,enabled:true,required:true,verified:true};
+    if(prior?.verifiedAt &&
+      String(prior.verifiedBy||'')===String(ride.operatorId||''))
+      return {ok:true,status:200,enabled:true,required:true,verified:true};
     if(prior?.required===true){
       if(prior.hash!==hash)return denied(409,'pickup_security_reset_required');
       if(Number(prior.failedAttempts||0)>=5)return denied(423,'pickup_code_locked');
@@ -66,7 +69,9 @@ async function verifyOperatorCode({db=adminDb(),rideId,operatorUid,pin,now=Date.
     if(ride.adultPickup?.required!==true)return {ok:true,status:200,required:false};
     if(!['accepted','arrived'].includes(String(ride.status)))return denied(409,'pickup_not_ready');
     if(!ready())return denied(503,'pickup_verification_unavailable');
-    if(ride.adultPickup.verifiedAt)return {ok:true,status:200,required:true,verified:true};
+    if(ride.adultPickup.verifiedAt &&
+      String(ride.adultPickup.verifiedBy||'')===String(operatorUid))
+      return {ok:true,status:200,required:true,verified:true};
     if(Number(ride.adultPickup.failedAttempts||0)>=5)return denied(423,'pickup_code_locked');
     const given=String(pin||'');
     const attempt=/^\d{6}$/.test(given)?digest(String(rideId),given):'';
