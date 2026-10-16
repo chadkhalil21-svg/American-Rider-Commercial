@@ -779,7 +779,7 @@ export function RideProvider({ children }: { children: React.ReactNode }) {
       // account has 1,000 records but we load only 25. Carry forward the highest
       // real sequence visible in the most-recent chronological page.
       const maxObserved = rides.reduce((max, r) => {
-        const match = /^AR-(\\d+)-/.exec(r.tripNo);
+        const match = /^AR-(\d+)-/.exec(r.tripNo);
         return match ? Math.max(max, Number(match[1])) : max;
       }, 2047);
       setTripSeq((current) => Math.max(current, maxObserved));
