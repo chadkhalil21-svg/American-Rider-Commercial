@@ -10,6 +10,7 @@ const screen = read('app/reserve.tsx');
 const detail = read('app/smart.tsx');
 const ride = read('src/state/RideContext.tsx');
 const server = read('backend/server.js');
+const marketing = read('backend/site.js');
 
 for(let pass=0;pass<2;pass++){
   assert.match(client,/export const SMART_TRAVEL_AVAILABLE = false;/);
@@ -29,6 +30,8 @@ for(let pass=0;pass<2;pass++){
   assert.match(newQuote,/res\.status\(503\)\.json\(\{ status: 'unavailable', code: 'smart_travel_not_commissioned' \}\)/);
   assert.match(newQuote,/res\.status\(404\)/); // old builds fail safely
   assert.doesNotMatch(newQuote,/await smartQuote\(/); // NO OTP/Firestore lookups from disabled path
-  assert.match(server,/app.post\('\/smart-revalidate'/); // ongoing journeys retain recovery
+  assert.match(server,/app.post\('\/smart-revalidate'/); // existing journey recovery unaffected
+  assert.match(marketing,/Currently unavailable/);
+  assert.doesNotMatch(marketing,/Brickell to Dadeland|against \$25\.83 direct|Platform fee<\/span><span class="amount">\$1\.50/);
 }
 console.log('PASS Smart Travel gray/unavailable on new bookings; legacy and direct paths fail closed; no added traffic; second-leg recovery preserved, two passes');
