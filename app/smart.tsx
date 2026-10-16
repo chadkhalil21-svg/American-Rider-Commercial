@@ -30,7 +30,7 @@ import {
   Sub,
   Title,
 } from '../src/components/UI';
-import { revalidateSmartTransit, type SmartLeg, type SmartPlan, type SmartRevalidation } from '../src/backend/smart';
+import { SMART_TRAVEL_AVAILABLE, revalidateSmartTransit, type SmartLeg, type SmartPlan, type SmartRevalidation } from '../src/backend/smart';
 import { useGoBack } from '../src/components/nav';
 import { prettyPlace } from '../src/data';
 import { carLegs, clockTime, legTitle, placeName, transitLegs } from '../src/smartLegs';
@@ -129,7 +129,7 @@ export default function SmartTravel() {
   const goBack = useGoBack();
   const ride = useRide();
   const journey = ride.smartJourney;
-  const plan = journey?.plan ?? ride.smartPlan;
+  const plan = journey?.plan ?? (SMART_TRAVEL_AVAILABLE ? ride.smartPlan : null);
   const [revalidation, setRevalidation] = useState<SmartRevalidation | null>(null);
   const [checkingTransit, setCheckingTransit] = useState(false);
 
@@ -150,7 +150,7 @@ export default function SmartTravel() {
         <LetterheadBar onBack={goBack} />
         <Title>{t('traveler.smartTravelTitle')}</Title>
         <Sub>
-          {ride.smartStatus === 'unavailable'
+          {!SMART_TRAVEL_AVAILABLE || ride.smartStatus === 'unavailable'
             ? t('traveler.transitUnavailable')
             : t('traveler.noTransitRoute')}
         </Sub>
