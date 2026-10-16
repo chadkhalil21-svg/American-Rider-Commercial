@@ -1,6 +1,6 @@
 // Continuing coverage is a qualification, not a quote or automatic approval.
 // Law, platform policy, carrier judgment and verification are distinct authorities.
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, AppState, Linking, Pressable, Share, StyleSheet, TextInput, View } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { Text } from '../../src/components/AppText';
@@ -55,7 +55,15 @@ export default function OperatorInsurance() {
     });
     return () => resume.remove();
   }, [refresh]));
-  useEffect(() => { void refresh(); }, [refresh, op.docs.insurance]);
+  // The focus hook owns initial fetching. Refresh a second time only when
+  // this document status actually CHANGES (not on the initial screen mount).
+  const previousDocumentState = useRef(op.docs.insurance);
+  useEffect(() => {
+    if (previousDocumentState.current !== op.docs.insurance) {
+      previousDocumentState.current = op.docs.insurance;
+      void refresh();
+    }
+  }, [refresh, op.docs.insurance]);
 
   const authorizeStatus = async () => {
     setStatusBusy(true);
