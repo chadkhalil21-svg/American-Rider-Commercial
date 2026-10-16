@@ -44,8 +44,8 @@ assert.match(server, /oldCase\.exists && oldCase\.data\(\)\.uid === req\.uid/,
 assert.match(ui, /\.\.\.area\.waitlist/, 'Operator can find listed prelaunch counties');
 assert.match(ui, /d\.key === 'background' && area\?\.market\?\.status === 'waitlist'/,
   'a waitlisted Operator can request screening preparation only');
-assert.match(ui, /disabled=\{!done \|\| submitting \|\| !areaAuthorized\}/,
-  'prelaunch preparation cannot submit qualification');
+assert.match(ui, /disabled=\{submitting \|\| !areaAuthorized\}/,
+  'prelaunch/waitlist Operators still cannot submit qualification, but a phone restart cannot erase review progress');
 assert.match(connect, /waitlist: Market\[\]/, 'API client carries waitlist options');
 assert.match(bg, /mode: requestMode/, 'existing/new screening requests are both supported');
 assert.match(bg, /disabled=\{busy \|\| !releaseAuthorized\}/, 'request requires Operator authorization');
