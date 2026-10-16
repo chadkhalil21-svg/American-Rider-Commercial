@@ -38,7 +38,8 @@ async function progressTravel({ db, uid, rideId, status, now = Date.now() }) {
     // Teen pickup verification is server-stamped by /travel/teen-pickup/verify.
     const teenVerifiedAt = ride.teenPickup?.verifiedAt;
     if (next === 'onboard' && ride.party?.teen === true &&
-        (!Number.isSafeInteger(teenVerifiedAt) || teenVerifiedAt <= 0 || teenVerifiedAt > now)) {
+        (!Number.isSafeInteger(teenVerifiedAt) || teenVerifiedAt <= 0 || teenVerifiedAt > now ||
+         String(ride.teenPickup?.verifiedBy||'') !== String(uid||''))) {
       return fail(409, 'Verify the Teen pickup code before boarding.', 'teen_pickup_unverified');
     }
 
