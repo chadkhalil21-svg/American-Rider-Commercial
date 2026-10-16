@@ -70,6 +70,20 @@ check('a walk leg carries no route', it && !('route' in it.legs[1]));
 const busOn = T.mapPlan({ planConnection: { routingErrors: [], edges: [busTrip(BUS_8), busTrip(BUS_150)] } }, { busRoutes: new Set(['MDT:31148']) });
 check('a bus on the allow-list is kept and one off it dropped',
   busOn.status === 'ok' && busOn.itineraries.length === 1 && busOn.itineraries[0].legs[1].route.gtfsId === 'MDT:31148', JSON.stringify(busOn));
+// Integration: the allow-listed route still needs an actual departure soon after arrival
+// at its specific stop. Never drop an ordinary rail itinerary because a bus is late.
+const delayedBus = edge([
+  rawLeg('WALK', point('Origin', 25.7683, -80.183), BRICKELL, '16:30', '16:40', 400),
+  rawLeg('BUS', BRICKELL, MIA, '16:58', '17:40', 11000, BUS_150, { stops: 12 }),
+]);
+const reliableSource = { planConnection: { routingErrors: [], edges: [delayedBus, railTrip] } };
+const windowed = T.mapPlan(reliableSource, {
+  busRoutes: new Set(['MDT:31148']), requestedAt: new Date(at('16:30')),
+  timezone: 'America/New_York',
+});
+check('an 18-minute wait at the actual weekday boarding stop rejects bus but retains rail',
+  windowed.status === 'ok' && windowed.itineraries.length === 1 &&
+  windowed.itineraries[0].legs.some((leg) => leg.mode === 'rail'), JSON.stringify(windowed));
 const busOff = T.mapPlan({ planConnection: { routingErrors: [], edges: [busTrip(BUS_150)] } }, { busRoutes: null });
 check('with no allow-list every bus is dropped: none', busOff.status === 'none', JSON.stringify(busOff));
 const railWithoutList = T.mapPlan({ planConnection: { routingErrors: [], edges: [railTrip] } }, { busRoutes: null });
