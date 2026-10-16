@@ -46,6 +46,10 @@ for (let pass=1;pass<=2;pass++) {
   assert.equal(eas.build['prelaunch-ui-e2e'].withoutCredentials,true);
   assert.match(nativeConfig,/type: maestro/);
   assert.match(nativeConfig,/flow_path:/);
+  // Expo documents macOS workers for iOS Simulator and nested virtualized Linux for Android.
+  // The ordinary default Linux worker cannot host either requested emulator correctly.
+  assert.match(nativeConfig,/test_ios:[\s\S]*?runs_on:\s*macos-medium\b/);
+  assert.match(nativeConfig,/test_android:[\s\S]*?runs_on:\s*linux-medium-nested-virtualization\b/);
   assert.doesNotMatch(nativeConfig,/\bon:\s*\n\s*(pull_request|push|schedule)/,
     'Never automatically incur native cloud-build cost.');
   assert.match(nativeFlow,/launchApp:/);
