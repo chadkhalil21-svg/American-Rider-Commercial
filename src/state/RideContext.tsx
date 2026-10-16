@@ -1,4 +1,4 @@
-import type { SmartPlan } from '../backend/smart';
+import { SMART_TRAVEL_AVAILABLE, type SmartPlan } from '../backend/smart';
 import { DEFAULT_DEPARTURE } from '../location';
 import { smartSecondCarKey } from '../smartBookingKey';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -994,6 +994,8 @@ export function RideProvider({ children }: { children: React.ReactNode }) {
 
   const beginSmartLeg = useCallback(
     (which: 1 | 2): boolean => {
+      // Existing trips may complete their second car; new Smart journeys remain blocked.
+      if (which === 1 && !SMART_TRAVEL_AVAILABLE) return false;
       const plan = which === 1 ? smartPlan : smartJourneyRef.current?.plan ?? smartPlan;
       if (!plan) return false;
       const firstTransit = plan.legs.findIndex((l) => l.kind === 'transit');
