@@ -523,7 +523,7 @@ export default {
     driveInControl: 'Autonomie de répartition indépendante',
     driveInControlBody: 'Opérez quand vous voulez et où vous voulez. American Rider ne vous attribue jamais de zone et ne vous pénalise jamais pour avoir refusé une course.',
     drivePayouts: 'Règlement du capital',
-    emgLocationShared: 'Votre position a été partagée.',
+    emgLocationShared: 'L’application de partage a été ouverte. La réception par le destinataire n’est pas confirmée.',
     emgNoShareSheet: 'Cet appareil n’a pas pu ouvrir de moyen d’envoyer le message.',
     emgNoCalls: 'Cet appareil ne peut pas passer d’appels. Utilisez un autre téléphone pour composer le 911.',
     switchToOperator: 'Passer à la vue Opérateur',
