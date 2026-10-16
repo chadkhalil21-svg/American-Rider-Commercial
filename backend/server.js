@@ -1644,11 +1644,18 @@ app.post('/smart-quote', LIMITS.routeIp, requireOperationalReadiness, requireSer
   // that does not name the new contract (header X-AR-Smart: 2) is answered the way the old
   // server answered it: 404 and no card. Removable once every tester is on a newer build.
   const speaksV2 = req.get('x-ar-smart') === '2';
+  // Founder paused NEW Smart Travel while live timetable and phone handoffs remain
+  // uncommissioned. Enforce server-side even for previously installed iOS builds.
+  // Do not call OTP, write to Firestore or quote a new Smart booking.
+  if (!speaksV2) return res.status(404).json({ error: 'Smart Travel is currently unavailable' });
+  return res.status(503).json({ status: 'unavailable', code: 'smart_travel_paused' });
+  /* Smart planning is retained below for a controlled future reactivation.
   const out = await smartQuote(req.body?.pickup, req.body?.dest);
   if (!speaksV2) return res.status(404).json({ error: 'Smart Travel needs the current app' });
   if (out.status === 'unavailable') return res.status(503).json({ status: 'unavailable' });
   if (out.status !== 'ok') return res.json({ status: 'none' });
   res.json(out.plan);
+  */
 });
 
 app.post('/smart-revalidate', LIMITS.routeIp, requireOperationalReadiness, async (req, res) => {
