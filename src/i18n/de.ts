@@ -658,7 +658,6 @@ export default {
     delEveryTrip: 'Ihr Zugriff auf die Reisehistorie und Belege wird entfernt.',
     delEverythingDevice: 'Lokale Anwendungsdaten',
     musicSourceOnArrival: 'Wählen Sie Quelle oder Playlist beim Einsteigen gemeinsam mit Ihrem Operator.',
-    selectDestAgain: 'Wählen Sie das Ziel erneut, um den Betrag zu bestätigen.',
     retryTravelCost: 'Fahrtkosten erneut prüfen',
     quoteTollUnavailable: 'Die Mautprüfung ist vorübergehend nicht verfügbar. Bitte versuchen Sie es erneut.',
     quoteLocationUnresolved: 'Abhol- oder Zielort konnte nicht genau bestimmt werden. Wählen Sie eine Adresse oder versuchen Sie es erneut.',
