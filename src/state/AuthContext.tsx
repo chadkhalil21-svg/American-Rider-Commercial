@@ -20,6 +20,8 @@ import { clearPushToken } from '../backend/push';
 
 type AuthState = {
   user: User | null;
+  /** Existing verified profile name, kept separate from Firebase User methods. */
+  accountName: string | null;
   initializing: boolean;
   busy: boolean;
   error: string | null;
@@ -82,6 +84,7 @@ function friendly(code: string): string {
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
+  const [accountName, setAccountName] = useState<string | null>(null);
   const [initializing, setInitializing] = useState(true);
   const [busy, setBusy] = useState(false);
   const [onboarding, setOnboarding] = useState(false);
@@ -93,6 +96,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const unsubscribe = onAuthStateChanged(auth, (u) => {
       const request = ++version;
       setUser(u);
+      setAccountName(u?.displayName?.trim() || null);
       setInitializing(false);
       // Provider sign-in can yield an Auth user with no displayName even when
       // American Rider already saved the account's name in the user profile.
@@ -102,9 +106,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (version !== request || auth.currentUser?.uid !== u.uid) return;
         const name = snap.data()?.name;
         if (typeof name !== 'string' || !name.trim()) return;
-        setUser((current) => current?.uid === u.uid && !current.displayName?.trim()
-          ? { ...current, displayName: name.trim().slice(0, 40) } as User
-          : current);
+        // Never spread Firebase User into a plain object: its authentication
+        // methods are provided by the SDK prototype and must be preserved.
+        setAccountName(name.trim().slice(0, 40));
       }).catch(() => { /* A failed profile read cannot block signing in. */ });
     });
     return () => { ++version; unsubscribe(); };
@@ -142,6 +146,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const value: AuthState = {
+    accountName,
     user,
     initializing,
     busy,
@@ -222,7 +227,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         );
         // React does not re-render on a Firebase profile change — the user object is the
         // same instance — so the new name is published deliberately.
-        setUser({ ...u, displayName: clean } as User);
+        setAccountName(clean);
         return true;
       } catch (e: any) {
         const code = typeof e?.code === 'string' ? e.code : 'auth/unknown';
