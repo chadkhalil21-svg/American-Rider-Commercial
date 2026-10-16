@@ -10,7 +10,7 @@ import { updateProfile,
   verifyBeforeUpdateEmail,
   User,
 } from 'firebase/auth';
-import { doc } from 'firebase/firestore';
+import { doc, getDoc } from 'firebase/firestore';
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { auth, db } from '../firebase';
 import { t } from '../i18n';
@@ -89,10 +89,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [diagnosticCode, setDiagnosticCode] = useState<string | null>(null);
 
   useEffect(() => {
-    return onAuthStateChanged(auth, (u) => {
+    let version = 0;
+    const unsubscribe = onAuthStateChanged(auth, (u) => {
+      const request = ++version;
       setUser(u);
       setInitializing(false);
+      // Provider sign-in can yield an Auth user with no displayName even when
+      // American Rider already saved the account's name in the user profile.
+      // Read that record once on sign-in, never per booking or per render.
+      if (!u || u.displayName?.trim()) return;
+      void getDoc(doc(db, 'users', u.uid)).then((snap) => {
+        if (version !== request || auth.currentUser?.uid !== u.uid) return;
+        const name = snap.data()?.name;
+        if (typeof name !== 'string' || !name.trim()) return;
+        setUser((current) => current?.uid === u.uid && !current.displayName?.trim()
+          ? { ...current, displayName: name.trim().slice(0, 40) } as User
+          : current);
+      }).catch(() => { /* A failed profile read cannot block signing in. */ });
     });
+    return () => { ++version; unsubscribe(); };
   }, []);
 
   const run = async (fn: () => Promise<unknown>) => {
