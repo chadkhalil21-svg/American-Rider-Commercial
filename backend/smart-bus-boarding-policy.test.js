@@ -42,4 +42,4 @@ assert.equal(ok([bus(d(thu,'09:12'),d(thu,'09:30'))],null,tz),true); // legacy m
 assert.equal(ok([bus(d(thu,'09:12'),d(thu,'09:30'))],thuReady,tz),true);
 assert.equal(ok([bus(d(thu,'09:12'),d(thu,'09:30')),car(d(thu,'09:30'),d(thu,'09:32')),bus(d(thu,'09:49'),d(thu,'10:10'))],thuReady,tz),false); // EVERY bus stop
 assert.equal(ok([bus(d(thu,'09:12'),d(thu,'09:30')),car(d(thu,'09:30'),d(thu,'09:32')),bus(d(thu,'09:47'),d(thu,'10:10'))],thuReady,tz),true);
-console.log('Smart bus boarding window: 33 safety scenarios passed (synthetic)');
+console.log('Smart bus boarding window: synthetic safety scenarios passed');
