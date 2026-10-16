@@ -29,7 +29,7 @@ import { destinationsNear, type Destination } from '../src/backend/destinations'
 import { searchPlaces, type PlaceSuggestion } from '../src/backend/placeSearch';
 import { fetchQuote, geocodePlace, isUnavailable, recordVisibleStandardQuote } from '../src/backend/fares';
 import { joinWaitlist } from '../src/backend/connect';
-import { fetchSmartQuote } from '../src/backend/smart';
+import { fetchSmartQuote, SMART_TRAVEL_AVAILABLE } from '../src/backend/smart';
 import { useGoBack } from '../src/components/nav';
 import { RouteMap } from '../src/components/RouteMap';
 import {
@@ -279,6 +279,10 @@ export default function TravelConfirmation() {
     if (smartLeg) return undefined;
     let live = true;
     setSmartPlan(null);
+    if (!SMART_TRAVEL_AVAILABLE) {
+      setSmartStatus('unavailable');
+      return undefined;
+    }
     if (!tripCoords) {
       setSmartStatus('idle');
       return undefined;
@@ -295,7 +299,7 @@ export default function TravelConfirmation() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tripCoords, smartLeg]);
 
-  const smart = ride.smartPlan;
+  const smart = SMART_TRAVEL_AVAILABLE ? ride.smartPlan : null;
   // A JOURNEY WHOSE TRANSIT FARE WE DO NOT KNOW (Brightline, Tri-Rail) is not given a total.
   // The card shows what American Rider charges and says the transit fare is on top; a "less
   // than direct" line built without that fare would be a false comparison.
@@ -740,11 +744,11 @@ export default function TravelConfirmation() {
                     })}
                   </Card>
 
-                  {ride.smartStatus !== 'idle' && (
+                  {(ride.smartStatus !== 'idle' || !SMART_TRAVEL_AVAILABLE) && (
                     <Pressable
                       accessibilityRole="button"
                       onPress={() => router.navigate('/smart')}
-                      disabled={!smart}
+                      disabled={!smart} accessibilityState={{ disabled: !smart }}
                     >
                       {/* ONE FACT PER ROW: a head row that fits at 320 (tile · title · price),
                           then the mode line and the comparison each on their own line. */}
