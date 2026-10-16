@@ -31,6 +31,7 @@ import {
   prepareRide,
   fetchMyRidesPage,
   fetchCompletedTravelStats,
+  fetchRecoverableMyRide,
   type TravelCursor,
   MatchedOp,
   recordTravelReview,
@@ -756,7 +757,15 @@ export function RideProvider({ children }: { children: React.ReactNode }) {
     try {
       const page = await fetchMyRidesPage();
       if (auth.currentUser?.uid !== uid) return;
-      const rides = page.rides;
+      let rides = page.rides;
+      // An unfinished Travel can predate 25 newer records. Preserve restore semantics
+      // without ever fetching the complete historical collection.
+      if (!rideActiveRef.current && !activeRideId.current &&
+          !rides.some((r) => ['assigned', 'accepted', 'arrived', 'onboard', 'awaiting_payment', 'awaiting_assignment'].includes(r.status))) {
+        const recoverable = await fetchRecoverableMyRide().catch(() => null);
+        if (auth.currentUser?.uid !== uid) return;
+        if (recoverable && !rides.some((r) => r.id === recoverable.id)) rides = [...rides, recoverable];
+      }
       setMyRides(rides);
       ridesCursorRef.current = page.cursor;
       setHasOlderMyRides(page.hasMore);
