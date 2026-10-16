@@ -2,7 +2,10 @@
 const assert = require('node:assert/strict');
 const { normalize, summarize, listIndexes, isCompositeDefinition } = require('./firestore-index-commission.cjs');
 const manifest = require('../firestore.indexes.json');
-assert.equal(manifest.indexes.length, 15, 'manifest must contain exactly the approved composite indexes');
+// The inventory may grow, but it may not silently lose approved indexes or duplicate one.
+assert(manifest.indexes.length >= 15, 'the fifteen reviewed composite indexes must remain present');
+assert.equal(new Set(manifest.indexes.map(normalize)).size, manifest.indexes.length,
+  'duplicate composite index definitions are forbidden');
 // Read-efficient Travel history must preserve chronology, all-time totals and unfinished
 // Travel recovery. Each is a real composite and needs commissioning before app release.
 for (const fields of [
