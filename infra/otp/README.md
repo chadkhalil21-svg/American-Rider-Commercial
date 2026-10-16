@@ -94,10 +94,10 @@ on weekday 07:00–19:00 or above 30 minutes on weekends and at other hours. Rou
 calendar proof is absent are excluded, never guessed from another day. No new agency API or
 monthly subscription is necessary for this offline generation.
 
-To prepare authentic data: download and validate the five official transit feeds already named
+To prepare authentic data: download and validate the three official **bus** feeds (MDT, BCT, Palm Tran) already named
 in `infra/otp/build.sh`; rebuild OTP's street/transit graph from those **same versions**; then
 run `node infra/otp/build-route-profiles.mjs --out backend/transit-routes.fl-southeast.json`
-from the repository root (pass `--data <folder>` if not using `~/otp-data/build`). The command
+from the repository root (pass `--data <folder>` if not using `~/otp-data/build`). The transit planner's **rail** feeds are updated and validated separately; their absence must not suppress bus eligibility. The command
 rejects a missing or invalid feed instead of partially replacing the route list. Inspect
 its profile dates, renew approaching expiry, commit and test at exact SHA, and deploy OTP and
 backend with healthy route responses. **Do not execute this command with the old GTFS files
