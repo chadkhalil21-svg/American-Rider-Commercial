@@ -359,9 +359,9 @@ export async function fetchMyRidesPage(cursor: TravelCursor | null = null, pageS
   const uid = auth.currentUser?.uid;
   if (!uid) return { rides: [], cursor: null, hasMore: false };
   if (!Number.isInteger(pageSize) || pageSize < 1 || pageSize > 50) throw new Error('invalid-travel-page-size');
-  const parts = [where('travelerUid', '==', uid), orderBy('createdAt', 'desc'), limit(pageSize + 1)];
-  if (cursor) parts.push(startAfter(cursor));
-  const snap = await getDocs(query(collection(db, 'rides'), ...parts));
+  const first = query(collection(db, 'rides'),
+    where('travelerUid', '==', uid), orderBy('createdAt', 'desc'), limit(pageSize + 1));
+  const snap = await getDocs(cursor ? query(first, startAfter(cursor)) : first);
   const visible = snap.docs.slice(0, pageSize);
   return {
     rides: visible.map(rideFromSnapshot),
