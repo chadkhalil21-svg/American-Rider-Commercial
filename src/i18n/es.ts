@@ -275,6 +275,7 @@ export default {
     doneExploringMap: "Listo",
     recenterPickup: "Centrar en el punto de recogida",
     loadOlderTravel: "Cargar viajes anteriores",
+    moreTravelMayMatch: "Puede haber más viajes al cargar registros anteriores.",
     olderTravelLoading: "Cargando viajes anteriores…",
     travelTotalsShownOnly: "Los totales incluyen solo los viajes mostrados. Cargue los anteriores para ver más.",
     viewAll: 'Ver todos',
