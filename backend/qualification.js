@@ -290,7 +290,13 @@ function assessOperator({ user, fleet = null, context = 'qualify', liveMoney = f
   // CONTINUING INSURANCE STATUS. A compliant declarations page is a point-in-time fact.
   // Monthly independent confirmation and the Operator's own attestation are separate facts.
   // Any adverse carrier/broker status, or status older than 35 days, blocks qualification.
-  if (u?.documents?.insurance?.verdict === 'accept') {
+  // The raw OCR verdict is deliberately "review". A named human may accept the
+  // original, but that does not prove it remains insured. Check continuing
+  // source status after EITHER a valid original read or independent human
+  // acceptance; otherwise manual review silently bypasses cancellation checks.
+  if (u?.documents?.insurance &&
+      (u.documents.insurance.verdict === 'accept' ||
+       u.documents.insurance.decision?.verdict === 'accept')) {
     const live = continuingStatus(u, now);
     if (!live.ok) {
       add(finding(
