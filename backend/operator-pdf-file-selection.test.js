@@ -13,6 +13,14 @@ assert.equal(lock.packages[''].dependencies['expo-document-picker'], pkg.depende
 assert.equal(lock.packages['node_modules/expo-document-picker'].version, '57.0.3');
 
 const mobile = source('src/backend/documentUpload.ts');
+const fallbackLine = mobile.split('\n').find(line => line.includes('.test(selected.name || selected.uri)'));
+assert.ok(fallbackLine, 'PDF filename fallback must remain present');
+const regexLiteral = fallbackLine.slice(fallbackLine.indexOf('/'), fallbackLine.indexOf('.test('));
+const pdfFilenameMatches = new Function('name', 'return ' + regexLiteral + '.test(name)');
+assert.equal(pdfFilenameMatches('insurance-policy.pdf'), true, 'PDF name without MIME must be recognized');
+assert.equal(pdfFilenameMatches('insurance-policy.pdf?cache=1'), true, 'PDF URI with a query must be recognized');
+assert.equal(pdfFilenameMatches('insurance-policy.png'), false, 'Unrelated image name is not PDF');
+
 assert.match(mobile, /import \* as DocumentPicker from 'expo-document-picker'/);
 assert.match(mobile, /DocumentPicker\.getDocumentAsync\(/);
 assert.match(mobile, /'application\/pdf'/);
