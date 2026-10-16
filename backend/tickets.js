@@ -230,7 +230,8 @@ async function notifyLocationByEmail(ticket) {
  */
 async function listTickets(uid, { limit = 20, database } = {}) {
   const d = database || db();
-  if (!d || !uid) return [];
+  if (!uid) return [];
+  if (!d) throw new Error('Support case records are unavailable');
   const snap = await d.collection('support_tickets').where('uid', '==', String(uid)).get();
   return snap.docs
     .map((doc) => (typeof doc.data === 'function' ? doc.data() : doc) || {})
