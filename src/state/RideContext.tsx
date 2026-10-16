@@ -536,6 +536,7 @@ export function RideProvider({ children }: { children: React.ReactNode }) {
   const [loadingOlderMyRides, setLoadingOlderMyRides] = useState(false);
   const ridesCursorRef = useRef<TravelCursor | null>(null);
   const olderInFlightRef = useRef(false);
+  const recentRefreshInFlightUidRef = useRef<string | null>(null);
   const recentLoadedAtRef = useRef({ uid: '', at: 0 });
   const [payment, setPayment] = useState<PaymentState>({ status: 'idle' });
   const [tripSeq, setTripSeq] = useState(2047);
@@ -754,6 +755,10 @@ export function RideProvider({ children }: { children: React.ReactNode }) {
     // Payment/dispatch/safety callbacks continue to request fresh data by default.
     if (options?.useCache && recentLoadedAtRef.current.uid === uid &&
         Date.now() - recentLoadedAtRef.current.at < 30_000) return;
+    // Context restoration and Home mounting may overlap on first sign-in. Reuse
+    // the ongoing retrieval instead of making a second identical Firestore query.
+    if (options?.useCache && recentRefreshInFlightUidRef.current === uid) return;
+    recentRefreshInFlightUidRef.current = uid;
     try {
       const page = await fetchMyRidesPage();
       if (auth.currentUser?.uid !== uid) return;
@@ -878,6 +883,8 @@ export function RideProvider({ children }: { children: React.ReactNode }) {
       }
     } catch {
       /* ignore — offline / no rides yet */
+    } finally {
+      if (recentRefreshInFlightUidRef.current === uid) recentRefreshInFlightUidRef.current = null;
     }
   }, []);
 
