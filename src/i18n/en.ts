@@ -678,7 +678,6 @@ export default {
     delEveryTrip: 'Your access to Travel history and receipts is removed.',
     delEverythingDevice: 'Local Application Data',
     musicSourceOnArrival: 'Choose the source or playlist with your Operator when you board.',
-    selectDestAgain: 'Select the destination again to confirm the amount.',
     retryTravelCost: 'Retry Travel Cost',
     quoteTollUnavailable: 'Toll verification is temporarily unavailable. Please try again.',
     quoteLocationUnresolved: 'The pickup or destination could not be located precisely. Choose an address or try again.',
