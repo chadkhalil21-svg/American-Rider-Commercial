@@ -1,5 +1,5 @@
 # American Rider — source-led pricing, Smart Travel, cost and release audit
-**15 October 2026 · review-only; not production certification**
+**15 October 2026 · code merged/deployed, real transit commissioning not verified**
 
 ## Authority and decisions already made
 Read `PROJECT-LEDGER.md`, `AGENTS.md`, `docs/COUNCIL-STANDARDS.md`, `docs/decisions/0004-paid-scale-capacity-economics.md`, and the current merged source before proposing changes. The Council is a historic/institutional research rubric, **not** communication with Ford, Rockefeller, Jobs, universities, Apple, Amazon or NASA.
@@ -37,4 +37,4 @@ Production proof still required, with no real passengers or unapproved charges:
 5. Validate physical-device and jurisdiction/legal/safety evidence separately. Passing tests alone does not authorize commercial Travel.
 
 ## Decision
-**No new monthly subscription or fare change. Keep trains and practical buses.** Retain the existing planning architecture as a candidate until an objectively cheaper, fully usable router is benchmarked; a static stop table alone cannot promise a complete itinerary. PR #20 is review-only until exact-head CI and data commissioning requirements are independently verified. Use the Founder-first exception view and existing code; do not duplicate market permissions, cost collectors or payment flows.
+**No new monthly subscription or fare change. Keep trains and practical buses.** Retain the existing planning architecture as a candidate until an objectively cheaper, fully usable router is benchmarked; a static stop table alone cannot promise a complete itinerary. PR #20 passed all seven exact-head CI checks and was merged to `release/current` at `5c354d311d56fc962f5dfa1a141ecf030da956ee`; Render backend, website and preview were verified live on that SHA. **This does not commission real GTFS feeds, the transit planner, linked payment flows or physical devices.** Use the Founder-first exception view and existing code; do not duplicate market permissions, cost collectors or payment flows.
