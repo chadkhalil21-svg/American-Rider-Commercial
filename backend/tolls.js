@@ -8,6 +8,12 @@ const { readKey } = require('./env');
 
 const HERE_TOLL_URL = 'https://router.hereapi.com/v8/routes';
 const TIMEOUT_MS = 7000;
+// A verified toll answer may be reused briefly for the SAME endpoints. This avoids
+// paying the toll provider twice when the confirmation screen re-quotes a class,
+// while expired or uncertain answers never authorize a fare.
+const VERIFIED_TTL_MS = 60_000;
+const verified = new Map();
+const inflight = new Map();
 
 function cents(price) {
   if (!price || !Number.isFinite(Number(price.value))) return null;
@@ -41,7 +47,7 @@ function parseHereTolls(data) {
   return { status: total > 0 ? 'tolled' : 'clear', tollCents: total, provider: 'here' };
 }
 
-async function resolveTolls(from, to, { departureTime = 'any' } = {}) {
+async function resolveTollsUncached(from, to, { departureTime = 'any' } = {}) {
   const apiKey = readKey('HERE_API_KEY');
   if (!apiKey) return { status: 'unknown', tollCents: null, reason: 'provider_not_configured' };
   const q = new URLSearchParams({
@@ -63,6 +69,31 @@ async function resolveTolls(from, to, { departureTime = 'any' } = {}) {
     return { status: 'unknown', tollCents: null, reason: 'provider_unavailable' };
   } finally {
     clearTimeout(timer);
+  }
+}
+
+// A bounded, time-limited cache contains only verified provider responses, not
+// unknown or failed lookups. Same-route requests share one in-flight lookup.
+async function resolveTolls(from, to, opts = {}) {
+  if (![from?.lat, from?.lng, to?.lat, to?.lng].every(Number.isFinite)) {
+    return { status: 'unknown', tollCents: null, reason: 'invalid_coordinates' };
+  }
+  const key = [from.lat, from.lng, to.lat, to.lng, opts.departureTime || 'any'].join('|');
+  const cached = verified.get(key);
+  if (cached && cached.until > Date.now()) return cached.value;
+  if (cached) verified.delete(key);
+  if (inflight.has(key)) return inflight.get(key);
+  const promise = resolveTollsUncached(from, to, opts);
+  inflight.set(key, promise);
+  try {
+    const value = await promise;
+    if (value.status === 'clear' || value.status === 'tolled') {
+      verified.set(key, { value, until: Date.now() + VERIFIED_TTL_MS });
+      if (verified.size > 256) verified.delete(verified.keys().next().value);
+    }
+    return value;
+  } finally {
+    inflight.delete(key);
   }
 }
 
