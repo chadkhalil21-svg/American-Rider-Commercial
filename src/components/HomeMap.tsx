@@ -21,11 +21,11 @@ export function HomeMap({ lat, lng }: { lat?: number | null; lng?: number | null
   return (
     <MonoMap interactive frameKey={`${lat},${lng}`} view={{ center: [lng, lat], zoom: ZOOM }}>
       <GeoJSONSource id="traveler" data={here}>
-        {/* An ink dot with a paper halo: the app's own pin, not a platform's blue one. */}
+        {/* An ink dot with a muted-blue accuracy-style halo (not an accuracy guarantee): the app's own pin, not a platform's blue one. */}
         <Layer
           id="traveler-halo"
           type="circle"
-          paint={{ 'circle-radius': 11, 'circle-color': colors.card, 'circle-opacity': 0.85 }}
+          paint={{ 'circle-radius': 15, 'circle-color': '#DCE6EE', 'circle-opacity': 0.72 }}
         />
         <Layer
           id="traveler-dot"
