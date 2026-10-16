@@ -1,12 +1,6 @@
 name: Build and submit certified iOS candidate to TestFlight
 
 on:
-  # One-time, explicitly named candidate branch. This does not alter the production
-  # release branch, and it will NOT submit to the public App Store.
-  push:
-    branches: [testflight/ios-request-20261016]
-    paths:
-      - '.github/workflows/submit-certified-ios-testflight.yml'
   workflow_dispatch:
     inputs:
       certified_sha:
@@ -19,11 +13,6 @@ permissions:
 
 jobs:
   build-submit-certified-ios:
-    if: >-
-      github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'push' &&
-       github.ref == 'refs/heads/testflight/ios-request-20261016' &&
-       github.event.head_commit.message == 'One-time TestFlight request 2026-10-16 for release 6c6696b')
     runs-on: ubuntu-latest
     timeout-minutes: 90
     env:
@@ -31,7 +20,7 @@ jobs:
       ASC_API_KEY_BASE64: ${{ secrets.ASC_API_KEY_BASE64 }}
       ASC_KEY_ID: LS74L322NV
       ASC_ISSUER_ID: 2fa282d5-2b2c-4820-8fe9-6928ac1e8d33
-      CERTIFIED_SHA: ${{ github.event_name == 'workflow_dispatch' && inputs.certified_sha || '6c6696b17d018010963f400b5b92a6594b5a1ff0' }}
+      CERTIFIED_SHA: ${{ inputs.certified_sha }}
 
     steps:
       - name: Check out certified candidate
