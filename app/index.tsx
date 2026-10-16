@@ -94,6 +94,23 @@ function Magnifier() {
 // 2026: truncations read as transactional). Falls back to the string when it holds no digits.
 const minutesOf = (meta: string) => (meta.match(/\d+/)?.[0] ?? meta);
 
+// Pictograms describe a place type; they are not live status lights or fictitious journeys.
+function PlaceGlyph({ kind }: { kind: 'home' | 'work' | 'pin' }) {
+  return (
+    <View style={styles.placeGlyph}>
+      <Svg width={21} height={21} viewBox="0 0 24 24" fill="none">
+        {kind === 'home' ? (
+          <Path d="M3 11 12 3l9 8M5 10v11h14V10M9 21v-7h6v7" stroke={colors.ink2} strokeWidth={1.7} strokeLinecap="round" strokeLinejoin="round" />
+        ) : kind === 'work' ? (
+          <Path d="M3 8h18v12H3zM8 8V5h8v3M3 12h18" stroke={colors.ink2} strokeWidth={1.7} strokeLinecap="round" strokeLinejoin="round" />
+        ) : (
+          <><Path d="M12 21s7-5.5 7-11a7 7 0 1 0-14 0c0 5.5 7 11 7 11Z" stroke={colors.ink2} strokeWidth={1.7} strokeLinejoin="round" /><Circle cx={12} cy={10} r={2.4} stroke={colors.ink2} strokeWidth={1.7} /></>
+        )}
+      </Svg>
+    </View>
+  );
+}
+
 export default function Home() {
   const { t, language } = useLanguage();
   const router = useRouter();
@@ -185,10 +202,12 @@ export default function Home() {
       };
     }, []),
   );
-  const savedRows: { key: string; title: string; place: SavedPlace }[] = [
-    ...(savedPlaces.home ? [{ key: 'home', title: t('traveler.homeAddress'), place: savedPlaces.home }] : []),
-    ...(savedPlaces.work ? [{ key: 'work', title: t('traveler.workAddress'), place: savedPlaces.work }] : []),
-    ...savedPlaces.favorites.map((f) => ({ key: `fav:${f.label}`, title: f.label, place: f })),
+  // Home and Work are useful setup actions for a new traveler, never invented addresses.
+  // Real coordinates are required before a saved place can start a reservation.
+  const savedRows: { key: string; title: string; place?: SavedPlace; which?: 'home' | 'work'; icon: 'home' | 'work' | 'pin' }[] = [
+    { key: 'home', title: t('traveler.home'), place: savedPlaces.home, which: 'home', icon: 'home' },
+    { key: 'work', title: t('traveler.placeWork'), place: savedPlaces.work, which: 'work', icon: 'work' },
+    ...savedPlaces.favorites.map((f) => ({ key: `fav:${f.label}`, title: f.label, place: f, icon: 'pin' as const })),
   ];
   // The drawer head: the sign-up name, else the account's address — never the address's
   // local part passed off as a name ("chadkhalil21" was the founder's own inbox).
@@ -601,17 +620,26 @@ export default function Home() {
 
           Home therefore offers exactly one way to name a destination: the field above. */}
 
-      {/* SAVED PLACES: shown only once the traveler has saved one; each opens the sheet with
-          the place already quoted from its saved coordinates. */}
-      {canOfferNewTravel && savedRows.length > 0 && (
+      {/* The approved first concept: readable saved destinations with honest empty states.
+          Unset Home/Work are setup actions, never synthetic account information. */}
+      {canOfferNewTravel && (
         <>
-          <SectionLabel style={styles.labelSuggested}>{t('traveler.savedPlaces')}</SectionLabel>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionHeading}>{t('traveler.savedPlaces')}</Text>
+            <Pressable accessibilityRole="button" onPress={() => router.navigate('/profile')} hitSlop={10}>
+              <Text style={styles.sectionAction}>{t('traveler.edit')}</Text>
+            </Pressable>
+          </View>
           <View style={styles.listCard}>
             {savedRows.map((row, i) => (
               <Pressable
                 key={row.key}
                 accessibilityRole="button"
                 onPress={() => {
+                  if (!row.place) {
+                    router.navigate({ pathname: '/saved-place', params: { which: row.which || 'home' } });
+                    return;
+                  }
                   ride.startBooking({
                     name: row.place.label,
                     short: row.place.label,
@@ -624,11 +652,10 @@ export default function Home() {
                 }}
               >
                 <View style={[styles.listRow, i > 0 && styles.listRowDivider]}>
+                  <PlaceGlyph kind={row.icon} />
                   <View style={{ flex: 1 }}>
                     <Text style={styles.listName}>{row.title}</Text>
-                    {row.title !== row.place.label && (
-                      <Text style={styles.listMeta}>{row.place.label}</Text>
-                    )}
+                    <Text style={styles.listMeta}>{row.place?.label ?? t('traveler.notSet')}</Text>
                   </View>
                   <Chev />
                 </View>
@@ -658,7 +685,12 @@ export default function Home() {
 
       {recentDistinct.length > 0 && (
         <>
-          <SectionLabel style={styles.labelRecent}>{t('traveler.recentTravel')}</SectionLabel>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionHeading}>{t('traveler.recentTravel')}</Text>
+            <Pressable accessibilityRole="button" onPress={() => router.navigate('/history')} hitSlop={10}>
+              <Text style={styles.sectionAction}>{t('traveler.viewAll')}</Text>
+            </Pressable>
+          </View>
           <View style={styles.listCard}>
             {/* NO PRICE ON THESE ROWS — founders' call, 13 Aug 2026 (Chad: not on the
                 home screen; Adrian: "have something like a receipt somewhere").
@@ -670,15 +702,9 @@ export default function Home() {
                 "where have I been", and the price lives on the receipt, where it is
                 unambiguous. Tapping opens THAT trip's receipt (not the Travel Log). */}
             {recentDistinct.map((r, i) => (
-              <Pressable key={r.id} onPress={() => openReceipt(r)}>
+              <Pressable key={r.id} accessibilityRole="button" onPress={() => openReceipt(r)}>
                 <View style={[styles.listRow, i > 0 && styles.listRowDivider]}>
-                  {/* NO DOT. The demo's .pin is a map pin whose COLOUR carries meaning —
-                      ink for departure, blue for arrival, faint for a past trip. On this
-                      row none of that is visible: there is nothing beside it to compare
-                      against, so it reads as a status light that reports no status.
-                      Chad, 15 Aug: "The gray dots need a meaning… If they do not
-                      communicate something real, remove them." An institutional interface
-                      should not carry elements that imply semantics they do not have. */}
+                  <PlaceGlyph kind="pin" />
                   <View style={{ flex: 1 }}>
                     <Text style={styles.listName}>{canonicalPlaceName(r.arr)}</Text>
                     <Text style={styles.listMeta}>
@@ -686,6 +712,32 @@ export default function Home() {
                       · {t('traveler.fromPlace', { place: prettyPlace(r.dep) })}
                     </Text>
                   </View>
+                  <Chev />
+                </View>
+              </Pressable>
+            ))}
+          </View>
+        </>
+      )}
+
+      {/* First-time accounts have no Recent Travel. When the server supplies valid nearby
+          suggestions, show them under their actual name, not as fabricated past travels. */}
+      {canOfferNewTravel && recentDistinct.length === 0 && nearby.length > 0 && (
+        <>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionHeading}>{t('traveler.nearbyDestinations')}</Text>
+          </View>
+          <View style={styles.listCard}>
+            {nearby.slice(0, 3).map((place, i) => (
+              <Pressable key={`${place.name}:${place.lat},${place.lng}`} accessibilityRole="button"
+                onPress={() => {
+                  ride.startBooking({ name: place.name, short: place.short || place.name,
+                    cost: 0, meta: '', lat: place.lat, lng: place.lng });
+                  router.navigate('/reserve');
+                }}>
+                <View style={[styles.listRow, i > 0 && styles.listRowDivider]}>
+                  <PlaceGlyph kind="pin" />
+                  <View style={{ flex: 1 }}><Text style={styles.listName}>{place.name}</Text></View>
                   <Chev />
                 </View>
               </Pressable>
@@ -834,6 +886,11 @@ const styles = StyleSheet.create({
   labelSuggested: { marginTop: 26, marginBottom: 12 },
 
   labelRecent: { marginTop: 28, marginBottom: 12 },
+  sectionHeader: { marginTop: 27, marginBottom: 11, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  sectionHeading: { fontSize: 16, fontWeight: '600', color: colors.ink },
+  sectionAction: { fontSize: 13.5, fontWeight: '500', color: colors.accent, paddingVertical: 6 },
+  placeGlyph: { width: 36, height: 36, borderRadius: 18, backgroundColor: colors.fill,
+    alignItems: 'center', justifyContent: 'center' },
   // Demo: .card padding:18px 20px
   itemCard: {
     backgroundColor: colors.card,
@@ -861,6 +918,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 14,
+    minHeight: 64,
     gap: 14,
   },
   listRowDivider: {
