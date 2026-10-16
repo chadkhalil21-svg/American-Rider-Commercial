@@ -1,8 +1,8 @@
 // Continuing coverage is a qualification, not a quote or automatic approval.
 // Law, platform policy, carrier judgment and verification are distinct authorities.
 import React, { useCallback, useEffect, useState } from 'react';
-import { Alert, Linking, Pressable, Share, StyleSheet, TextInput, View } from 'react-native';
-import { useRouter } from 'expo-router';
+import { Alert, AppState, Linking, Pressable, Share, StyleSheet, TextInput, View } from 'react-native';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { Text } from '../../src/components/AppText';
 import { pickDocument } from '../../src/backend/documentUpload';
 import {
@@ -45,6 +45,16 @@ export default function OperatorInsurance() {
       setContactType(nextStatus.contact.type);
     }
   }, []);
+  // Carrier/broker confirmation is asynchronous and happens outside the app.
+  // Refresh automatically when this phone returns or the Operator revisits the
+  // Insurance screen, rather than requiring a Founder or Operator to force it.
+  useFocusEffect(useCallback(() => {
+    void refresh();
+    const resume = AppState.addEventListener('change', state => {
+      if (state === 'active') void refresh();
+    });
+    return () => resume.remove();
+  }, [refresh]));
   useEffect(() => { void refresh(); }, [refresh, op.docs.insurance]);
 
   const authorizeStatus = async () => {
