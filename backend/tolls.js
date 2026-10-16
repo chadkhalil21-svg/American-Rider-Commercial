@@ -8,6 +8,12 @@ const { readKey } = require('./env');
 
 const HERE_TOLL_URL = 'https://router.hereapi.com/v8/routes';
 const TIMEOUT_MS = 7000;
+// A verified toll answer may be reused briefly for the SAME endpoints. This avoids
+// paying the toll provider twice when the confirmation screen re-quotes a class,
+// while expired or uncertain answers never authorize a fare.
+const VERIFIED_TTL_MS = 60_000;
+const verified = new Map();
+const inflight = new Map();
 
 function cents(price) {
   if (!price || !Number.isFinite(Number(price.value))) return null;
@@ -41,7 +47,7 @@ function parseHereTolls(data) {
   return { status: total > 0 ? 'tolled' : 'clear', tollCents: total, provider: 'here' };
 }
 
-async function resolveTolls(from, to, { departureTime = 'any' } = {}) {
+async function resolveTollsUncached(from, to, { departureTime = 'any' } = {}) {
   const apiKey = readKey('HERE_API_KEY');
   if (!apiKey) return { status: 'unknown', tollCents: null, reason: 'provider_not_configured' };
   const q = new URLSearchParams({
@@ -66,6 +72,67 @@ async function resolveTolls(from, to, { departureTime = 'any' } = {}) {
   }
 }
 
+// If our own road router is unavailable, HERE can supply one route's road length,
+// duration, and verified toll charge together. This is a LAST-RESORT routing
+// authority, not a straight-line guess or an assumption that tolls are zero.
+// Keep this separate from map route geometry: HERE summary is not a road polyline.
+async function verifiedHereRoute(from, to) {
+  const key = readKey('HERE_API_KEY');
+  if (!key || ![from?.lat, from?.lng, to?.lat, to?.lng].every(Number.isFinite)) return null;
+  const params = new URLSearchParams({
+    origin: `${from.lat},${from.lng}`, destination: `${to.lat},${to.lng}`,
+    transportMode: 'car', return: 'summary,tolls', currency: 'USD',
+    departureTime: 'any', apiKey: key,
+  });
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
+  try {
+    const response = await fetch(`${HERE_TOLL_URL}?${params}`, { signal: controller.signal });
+    if (!response.ok) return null;
+    const payload = await response.json();
+    const tolls = parseHereTolls(payload);
+    if (tolls.status === 'unknown') return null;
+    const sections = payload?.routes?.[0]?.sections;
+    if (!Array.isArray(sections) || !sections.length) return null;
+    let distanceMeters = 0, durationSec = 0;
+    for (const section of sections) {
+      if (!Number.isFinite(section?.summary?.length) || section.summary.length < 0 ||
+          !Number.isFinite(section?.summary?.duration) || section.summary.duration < 0) return null;
+      distanceMeters += section.summary.length;
+      durationSec += section.summary.duration;
+    }
+    if (!Number.isFinite(distanceMeters) || distanceMeters <= 0 ||
+        !Number.isFinite(durationSec) || durationSec <= 0) return null;
+    return { distanceMeters, durationSec, provider: 'here', verifiedTolls: tolls };
+  } catch { return null; }
+  finally { clearTimeout(timer); }
+}
+
+// A bounded, time-limited cache contains only verified provider responses, not
+// unknown or failed lookups. Same-route requests share one in-flight lookup.
+async function resolveTolls(from, to, opts = {}) {
+  if (![from?.lat, from?.lng, to?.lat, to?.lng].every(Number.isFinite)) {
+    return { status: 'unknown', tollCents: null, reason: 'invalid_coordinates' };
+  }
+  const key = [from.lat, from.lng, to.lat, to.lng, opts.departureTime || 'any'].join('|');
+  const cached = verified.get(key);
+  if (cached && cached.until > Date.now()) return cached.value;
+  if (cached) verified.delete(key);
+  if (inflight.has(key)) return inflight.get(key);
+  const promise = resolveTollsUncached(from, to, opts);
+  inflight.set(key, promise);
+  try {
+    const value = await promise;
+    if (value.status === 'clear' || value.status === 'tolled') {
+      verified.set(key, { value, until: Date.now() + VERIFIED_TTL_MS });
+      if (verified.size > 256) verified.delete(verified.keys().next().value);
+    }
+    return value;
+  } finally {
+    inflight.delete(key);
+  }
+}
+
 /**
  * Cost-aware toll resolution.
  * 1. Ask our own street router whether the selected route contains an OSM toll road class.
@@ -82,6 +149,10 @@ async function resolveTollsCostAware(from, to, opts = {}) {
   // A caller that already attempted to select the authoritative road route must not trigger a
   // second route selection here. A transient second answer could make tolls describe a
   // different physical path than the fare. Unknown is safer than split-route authority.
+  // The fallback route and its tolls were obtained in the SAME verified HERE
+  // response; do not ask HERE to price a potentially different route a second time.
+  if (route?.provider === 'here' &&
+      ['clear', 'tolled'].includes(route.verifiedTolls?.status)) return route.verifiedTolls;
   if (!route && opts.routeAttempted === true) {
     return { status: 'unknown', tollCents: null, reason: 'authoritative_route_unavailable' };
   }
@@ -98,4 +169,4 @@ async function resolveTollsCostAware(from, to, opts = {}) {
   return resolveTolls(from, to, opts);
 }
 
-module.exports = { resolveTolls, resolveTollsCostAware, parseHereTolls, HERE_TOLL_URL, TIMEOUT_MS };
+module.exports = { resolveTolls, resolveTollsCostAware, verifiedHereRoute, parseHereTolls, HERE_TOLL_URL, TIMEOUT_MS };

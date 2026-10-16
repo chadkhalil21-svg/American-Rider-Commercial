@@ -28,7 +28,7 @@ export default function Profile() {
   const { t } = useLanguage();
   const router = useRouter();
   const goBack = useGoBack();
-  const { user } = useAuth();
+  const { user, accountName } = useAuth();
   const cabin = useCabinPrefs();
 
   // Re-read on focus rather than once: a traveler returning from the editors must see what
@@ -65,7 +65,7 @@ export default function Profile() {
     typeof window !== 'undefined' &&
     new URLSearchParams(window.location.search).get('preview') === 'app';
 
-  const givenName = user?.displayName?.trim() || (webPreview ? 'Preview Traveler' : '');
+  const givenName = user?.displayName?.trim() || accountName || (webPreview ? 'Preview Traveler' : '');
   const accountEmail = user?.email?.trim() || (webPreview ? 'traveler@americanrider.app' : '');
   const accountMobile = mobile || (webPreview ? '+1 (305) 555-0148' : '');
   const emailVerified = user?.emailVerified === true || webPreview;

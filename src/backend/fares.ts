@@ -16,6 +16,9 @@ import type { FeeLine } from '../data';
 import { t } from '../i18n';
 
 export type Coords = { lat: number; lng: number };
+export type QuoteFailureCode =
+  | 'toll_unavailable' | 'production_not_ready' | 'route_geometry_required'
+  | 'request_throttled' | 'network_unavailable' | 'server_unavailable' | 'invalid_quote';
 
 export type Quote = {
   travelerPays: number; // cents — the ONE price shown to the traveler (fare + platform fee)
@@ -120,6 +123,8 @@ export async function fetchQuote(args: {
   destination?: string | null;
   travelClass?: string | null;
   journeyNo?: string | null;
+  /** A safe failure reason for the UI; this callback never changes fare authority. */
+  onFailure?: (reason: QuoteFailureCode) => void;
 }): Promise<Quote | Unavailable | null> {
   const base =
     args.pickup && args.dest
@@ -127,7 +132,7 @@ export async function fetchQuote(args: {
       : args.destination
         ? { destination: args.destination }
         : null;
-  if (!base) return null;
+  if (!base) { args.onFailure?.('route_geometry_required'); return null; }
   // The class is a NAME, never a price — the server applies the multiplier.
   const body = {
     ...base,
@@ -175,12 +180,21 @@ export async function fetchQuote(args: {
             : t('traveler.errNoDestinationPermit'),
       };
     }
-    if (!res.ok) return null;
+    if (!res.ok) {
+      const code = String(d?.code || '');
+      args.onFailure?.(
+        code === 'toll_unavailable' ? 'toll_unavailable' :
+        code === 'production_not_ready' ? 'production_not_ready' :
+        code === 'route_geometry_required' ? 'route_geometry_required' :
+        res.status === 429 ? 'request_throttled' : 'server_unavailable'
+      );
+      return null;
+    }
     // The app will display this EXACT amount; reject incomplete/fractional
     // quotes instead of deriving an apparently plausible lower total locally.
     if(!Number.isSafeInteger(d?.travelerPays)||d.travelerPays<=0||
        !Number.isSafeInteger(d?.travelCostCents)||d.travelCostCents<=0||
-       d.travelerPays<d.travelCostCents)return null;
+       d.travelerPays<d.travelCostCents){ args.onFailure?.('invalid_quote'); return null; }
     return {
       travelerPays: d.travelerPays,
       ...(typeof d.researchQuoteToken==='string'&&d.researchQuoteToken.length<=450?{researchQuoteToken:d.researchQuoteToken}:{}),
@@ -196,7 +210,8 @@ export async function fetchQuote(args: {
         : [],
     };
   } catch {
-    return null; // offline, or the server is waking up — the caller shows a gentle message
+    args.onFailure?.('network_unavailable');
+    return null; // offline or unreachable server; never fabricate a price
   }
 }
 
