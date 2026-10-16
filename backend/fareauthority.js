@@ -4,7 +4,7 @@ const { quote } = require('./payments');
 const { fareCentsForCoords, applyTravelClass } = require('./fares');
 const { outsideMarket, outsideMarketMessage } = require('./market');
 const { governmentFeesFor, permitRequired, permitRequiredMessage } = require('./fees');
-const { resolveTollsCostAware } = require('./tolls');
+const { resolveTollsCostAware, verifiedHereRoute } = require('./tolls');
 const { routeCar } = require('./streets');
 const { referenceForQuote } = require('./market-reference-authority');
 const { fareForMarketTarget, controlledTargetFromAllIn } = require('./market-reference-fare');
@@ -71,7 +71,16 @@ async function authoritativeFare({ body, uid = null, email = null, db = null, ca
   // analysis. This prevents quoting one modeled path while resolving tolls on another.
   let selectedRoute = null;
   if (body?.pickup && body?.dest) {
-    try { selectedRoute = await routeCar(body.pickup, body.dest); } catch { selectedRoute = null; }
+    // Reject prohibited geography before contacting a paid routing fallback.
+    // No route is requested for a Travel we cannot sell.
+    const blocked = outsideMarket(body.pickup, body.dest) || permitRequired(body.pickup, body.dest);
+    if (!blocked) {
+      try { selectedRoute = await routeCar(body.pickup, body.dest); } catch { selectedRoute = null; }
+      // A missing regional road server previously made *every* quote fail closed,
+      // even with a working HERE key. HERE's same response now proves road
+      // distance, time AND tolls without inventing a straight-line fare.
+      if (!selectedRoute) selectedRoute = await verifiedHereRoute(body.pickup, body.dest);
+    }
   }
   const route = priceRoute(body, selectedRoute);
   if (!route || route.outsideMarket || route.permitRequired) return route;
