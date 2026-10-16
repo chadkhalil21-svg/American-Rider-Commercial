@@ -206,7 +206,7 @@ export default {
     payoutAccount: 'Auszahlungskonto',
     readyForPayouts: 'Bereit für Auszahlungen',
     whatComesOut: 'Was Abgezogen Wird',
-    verificationCodeSub: 'Der Reisende kann Sie vor dem Einsteigen nach diesem Code fragen. Er gehört zu dieser Fahrt.',
+
     enterPrivatePickupCode: 'Bitten Sie den Fahrgast um seinen privaten Abholcode. Geben Sie ihm selbst keinen Code vor.',
     howItReachesYou: 'Wie Es Sie Erreicht',
     verified: 'Geprüft',
@@ -1090,7 +1090,7 @@ export default {
     safetySearchRow: 'Reise teilen · Vertrauenskontakte · Notfallhilfe',
     safetySub: 'Teilen Sie Reisedetails jederzeit nach der Bestätigung. Sobald ein Operator zugewiesen ist, überwacht American Rider die Route auf ungewöhnliche Unterbrechungen, und die Fahrzeugverifizierung hilft, vor dem Einsteigen das richtige Fahrzeug zu bestätigen.',
     shareUnavailable: 'Verfügbar, sobald Sie eine Reise bestätigen.',
-    verifyCodeIntro: 'Fragen Sie Ihren Operator vor dem Einsteigen nach diesem Code.',
+
     pickupSecurityIntro: 'Prüfen Sie zuerst Fahrzeug und Kennzeichen. Geben Sie Ihren privaten Code erst beim Einsteigen an den Operator weiter.',
     pickupCodePendingRollout: 'Sichere Abholcodes werden mit der nächsten mobilen Version aktiviert. Prüfen Sie bis dahin Operator und Fahrzeugdaten.',
     pickupCodeVerified: 'Abholcode bestätigt.',
