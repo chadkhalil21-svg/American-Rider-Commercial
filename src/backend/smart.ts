@@ -85,10 +85,13 @@ export type SmartQuote =
   | { status: 'none'; plan: null }
   | { status: 'unavailable'; plan: null };
 
+import { SMART_TRAVEL_NEW_BOOKINGS_ENABLED } from '../config';
+
 export async function fetchSmartQuote(
   pickup: { lat: number; lng: number },
   dest: { lat: number; lng: number },
 ): Promise<SmartQuote> {
+  if (!SMART_TRAVEL_NEW_BOOKINGS_ENABLED) return { status: 'unavailable', plan: null };
   try {
     const res = await fetch(`${PAYMENT_SERVER_URL}/smart-quote`, {
       method: 'POST',
