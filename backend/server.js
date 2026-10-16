@@ -167,6 +167,7 @@ const { recordOperatorInsuranceRisk, mayClearOperatorInsuranceRisk } = require('
 const { normalizeParty, operatorPartyView } = require('./travelparty');
 const family = require('./family');
 const { provisionTeenPin, verifyTeenPin, teenPinReady, pinForRide } = require('./teenpickup');
+const adultPickup = require('./adultpickup');
 const { listPlatformMessages, markPlatformMessageRead } = require('./platforminbox');
 const { page } = require('./shell');
 const { screeningReady, screeningCurrent, sweepScreening } = require('./screening');
@@ -3943,6 +3944,33 @@ app.get('/travel/teen-pickup/code', requireAuth, LIMITS.document, requireFreshAu
   catch{return res.status(503).json({error:'Pickup code needs secure assistance',code:'teen_pin_unavailable'});}
 });
 app.post('/travel/teen-pickup/verify', requireAuth, requireFreshAuth, async (req,res)=>{const out=await verifyTeenPin({rideId:req.body?.rideId,operatorUid:req.uid,pin:req.body?.pin});return res.status(out.status||500).json(out);});
+// The adult code is given ONLY to the authenticated Traveler. The Operator
+// sees the verification field, not the secret. Disabled by default until
+// both roles have the updated app; existing TestFlight journeys stay operable.
+app.get('/travel/adult-pickup/code', requireAuth, requireFreshAuth, LIMITS.document, async (req,res)=>{
+  const id=String(req.query?.rideId||'');
+  if(!/^[a-f0-9]{40}$/.test(id))return res.status(400).json({code:'ride_required'});
+  try{
+    const out=await adultPickup.travelerCode({rideId:id,travelerUid:req.uid});
+    return res.status(out.status).json(out);
+  }catch{return res.status(503).json({code:'pickup_verification_unavailable'});}
+});
+app.get('/travel/adult-pickup/status', requireAuth, LIMITS.document, async(req,res)=>{
+  const id=String(req.query?.rideId||'');
+  if(!/^[a-f0-9]{40}$/.test(id))return res.status(400).json({code:'ride_required'});
+  try{
+    const out=await adultPickup.operatorStatus({rideId:id,operatorUid:req.uid});
+    return res.status(out.status).json(out);
+  }catch{return res.status(503).json({code:'pickup_verification_unavailable'});}
+});
+app.post('/travel/adult-pickup/verify', requireAuth, requireFreshAuth, LIMITS.document, async(req,res)=>{
+  const id=String(req.body?.rideId||'');
+  if(!/^[a-f0-9]{40}$/.test(id))return res.status(400).json({code:'ride_required'});
+  try{
+    const out=await adultPickup.verifyOperatorCode({rideId:id,operatorUid:req.uid,pin:req.body?.pin});
+    return res.status(out.status).json(out);
+  }catch{return res.status(503).json({code:'pickup_verification_unavailable'});}
+});
 // One server-stamped three-party thread. The client supplies words and the Travel id; the
 // server derives every participant id from the Travel so nobody can forge a correspondent.
 app.post('/travel/message', requireAuth, LIMITS.message, async (req,res)=>{
