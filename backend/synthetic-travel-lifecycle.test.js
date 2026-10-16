@@ -188,7 +188,7 @@ async function continuousJourney(teen) {
     out = await progress(db, 'onboard', NOW + 1);
     check(out.body.code === 'teen_pickup_unverified',
       'unverified teen must not board');
-    data.rides.ride1.teenPickup = { verifiedAt: NOW };
+    data.rides.ride1.teenPickup = { verifiedAt: NOW, verifiedBy: 'op' };
   }
   out = await progress(db, 'onboard', NOW + 1);
   check(out.status === 200 && data.rides.ride1.status === 'onboard', 'boarding commits');
