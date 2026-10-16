@@ -591,7 +591,6 @@ export default {
     qualInsurance: 'Commercial Insurance',
     qualInsuranceSub: 'For-hire / livery coverage',
     qualProgress: '%{n} of %{total} verified · complete in any order. Your progress is saved.',
-    qualVerifyAll: 'Verify all %{total} to continue',
     qualSubmitReview: 'Submit for Review',
     bgScreeningTitle: 'Screening',
     bgScreeningIntro: 'Complete the screening required for the market where you operate. You pay the screening provider directly; American Rider does not charge a screening fee.',
