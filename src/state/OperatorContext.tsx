@@ -27,7 +27,7 @@ import {
   type AssignedTravel,
 } from '../backend/operatorInbox';
 import { announceTravel, answerCheckIn } from '../backend/checkin';
-import { submitDocument, type DocKind, type DocReview } from '../backend/documentUpload';
+import { submitDocument, type DocKind, type DocReview, type SelectedDocument } from '../backend/documentUpload';
 import { reportPosition } from '../backend/telemetry';
 import { sendTravelMessage, watchTravelThread } from '../backend/messages';
 import { resolveOperatorDutyPosition } from '../location';
@@ -218,7 +218,7 @@ type OperatorState = {
   docs: Record<DocKey, DocState>;
   verifyDoc: (k: DocKey) => void;
   /** Submit a photographed document. The ONLY route to a verified document step. */
-  reviewDoc: (k: DocKind, uri: string) => Promise<DocReview | { error: string } | null>;
+  reviewDoc: (k: DocKind, uri: SelectedDocument | string) => Promise<DocReview | { error: string } | null>;
   /** What the reader said, per document — reason included. */
   docReviews: Partial<Record<DocKey, DocReview>>;
   /**
@@ -454,7 +454,7 @@ export function OperatorProvider({ children }: { children: React.ReactNode }) {
    * unverified too, because a failure that reads as a pass is the exact defect being removed.
    */
   const reviewDoc = useCallback(
-    async (k: DocKind, uri: string): Promise<DocReview | { error: string } | null> => {
+    async (k: DocKind, uri: SelectedDocument | string): Promise<DocReview | { error: string } | null> => {
       setDocs((prev) => ({ ...prev, [k]: 'checking' as DocState }));
       const out = await submitDocument(k, uri);
       if (!out || 'error' in out) {
