@@ -516,7 +516,7 @@ export default {
     driveInControl: 'Autonomia di dispaccio indipendente',
     driveInControlBody: 'Operi quando vuole e dove vuole. American Rider non le assegna mai una zona né la penalizza per aver rifiutato un viaggio.',
     drivePayouts: 'Regolamento del capitale',
-    emgLocationShared: 'La sua posizione è stata condivisa.',
+    emgLocationShared: 'L\'app per la condivisione è stata aperta. La consegna al destinatario non è confermata.',
     emgNoShareSheet: 'Questo dispositivo non ha potuto aprire alcun modo per inviare il messaggio.',
     emgNoCalls: 'Questo dispositivo non può effettuare chiamate. Usi un altro telefono per comporre il 911.',
     switchToOperator: 'Passare alla vista Operatore',
