@@ -6,9 +6,9 @@
 // once"). The server now qualifies an operator automatically when every check passes, and a
 // person on /ops decides only what the checks cannot settle. This screen reads that answer:
 // on arrival, every thirty seconds while it is open, and when the operator asks.
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { AppState, Pressable, StyleSheet, View } from 'react-native';
 import { Text } from '../../src/components/AppText';
 import Svg, { Path } from 'react-native-svg';
 import { PrimaryButton, Screen } from '../../src/components/UI';
@@ -61,11 +61,19 @@ export default function OperatorReview() {
     // Either way this screen, which says the answer appears here, is the right place to wait.
   }, [commission, resetQualification, router]);
 
-  useEffect(() => {
-    check();
-    const id = setInterval(check, 30000);
-    return () => clearInterval(id);
-  }, [check]);
+  // Do not poll external screening/Firebase/Stripe every 30 seconds forever.
+  // The one-phone Operator sees fresh results when returning to the screen or
+  // reopening the app; pending review gets a bounded two-minute foreground check.
+  useFocusEffect(useCallback(() => {
+    void check();
+    const id = setInterval(() => {
+      if (AppState.currentState === 'active') void check();
+    }, 120_000);
+    const listener = AppState.addEventListener('change', state => {
+      if (state === 'active') void check();
+    });
+    return () => { clearInterval(id); listener.remove(); };
+  }, [check]));
 
   return (
     <Screen scroll={false}>
