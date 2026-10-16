@@ -19,6 +19,21 @@ function stopWaitLimit(startTime, timezone = 'America/New_York') {
   }
 }
 
+// Pick a service-day calendar in the transit agency's local time, never phone time.
+// A new region gets these rules through its own time zone and GTFS route file.
+function busServiceProfile(at, timezone = 'America/New_York') {
+  const d = new Date(at);
+  if (!Number.isFinite(d.getTime())) return null;
+  try {
+    const day = new Intl.DateTimeFormat('en-US', { timeZone: timezone, weekday: 'short' }).format(d);
+    if (day === 'Sat') return 'saturday';
+    if (day === 'Sun') return 'sunday';
+    return ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'].includes(day) ? 'weekday' : null;
+  } catch {
+    return null;
+  }
+}
+
 function acceptableBusBoardingWait(legs, requestedAt, timezone = 'America/New_York') {
   // Direct mapper fixtures without a requestedAt use legacy mapping; real
   // planTransit ALWAYS supplies requestedAt. No fare or rail logic depends on this.
@@ -39,4 +54,4 @@ function acceptableBusBoardingWait(legs, requestedAt, timezone = 'America/New_Yo
   return true;
 }
 
-module.exports = { stopWaitLimit, acceptableBusBoardingWait };
+module.exports = { stopWaitLimit, busServiceProfile, acceptableBusBoardingWait };
