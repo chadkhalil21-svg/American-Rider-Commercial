@@ -57,11 +57,15 @@ assert.ok(qualification.indexOf('operator.econYourScenario') < qualification.ind
   && qualification.indexOf('operator.qualCostPreview') < qualification.indexOf('QUAL_DOCS.map((d, i)'),
   'economics and third-party costs precede the qualification checklist');
 const insurance = read('app/operator/insurance.tsx');
-assert.match(insurance, /const current = st === 'ok' && liveStatus\?\.ok === true/,
-  'a document alone cannot display current verified coverage');
-assert.match(insurance, /const expiring = op\.coverageDaysLeft != null && op\.coverageDaysLeft <= 30/);
-assert.match(insurance, /const canUpload = st !== 'ok' \|\| expiring/,
-  'renewal and replacement must be possible before an approved policy expires');
+assert.match(insurance, /const policyApproved = liveStatus\?\.documentApproved === true/,
+  'original document approval must be read from authenticated server, not stale phone cache');
+assert.match(insurance, /const current = policyApproved && liveStatus\?\.ok === true/,
+  'a document alone cannot display current independently verified coverage');
+assert.match(insurance, /const expiring = coverageDaysLeft != null && coverageDaysLeft <= 30/);
+assert.match(insurance, /const canUpload = !policyApproved \|\| expiring/,
+  'renewal and replacement must remain possible before expiry');
+assert.match(insurance, /\{policyApproved && <>/,
+  'server-reviewed insurance must let the Operator request independent status confirmation');
 assert.ok(insurance.indexOf('operator.coverageOnFile') < insurance.indexOf('operator.insWhoDecides')
   && insurance.indexOf('operator.insOwnBroker') < insurance.indexOf('operator.compareProviders'),
   'status and an own-broker path precede optional source lists');
