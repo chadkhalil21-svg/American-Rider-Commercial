@@ -10,6 +10,7 @@ assert.equal(new Set(manifest.indexes.map(normalize)).size, manifest.indexes.len
 for (const needed of [
   [{ fieldPath: 'travelerUid', order: 'ASCENDING' }, { fieldPath: 'createdAt', order: 'DESCENDING' }],
   [{ fieldPath: 'travelerUid', order: 'ASCENDING' }, { fieldPath: 'status', order: 'ASCENDING' }, { fieldPath: 'costCents', order: 'ASCENDING' }],
+  [{ fieldPath: 'travelerUid', order: 'ASCENDING' }, { fieldPath: 'status', order: 'ASCENDING' }],
 ]) {
   assert(manifest.indexes.some(index => index.collectionGroup === 'rides' &&
     JSON.stringify(index.fields) === JSON.stringify(needed)),
