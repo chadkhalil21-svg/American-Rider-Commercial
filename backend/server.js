@@ -1638,24 +1638,16 @@ app.post('/route', LIMITS.routeIp, requireServedPickup, async (req, res) => {
 //   503 { status: 'unavailable' }     the planner is not answering — the app says so
 // This used to 404 when rail "did not win", and the app read 404 as "do not show". That gate
 // is withdrawn: the server reports; the client decides emphasis.
-app.post('/smart-quote', LIMITS.routeIp, requireOperationalReadiness, requireServedPickup, async (req, res) => {
-  // OLDER APPS GET THE OLDER ANSWER. TestFlight build 36 reads any 200 as a plan and would
-  // render `{ status: 'none' }` as a card reading "Save $NaN", then crash on its legs. An app
-  // that does not name the new contract (header X-AR-Smart: 2) is answered the way the old
-  // server answered it: 404 and no card. Removable once every tester is on a newer build.
-  const speaksV2 = req.get('x-ar-smart') === '2';
-  // Founder paused NEW Smart Travel while live timetable and phone handoffs remain
-  // uncommissioned. Enforce server-side even for previously installed iOS builds.
-  // Do not call OTP, write to Firestore or quote a new Smart booking.
-  if (!speaksV2) return res.status(404).json({ error: 'Smart Travel is currently unavailable' });
+app.post('/smart-quote', LIMITS.routeIp, requireOperationalReadiness, requireServedPickup, (req, res) => {
+  // Founder launch decision: show Smart Travel as currently unavailable.
+  // Fail closed on the SERVER for old iOS builds as well as current clients.
+  // No new OTP route call, Firestore read, payment or additional subscription.
+  // Existing booked Smart journeys can still use /smart-revalidate and the
+  // normal /travel/prepare recovery path for their already authorized car leg.
+  if (req.get('x-ar-smart') !== '2') {
+    return res.status(404).json({ error: 'Smart Travel is currently unavailable' });
+  }
   return res.status(503).json({ status: 'unavailable', code: 'smart_travel_paused' });
-  /* Smart planning is retained below for a controlled future reactivation.
-  const out = await smartQuote(req.body?.pickup, req.body?.dest);
-  if (!speaksV2) return res.status(404).json({ error: 'Smart Travel needs the current app' });
-  if (out.status === 'unavailable') return res.status(503).json({ status: 'unavailable' });
-  if (out.status !== 'ok') return res.json({ status: 'none' });
-  res.json(out.plan);
-  */
 });
 
 app.post('/smart-revalidate', LIMITS.routeIp, requireOperationalReadiness, async (req, res) => {
