@@ -251,6 +251,14 @@ function documentFindings(kind, d, now, ctx = {}) {
   return [];
 }
 
+/** Human-accepted insurance must pass ALL underlying statutory document checks.
+ * This is separate from continuing insurer status, which is checked every time.
+ */
+function qualifyingInsuranceDocument(user, now = Date.now()) {
+  return !!user?.documents?.insurance &&
+    documentFindings('insurance', user.documents.insurance, now, { user }).length === 0;
+}
+
 /** The first finding for one document, or null — kept for callers that want one answer. */
 function documentFinding(kind, d, now, ctx = {}) {
   return documentFindings(kind, d, now, ctx)[0] || null;
@@ -523,6 +531,7 @@ module.exports = {
   dollarFigures,
   documentFinding,
   documentFindings,
+  qualifyingInsuranceDocument,
   insuranceFindings,
   assessOperator,
   assessAndRecord,
