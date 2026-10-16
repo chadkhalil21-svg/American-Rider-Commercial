@@ -40,7 +40,7 @@
 const fs = require('fs');
 const path = require('path');
 const { regionForTrip, defaultRegion } = require('./regions');
-const { acceptableBusBoardingWait } = require('./smart-bus-boarding-policy');
+const { acceptableBusBoardingWait, busServiceProfile } = require('./smart-bus-boarding-policy');
 
 const DEFAULT_URL = 'http://localhost:8080';
 const DEFAULT_TIMEOUT_MS = 8000;
@@ -97,7 +97,14 @@ const isCoord = (c) =>
 const routesCache = new Map(); // file → { key, routes }
 let routesOverride; // tests substitute a Set (or null for "no file") without touching the disk
 
-function busRoutesFrom(raw) {
+function busRoutesFrom(raw, when, timezone) {
+  // New: weekday/Saturday/Sunday service calendars; missing a day's proof means
+  // no buses that day, not reuse of a different day's schedule.
+  if (raw && !Array.isArray(raw) && raw.profiles && typeof raw.profiles === 'object') {
+    const key = busServiceProfile(when, timezone);
+    if (!key || !Object.prototype.hasOwnProperty.call(raw.profiles, key)) return null;
+    raw = raw.profiles[key];
+  }
   const entries = [];
   const collect = (x) => {
     if (Array.isArray(x)) x.forEach(collect);
@@ -112,7 +119,7 @@ function busRoutesFrom(raw) {
   return new Set(entries.filter((id) => id.length > 0));
 }
 
-function allowedBusRoutes(region) {
+function allowedBusRoutes(region, when) {
   if (routesOverride !== undefined) return routesOverride;
   const file = routesFileFor(region);
   let stat;
@@ -126,13 +133,13 @@ function allowedBusRoutes(region) {
   let entry = routesCache.get(file);
   if (!entry || entry.key !== key) {
     try {
-      entry = { key, routes: busRoutesFrom(JSON.parse(fs.readFileSync(file, 'utf8'))) };
+      entry = { key, raw: JSON.parse(fs.readFileSync(file, 'utf8')) };
     } catch {
-      entry = { key, routes: null }; // unreadable is the same as absent: no bus
+      entry = { key, raw: null }; // unreadable is the same as absent: no bus
     }
     routesCache.set(file, entry);
   }
-  return entry.routes;
+  return entry.raw ? busRoutesFrom(entry.raw, when, region?.timezone) : null;
 }
 
 /** Tests only: substitute the allow-list (a Set, or null for "no file"); undefined restores the disk. */
@@ -264,8 +271,8 @@ function _resetRailRoutes() {
 }
 
 // What to ask OTP for: which modes, and — when buses are in play — which routes.
-async function transitSelection(region) {
-  const busRoutes = allowedBusRoutes(region);
+async function transitSelection(region, when) {
+  const busRoutes = allowedBusRoutes(region, when);
   if (!busRoutes || busRoutes.size === 0) return { busRoutes: null, modes: RAIL_MODES, routes: null };
   const rail = await railRouteIds(region);
   const routes = rail ? [...new Set([...rail, ...busRoutes])] : null; // null: post-filter only
@@ -390,8 +397,8 @@ async function planTransit({ from, to, when, access = 'WALK', egress = 'WALK', f
   // one region serves have no transit route we can sell, whatever a planner would say.
   const region = regionForTrip(from, to);
   if (!region) return { status: 'none', reason: 'outside_market' };
-  const { busRoutes, modes, routes } = await transitSelection(region);
   const depart = when instanceof Date && Number.isFinite(when.getTime()) ? when : new Date();
+  const { busRoutes, modes, routes } = await transitSelection(region, depart);
   const variables = {
     origin: { location: { coordinate: { latitude: from.lat, longitude: from.lng } } },
     destination: { location: { coordinate: { latitude: to.lat, longitude: to.lng } } },
@@ -515,6 +522,7 @@ module.exports = {
   transitHealth,
   mapPlan,
   allowedBusRoutes,
+  busRoutesFrom,
   routesFileFor,
   decodePolyline,
   unsupportedMode,
