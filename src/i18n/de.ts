@@ -571,7 +571,6 @@ export default {
     qualInsurance: 'Gewerbliche Versicherung',
     qualInsuranceSub: 'Personenbeförderungsdeckung',
     qualProgress: '%{n} von %{total} geprüft · in beliebiger Reihenfolge. Ihr Fortschritt wird gespeichert.',
-    qualVerifyAll: 'Alle %{total} prüfen, um fortzufahren',
     qualSubmitReview: 'Zur Prüfung Einreichen',
     bgScreeningTitle: 'Überprüfung',
     bgScreeningIntro: 'Führen Sie die für Ihren Einsatzmarkt erforderliche Überprüfung durch. Sie bezahlen den Prüfanbieter direkt; American Rider erhebt keine Prüfgebühr.',
