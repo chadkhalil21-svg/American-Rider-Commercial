@@ -3423,6 +3423,7 @@ app.post('/operator/screening/existing', requireAuth, LIMITS.screening, requireS
     const filed = await fileTicket({
       uid: req.uid, email: req.email, kind: 'support',
       reason: mode === 'new' ? 'Operator screening — review new provider report' : 'Operator screening — review existing provider report',
+      category: 'operator-screening',
       description:
         'The Operator instructed ' + agency + (mode === 'new' ? ' to send the report when completed.' : ' to release the existing screening report for American Rider review.') + ' ' +
         'Jurisdiction: ' + policy.stateCode + '; policy: ' + policy.id + '; market: ' + req.screeningMarket.id + '. ' +
