@@ -10,8 +10,8 @@
 // standard gestures, so travelers can pan and zoom instead of looking at a frozen tile.
 // OpenStreetMap attribution remains visible beneath both.
 //
-// NOT ON WEB. MapLibre React Native is native-only; HomeMap.web.tsx and RouteMap.web.tsx render
-// nothing there, and the itinerary is stated in words either way.
+// NOT ON WEB. MapLibre React Native is native-only. Web has a clearly designated static design
+// preview (HomeMap.web.tsx); native iOS/Android use the real vector tile provider.
 import { Camera, Map, type InitialViewState } from '@maplibre/maplibre-react-native';
 import React from 'react';
 import { StyleSheet, View } from 'react-native';
