@@ -11,6 +11,7 @@ jobs:
   test_ios:
     needs: [build_ios]
     type: maestro
+    runs_on: macos-medium
     params:
       build_id: ${{ needs.build_ios.outputs.build_id }}
       flow_path: ['.maestro/prelaunch-front-door.yml']
@@ -22,6 +23,7 @@ jobs:
   test_android:
     needs: [build_android]
     type: maestro
+    runs_on: linux-medium-nested-virtualization
     params:
       build_id: ${{ needs.build_android.outputs.build_id }}
       flow_path: ['.maestro/prelaunch-front-door.yml']
