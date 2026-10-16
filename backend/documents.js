@@ -109,7 +109,11 @@ async function readDocument({ kind, imageUrl, expect = {}, now = Date.now(), ocr
   const jpeg=bytes.length>=3 && bytes[0]===0xff && bytes[1]===0xd8 && bytes[2]===0xff;
   const png=bytes.length>=8 && bytes.subarray(0,8).equals(Buffer.from('89504e470d0a1a0a','hex'));
   const webp=bytes.length>=12 && bytes.toString('ascii',0,4)==='RIFF' && bytes.toString('ascii',8,12)==='WEBP';
-  if (!jpeg && !png && !webp) return review('This image format is not supported by local OCR; review the original upload.');
+  // PDFs are accepted as private original evidence for named human review only.
+  // OCR cannot safely confirm a PDF's contents or insurance authenticity.
+  const pdf=bytes.length>=5 && bytes.toString('ascii',0,5)==='%PDF-';
+  if (pdf) return review('PDF received. A qualified reviewer must inspect the original private document.');
+  if (!jpeg && !png && !webp) return review('This file format is not supported by local OCR; review the original upload.');
   try {
     const found = await ocr(bytes);
     const reading = extract({ kind, text:found.text, confidence:found.confidence });
