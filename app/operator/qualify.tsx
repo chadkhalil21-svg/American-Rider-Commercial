@@ -26,11 +26,8 @@ export default function OperatorQualification() {
   }, [op.ready, op.verification, router]);
 
   const n = op.verifiedCount;
-  // A DOCUMENT THE READER HELD MAY GO TO REVIEW. A hold asks for a person, and submitting is
-  // how the person is asked. Without this a held licence was a dead end on this screen.
-  const done = QUAL_DOCS.every(
-    (d) => op.docs[d.key] === 'ok' || op.docReviews[d.key]?.verdict === 'review',
-  );
+  // Document review evidence survives on the server, not in this phone's memory.
+  // An app restart must not disable the only way to ask the server to review it.
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
@@ -222,8 +219,8 @@ export default function OperatorQualification() {
       <View style={{ flex: 1 }} />
       {submitError && <Text accessibilityRole="alert" style={styles.footnote}>{submitError}</Text>}
       <PrimaryButton
-        label={done ? t('traveler.qualSubmitReview') : t('traveler.qualVerifyAll', { total: QUAL_DOCS.length })}
-        disabled={!done || submitting || !areaAuthorized}
+        label={t('traveler.qualSubmitReview')}
+        disabled={submitting || !areaAuthorized}
         onPress={async () => {
           setSubmitting(true);
           setSubmitError(null);
