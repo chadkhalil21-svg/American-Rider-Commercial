@@ -244,6 +244,7 @@ async function listTickets(uid, { limit = 20, database } = {}) {
       createdAt: Number(x.createdAt) || 0,
       tripNo: x.trip && typeof x.trip === 'object' && x.trip.no ? String(x.trip.no) : null,
       status: typeof x.status === 'string' && x.status ? x.status : 'open',
+      acknowledgedAt: Number(x.acknowledgedAt) || null,
     }));
 }
 
