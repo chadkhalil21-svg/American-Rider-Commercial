@@ -39,9 +39,11 @@ const rows = [
 const fakeDb = {
   collection: (name) => ({
     where: (field, op, value) => ({
-      get: async () => ({
-        docs: rows.filter((r) => name === 'support_tickets' && r[field] === value).map((r) => ({ data: () => r })),
-      }),
+      limit(n) { this.cap = n; return this; },
+      get: async function () {
+        return { docs: rows.filter((r) => name === 'support_tickets' && r[field] === value)
+          .slice(0, this.cap).map((r) => ({ data: () => r })) };
+      },
     }),
   }),
 };
@@ -54,7 +56,9 @@ const fakeDb = {
   check('the description and our reason are never shaped for the screen', !('description' in list[2]) && !('reason' in list[2]));
   check('the limit holds', (await listTickets('u1', { database: fakeDb, limit: 1 })).length === 1);
   check('no uid, no rows', (await listTickets('', { database: fakeDb })).length === 0);
-  check('no database, no rows — never a throw', (await listTickets('u1', { database: null })).length === 0);
+  let missingDbThrows = false;
+  try { await listTickets('u1', { database: null }); } catch { missingDbThrows = true; }
+  check('missing database is not misreported as empty history', missingDbThrows);
 
   for (const r of results) console.log(`${r.ok ? 'PASS' : 'FAIL'}  ${r.label}${r.detail ? ` — ${r.detail}` : ''}`);
   const failed = results.filter((r) => !r.ok);
