@@ -32,6 +32,7 @@ const ride=fs.readFileSync(path.join(root,'src','state','RideContext.tsx'),'utf8
 const map=fs.readFileSync(path.join(root,'src','components','LiveMap.ios.tsx'),'utf8');
 assert.match(dispatch,/onPosition\?\.\(validLiveVehiclePosition\(data\)\)/,'vehicle must use existing Travel subscription');
 assert.match(ride,/setOperatorLivePosition\)/,'vehicle reports must reach Ride context');
+assert.match(ride,/operatorLivePosition\.at \+ 60000 - Date\.now\(\)/,'stale vehicle must disappear even if no new Firestore snapshot arrives');
 assert.match(map,/matchedOp\?\.demo === true/,'only named demo operators may use simulation');
 assert.match(map,/operatorLivePosition \? toLatLng\(operatorLivePosition\)/,'real car must read reported GPS');
 assert.match(map,/if \(!tripCoords \|\| !camera\) return null/,'unknown trip coordinates must hide map');
