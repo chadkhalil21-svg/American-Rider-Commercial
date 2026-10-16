@@ -664,7 +664,6 @@ export default {
     delEveryTrip: 'Votre accès à l’historique des voyages et aux reçus est supprimé.',
     delEverythingDevice: 'Données Locales de l’Application',
     musicSourceOnArrival: 'Choisissez la source ou la playlist avec votre Opérateur à l’embarquement.',
-    selectDestAgain: 'Sélectionnez de nouveau la destination pour confirmer le montant.',
     retryTravelCost: 'Réessayer le coût du trajet',
     quoteTollUnavailable: 'La vérification des péages est momentanément indisponible. Veuillez réessayer.',
     quoteLocationUnresolved: 'Le départ ou la destination n’a pas pu être localisé précisément. Choisissez une adresse ou réessayez.',
