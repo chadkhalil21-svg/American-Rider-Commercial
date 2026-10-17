@@ -1683,8 +1683,10 @@ export function RideProvider({ children }: { children: React.ReactNode }) {
         pickupTimeZone: info.pickupTimeZone,
         dep: departure.short,
         dest: arrival.short,
-        pickupLat: tripCoords?.pickup?.lat ?? departure.lat,
-        pickupLng: tripCoords?.pickup?.lng ?? departure.lng,
+        // The map pin is the Traveler's authoritative selected pickup. If it has
+        // moved, the same pin must be sent for scheduled price confirmation.
+        pickupLat: pickupPin?.lat ?? tripCoords?.pickup?.lat ?? departure.lat,
+        pickupLng: pickupPin?.lng ?? tripCoords?.pickup?.lng ?? departure.lng,
         destinationLat: tripCoords?.dest?.lat ?? arrival.lat,
         destinationLng: tripCoords?.dest?.lng ?? arrival.lng,
         travelClass: operatorClassFor(travelClass),
@@ -1706,7 +1708,7 @@ export function RideProvider({ children }: { children: React.ReactNode }) {
       setScheduled(true);
       return true;
     },
-    [arrival, departure, travelClass, tripCoords, travelParty],
+    [arrival, departure, pickupPin, travelClass, tripCoords, travelParty],
   );
 
   const cancelScheduled = useCallback(async () => {
