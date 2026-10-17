@@ -8,7 +8,7 @@ assert.match(src,/where\('operatorId', '==', uid\)/);
 assert.match(src,/where\('status', 'in', \['assigned', 'accepted', 'arrived', 'onboard'\]\)/);
 assert.match(src,/limit\(MAX_ACTIVE_INBOX \+ 1\)/);
 assert.match(src,/snap\.docs\.length > MAX_ACTIVE_INBOX/);
-assert.match(src,/onError\?\.\('Too many active Travel records/);
+assert.match(src,/onError\?\.\(t\('traveler\.errReadTravel'\)\)/);
 assert(indices.indexes.some(i=>i.collectionGroup==='rides' &&
  i.fields?.some(f=>f.fieldPath==='operatorId') &&
  i.fields?.some(f=>f.fieldPath==='status')),
