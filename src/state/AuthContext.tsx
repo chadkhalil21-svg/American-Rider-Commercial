@@ -277,8 +277,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const u = auth.currentUser;
       if (!u) return false;
       try {
+        const beforeEmail = u.email;
+        const beforeVerified = u.emailVerified;
         await reload(u);
         if (auth.currentUser?.uid !== u.uid) return false;
+        if (u.email !== beforeEmail || u.emailVerified !== beforeVerified) {
+          // Authenticated API routes derive the receipt/contact address from
+          // the Firebase ID token, not just from the visible profile. A
+          // verification change needs ONE refreshed token before future Travel.
+          await u.getIdToken(true);
+        }
         setIdentityRevision(v => v + 1);
         return true;
       } catch {
