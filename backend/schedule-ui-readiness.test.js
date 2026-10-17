@@ -89,6 +89,10 @@ for (let pass = 1; pass <= 2; pass++) {
     'quote must match the selected Travel class');
   assert.match(screen, /hasDestination && !!ride\.tripCoords && !ride\.repricing/,
     'schedule cannot present a valid Fare without route coordinates or while the map pin reprices');
+  assert.match(screen, /const lat = ride\.pickupPin\?\.lat \?\? ride\.tripCoords\?\.pickup\?\.lat \?\? ride\.departure\.lat/,
+    'pickup-zone lookup uses selected map pin before stale named departure');
+  assert.match(screen, /const lng = ride\.pickupPin\?\.lng \?\? ride\.tripCoords\?\.pickup\?\.lng \?\? ride\.departure\.lng/,
+    'pickup-zone longitude matches the same selected pickup authority');
   const rideContext = read('src/state/RideContext.tsx');
   assert.match(rideContext, /pickupLat: pickupPin\?\.lat \?\? tripCoords\?\.pickup\?\.lat \?\? departure\.lat/,
     'scheduled pickup latitude uses the selected map pin first');
