@@ -114,7 +114,17 @@ export default function Schedule() {
   const calBase = new Date(Date.UTC(Number(marketToday?.slice(0,4) || 2026),
     Number(marketToday?.slice(5,7) || 1)-1 + calOffset, 1));
   const calTitle = calBase.toLocaleDateString(language, { month: 'long', year: 'numeric', timeZone: 'UTC' });
-  const firstDow = calBase.getUTCDay();
+  // Calendar weekdays follow the supported locale, not fixed English initials.
+  // English currently uses the US Sunday-first calendar; DE/ES/FR/IT use Monday-first.
+  const weekStart = language === 'en' ? 0 : 1;
+  const firstDow = (calBase.getUTCDay() - weekStart + 7) % 7;
+  const weekdayHeaders = Array.from({ length: 7 }, (_, index) => {
+    const day = new Date(Date.UTC(2026, 9, 18 + (weekStart + index)));
+    return {
+      short: day.toLocaleDateString(language, { weekday: 'short', timeZone: 'UTC' }).slice(0, 2),
+      full: day.toLocaleDateString(language, { weekday: 'long', timeZone: 'UTC' }),
+    };
+  });
   const daysInM = new Date(Date.UTC(calBase.getUTCFullYear(), calBase.getUTCMonth() + 1, 0)).getUTCDate();
   // "Pick a day" starts the day after tomorrow — Today/Tomorrow have their own buttons.
   const minPick = marketToday ? new Date(`${nextDate(marketToday,2)}T00:00:00Z`) : new Date(8640000000000000);
@@ -137,7 +147,6 @@ export default function Schedule() {
   const isToday = !!marketToday && selectedPickupDate === marketToday;
   const timeSlots = slotsFor(ride.schedPeriod);
   const slotPassed = (t: string) => !!pickupZone && isToday && toMinutes(t, ride.schedPeriod) <= nowMin;
-  const allSlotsPassed = timeSlots.every(slotPassed);
 
   // Custom time: quarter-hour slots are open; others suggest the nearest one.
   const rawT = ride.customTime.trim();
@@ -226,13 +235,8 @@ export default function Schedule() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [marketToday, ride.schedDate, ride.schedPickupDate, activeDayChoice]);
 
-  useEffect(() => {
-    if (isToday && !allSlotsPassed && slotPassed(ride.schedTime)) {
-      const firstOpen = timeSlots.find((t) => !slotPassed(t));
-      if (firstOpen) ride.setSchedTime(firstOpen);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isToday, allSlotsPassed, ride.schedTime, ride.schedPeriod]);
+  // Never replace a Traveler's chosen pickup hour automatically, even as time passes.
+  // An expired time remains visible and requires an explicit new selection.
 
   const dateOpts: { key: 'today' | 'tomorrow' | 'pick'; label: string }[] = [
     { key: 'today', label: t('traveler.schedToday') },
@@ -345,7 +349,7 @@ export default function Schedule() {
                 pressed && { transform: [{ scale: 0.94 }] },
               ]}
             >
-              <Text style={{ fontSize: 14, fontWeight: '500', color: on ? '#fff' : colors.ink2 }}>
+              <Text style={{ fontSize: 14, fontWeight: '500', color: on ? '#fff' : colors.ink2, textAlign: 'center', flexShrink: 1 }}>
                 {o.label}
               </Text>
             </Pressable>
@@ -390,9 +394,9 @@ export default function Schedule() {
             </Pressable>
           </View>
           <View style={styles.calGrid}>
-            {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((d, i) => (
-              <Text key={i} style={styles.calDow}>
-                {d}
+            {weekdayHeaders.map((day, i) => (
+              <Text key={i} accessibilityLabel={day.full} style={styles.calDow}>
+                {day.short}
               </Text>
             ))}
           </View>
@@ -403,7 +407,9 @@ export default function Schedule() {
                 <Pressable
                   key={i}
                   accessibilityRole="button"
-                  accessibilityLabel={c.day ? dayLabel(c.day, language) : undefined}
+                  accessibilityLabel={c.day ? c.day.toLocaleDateString(language, {
+                    weekday: 'long', month: 'long', day: 'numeric', year: 'numeric', timeZone: 'UTC',
+                  }) : undefined}
                   accessibilityState={{ selected: !!on, disabled: !c.selectable }}
                   disabled={!c.selectable}
                   onPress={() => {
@@ -436,7 +442,7 @@ export default function Schedule() {
       <SectionLabel style={styles.timeSectionLabel}>{t('traveler.pickupTime')}</SectionLabel>
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel={t('traveler.schedChangeTime')}
+        accessibilityLabel={`${t('traveler.pickupTime')}: ${pickupTimeDisplay}. ${t('traveler.schedChangeTime')}`}
         accessibilityState={{ expanded: timeEditing }}
         onPress={() => setTimeEditing((wasOpen) => !wasOpen)}
         style={styles.selectedTime}
@@ -517,6 +523,9 @@ export default function Schedule() {
           accessibilityLabel={t('traveler.anotherTime')}
           value={ride.customTime}
           onChangeText={ride.setCustomTime}
+          autoCorrect={false}
+          autoCapitalize="none"
+          keyboardType="numbers-and-punctuation"
           placeholder={t('traveler.typeATimePh')}
           placeholderTextColor={colors.muted}
           style={styles.customInput}
@@ -538,6 +547,8 @@ export default function Schedule() {
               {t('traveler.schedClosestIs', { time: `${suggestLabel} ${suggestPeriod}` })}
             </Text>
             <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={`${t('traveler.useIt')} ${suggestLabel} ${suggestPeriod}`}
               onPress={() => {
                 // Adopt the suggestion as a confirmed custom time so noon/midnight
                 // boundary suggestions land in the right period.
@@ -724,7 +735,7 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     paddingVertical: 11,
-    minHeight: 44,
+    minHeight: 48,
     justifyContent: 'center',
     borderRadius: 11,
     borderWidth: 1,
@@ -737,8 +748,8 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   calNav: {
-    width: 44,
-    height: 44,
+    width: 48,
+    height: 48,
     borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
@@ -755,7 +766,7 @@ const styles = StyleSheet.create({
   },
   calCell: {
     width: `${100 / 7}%`,
-    minHeight: 44,
+    minHeight: 48,
     justifyContent: 'center',
     paddingVertical: 9,
     borderRadius: 10,
@@ -771,7 +782,7 @@ const styles = StyleSheet.create({
   selectedTimeText: { fontSize: 17, fontWeight: '600', color: colors.ink, flexShrink: 1 },
   selectedTimeAction: { fontSize: 13, color: colors.ink2, fontWeight: '600' },
   timeOptionsHint: { color: colors.ink2, fontSize: 12, fontWeight: '500' },
-  customDone: { minHeight: 44, alignSelf: 'flex-start', justifyContent: 'center', paddingTop: 5 },
+  customDone: { minHeight: 48, alignSelf: 'flex-start', justifyContent: 'center', paddingTop: 5 },
   timeHead: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -780,19 +791,19 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   periodBtn: {
-    minHeight: 44,
+    minHeight: 48,
     justifyContent: 'center',
     paddingVertical: 7,
     paddingHorizontal: 14,
     borderRadius: 11,
     borderWidth: 1,
   },
-  timeGrid: { flexDirection: 'row', gap: 9 },
+  timeGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', gap: 9 },
   timeBtn: {
-    flex: 1,
+    width: '48%',
     alignItems: 'center',
     justifyContent: 'center',
-    minHeight: 44,
+    minHeight: 48,
     paddingVertical: 11,
     borderWidth: 1,
     borderRadius: 11,
@@ -813,6 +824,8 @@ const styles = StyleSheet.create({
   // and red on a suggestion tells a traveler something has gone wrong when nothing has.
   suggestText: { flex: 1, fontSize: 13.5, color: colors.ink, lineHeight: 19.5 },
   useItBtn: {
+    minHeight: 48,
+    justifyContent: 'center',
     backgroundColor: colors.ink,
     borderRadius: 999,
     paddingVertical: 8,
