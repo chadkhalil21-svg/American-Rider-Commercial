@@ -238,6 +238,9 @@ export default {
     month: 'Month',
     year: 'Year',
     yourPayouts: 'Your Payouts',
+    deviceEarningsLabel: 'Earnings recorded on this device',
+    deviceEarningsNotice: 'Amounts here come from operations saved on this device, not confirmed Stripe transfers or bank payments.',
+    payoutRecoveryUnconfirmed: 'Recovery of earlier unpaid Travel could not be confirmed. Payout records may be incomplete.'
     recentOperations: 'Recent Operations',
     insuranceDisclosure: 'Statutory Insurance Disclosure',
     partRead: 'Read',
