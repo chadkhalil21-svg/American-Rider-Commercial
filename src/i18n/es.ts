@@ -329,7 +329,7 @@ export default {
     insNotLicenceChecked: 'Licencia no verificada por American Rider. Pídales que confirmen que tienen licencia en Florida.',
     insVerifyLicence: 'American Rider no recibe compensación alguna por las referencias de esta pantalla y no hace declaración alguna sobre el precio final, que es asunto del Operador y la aseguradora. La licencia de cualquier agencia puede verificarse en el Departamento de Servicios Financieros de Florida.',
     brokerGarzorNote: 'Transporte comercial de pasajeros, suscrito en Florida',
-    brokerGarzorHours: 'De lunes a viernes, 8:00 a 20:00 · Sábados, 9:00 a 16:00',
+    brokerGarzorHours: 'Lunes a viernes, de 9:00 a 18:00 hora del Este · Fines de semana con cita',
     placeHome: 'Casa',
     placeWork: 'Trabajo',
     placeCurrent: 'Ubicación actual',
