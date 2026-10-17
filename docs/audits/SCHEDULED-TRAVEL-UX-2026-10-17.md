@@ -45,6 +45,8 @@ components, not invent a standalone overbuilt scheduling UI.
 5. Before final confirmation, the screen now states where cancellation
    can be managed, without copying arbitrary competitor cancellation fees.
 
+**Final visual sizing reconciliation:** quick pickup times use American Rider's original single row of four on ordinary screens, rather than a permanent oversized two-column arrangement. The two-column layout is reserved for phones narrower than 360 device units or enlarged text above 1.2 font scale. The shared 44-unit visible sizing is retained. Android 48dp target widths and exact layout still require on-device acceptance, with expanded hit areas where safely possible. This is conditional responsive layout, not an app-wide button redesign.
+
 **Still NOT implemented and must not be implied to work:** transactional
 edit of an existing confirmed reservation (date/time, pickup/destination,
 vehicle class, Traveler). A proper design needs an authenticated
