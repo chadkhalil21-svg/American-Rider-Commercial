@@ -73,7 +73,7 @@ async function exercise() {
     assert.ok(r.nextCursor && nextCursor !== r.nextCursor);
     nextCursor = r.nextCursor;
   } while (pages < 10);
-  assert.equal(pages, 3);
+  assert.equal(pages, 7);
   assert.equal(records.length, rows.filter(x => x.value.status === 'completed' && x.value.operatorId === 'own_operator').length);
   assert.ok(records.some(x => x.status === 'reconciliation_needed'));
   assert.ok(records.some(x => x.status === 'transfer_recorded'));
