@@ -1,3 +1,55 @@
+## Additional whole-service finding: many bookings and cancellation authority
+
+**New direct code audit findings:**
+1. Firestore rules permitted `allow delete: if ownsExisting()` for all
+   `scheduled_rides`, including **dispatched** records. That bypasses
+   the authenticated `DELETE /travel/schedule/:id` transaction, which
+   only allows `reserved` and records a cancellation without erasing
+   evidence. The draft now refuses direct phone create/update/delete,
+   and a real Firestore emulator adversarial test covers reserved,
+   dispatched, forged status, another account and anonymous attempts.
+2. The original `fetchScheduledRide()` read the Traveler's entire
+   `scheduled_rides` collection, including years of completed records,
+   and displayed only one future booking. An account with more than one
+   upcoming Travel could not conveniently see/cancel the other ones.
+   A new **Upcoming Travel** page displays separate reservations in
+   20-item cursor pages, scoped to the authenticated Traveler and future
+   pickup times, with a visible load-error state rather than a false
+   empty list. The compact Home lookup is similarly limited to
+   a small number of bounded pages.
+3. The existing direct cancellation service is reused per ID; cancellation
+   requires confirmation, cannot delete booked history, and a 409 status
+   conflict leaves the reservation visible for review. The Home menu
+   and Home scheduled card now lead to actual upcoming bookings.
+4. A direct **Payment methods** link leads to American Rider's existing
+   wallet, without inventing a saved card or its last four digits.
+5. The server's `price_changed` state is represented in the client and
+   cannot silently become a confirmed, charged booking.
+
+**Before release, an additional actual external gate is mandatory:** the
+`scheduled_rides(travelerUid ASC, atMs ASC)` composite index must be
+commissioned and shown **READY** in the correct production Firebase
+project. Simply adding `firestore.indexes.json` does **not** create that
+index. Never merge this candidate without confirming the live index
+because the new appointment listing fails closed when it is unavailable.
+No real reservation was created or cancelled during this audit.
+
+**Institutional basis:** [Google's cursor documentation](https://firebase.google.com/docs/firestore/query-data/query-cursors)
+and [Firestore pricing guidance](https://cloud.google.com/firestore/pricing)
+recommend bounded, cursor-based reads rather than full collection scans
+or billable offsets. [AWS's idempotent API guidance](https://aws.amazon.com/builders-library/making-retries-safe-with-idempotent-APIs/)
+supports one durable reservation identity and server-checked retries.
+[Lyft's published scheduled-rides management](https://help.lyft.com/hc/en-us/all/articles/115013078668)
+makes it clear that a future booking is a managed object after initial
+checkout, with distinct details, changes and cancellation.
+
+**Still separate:** editing confirmed reservations while preserving
+Server Fare, payment consent and atomic matching is not built. A booking
+list is not a disguised permission to mutate an assigned Travel.
+Protect live bookings and payments. Signed iOS/Android phone testing,
+actual Firebase index readiness, Fare and pickup failure cases, and
+real end-to-end sandbox deployment remain open.
+
 ## Additional end-to-end gap: upcoming reservations at scale
 
 The actual `src/backend/scheduled.ts` currently runs an unbounded
