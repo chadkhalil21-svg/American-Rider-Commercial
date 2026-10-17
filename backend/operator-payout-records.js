@@ -7,7 +7,7 @@
  * reliance on an uncommissioned date composite index. Cursors are opaque IDs.
  */
 const { FieldPath } = require('firebase-admin/firestore');
-const PAGE_SIZE = 30;
+const PAGE_SIZE = 12;
 
 function statusForCompletedTravel(ride) {
   if (ride.status !== 'completed') return null;
