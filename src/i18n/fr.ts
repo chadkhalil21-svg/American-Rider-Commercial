@@ -57,6 +57,7 @@ export default {
   },
 
   operator: {
+    platformCommunicationsUnavailable: "Impossible de charger les communications. Vérifiez votre connexion et réessayez ; les messages déjà affichés peuvent être obsolètes.",
     fareResearchLink: "Contribuer à des tarifs équitables",
     fareResearchCountyUnavailable: "Liste des comtés indisponible. Veuillez réessayer.",
     fareResearchReceiptUnconfirmed: "La transmission des données n'est pas confirmée.",
@@ -249,6 +250,7 @@ export default {
   },
 
   traveler: {
+    platformCommunicationsUnavailable: "Impossible de charger les communications. Vérifiez votre connexion et réessayez ; les messages déjà affichés peuvent être obsolètes.",
     platformCommunications: "Messages d’American Rider",
     platformCommunicationsBody: "Messages d’American Rider concernant votre compte, la sécurité et vos voyages.",
     noPlatformCommunications: "Aucune communication pour le moment.",
