@@ -44,6 +44,7 @@ export default function OperatorVehicle() {
     try {
       if (name.trim() !== (user?.displayName ?? '')) await setDisplayName(name);
       op.setVehicle(car, plate);
+      // Vehicle details are stored; they never qualify the Operator by themselves.
       showNote(t('traveler.saved'));
       router.back();
     } catch {

@@ -295,12 +295,14 @@ export type Broker = {
 // used here. All three carry the same garzorinsurance.com contact address, so the agency is
 // real — it is the identifiers that were wrong.
 //
-// The phone number and the commercial-quotes@ address could not be checked against the state
-// register, which lists neither. They are as supplied.
+// Public contact number and commercial-quotes@ email were cross-checked against the
+// agency's own contact page on 16 Oct 2026, not against the state's licence register.
+// The insurance options are neutral: this historical agency record is not a preferred
+// provider and is not displayed in the comparison choices.
 export const BROKER: Broker | null = {
   name: 'Garzor Insurance LLC',
   note: 'traveler.brokerGarzorNote',
-  phone: '(407) 501-8275',
+  phone: '(321) 206-8035',
   email: 'commercial-quotes@garzorinsurance.com',
   license: 'L084884',
   hours: 'traveler.brokerGarzorHours',
@@ -375,7 +377,7 @@ export const INSURERS: {
   {
     name: 'Insureon',
     note: 'traveler.insurerInsureonNote',
-    url: 'https://www.insureon.com/livery-business-insurance/limousine-insurance',
+    url: 'https://www.insureon.com/livery-business-insurance',
     secondary: true,
   },
 ];

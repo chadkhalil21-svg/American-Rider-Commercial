@@ -38,6 +38,7 @@ export default function OperatorReview() {
   }, [op.ready, op.verification, router]);
 
   const [refused, setRefused] = useState<string | null>(null);
+  const [statusUnavailable, setStatusUnavailable] = useState(false);
   const [busy, setBusy] = useState(false);
   const approvedOnce = useRef(false);
   const { commission, resetQualification } = op;
@@ -45,6 +46,7 @@ export default function OperatorReview() {
     setBusy(true);
     const s = await qualificationStatus();
     setBusy(false);
+    setStatusUnavailable(s.status === 'unknown');
     if (s.status === 'qualified' && !approvedOnce.current) {
       approvedOnce.current = true;
       commission();
@@ -88,10 +90,13 @@ export default function OperatorReview() {
           />
         </Svg>
         <Text style={styles.title}>
-          {refused !== null ? t('traveler.reviewNotApproved') : t('traveler.underReview')}
+          {refused !== null ? t('traveler.reviewNotApproved') :
+           statusUnavailable ? t('traveler.reviewCheckStatus') : t('traveler.underReview')}
         </Text>
         {refused !== null ? (
           <Text style={styles.sub}>{refused}</Text>
+        ) : statusUnavailable ? (
+          <Text accessibilityRole="alert" style={styles.sub}>{t('traveler.errReachARNoStop')}</Text>
         ) : (
           <Text style={styles.sub}>
             {/* WAS: "you will be notified the moment you are cleared." Nothing notifies

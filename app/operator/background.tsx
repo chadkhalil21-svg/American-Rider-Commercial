@@ -1,6 +1,6 @@
 import React from 'react';
 import { useFocusEffect } from 'expo-router';
-import { AppState, Linking, Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { Alert, AppState, Linking, Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { Text } from '../../src/components/AppText';
 import { useGoBack } from '../../src/components/nav';
 import { BadgeOk } from '../../src/components/operator';
@@ -170,7 +170,17 @@ export default function OperatorBackground() {
               <Text style={styles.body}>{t('traveler.bgProviderBody')}</Text>
               <PrimaryButton
                 label={t('traveler.bgContinueProvider')}
-                onPress={() => Linking.openURL(status.providerUrl!)}
+                onPress={() => {
+                  const url = status?.providerUrl;
+                  if (!url || !/^https:\/\//i.test(url)) {
+                    setError(t('traveler.deviceCouldNotOpen'));
+                    return;
+                  }
+                  void Linking.openURL(url).catch(() => {
+                    setError(t('traveler.deviceCouldNotOpen'));
+                    Alert.alert(t('traveler.notChecked'), t('traveler.deviceCouldNotOpen'));
+                  });
+                }}
                 style={styles.primary}
               />
             </Card>
@@ -275,7 +285,14 @@ export default function OperatorBackground() {
         </>
       )}
 
-      {error ? <Text style={styles.error}>{error}</Text> : null}
+      {status?.ok === false && <Card style={styles.statusCard}>
+        <Text accessibilityRole="alert" style={styles.error}>
+          {status.error || t('traveler.errReachARNoStop')}
+        </Text>
+        <PrimaryButton label={t('traveler.marketCheckAgain')} onPress={() => { void refresh(); }}
+          disabled={busy} style={styles.primary} />
+      </Card>}
+      {error ? <Text accessibilityRole="alert" style={styles.error}>{error}</Text> : null}
       <View style={{ flex: 1, minHeight: 24 }} />
     </Screen>
   );

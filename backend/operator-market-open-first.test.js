@@ -29,8 +29,12 @@ for(let i=0;i<2;i++){
   'selecting a county must never create an interest record without explicit opt-in');
  assert.match(server,/app.post\('\/waitlist', requireAuth, LIMITS.waitlist/,
   'optional interest is separate and rate-limited');
- assert.match(server,/app.post\('\/storage\/upload-url', requireAuth, LIMITS.document, requireFreshAuth, requireActiveOperatingMarket/,
-  'document upload still requires an open service county');
+ assert.match(server,/app.post\('\/storage\/upload-url', requireAuth, LIMITS.document, requireFreshAuth, requirePrivateUploadPurpose/,
+  'private upload has purpose-scoped authorization');
+ assert.match(server,/if \(purpose === 'operator-document'\) return requireActiveOperatingMarket\(req, res, next\)/,
+  'Operator document upload still requires an open service county');
+ assert.match(server,/if \(purpose === 'lost-item'\) return next\(\)/,
+  'Traveler lost-property photos must not need Operator registration');
  assert.match(server,/app.post\('\/operator\/document', requireAuth, LIMITS.document, requireFreshAuth, requireActiveOperatingMarket/,
   'document review still requires an open service county');
  assert.match(server,/app.post\('\/operator\/qualification\/submit', requireAuth, LIMITS.qualification, requireActiveOperatingMarket/,

@@ -42,6 +42,7 @@ export default function OperatorQualification() {
     (async () => {
       try {
         let st = await getOperatingMarket();
+        if (st.error) { if (live) setAreaError(st.error); return; }
         if (!st.market) {
           try {
             const perm = await Location.getForegroundPermissionsAsync();
@@ -51,7 +52,7 @@ export default function OperatorQualification() {
             /* no position: the operator chooses below */
           }
         }
-        if (live) setArea(st);
+        if (live) { if (st.error) setAreaError(st.error); else { setArea(st); setAreaError(null); } }
       } catch {
         if (live) setAreaError(t('traveler.couldNotSaveConn'));
       }
@@ -89,19 +90,6 @@ export default function OperatorQualification() {
         ))}
       </View>}
 
-      {areaActive && <View style={styles.banner}>
-        <Text style={styles.bannerText}>{t('operator.retainOnceCommissioned')}</Text>
-        <Pressable accessibilityRole="button" onPress={() => router.navigate('/operator/economics' as never)} style={{ minHeight: 44, justifyContent: 'center', marginTop: 4 }}>
-          <Text style={styles.bannerText}>{t('operator.econYourScenario')} ›</Text>
-        </Pressable>
-      </View>}
-
-      {areaActive && <Card style={styles.prepCard}>
-        <Text style={styles.rowTitle}>{t('operator.qualPreparation')}</Text>
-        <Text style={styles.prepBody}>{t('operator.qualCostPreview')}</Text>
-        <Text style={styles.prepBody}>{t('operator.qualNext')}</Text>
-      </Card>}
-
       {area && (
         <>
         {areaError ? <Text accessibilityRole="alert" style={styles.footnote}>{areaError}</Text> : null}
@@ -115,11 +103,11 @@ export default function OperatorQualification() {
                   ? area.market!.name
                   : area.market
                     ? t('operator.marketNotActive', { name: area.market.name })
-                    : t('operator.chooseOperatingArea')}
+                    : t('operator.marketUnknownSoon')}
               </Text>
               {!areaAuthorized && (
                 <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginTop: 8 }}>
-                  {[...area.active, ...area.onboarding, ...area.waitlist].map((m) => (
+                  {area.active.map((m) => (
                     <Pressable
                       key={m.id}
                       hitSlop={6}
@@ -132,9 +120,9 @@ export default function OperatorQualification() {
                         setAreaError(null);
                         try {
                           const next = await setOperatingMarket({ marketId: m.id });
-                          setArea(next);
-                          setInterest('idle');
-                          if (next.market?.id !== m.id) setAreaError(t('traveler.couldNotSaveConn'));
+                          if (next.error) setAreaError(next.error);
+                          else if (next.market?.id !== m.id) setAreaError(t('traveler.couldNotSaveConn'));
+                          else { setArea(next); setInterest('idle'); }
                         } catch {
                           setAreaError(t('traveler.couldNotSaveConn'));
                         } finally {
@@ -149,7 +137,7 @@ export default function OperatorQualification() {
                 </View>
               )}
             </View>
-            {areaActive ? <BadgeOk label={t('operator.verified')} /> : null}
+            {areaActive ? <BadgeOk label={t('traveler.open')} /> : null}
           </View>
         </Card>
         </>
@@ -173,8 +161,22 @@ export default function OperatorQualification() {
       {!area && <Text accessibilityRole={areaError ? 'alert' : undefined} style={styles.footnote}>
         {areaError || t('operator.checking')}
       </Text>}
+      {areaError && <Pressable accessibilityRole="button" style={styles.back} onPress={async () => {
+        const latest = await getOperatingMarket();
+        if (latest.error) setAreaError(latest.error);
+        else { setArea(latest); setAreaError(null); }
+      }}><Text style={styles.backText}>{t('traveler.marketCheckAgain')} ›</Text></Pressable>}
 
       {areaActive && <Card style={styles.listCard}>
+        <Pressable accessibilityRole="button" onPress={() => router.navigate('/operator/vehicle')}>
+          <View style={styles.row}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.rowTitle}>{t('traveler.vehicle')}</Text>
+              <Text style={styles.rowSub}>{op.vehicle?.car || t('traveler.noVehicleOnFile')}</Text>
+            </View>
+            <Text style={styles.pillTodo}>{t('traveler.open')} ›</Text>
+          </View>
+        </Pressable>
         {QUAL_DOCS.map((d, i) => {
           const st = op.docs[d.key];
           return (
@@ -215,6 +217,15 @@ export default function OperatorQualification() {
           );
         })}
       </Card>}
+      {areaActive && <Pressable accessibilityRole="button" onPress={() => router.navigate('/operator/payouts')}
+        style={{ minHeight: 48, justifyContent: 'center', marginTop: 10 }}>
+        <Text style={styles.rowTitle}>{t('operator.gettingPaid')} ›</Text>
+        <Text style={styles.rowSub}>{t('traveler.stripeHoldsDetails')}</Text>
+      </Pressable>}
+      {areaActive && <Pressable accessibilityRole="button" onPress={() => router.navigate('/operator/economics' as never)}
+        style={{ minHeight: 44, justifyContent: 'center', marginTop: 4 }}>
+        <Text style={styles.rowSub}>{t('operator.econTitle')} ›</Text>
+      </Pressable>}
 
       {areaActive && <Text style={styles.footnote}>
         {t('traveler.verifyNotSellShort')}

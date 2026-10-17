@@ -2118,10 +2118,20 @@ async function runSweep(req, res) {
 }
 
 
+// Private upload authorization depends on the purpose, not the person's job.
+// Lost-property photos must work for Travelers who have no Operator county.
+function requirePrivateUploadPurpose(req, res, next) {
+  const purpose = String(req.body?.purpose || '');
+  if (purpose === 'operator-document') return requireActiveOperatingMarket(req, res, next);
+  if (purpose === 'lost-item') return next();
+  return res.status(400).json({ code: 'unsupported_upload_purpose',
+    error: 'This file type is not supported.' });
+}
+
 // --- Private file storage. -----------------------------------------------------------------
 // The mobile app may request a five-minute upload URL only for its own namespace. R2 remains
 // private; credentials never leave this server. Object keys, not public URLs, are persisted.
-app.post('/storage/upload-url', requireAuth, LIMITS.document, requireFreshAuth, requireActiveOperatingMarket, async (req, res) => {
+app.post('/storage/upload-url', requireAuth, LIMITS.document, requireFreshAuth, requirePrivateUploadPurpose, async (req, res) => {
   if (!r2Ready()) return res.status(503).json({ error: 'Private storage is not configured.', code: 'storage_not_configured' });
   const purpose = String(req.body?.purpose || '');
   const kind = String(req.body?.kind || '');

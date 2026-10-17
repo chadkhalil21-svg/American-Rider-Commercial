@@ -41,7 +41,7 @@ assert.match(server, /jurisdictionCode: policy\.stateCode, policyId: policy\.id/
   'the new case binds the authoritative state and screening policy');
 assert.match(server, /oldCase\.exists && oldCase\.data\(\)\.uid === req\.uid/,
   'repeated request checks case ownership and reuses its existing case');
-assert.match(ui, /\.\.\.area\.waitlist/, 'Operator can find unopened counties without onboarding');
+assert.match(ui, /area\.active\.map\(\(m\) =>/, 'Only already-open counties are offered for Operator registration');
 assert.doesNotMatch(ui, /d\.key === 'background' && area\?\.market\?\.status === 'waitlist'/,
   'a waitlisted Operator must not enter screening preparation');
 assert.match(ui, /const areaAuthorized = areaActive;/,
