@@ -7,8 +7,10 @@ const payments=src('payments.js'),booking=src('booking.js'),
  server=src('server.js'),scheduled=src('scheduler.js'),money=src('travelmoney.js');
 for(let pass=0;pass<2;pass++){
  assert.match(booking,/payoutLedgerVersion: 1/,'new booking must be payout-ledger versioned');
- const transfer=payments.match(/async function transferToOperator\([\s\S]*?\n\}/)?.[0];
- assert(transfer,'Stripe transfer function must exist');
+ const transferStart=payments.indexOf('async function transferToOperator(');
+ const transferEnd=payments.indexOf('async function transferFixed(',transferStart);
+ assert(transferStart>=0&&transferEnd>transferStart,'Stripe transfer function must exist');
+ const transfer=payments.slice(transferStart,transferEnd);
  assert.match(transfer,/return transferOnce\(/,'all Operator share transfers must use durable guard');
  assert.match(transfer,/stripe\.transfers\.list\(\{ transfer_group: group, limit: 2 \}\)/);
  assert.match(transfer,/stripe\.transfers\.create\(/);
