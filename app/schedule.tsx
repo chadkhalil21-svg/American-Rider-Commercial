@@ -716,8 +716,6 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   calTitle: { fontSize: 14.5, fontWeight: '600', color: colors.ink },
   calGrid: { flexDirection: 'row', flexWrap: 'wrap' },
