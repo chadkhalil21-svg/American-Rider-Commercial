@@ -242,6 +242,11 @@ export default {
     lostNotFound: "Oggetto non trovato",
   },
   traveler: {
+    platformCommunications: "Messaggi di American Rider",
+    platformCommunicationsBody: "Messaggi di American Rider sul tuo account, sulla sicurezza e sui viaggi.",
+    noPlatformCommunications: "Nessuna comunicazione per ora.",
+    newPlatformCommunication: "Nuovo",
+    platformCommunicationReadFailed: "Impossibile contrassegnare questa comunicazione come letta. Riprova.",
     updateRequiredTitle: 'Aggiornamento necessario',
     updateRequiredBody: 'Aggiorni American Rider per verificare e confermare il totale attuale del viaggio. Non è stata effettuata alcuna prenotazione né alcun addebito.',
     priceChangedTitle: 'Il costo totale è cambiato',
