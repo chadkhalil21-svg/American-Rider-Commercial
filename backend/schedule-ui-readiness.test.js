@@ -15,6 +15,10 @@ assert.equal(tomorrow, '2026-10-17');
 const tomorrowMorning = resolvePickupWall(tomorrow, '6:00', 'AM', zone);
 assert.equal(tomorrowMorning.ok, true);
 assert.equal(tomorrowMorning.atMs, Date.parse('2026-10-17T10:00:00Z'));
+const afterMidnight = Date.parse('2026-10-17T04:01:00Z'); // Sat 12:01 AM EDT
+assert.equal(pickupDate(afterMidnight,zone),'2026-10-17');
+assert.notEqual(tomorrow,nextDate(pickupDate(afterMidnight,zone)),
+  'relative Tomorrow changes at midnight, so the selected date must be pinned');
 
 const status = (overrides = {}) => scheduleReadiness({
   hasDestination: true, hasQuote: true, pickupZone: zone,
@@ -41,6 +45,8 @@ for (let pass = 1; pass <= 2; pass++) {
   assert.equal(status({nowMs: tomorrowMorning.atMs}), 'time_past',
     'at the instant of pickup it is too late');
   assert.equal(status({nowMs: tomorrowMorning.atMs - 1}), 'ready');
+  assert.equal(status({nowMs: afterMidnight}), 'ready',
+    'the previously selected Saturday at 6 AM stays Saturday after midnight');
   assert.equal(status({nowMs: tomorrowMorning.atMs + 30_000}), 'time_past');
   assert.equal(status({resolved: {ok:true, atMs: NaN}}), 'time_past');
   assert.equal(status({resolved: {ok:true, atMs: Infinity}}), 'time_past');
@@ -116,8 +122,18 @@ for (let pass = 1; pass <= 2; pass++) {
   assert.match(confirmation, /!selectingScheduledTravel && \(/,
     'immediate departure cancellation terms do not mislead future reservation');
 
-  assert.match(screen, /pick: pickedDate \? ride\.schedDay : t\('traveler\.schedPickDay'\)/,
-    'no prior stale calendar day displays when no date is selected');
+  assert.match(screen, /const selectedPickupDate = pickupZone \? ride\.schedPickupDate : null/,
+    'the picked calendar date survives midnight and destination-search navigation');
+  assert.match(screen, /ride\.setSchedPickupDate\(o\.key === 'pick'/,
+    'Today, Tomorrow and Pick-day selections update an absolute pickup date');
+  assert.match(screen, /ride\.schedPickupDate && ride\.schedDate !== activeDayChoice/,
+    'the date chip adapts at midnight without moving the scheduled appointment');
+  assert.match(screen, /const chosenDayLabel = selectedPickupDate && marketToday/,
+    'the displayed day is derived from the actual selected date, not a stale label');
+  assert.match(rideContext, /schedPickupDate: string \| null/,
+    'RideContext retains the precise selected day while searching for destination');
+  assert.match(rideContext, /setSchedPickupDate\(null\); \/\/ New journey/,
+    'starting a genuinely new journey clears the prior date selection');
   assert.match(screen, /if \(state === 'active'\) setClockMs\(Date\.now\(\)\)/,
     'foreground return updates local clock immediately');
   assert.match(screen, /clearInterval\(ticker\); onResume\.remove\(\)/,
