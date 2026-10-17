@@ -232,8 +232,6 @@ export default {
     openAllParts: 'Ouvrez les %{n} parties pour continuer',
 
     lostOpenFailed: "Ce signalement n’a pas pu être ouvert.",
-    lostHistoryCouldNotLoad: "Impossible de charger vos déclarations d’objets perdus. Les déclarations affichées peuvent ne plus être à jour.",
-    lostHistoryMore: "Voir d’autres déclarations d’objets perdus",
     lostUnavailable: "Ce signalement d’objet perdu est indisponible.",
     lostSelectTravel: "Sélectionnez le Voyage dans lequel vous avez trouvé l’objet.",
     lostUpdateFailed: "Cette mise à jour n’a pas pu être enregistrée.",
@@ -754,6 +752,8 @@ export default {
     selectAnotherTravel: 'Sélectionner un autre trajet ›',
     selectTravelForCase: 'Sélectionnez le trajet concerné ›',
     yourCases: 'Vos dossiers',
+    lostHistoryCouldNotLoad: "Impossible de charger vos déclarations d’objets perdus. Les déclarations affichées peuvent ne plus être à jour.",
+    lostHistoryMore: "Voir d’autres déclarations d’objets perdus",
     casesCouldNotLoad: 'Impossible de charger l’historique de vos dossiers. Les dossiers affichés peuvent ne pas être à jour.',
     caseHistoryPartial: 'Seule une partie de l’historique des dossiers est affichée. Pour un dossier ancien, contactez support@americanrider.app.',
     retryCases: 'Réessayer de charger les dossiers',
