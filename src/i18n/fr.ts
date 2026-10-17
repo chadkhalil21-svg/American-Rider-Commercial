@@ -230,6 +230,9 @@ export default {
     month: 'Mois',
     year: 'Année',
     yourPayouts: 'Vos Versements',
+    deviceEarningsLabel: 'Revenus enregistrés sur cet appareil',
+    deviceEarningsNotice: 'Ces montants viennent des opérations enregistrées sur cet appareil, et non de virements Stripe ou de paiements bancaires confirmés.',
+    payoutRecoveryUnconfirmed: 'Le recouvrement des trajets impayés n’a pas pu être confirmé. Le suivi des versements peut être incomplet.'
     recentOperations: 'Opérations Récentes',
     insuranceDisclosure: 'Déclaration légale d’assurance',
     partRead: 'Lu',
