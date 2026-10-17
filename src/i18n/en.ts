@@ -1243,6 +1243,8 @@ export default {
     familySendMessage: 'Send Message',
     familyMessageFailed: 'The message was not sent.',
 
+    lostNoVerifiedTravelThread: "No recorded Travel is linked to this item. Patron Support can help without assigning an unrelated Operator.",
+    msgTravelUnavailable: "No verified Travel is available for this conversation. Choose a recorded Travel or contact Patron Support.",
     msgNotSent: "Message not sent. Check your connection and try again.",
     lostOperatorInboxDelivered: "Delivered to %{names} in the Operator inbox.",
     notifSaveFailed: "Notification preference was not saved. Try again.",
