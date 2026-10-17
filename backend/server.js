@@ -3746,7 +3746,9 @@ app.post('/travel/dispatch', requireAuth, LIMITS.dispatch, requireFreshAuth, req
     if (!servesPoint(pickup)) return res.status(409).json({ error: outsideMarketMessage('pickup'), code: 'outside_market' });
     let candidate = null;
     if (ride.status !== 'assigned') {
-      const fleet = await availableOperatorCandidates(db, pickup);
+      const fleet = await availableOperatorCandidates(db, pickup, new Set(), {
+        travelClass: ride.travelClass, requireScreening: operationalMode,
+      });
       candidate = matchOperator(fleet, pickup, ride.travelClass, { requireScreening: operationalMode, allowQueued: true });
     }
     const outcome = await assignPaidTravel({
