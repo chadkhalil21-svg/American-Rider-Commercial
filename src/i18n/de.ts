@@ -55,6 +55,7 @@ export default {
     language: 'Sprache',
   },
   operator: {
+    platformCommunicationsUnavailable: "Mitteilungen konnten nicht geladen werden. Prüfen Sie Ihre Verbindung und versuchen Sie es erneut; bereits angezeigte Nachrichten können veraltet sein.",
     fareResearchLink: "Helfen Sie, faire Preise zu sichern",
     fareResearchCountyUnavailable: "Die Liste der Bezirke ist nicht verfügbar. Versuchen Sie es erneut.",
     fareResearchReceiptUnconfirmed: "Die Übermittlung der Forschungsdaten wurde nicht bestätigt.",
@@ -243,6 +244,7 @@ export default {
     lostNotFound: "Gegenstand nicht gefunden",
   },
   traveler: {
+    platformCommunicationsUnavailable: "Mitteilungen konnten nicht geladen werden. Prüfen Sie Ihre Verbindung und versuchen Sie es erneut; bereits angezeigte Nachrichten können veraltet sein.",
     platformCommunications: "Nachrichten von American Rider",
     platformCommunicationsBody: "Mitteilungen von American Rider zu Ihrem Konto, Ihrer Sicherheit und Ihren Fahrten.",
     noPlatformCommunications: "Noch keine Mitteilungen.",
