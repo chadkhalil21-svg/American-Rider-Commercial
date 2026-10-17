@@ -819,6 +819,7 @@ export default {
     emailPh: 'nombre@correo.com',
     select: 'Seleccionar',
     open: 'Abrir',
+    docUploadGuidance: "Suba una fotografía clara o un PDF (hasta 5 MB). American Rider revisa los documentos antes de aprobarlos.",
     docsHeld: 'Lo que American Rider tiene de usted y lo que aún falta.',
     underReview: 'En Revisión',
     travelWhileWaiting: 'Viaje como viajero mientras espera',
