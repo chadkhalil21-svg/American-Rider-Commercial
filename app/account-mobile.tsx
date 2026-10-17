@@ -116,7 +116,6 @@ export default function AccountMobile() {
         label={busy ? t('traveler.busySaving') : t('traveler.save')}
         disabled={busy || loadState !== 'ready' || !phone.trim() || !changed}
         onPress={save}
-        style={{ paddingVertical: 16 }}
       />
     </Screen>
   );
