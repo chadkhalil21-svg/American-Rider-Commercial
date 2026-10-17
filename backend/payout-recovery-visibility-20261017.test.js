@@ -29,6 +29,12 @@ function verify() {
   assert.match(context, /userUidRef\.current === recoveryUid/);
   assert.match(context, /result\.ok \? 'checked' : 'unconfirmed'/);
   assert.match(context, /payoutRecoveryStatus,/);
+  // Operator A's cached device totals must not appear for Operator B.
+  assert.match(context, /AsyncStorage\.getItem\(`\$\{K_REVENUE\}:\$\{uid\}`\)/);
+  assert.match(context, /AsyncStorage\.setItem\(`\$\{K_REVENUE\}:\$\{uid\}`/);
+  assert.match(context, /revenueOwnerUid === user\.uid \? revenue : EMPTY_REVENUE/);
+  assert.match(context, /userUidRef\.current !== uid/);
+  assert.doesNotMatch(context, /AsyncStorage\.setItem\(K_REVENUE,/);
 
   assert.match(revenue, /operator\.deviceEarningsLabel/);
   assert.match(revenue, /operator\.deviceEarningsNotice/);
