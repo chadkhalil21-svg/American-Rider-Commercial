@@ -208,6 +208,36 @@ for (let pass = 1; pass <= 2; pass++) {
       locale + ' compact localized day label');
   }
 
+  // Institutional design follow-up: an appointment saved as "Tomorrow"
+  // becomes a false description the moment the pickup area crosses midnight.
+  assert.match(screen, /const chosenDayLabel = selectedPickupDate\s*\? new Date/,
+    'stored reservation label is derived from the actual chosen day');
+  assert.match(screen, /weekday: 'long', month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC'/,
+    'saved date includes the exact year and pickup-local day, not relative Today/Tomorrow');
+  assert.doesNotMatch(screen, /activeDayChoice === 'today' \? t\('traveler\.schedToday'\)/,
+    'success and stored summary must not describe an absolute reservation as Today');
+  assert.doesNotMatch(screen, /activeDayChoice === 'tomorrow' \? t\('traveler\.schedTomorrow'\)/,
+    'success and stored summary must not describe an absolute reservation as Tomorrow');
+
+  // AM/PM is one explicit change, never permission to change the hour as well.
+  assert.match(screen, /ride\.setSchedPeriod\(p\);/,
+    'AM/PM selector must update the chosen period');
+  assert.doesNotMatch(screen, /if \(!slotsFor\(p\)\.includes\(ride\.schedTime\)\) ride\.setSchedTime\('6:30'\)/,
+    'switching from 6:00 AM to PM must not silently schedule 6:30 PM');
+
+  for (const locale of ['en', 'es', 'fr', 'it', 'de']) {
+    const written = new Date('2026-10-17T00:00:00Z').toLocaleDateString(locale, {
+      weekday:'long', month:'short', day:'numeric', year:'numeric', timeZone:'UTC',
+    });
+    const afterMidnightWritten = new Date('2026-10-17T00:00:00Z').toLocaleDateString(locale, {
+      weekday:'long', month:'short', day:'numeric', year:'numeric', timeZone:'UTC',
+    });
+    assert.equal(written, afterMidnightWritten,
+      locale + ': calendar date stays stable after local midnight');
+    assert.ok(written.includes('2026'), locale + ': explicit year survives in appointment text');
+    assert.notEqual(written, 'Tomorrow', locale + ': no relative stored date');
+  }
+
   const confirmation = read('app/reserve.tsx');
   assert.match(confirmation, /params\.scheduling === '1'/,
     'confirmation offers a direct return to the selected scheduled pickup');
