@@ -128,7 +128,7 @@ export default function OperatorInsurance() {
   const policyApproved = liveStatus?.documentApproved === true;
   const policyExpiry = liveStatus?.policyExpiry || op.insuranceExpiry;
   const coverageDaysLeft = policyExpiry
-    ? Math.ceil((Date.parse(policyExpiry + 'T23:59:59Z') - Date.now()) / 86_400_000)
+    ? Math.ceil((Date.parse(policyExpiry + 'T23:59:59.999Z') - Date.now()) / 86_400_000)
     : null;
   const expiring = coverageDaysLeft != null && coverageDaysLeft <= 30;
   // A cancelled policy must always be replaceable, even if its printed expiry is months away.
