@@ -184,15 +184,23 @@ export default function AccountEmail() {
               <TextInput
                 value={password}
                 onChangeText={setPassword}
-                secureTextEntry
+                secureTextEntry={!showPassword}
+                autoCorrect={false}
+                accessibilityLabel={t('auth.passwordLabel')}
                 autoCapitalize="none"
                 autoComplete="current-password"
                 textContentType="password"
                 placeholder={t('traveler.yourPasswordPh')}
                 placeholderTextColor={colors.faint}
                 style={styles.field}
-                onSubmitEditing={change}
+                onSubmitEditing={() => void change()}
               />
+              <Pressable accessibilityRole="button" style={styles.secondaryAction}
+                onPress={() => setShowPassword(v => !v)}>
+                <Text style={styles.link}>
+                  {t(showPassword ? 'traveler.hidePassword' : 'traveler.showPassword')}
+                </Text>
+              </Pressable>
             </View>
           </Card>
           <Sub style={styles.note}>{t('traveler.emailChangeNote')}</Sub>
