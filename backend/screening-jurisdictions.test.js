@@ -21,8 +21,8 @@ const miami = markets().find(m => m.id === 'fl-miami-dade');
 const broward = markets().find(m => m.id === 'fl-broward');
 assert.equal(screeningPreparationFor(miami, florida).ok, true, 'configured Florida allows preparation');
 assert.equal(screeningPreparationFor(broward, florida).ok, true, 'same state policy works for multiple counties');
-assert.equal(screeningPreparationFor({ ...miami, status: 'waitlist' }, florida).ok, true,
-  'preparation does not grant commercial activation');
+assert.equal(screeningPreparationFor({ ...miami, status: 'waitlist' }, florida).ok, false,
+  'no screening preparation in unopened service counties');
 assert.equal(screeningPreparationFor(null, florida).ok, false, 'no county is no permission');
 assert.equal(screeningPreparationFor(miami, null).ok, false, 'no region is no permission');
 assert.equal(screeningPreparationFor({ ...miami, regionId: 'other-region' }, florida).ok, false,
