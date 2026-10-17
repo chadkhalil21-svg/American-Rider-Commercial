@@ -11,13 +11,13 @@ function walk(dir) {
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
     const filename = path.join(dir, entry.name);
     if (entry.isDirectory()) { walk(filename); continue; }
-    if (!/\\.tsx$/.test(entry.name)) continue;
+    if (!/\.tsx$/.test(entry.name)) continue;
     routes++;
     const source = fs.readFileSync(filename, 'utf8');
-    for (const found of source.matchAll(/<LetterheadBar\\b([^>]*?)\\/>/gs)) {
+    for (const found of source.matchAll(/<LetterheadBar\b([^>]*?)\/>/gs)) {
       headers++;
       const props = found[1];
-      assert(/\\bonBack\\s*=|\\bonMenu\\s*=/.test(props),
+      assert(/\bonBack\s*=|\bonMenu\s*=/.test(props),
         path.relative(app, filename) + ': header renders a Back arrow but provides no handler');
     }
   }
