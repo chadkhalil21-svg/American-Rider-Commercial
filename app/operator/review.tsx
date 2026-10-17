@@ -91,7 +91,7 @@ export default function OperatorReview() {
         </Svg>
         <Text style={styles.title}>
           {refused !== null ? t('traveler.reviewNotApproved') :
-           statusUnavailable ? t('traveler.marketStatusUnavailable') : t('traveler.underReview')}
+           statusUnavailable ? t('traveler.reviewCheckStatus') : t('traveler.underReview')}
         </Text>
         {refused !== null ? (
           <Text style={styles.sub}>{refused}</Text>
