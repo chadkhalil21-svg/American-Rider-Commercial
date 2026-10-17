@@ -1069,6 +1069,7 @@ export default {
     schedChooseDestination: "Choisir une destination",
     schedReturnToPickup: "Prise en charge programmée",
     schedContinue: "Continuer",
+    schedContinueScheduling: "Poursuivre la programmation",
     schedDestinationNeeded: "Choisissez une destination pour connaître le coût total du trajet.",
     schedQuoteNeeded: "Le coût du trajet n’est pas confirmé. Vérifiez le trajet pour obtenir un prix à jour.",
     schedReviewFare: "Vérifier le prix du trajet",
