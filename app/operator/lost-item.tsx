@@ -60,7 +60,7 @@ export default function OperatorLostItemScreen() {
     <LetterheadBar onBack={() => router.back()} />
     <Title>{t('operator.lostTitle')}</Title>
     <Text style={styles.sub}>{t('operator.lostInstruction')}</Text>
-    {loading ? <Text style={styles.sub}>{t('operator.busyChecking')}</Text> : null}
+    {loading ? <Text style={styles.sub}>{t('operator.lostLoading')}</Text> : null}
     {error ? <Text style={styles.error}>{error}</Text> : null}
     {!loading && error && !!id && !item ? (
       <Pressable accessibilityRole="button" style={styles.retry}
