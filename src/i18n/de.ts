@@ -1048,7 +1048,7 @@ export default {
     route: 'Route',
     communicate: 'Kommunizieren',
     planAhead: 'Im Voraus planen',
-    day: 'Tag',
+
     pickupTime: 'Abholzeit',
     enterATime: 'Geben Sie eine Uhrzeit ein, zum Beispiel 6:45.',
     schedSaveReview: 'Die Reservierung wurde nicht bestätigt. Preis oder Verfügbarkeit können sich geändert haben. Kehren Sie zur Reisebestätigung zurück, prüfen Sie den aktuellen Preis und versuchen Sie es erneut.',
