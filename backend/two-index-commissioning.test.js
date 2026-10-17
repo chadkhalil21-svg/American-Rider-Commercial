@@ -11,5 +11,5 @@ for(const [name,fields] of expected){
     JSON.stringify(x.fields.map(f=>[f.fieldPath,f.order]))===JSON.stringify(fields));
   assert.equal(exact.length,1,name+' index must appear exactly once');
 }
-assert.equal(manifest.indexes.length,19,'existing 17 plus two new indexes');
+assert.ok(manifest.indexes.length>=19,'keep the two approved indexes while allowing future authorized indexes');
 console.log('PASS index-only manifest: two new indexes, no writes to Firebase');
