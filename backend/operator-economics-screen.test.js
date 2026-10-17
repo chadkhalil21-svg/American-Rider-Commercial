@@ -38,6 +38,10 @@ for (let pass = 0; pass < 2; pass++) {
     'reuse the existing live-policy copy and avoid duplicated obsolete fee terms');
   assert.match(screen, /t\('operator\.econProjectionNote'\)/,
     'make 52-week assumptions and missing expenses explicit');
+  assert.match(screen, /estimateNote: \{ color: colors\.ink2/,
+    'weekly-projection limitations have readable text contrast');
+  assert.match(screen, /disclaimer: \{ color: colors\.ink2/,
+    'financial warnings have readable text contrast');
   assert.match(screen, /t\('operator\.econDisclaimer'\)/,
     'do not promise Travel volume or profit');
   assert.ok(screen.indexOf('operator.fareResearchLink') > screen.indexOf('operator.econDisclaimer'),
