@@ -318,6 +318,8 @@ export default function Schedule() {
           return (
             <Pressable
               key={o.key}
+              accessibilityRole="button"
+              accessibilityState={{ selected: on }}
               onPress={() => {
                 ride.setSchedDate(o.key);
                 ride.setSchedPickupDate(o.key === 'pick' || !marketToday ? null
@@ -349,6 +351,10 @@ export default function Schedule() {
         <Card style={styles.calCard}>
           <View style={styles.calHead}>
             <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={t('traveler.schedPreviousMonth')}
+              accessibilityState={{ disabled: calOffset <= 0 }}
+              disabled={calOffset <= 0}
               onPress={() => calOffset > 0 && setCalOffset(calOffset - 1)}
               style={styles.calNav}
               hitSlop={6}
@@ -359,6 +365,10 @@ export default function Schedule() {
             </Pressable>
             <Text style={styles.calTitle}>{calTitle}</Text>
             <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={t('traveler.schedNextMonth')}
+              accessibilityState={{ disabled: calOffset >= 2 }}
+              disabled={calOffset >= 2}
               onPress={() => calOffset < 2 && setCalOffset(calOffset + 1)}
               style={styles.calNav}
               hitSlop={6}
@@ -381,6 +391,9 @@ export default function Schedule() {
               return (
                 <Pressable
                   key={i}
+                  accessibilityRole="button"
+                  accessibilityLabel={c.day ? dayLabel(c.day, language) : undefined}
+                  accessibilityState={{ selected: !!on, disabled: !c.selectable }}
                   disabled={!c.selectable}
                   onPress={() => {
                     if (!c.day) return;
@@ -430,6 +443,8 @@ export default function Schedule() {
             return (
               <Pressable
                 key={p}
+                accessibilityRole="button"
+                accessibilityState={{ selected: on }}
                 onPress={() => {
                   ride.setSchedPeriod(p);
                   if (!slotsFor(p).includes(ride.schedTime)) ride.setSchedTime('6:30');
@@ -459,6 +474,8 @@ export default function Schedule() {
           return (
             <Pressable
               key={t}
+              accessibilityRole="button"
+              accessibilityState={{ selected: on, disabled: passed }}
               disabled={passed}
               onPress={() => {
                 ride.setSchedTime(t);
@@ -485,6 +502,7 @@ export default function Schedule() {
       <Card style={styles.customCard}>
         <Text style={styles.customLabel}>{t('traveler.anotherTime')}</Text>
         <TextInput
+          accessibilityLabel={t('traveler.anotherTime')}
           value={ride.customTime}
           onChangeText={ride.setCustomTime}
           placeholder={t('traveler.typeATimePh')}
@@ -677,6 +695,8 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     paddingVertical: 11,
+    minHeight: 44,
+    justifyContent: 'center',
     borderRadius: 11,
     borderWidth: 1,
   },
@@ -688,9 +708,11 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   calNav: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -706,6 +728,8 @@ const styles = StyleSheet.create({
   },
   calCell: {
     width: `${100 / 7}%`,
+    minHeight: 44,
+    justifyContent: 'center',
     paddingVertical: 9,
     borderRadius: 10,
     alignItems: 'center',
@@ -729,6 +753,8 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   periodBtn: {
+    minHeight: 44,
+    justifyContent: 'center',
     paddingVertical: 7,
     paddingHorizontal: 14,
     borderRadius: 11,
@@ -738,6 +764,8 @@ const styles = StyleSheet.create({
   timeBtn: {
     flex: 1,
     alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 44,
     paddingVertical: 11,
     borderWidth: 1,
     borderRadius: 11,
