@@ -1433,7 +1433,19 @@ app.get('/operator/me', requireAuth, async (req, res) => {
     const fleetDoc = await db.collection('operators').doc(uid).get();
     const fleet = fleetDoc.exists ? fleetDoc.data() : null;
     // Travels dispatched TO this operator, newest first, statuses only.
-    const rides = await db.collection('rides').where('operatorId', '==', uid).get();
+    // This is a diagnostic, not historical accounting. Never download a
+    // lifetime's worth of paid Travels just to render five recent statuses.
+    // Beyond the ceiling return an honest incomplete result rather than
+    // accidentally misreporting financial or dispatch history as exhaustive.
+    const MAX_OPERATOR_DIAGNOSTIC_RIDES = 200;
+    const rides = await db.collection('rides').where('operatorId', '==', uid)
+      .limit(MAX_OPERATOR_DIAGNOSTIC_RIDES + 1).get();
+    if (rides.size > MAX_OPERATOR_DIAGNOSTIC_RIDES) {
+      return res.status(409).json({
+        code: 'operator_history_too_large_for_diagnostic',
+        error: 'This diagnostic cannot summarize complete Travel history. Please use verified records.',
+      });
+    }
     const byStatus = {};
     const recent = [];
     rides.forEach((d) => {
