@@ -27,7 +27,11 @@ export default function Message() {
   // WHICH TRAVEL THIS THREAD IS ABOUT. Without it the operator has to guess which journey a
   // message concerns — and a lost item report is worthless if they do. A thread opened from
   // the live ride simply passes no parameter and gets the travel in progress.
-  const tripNo = params.trip || ride.lastTrip.no;
+  // An absent route parameter is only a live Travel, never a seeded
+  // demonstration/last-visited record. The server independently authorizes
+  // membership before accepting a message.
+  const tripNo = (typeof params.trip === 'string' ? params.trip.trim() : '') ||
+    (ride.rideActive ? ride.lastTrip.no : '');
   const lostItemId = params.lost || null;
   const isCurrentTravel = tripNo === ride.lastTrip.no;
 
@@ -53,11 +57,11 @@ export default function Message() {
   const [stored, setStored] = useState<TravelMessage[] | null>(null);
   const [threadError, setThreadError] = useState<string | null>(null);
   useEffect(() => {
-    if (isLiveDemoRide) return;
+    if (isLiveDemoRide || !tripNo) return;
     setStored(null);
     return watchTravelThread(tripNo, 'traveler', setStored, setThreadError);
   }, [tripNo, isLiveDemoRide]);
-  const local = ride.threadFor(tripNo);
+  const local = tripNo ? ride.threadFor(tripNo) : [];
   const msgs = useMemo(() => {
     if (isLiveDemoRide || stored === null) return local;
     const fromRecord = stored.map((m) => ({ me: m.from === 'traveler', text: m.text }));
@@ -71,7 +75,7 @@ export default function Message() {
 
   const send = async () => {
     const text = input.trim();
-    if (!text || sending) return;
+    if (!text || sending || !tripNo) return;
     setSending(true);
     setSendError(null);
     const storedOk = await ride.sendMsgTo(tripNo, text, lostItemId);
@@ -114,6 +118,10 @@ export default function Message() {
           </View>
         </View>
 
+        {!tripNo ? (
+          <Text style={styles.emptyThread}>{t('traveler.msgTravelUnavailable')}</Text>
+        ) : null}
+
         <ScrollView
           ref={scrollRef}
           style={{ flex: 1, marginTop: 22 }}
@@ -122,7 +130,7 @@ export default function Message() {
         >
           {threadError && <Text style={styles.emptyThread}>{threadError}</Text>}
           {sendError && <Text style={styles.sendError}>{sendError}</Text>}
-          {msgs.length === 0 && !threadError && (
+          {tripNo && msgs.length === 0 && !threadError && (
             <Text style={styles.emptyThread}>
               {lostItemId
                 ? t('traveler.msgOpHasReport')
@@ -152,11 +160,12 @@ export default function Message() {
             placeholder={t('traveler.msgPlaceholder', { name: opName })}
             placeholderTextColor={colors.muted}
             style={styles.input}
+            editable={!!tripNo && !sending}
             returnKeyType="send"
           />
           <Pressable accessibilityRole="button"
             onPress={send}
-            disabled={sending || !input.trim()}
+            disabled={sending || !tripNo || !input.trim()}
             style={({ pressed }) => [styles.sendBtn, pressed && { backgroundColor: colors.ink2 }]}
           >
             <Text style={styles.sendText}>{t('traveler.send')}</Text>
