@@ -480,6 +480,7 @@ export default function Schedule() {
               onPress={() => {
                 ride.setSchedTime(t);
                 ride.setCustomTime('');
+                setTimeEditing(false);
               }}
               style={({ pressed }) => [
                 styles.timeBtn,
