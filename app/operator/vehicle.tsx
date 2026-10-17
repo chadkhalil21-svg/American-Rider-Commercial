@@ -44,8 +44,7 @@ export default function OperatorVehicle() {
     try {
       if (name.trim() !== (user?.displayName ?? '')) await setDisplayName(name);
       op.setVehicle(car, plate);
-      // Self-entered details count as completed, never as independently verified.
-      op.verifyDoc('basics');
+      // Vehicle details are stored; they never qualify the Operator by themselves.
       showNote(t('traveler.saved'));
       router.back();
     } catch {
