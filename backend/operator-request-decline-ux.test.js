@@ -21,6 +21,18 @@ for (let pass = 0; pass < 2; pass++) {
     'the visible Decline action uses deliberate refusal, not expiry');
   assert.match(screen, /if \(request && countdown <= 0 && !accepting && !declining/,
     'timeout must not fire during an explicit refusal');
+  assert.match(screen, /if \(requestRef\.current && !acceptingRef\.current && !decliningRef\.current\)/,
+    'returning from background must not rearm a request during acceptance or decline');
+  assert.match(screen, /cbar\.setValue\(1\);\s*Animated\.timing\(cbar, \{/,
+    'the visible countdown bar must restart alongside its 15-second numeral');
+  assert.match(screen, /t\('traveler\.pickup'\)/,
+    'unknown pickup ETA must show a localized label, not invented minutes');
+  assert.match(screen, /t\('traveler\.destination'\)/,
+    'unknown route duration must show a localized label, not invented minutes');
+  assert.match(screen, /estLabel: \{ fontSize: 11, fontWeight: '600', letterSpacing: 1\.1, color: colors\.ink2 \}/,
+    'estimated revenue label must be legible');
+  assert.match(screen, /routeMeta: \{ fontSize: 12, color: colors\.ink2 \}/,
+    'route metadata must have readable contrast');
   assert.match(screen, /if \(open\) op\.lapseRequest\(open\)/,
     'an unanswered request lapses and remains eligible for reassignment');
   assert.match(screen, /disabled=\{accepting \|\| declining\}/,
