@@ -226,6 +226,8 @@ export default {
     partRead: 'Letto',
     openAllParts: 'Apra le %{n} parti per continuare',
 
+    lostRetry: "Riprova",
+
     lostOpenFailed: "Non è stato possibile aprire questa segnalazione.",
     lostUnavailable: "Questa segnalazione di oggetto smarrito non è disponibile.",
     lostSelectTravel: "Selezioni il Viaggio in cui ha trovato l’oggetto.",
