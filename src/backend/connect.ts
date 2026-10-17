@@ -299,6 +299,49 @@ export async function settlePendingPayouts(): Promise<PayoutRecoveryResult> {
   }
 }
 
+/** Only server-recorded transfer status, not a Stripe bank deposit. */
+export type OperatorPayoutRecord = {
+  rideId: string;
+  tripNo: string | null;
+  completedAt: number | null;
+  status: 'transfer_recorded' | 'reconciliation_needed';
+  transferredCents: number | null;
+};
+export type OperatorPayoutPage =
+  | { ok: true; records: OperatorPayoutRecord[]; hasMore: boolean; nextCursor: string | null }
+  | { ok: false; error: string };
+
+/** View one's own historical ledger one bounded page at a time. No money is moved. */
+export async function operatorPayoutRecords(after: string | null = null): Promise<OperatorPayoutPage> {
+  try {
+    const uri = `${PAYMENT_SERVER_URL}/operator/payout-records` +
+      (after ? `?after=${encodeURIComponent(after)}` : '');
+    const res = await fetch(uri, { headers: await authHeaders() });
+    const d = await res.json().catch(() => null);
+    if (!res.ok || d?.ok !== true || !Array.isArray(d.records)) {
+      return { ok: false, error: t('traveler.errReachAR') };
+    }
+    return {
+      ok: true,
+      records: d.records.filter((v: any) =>
+        v && typeof v.rideId === 'string' &&
+        (v.status === 'transfer_recorded' || v.status === 'reconciliation_needed')
+      ).map((v: any): OperatorPayoutRecord => ({
+        rideId: v.rideId,
+        tripNo: typeof v.tripNo === 'string' ? v.tripNo : null,
+        completedAt: Number.isSafeInteger(v.completedAt) ? v.completedAt : null,
+        status: v.status,
+        transferredCents: Number.isSafeInteger(v.transferredCents) && v.transferredCents >= 0 ?
+          v.transferredCents : null,
+      })),
+      hasMore: d.hasMore === true,
+      nextCursor: typeof d.nextCursor === 'string' ? d.nextCursor : null,
+    };
+  } catch {
+    return { ok: false, error: t('traveler.errReachAR') };
+  }
+}
+
 /**
  * A link into the operator's own Stripe dashboard, where their payouts actually live.
  *

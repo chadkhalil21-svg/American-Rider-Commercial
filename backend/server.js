@@ -33,6 +33,7 @@ const {
 const { readKey } = require('./env');
 const { requireAuth, requireFreshAuth, attachAuth, requireVerifiedEmail } = require('./auth');
 const { perAccount, countOnly, perIp } = require('./ratelimit');
+const { operatorPayoutRecords } = require('./operator-payout-records');
 const { marketFor, servesPoint, listMarkets, markets: allMarkets } = require('./markets');
 const { validateVoluntaryPrice, receiveVoluntaryPrice } = require('./voluntary-market-prices');
 const quoteViewContract=require('./quote-view-contract');
@@ -1355,6 +1356,24 @@ app.post('/operator/settle-pending', requireAuth, async (req, res) => {
     res.json({ ok: true, settled, centsPaid, stillOwed });
   } catch (e) {
     res.status(502).json({ error: e.message });
+  }
+});
+
+// Operator's own recorded payouts. READ-ONLY. Never trust a device estimate as a ledger;
+// never treat a missing Firestore transferId as proof that Stripe did not transfer funds.
+app.get('/operator/payout-records', requireAuth, LIMITS.connect, async (req, res) => {
+  const db = adminDb();
+  if (!db) return res.status(503).json({ ok: false, code: 'no_admin_db' });
+  const after = req.query.after;
+  if (after !== undefined && (typeof after !== 'string' ||
+      !after || after.length > 256 || after.includes('/'))) {
+    return res.status(400).json({ ok: false, code: 'invalid_cursor' });
+  }
+  try {
+    const result = await operatorPayoutRecords({ db, operatorUid: String(req.uid), after: after || null });
+    res.json(result);
+  } catch {
+    res.status(503).json({ ok: false, code: 'payout_records_unconfirmed' });
   }
 });
 

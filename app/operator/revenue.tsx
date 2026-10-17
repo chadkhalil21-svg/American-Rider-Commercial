@@ -3,12 +3,14 @@
 // are computed (99% math) from the simulated operations this operator completed, so
 // a new operator starts at zero.
 import { useRouter } from 'expo-router';
-import React, { useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { Pressable, StyleSheet, View } from 'react-native';
 import { Text } from '../../src/components/AppText';
 import { OperatorBar, OperatorDrawer, OperatorScreen } from '../../src/components/operator';
 import { Card, Num, PrimaryButton, SectionLabel, useNote } from '../../src/components/UI';
 import { opTimeLabel, useOperator } from '../../src/state/OperatorContext';
+import { useAuth } from '../../src/state/AuthContext';
+import { operatorPayoutRecords, OperatorPayoutRecord } from '../../src/backend/connect';
 import { useLanguage } from '../../src/state/LanguageContext';
 import { colors, fmt } from '../../src/theme';
 
@@ -18,6 +20,42 @@ export default function OperatorRevenue() {
   const op = useOperator();
   const { note, showNote } = useNote();
   const [menuOpen, setMenuOpen] = useState(false);
+  const { user } = useAuth();
+  const [serverRecords, setServerRecords] = useState<OperatorPayoutRecord[]>([]);
+  const [recordsCursor, setRecordsCursor] = useState<string | null>(null);
+  const [recordsHaveMore, setRecordsHaveMore] = useState(false);
+  const [recordsLoading, setRecordsLoading] = useState(false);
+  const [recordsFailed, setRecordsFailed] = useState(false);
+  const requestSequence = useRef(0);
+
+  const loadRecords = useCallback(async (uid: string, after: string | null) => {
+    const sequence = ++requestSequence.current;
+    setRecordsLoading(true);
+    setRecordsFailed(false);
+    const result = await operatorPayoutRecords(after);
+    if (sequence !== requestSequence.current) return;
+    // An old account response cannot be displayed after a change of sign-in.
+    if (!user || user.uid !== uid) return;
+    setRecordsLoading(false);
+    if (!result.ok) {
+      setRecordsFailed(true);
+      return;
+    }
+    setServerRecords(previous => after ? [...previous, ...result.records] : result.records);
+    setRecordsCursor(result.nextCursor);
+    setRecordsHaveMore(result.hasMore && !!result.nextCursor);
+  }, [user?.uid]);
+
+  useEffect(() => {
+    requestSequence.current++;
+    setServerRecords([]);
+    setRecordsCursor(null);
+    setRecordsHaveMore(false);
+    setRecordsFailed(false);
+    setRecordsLoading(false);
+    if (user?.uid) void loadRecords(user.uid, null);
+    return () => { requestSequence.current++; };
+  }, [user?.uid, loadRecords]);
 
   return (
     <OperatorScreen nav="revenue" note={note}>
@@ -82,6 +120,51 @@ export default function OperatorRevenue() {
         />
       </Card>
 
+      {/* Server records are deliberately distinct from the device's estimates.
+          A successful Firestore write does not certify the bank's payout. */}
+      <Card style={styles.serverCard}>
+        <SectionLabel>{t('operator.serverLedgerTitle')}</SectionLabel>
+        <Text style={styles.sourceNote}>{t('operator.serverLedgerDisclosure')}</Text>
+        {serverRecords.map((r) => (
+          <View key={r.rideId} style={styles.serverRecord}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.serverRecordTitle}>{r.tripNo || r.rideId}</Text>
+              <Text style={styles.serverRecordStatus}>
+                {t(r.status === 'transfer_recorded' ?
+                  'operator.serverTransferRecorded' : 'operator.serverTransferUnconfirmed')}
+              </Text>
+            </View>
+            {r.status === 'transfer_recorded' && r.transferredCents != null && (
+              <Num size={14} weight="600">{fmt(r.transferredCents / 100)}</Num>
+            )}
+          </View>
+        ))}
+        {!recordsLoading && !recordsFailed && serverRecords.length === 0 && !recordsHaveMore && (
+          <Text style={styles.sourceNote}>{t('operator.serverNoRecords')}</Text>
+        )}
+        {recordsFailed && (
+          <Text style={styles.payoutWarning}>{t('operator.serverLoadFailed')}</Text>
+        )}
+        {recordsLoading && (
+          <Text style={styles.sourceNote}>{t('operator.serverLoading')}</Text>
+        )}
+        {!recordsLoading && (recordsFailed || recordsHaveMore) && (
+          <Pressable
+            accessibilityRole="button"
+            style={styles.serverMore}
+            onPress={() => {
+              if (!user?.uid) return;
+              if (recordsFailed) void loadRecords(user.uid, serverRecords.length ? recordsCursor : null);
+              else if (recordsCursor) void loadRecords(user.uid, recordsCursor);
+            }}
+          >
+            <Text style={styles.serverMoreLabel}>
+              {t(recordsFailed ? 'operator.serverRetry' : 'operator.serverLoadMore')}
+            </Text>
+          </Pressable>
+        )}
+      </Card>
+
       {/* Earned, never furniture: no operations, no section. */}
       {op.ops.length > 0 && (
         <>
@@ -121,6 +204,12 @@ const styles = StyleSheet.create({
   pairRow: { flexDirection: 'row', gap: 12, marginTop: 12 },
   pairCard: { flex: 1, paddingVertical: 16, paddingHorizontal: 18 },
   withdrawCard: { marginTop: 14, paddingVertical: 18, paddingHorizontal: 20 },
+  serverCard: { marginTop: 14, paddingVertical: 16, paddingHorizontal: 20 },
+  serverRecord: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: colors.hairline, gap: 12 },
+  serverRecordTitle: { color: colors.ink, fontSize: 14, fontWeight: '600' },
+  serverRecordStatus: { color: colors.ink2, fontSize: 12.5, marginTop: 3 },
+  serverMore: { minHeight: 44, alignSelf: 'flex-start', justifyContent: 'center', marginTop: 5 },
+  serverMoreLabel: { fontSize: 14, color: colors.ink, textDecorationLine: 'underline' },
   withdrawLabel: { fontSize: 14, color: colors.ink2 },
   sourceNote: { fontSize: 12.5, color: colors.muted, lineHeight: 19, marginTop: 10 },
   payoutWarning: { fontSize: 12.5, color: colors.red, lineHeight: 19, marginTop: 8 },
