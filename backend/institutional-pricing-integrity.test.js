@@ -39,7 +39,8 @@ for(const [fare,us,foreign] of [
   const actualForeign=minimumPlatformFeeCents({travelCostCents:fare,cardCountry:'GB'});
   assert.equal(actualUS,us);assert.equal(actualForeign,foreign);
   const usd=x=>'$'+(x/100).toFixed(2);
-  const fareLabel=Number.isInteger(fare/100)?'
+  const fareLabel=Number.isInteger(fare/100)?'$'+(fare/100):usd(fare);
+  const row='| '+fareLabel+' | '+usd(actualUS)+' | '+usd(actualForeign)+' |';
   assert.ok(doc.includes(row),'economic example table does not match production: '+row);
 }
 const money=x=>Number.isSafeInteger(x)&&x>=0;
