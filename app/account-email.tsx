@@ -143,6 +143,7 @@ export default function AccountEmail() {
         <Card style={styles.managedCard}>
           <Text style={styles.managedTitle}>{t('traveler.emailPendingTitle')}</Text>
           <Text selectable style={styles.pendingAddress}>{pendingEmail}</Text>
+          <Text style={styles.managedBody}>{t('traveler.emailChangeSent', { email: pendingEmail })}</Text>
           <Text style={styles.managedBody}>{t('traveler.emailPendingDescription')}</Text>
           <Pressable accessibilityRole="button" style={styles.secondaryAction} onPress={() => void checkStatus(true)}>
             <Text style={styles.link}>{checkingStatus ? t('traveler.busyChecking') : t('traveler.emailCheckStatus')}</Text>
@@ -225,8 +226,8 @@ export default function AccountEmail() {
         </Card>
       )}
 
-      {notice ? <Text style={styles.notice}>{notice}</Text> : null}
-      {error ? <Text style={styles.error}>{error}</Text> : null}
+      {notice ? <Text accessibilityRole="alert" style={styles.notice}>{notice}</Text> : null}
+      {error ? <Text accessibilityRole="alert" style={styles.error}>{error}</Text> : null}
 
       {provider === 'password' && !pendingEmail && !confirmedEmail ? (
         <>
@@ -235,7 +236,6 @@ export default function AccountEmail() {
             label={busy ? t('traveler.busyChecking') : t('traveler.emailSendChangeLink')}
             disabled={!canSubmit}
             onPress={change}
-            style={undefined}
           />
         </>
       ) : null}
