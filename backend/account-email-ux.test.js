@@ -9,6 +9,18 @@ for(let pass=0;pass<2;pass++){
  assert(ui.includes('user.emailVerified'),'verify only after Auth state is confirmed');
  assert(!ui.includes('setInterval('),'avoid repeated Firebase reads');
  assert(!ui.includes("t('auth.continueLabel')"),'action describes actual outcome');
+ assert(ui.includes('ar:email-change-pending:'),'pending email survives app restart per account');
+ assert(ui.includes('AsyncStorage.getItem(pendingKey)'),'recover pending request on return');
+ assert(ui.includes('AsyncStorage.setItem(pendingKey, requested)'),'persist only proposed address, not credential');
+ assert(ui.includes('AsyncStorage.removeItem(pendingKey)'),'remove pending address after verification or correction');
+ assert(!ui.includes('AsyncStorage.setItem(pendingKey, password)'),'never write password to storage');
+ assert(ui.includes('resetPassword(user.email)'),'forgot password has a working recovery route');
+ assert(ui.includes('sameEmail'),'unchanged address is not a valid email change');
+ assert(ui.includes('emailTouched'),'invalid field has inline validation');
+ assert(ui.includes('style={styles.currentCard}') && ui.includes('style={styles.fieldCard}'),'reuse existing cards');
+ assert(!ui.includes('paddingVertical: 16 }'),'no per-screen primary button enlargement');
+ const storage=read('src/state/accountStorage.ts');
+ assert(storage.includes("k.startsWith(PREFIX)"),'signout cleans ar: account-scoped keys');
  for(const l of ['en','es','fr','it','de']) {
    const t=read('src/i18n/'+l+'.ts');
    for(const k of ['emailSendChangeLink','emailPendingTitle','emailPendingDescription','emailCheckStatus','emailStillPending','emailRefreshFailed','emailNotReceived','emailEditRequest','emailChangedTitle','emailSameAddress','emailManagedUnsupported']) assert(t.includes(k+':'),l+' '+k);
