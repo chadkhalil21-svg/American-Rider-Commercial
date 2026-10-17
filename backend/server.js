@@ -172,6 +172,7 @@ const { listPlatformMessages, markPlatformMessageRead } = require('./platforminb
 const { page } = require('./shell');
 const { screeningReady, screeningCurrent, sweepScreening } = require('./screening');
 const { screeningPreparationFor } = require('./screening-jurisdictions');
+const { operatorPreparationGate } = require('./operator-preparation');
 const { runMarketReferenceSweep, firestoreReady: marketReferenceReady } = require('./market-reference-service');
 const { configuredCollectors: marketReferenceCollectors } = require('./market-evidence-collectors');
 const { sweepSouthFloridaPublicRates } = require('./south-florida-public-rates');
@@ -2121,7 +2122,7 @@ async function runSweep(req, res) {
 // --- Private file storage. -----------------------------------------------------------------
 // The mobile app may request a five-minute upload URL only for its own namespace. R2 remains
 // private; credentials never leave this server. Object keys, not public URLs, are persisted.
-app.post('/storage/upload-url', requireAuth, LIMITS.document, requireFreshAuth, requireActiveOperatingMarket, async (req, res) => {
+app.post('/storage/upload-url', requireAuth, LIMITS.document, requireFreshAuth, requireOperatorPreparationMarket, async (req, res) => {
   if (!r2Ready()) return res.status(503).json({ error: 'Private storage is not configured.', code: 'storage_not_configured' });
   const purpose = String(req.body?.purpose || '');
   const kind = String(req.body?.kind || '');
@@ -2151,7 +2152,7 @@ app.get('/storage/object', requireAuth, LIMITS.document, requireFreshAuth, async
 // information about transactions or experiences between the consumer and the report-maker.
 // Nothing here is looked up about the person — see the header of backend/documents.js for the
 // other edge of that line, which is CFPB Circular 2024-06.
-app.post('/operator/document', requireAuth, LIMITS.document, requireFreshAuth, requireActiveOperatingMarket, async (req, res) => {
+app.post('/operator/document', requireAuth, LIMITS.document, requireFreshAuth, requireOperatorPreparationMarket, async (req, res) => {
   const db = adminDb();
   if (!db) return res.status(503).json({ error: adminStatus().reason, code: 'no_admin_db' });
 
@@ -2176,10 +2177,10 @@ app.post('/operator/document', requireAuth, LIMITS.document, requireFreshAuth, r
     const u = userSnap.exists ? userSnap.data() : {};
     const o = opSnap.exists ? opSnap.data() : {};
 
-    // ONLY IN AN ACTIVE MARKET. Reviewing a document starts a
-    // regulated workflow; an operator whose declared operating market is on the waitlist gets
-    // neither. See POST /operator/market.
-    const gate = operatingMarketGate(u);
+    // Document preparation is permitted in configured jurisdictions regardless
+    // of whether this county offers paid Travel. The market/insurance/screening
+    // checks remain authoritative. Duty and dispatch keep stricter gates.
+    const gate = operatorPreparationGate(u);
     if (gate) return res.status(409).json(gate);
 
     // THE SAME UPLOAD IS READ ONCE. A retry, a double tap or a loop that re-sends one file gets
@@ -2280,10 +2281,10 @@ app.post('/operator/document', requireAuth, LIMITS.document, requireFreshAuth, r
 //   travel     — authorized by the PICKUP (and destination) the traveler asks for, wherever
 //                the traveler happens to be standing. Priced routes check it (market.js); so
 //                does dispatch.
-//   operators  — the costly and regulated steps (document reading, screening, Stripe Connect,
-//                going on duty) run only for an operator whose declared operating market is
-//                ACTIVE. The market's CURRENT status is read each time, so switching a county
-//                to WAITLIST stops new work there at once.
+//   operators  — source-verified paperwork and screening preparation may occur in a
+//                configured jurisdiction before paid Travel opens. Stripe onboarding,
+//                final commissioning, duty and dispatch keep their separate active-market
+//                and independent eligibility gates.
 
 /** The operator's declared operating market as it stands now, or null. */
 function operatingMarketOf(user) {
@@ -2318,7 +2319,21 @@ function listedMarket(market, listed) {
 }
 async function operatorMarketOptions() { return listMarkets(); }
 
-/** Express middleware: the signed-in operator's declared operating market must be ACTIVE. */
+/** Operator paperwork requires valid jurisdictional rules, not commercial market opening. */
+async function requireOperatorPreparationMarket(req, res, next) {
+  const db = adminDb();
+  if (!db) return res.status(503).json({ error: adminStatus().reason, code: 'no_admin_db' });
+  try {
+    const snap = await db.collection('users').doc(String(req.uid)).get();
+    const gate = operatorPreparationGate(snap.exists ? snap.data() : null);
+    if (gate) return res.status(409).json(gate);
+    next();
+  } catch {
+    res.status(503).json({ error: 'Operator preparation could not be verified. Try again.', code: 'operator_preparation_unavailable' });
+  }
+}
+
+/** Screening report requests are also preparatory; paid eligibility is separate. */
 // A screening report-transfer request is preparation, not permission for paid Travel.
 // The national policy registry (not an 'FL' literal or a client-provided state)
 // decides which region can prepare. Full qualification, payments, duty and dispatch
