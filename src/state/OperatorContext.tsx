@@ -383,6 +383,7 @@ export function OperatorProvider({ children }: { children: React.ReactNode }) {
   const [msgs, setMsgs] = useState<OpMsg[]>([]);
   const [revenue, setRevenue] = useState<RevenueBlob>(EMPTY_REVENUE);
   const [payoutRecoveryStatus, setPayoutRecoveryStatus] = useState<OperatorState['payoutRecoveryStatus']>('not_checked');
+  const payoutRecoveryRequestRef = useRef(0);
 
   // Mirror of the revenue blob so mutations never nest setState inside an updater
   // (React updaters must stay pure — StrictMode runs them twice).
@@ -741,6 +742,8 @@ export function OperatorProvider({ children }: { children: React.ReactNode }) {
     // this attached with no user and reported "Not signed in." for the rest of the session.
     // The uid in the dependency list is what makes it attach again once there is one.
     if (verification !== 'commissioned' || !user?.uid) {
+      payoutRecoveryRequestRef.current += 1;
+      setPayoutRecoveryStatus('not_checked');
       // SAY WHICH, because "not attached" and "nothing yet" are different answers.
       //
       // This set inboxError to NULL on the way out, so an inbox that never attached rendered
@@ -766,9 +769,10 @@ export function OperatorProvider({ children }: { children: React.ReactNode }) {
     // Keep failures distinct from a genuine server response and scope late replies to the
     // account that made the request, so switching accounts cannot present stale results.
     const recoveryUid = user.uid;
+    const recoveryRequest = ++payoutRecoveryRequestRef.current;
     setPayoutRecoveryStatus('checking');
     void settlePendingPayouts().then((result) => {
-      if (userUidRef.current === recoveryUid) {
+      if (userUidRef.current === recoveryUid && payoutRecoveryRequestRef.current === recoveryRequest) {
         setPayoutRecoveryStatus(result.ok ? 'checked' : 'unconfirmed');
       }
     });
