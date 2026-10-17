@@ -1,7 +1,7 @@
 // Economics precede compliance spend; server review, not a checklist, commissions duty.
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { Text } from '../../src/components/AppText';
 import { useGoBack } from '../../src/components/nav';
 import { BadgeOk } from '../../src/components/operator';
@@ -37,6 +37,7 @@ export default function OperatorQualification() {
   const [area, setArea] = useState<MarketState | null>(null);
   const [areaBusy, setAreaBusy] = useState(false);
   const [showMarkets, setShowMarkets] = useState(false);
+  const [marketQuery, setMarketQuery] = useState('');
   const [areaError, setAreaError] = useState<string | null>(null);
   // A failed market request must not look like a valid empty county list.
   // Retry only when the Operator asks, without requesting new GPS permission.
@@ -127,8 +128,19 @@ export default function OperatorQualification() {
                 <Text style={styles.rowTitle}>{t('operator.changeOperatingArea')} {showMarkets ? '−' : '+'}</Text>
               </Pressable>}
               {(!area.market || showMarkets) && (
-                <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginTop: 8 }}>
-                  {[...area.active, ...area.onboarding, ...area.waitlist].map((m) => (
+                <View style={{ marginTop: 8 }}>
+                  <TextInput
+                    accessibilityLabel={t('operator.searchOperatingArea')}
+                    placeholder={t('operator.searchOperatingArea')}
+                    placeholderTextColor={colors.faint}
+                    autoCorrect={false}
+                    value={marketQuery}
+                    onChangeText={setMarketQuery}
+                    style={styles.marketSearch}
+                  />
+                  {[...area.active, ...area.onboarding, ...area.waitlist]
+                    .filter(m => m.name.toLocaleLowerCase().includes(marketQuery.trim().toLocaleLowerCase()))
+                    .slice(0, 12).map((m) => (
                     <Pressable
                       key={m.id}
                       hitSlop={6}
@@ -143,7 +155,7 @@ export default function OperatorQualification() {
                           const next = await setOperatingMarket({ marketId: m.id });
                           if (next.error) setAreaError(next.error);
                           else if (next.market?.id !== m.id) setAreaError(t('traveler.couldNotSaveConn'));
-                          else { setArea(next); setShowMarkets(false); }
+                          else { setArea(next); setShowMarkets(false); setMarketQuery(''); }
                         } catch {
                           setAreaError(t('traveler.couldNotSaveConn'));
                         } finally {
@@ -284,4 +296,5 @@ const styles = StyleSheet.create({
   pillChecking: { fontSize: 12, fontWeight: '600', color: colors.ink },
   pillTodo: { fontSize: 12.5, fontWeight: '600', color: colors.muted },
   footnote: { fontSize: 11.5, color: colors.faint, marginTop: 10, lineHeight: 16.7 },
+  marketSearch: { borderWidth: 1, borderColor: colors.border, color: colors.ink, borderRadius: 10, minHeight: 46, paddingHorizontal: 13, fontSize: 14, marginBottom: 4 },
 });
