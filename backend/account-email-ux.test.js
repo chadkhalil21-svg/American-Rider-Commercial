@@ -9,6 +9,12 @@ for(let pass=0;pass<2;pass++){
  assert(ui.includes('user.emailVerified'),'verify only after Auth state is confirmed');
  assert(!ui.includes('setInterval('),'avoid repeated Firebase reads');
  assert(!ui.includes("t('auth.continueLabel')"),'action describes actual outcome');
+ const security=read('app/account-security.tsx');
+ assert(security.includes("router.navigate('/account-email')"),'security opens same verified account editor');
+ assert(!security.includes("mode === 'email'"),'cannot re-enter old unverified embedded email editor');
+ assert(!security.includes("requestEmailChange(nextEmail"),'single source of truth for email change');
+ assert(!security.includes("t('auth.continueLabel')"),'other account entrance cannot display vague Continue');
+
  assert(ui.includes('ar:email-change-pending:'),'pending email survives app restart per account');
  assert(ui.includes('AsyncStorage.getItem(pendingKey)'),'recover pending request on return');
  assert(ui.includes('AsyncStorage.setItem(pendingKey, requested)'),'persist only proposed address, not credential');
