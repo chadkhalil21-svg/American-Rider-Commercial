@@ -1,3 +1,41 @@
+## Further audit: Operator payout recovery must scale without abandoning a debt
+
+**Confirmed source behavior:** `POST /operator/settle-pending` currently runs
+`db.collection('rides').where('operatorId','==',uid).get()` and inspects every
+historical ride on each recovery request. Each completed ride with
+`!transferId && paymentIntentId` is then considered for payment. This does
+**not** scale at a reasonable Firestore read cost as one Operator's trip
+history grows. `src/backend/connect.ts` also returns zero settled/cents
+when the server is offline or refuses the request; this is not evidence
+that there are no unresolved payouts. The caller currently ignores that
+result.
+
+**Do NOT 'fix' by selecting only the newest 20/100 completed trips or by
+adding a date cutoff.** An older completed Travel for which the Operator
+is genuinely owed a fare must remain recoverable. A bounded, complete
+replacement requires an authoritative outstanding-payment index or
+durable queue, with a historical migration/backfill, server-authenticated
+ownership, retry-safe Stripe transfer identity, atomic settlement-status
+records, and tests for old/missing `payoutPending` fields, concurrent
+retries, Stripe partial success and Firestore commit failure. For any
+finance-related data store, the migration must be checked before enabling
+a new query: relying solely on `payoutPending == true` loses historical
+rides that lack this field.
+
+**Existing safety worth retaining:** `backend/payments.js`
+`transferToOperator` uses the stable `ar_transfer_${rideId || pi.id}`
+Stripe idempotency key, source Charge, and checks that the PaymentIntent
+belongs to the actual Traveler and Travel. Neither idempotency nor the
+current unbounded query establishes that *every* old debt was recovered.
+The correct behavior must be verified with Stripe test mode and indexed
+Firestore records, not invented live settlements.
+
+**Status: high-priority OPEN, not corrected or certified.** Do not change
+live Stripe, paid records, payouts or query cutoffs until a safe
+lossless migration and isolated sandbox reconciliation is evidenced.
+Sources: [Firestore cursor pagination](https://firebase.google.com/docs/firestore/query-data/query-cursors)
+and [AWS idempotent API retry semantics](https://aws.amazon.com/builders-library/making-retries-safe-with-idempotent-APIs/).
+
 ## Additional Operator duty review: exact UTC cutoff and conclusion evidence
 
 **Direct defect corrected:** The Operator dashboard's remaining-coverage calculation used `T23:59:59.999Z`, agreeing with the backend, but `setOnline(true)` used `T23:59:59` without a timezone. That interprets the certificate date in the phone's local timezone (hours later in Miami), causing its local eligibility decision to disagree with the server. The direct duty gate now uses `T23:59:59.999Z` exactly, and a source regression checks all three locations (duty, dashboard and backend). The server remains authoritative and still rejects insufficient/expired coverage.
