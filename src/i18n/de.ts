@@ -227,6 +227,8 @@ export default {
     openAllParts: 'Öffnen Sie alle %{n} Teile, um fortzufahren',
 
     lostOpenFailed: "Dieser Bericht konnte nicht geöffnet werden.",
+    lostHistoryCouldNotLoad: "Ihre Fundverlustmeldungen konnten nicht geladen werden. Bereits angezeigte Meldungen sind möglicherweise veraltet.",
+    lostHistoryMore: "Weitere Verlustmeldungen anzeigen",
     lostUnavailable: "Dieser Fundgegenstandsbericht ist nicht verfügbar.",
     lostSelectTravel: "Wählen Sie die Fahrt aus, in der Sie den Gegenstand gefunden haben.",
     lostUpdateFailed: "Diese Aktualisierung konnte nicht gespeichert werden.",
