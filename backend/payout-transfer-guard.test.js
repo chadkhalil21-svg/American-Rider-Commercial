@@ -45,7 +45,7 @@ function setup({legacy=false}={}){
   async findTransfers(group){reads++;return {data:transfers.filter(t=>t.transfer_group===group),has_more:false};},
   async createTransfer(group){
    if(timeoutBeforeCreate){timeoutBeforeCreate=false;throw Error('network failed before execution');}
-   created++;const v=transfer(group);transfers.push(v);
+   const v=transfer(group);created++;transfers.push(v);
    if(timeoutAfterCreate){timeoutAfterCreate=false;throw Error('network failed after execution');}
    return v;
   },
