@@ -242,6 +242,8 @@ export default {
     openAllParts: 'Abra las %{n} partes para continuar',
 
     lostOpenFailed: "No se pudo abrir este informe.",
+    lostHistoryCouldNotLoad: "No se pudieron cargar los informes de objetos perdidos. Los informes ya mostrados podrían estar desactualizados.",
+    lostHistoryMore: "Mostrar más informes de objetos perdidos",
     lostUnavailable: "Este informe de objeto perdido no está disponible.",
     lostSelectTravel: "Seleccione el Viaje en el que encontró el objeto.",
     lostUpdateFailed: "No se pudo registrar esta actualización.",
