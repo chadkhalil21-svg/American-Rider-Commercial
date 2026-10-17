@@ -30,7 +30,8 @@ async function postPlatformMessage({ uid, category, title, body, action = null, 
   // Best effort. The inbox already exists even if push delivery fails.
   await notify({
     uid, kind: 'platform_message', title: message.title, body: message.body.slice(0, 180),
-    data: { screen: '/operator/inbox', messageId: ref.id },
+    // Shared, authenticated inbox is valid for both Travelers and Operators.
+    data: { screen: '/inbox', messageId: ref.id },
   }).catch(() => {});
   return { ok: true, id: ref.id, message };
 }
@@ -38,10 +39,14 @@ async function postPlatformMessage({ uid, category, title, body, action = null, 
 async function listPlatformMessages(uid, limit = 50) {
   const db = adminDb();
   if (!db) return { ok: false, reason: adminStatus().reason, messages: [] };
-  const snap = await db.collection('users').doc(String(uid)).collection('platform_messages').get();
-  const messages = snap.docs.map((d) => ({ id: d.id, ...d.data() }))
-    .sort((a,b) => Number(b.createdAt || 0) - Number(a.createdAt || 0))
-    .slice(0, Math.min(100, Math.max(1, Number(limit) || 50)));
+  const requested = Number(limit);
+  const pageSize = Number.isInteger(requested) && requested > 0
+    ? Math.min(100, requested) : 50;
+  // Native bounded query: never load an account's entire lifetime of messages.
+  // createdAt is a single-field index on this user's own subcollection.
+  const snap = await db.collection('users').doc(String(uid))
+    .collection('platform_messages').orderBy('createdAt', 'desc').limit(pageSize).get();
+  const messages = snap.docs.map(d => ({ id: d.id, ...d.data() }));
   return { ok: true, messages };
 }
 
