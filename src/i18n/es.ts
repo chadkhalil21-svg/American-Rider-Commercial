@@ -991,6 +991,8 @@ export default {
     noPaymentMethodSaved: 'Ningún método de pago guardado.',
     methodsUnreadable: 'No se pudieron leer los métodos de pago guardados.',
     addPaymentMethod: 'Añadir método de pago',
+    removeDefaultCardNotice: "Eliminar la tarjeta predeterminada puede afectar los viajes programados. Si hay otra tarjeta guardada, pasará a ser la predeterminada; de lo contrario, agregue un método de pago antes del próximo viaje.",
+    removeCardNotice: "¿Eliminar este método de pago guardado? Dejará de estar disponible para futuros viajes.",
     defaultMethod: 'Predeterminado',
     setAsDefault: 'Establecer como predeterminado',
     expires: 'Caduca %{date}',
