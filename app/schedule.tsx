@@ -768,6 +768,20 @@ export default function Schedule() {
         }}
         style={{ marginTop: 'auto' }}
       />
+      {/* Cancel this unsubmitted plan; never cancel an existing reservation or
+          require an invalid draft to be completed simply to leave the screen. */}
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={t('common.cancel')}
+        accessibilityState={{ disabled: saving }}
+        disabled={saving}
+        onPress={() => router.dismissTo('/')}
+        style={{ minHeight: 44, justifyContent: 'center', alignItems: 'center', marginTop: 8 }}
+      >
+        <Text style={{ fontSize: 14, fontWeight: '600', color: colors.muted }}>
+          {t('common.cancel')}
+        </Text>
+      </Pressable>
     </Screen>
   );
 }
