@@ -1061,6 +1061,8 @@ export default {
     schedZoneUnavailable: 'Die Zeitzone der Abholung ist nicht verfügbar. Terminplanung ist ausgesetzt; bitte erneut versuchen.',
     schedTimeInvalid: 'Diese Abholzeit fällt aus, kommt doppelt vor oder ist nicht mehr ausgewählt. Bitte eine andere Zeit wählen.',
     schedChooseDestination: "Ziel auswählen",
+    schedReturnToPickup: "Geplante Abholung",
+    schedContinue: "Weiter",
     schedDestinationNeeded: "Wählen Sie ein Ziel, um den vollständigen Fahrtpreis zu sehen.",
     schedQuoteNeeded: "Der Fahrtpreis ist noch nicht bestätigt. Prüfen Sie die Fahrt, um den aktuellen Preis zu erhalten.",
     schedReviewFare: "Fahrtpreis prüfen",
