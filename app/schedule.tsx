@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
 import React, { useEffect, useMemo, useState } from 'react';
-import { AppState, Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { AppState, Pressable, StyleSheet, TextInput, useWindowDimensions, View } from 'react-native';
 import { Text } from '../src/components/AppText';
 import Svg, { Path, Rect } from 'react-native-svg';
 import { useGoBack } from '../src/components/nav';
@@ -59,6 +59,10 @@ function CalendarCheck() {
 
 export default function Schedule() {
   const { t, language } = useLanguage();
+  const { width: screenWidth, fontScale } = useWindowDimensions();
+  // Keep the existing single-row quick-time layout on ordinary phones. Reflow
+  // only for genuinely narrow viewports or enlarged accessibility text.
+  const timeOptionsWrap = screenWidth < 360 || fontScale > 1.2;
   const router = useRouter();
   const goBack = useGoBack();
   const ride = useRide();
@@ -514,7 +518,7 @@ export default function Schedule() {
         </View>
       </View>
 
-      <View style={styles.timeGrid}>
+      <View style={[styles.timeGrid, timeOptionsWrap && styles.timeGridWrap]}>
         {timeSlots.map((t) => {
           const on = ride.schedTime === t && ride.customTime.trim() === '';
           const passed = slotPassed(t);
@@ -531,6 +535,7 @@ export default function Schedule() {
               }}
               style={({ pressed }) => [
                 styles.timeBtn,
+                timeOptionsWrap && styles.timeBtnWrap,
                 {
                   backgroundColor: on ? colors.ink : colors.card,
                   borderColor: on ? colors.ink : colors.border,
@@ -867,9 +872,10 @@ const styles = StyleSheet.create({
     borderRadius: 11,
     borderWidth: 1,
   },
-  timeGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', gap: 9 },
+  timeGrid: { flexDirection: 'row', gap: 9 },
+  timeGridWrap: { flexWrap: 'wrap', justifyContent: 'space-between' },
   timeBtn: {
-    width: '48%',
+    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
     minHeight: 44,
@@ -877,6 +883,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: 11,
   },
+  timeBtnWrap: { flex: 0, width: '48%' },
   // 16/18 is the demo's own card padding; this was 14.
   customCard: { marginTop: 14, paddingVertical: 16, paddingHorizontal: 18 },
   customLabel: { fontSize: 13.5, color: colors.muted },
