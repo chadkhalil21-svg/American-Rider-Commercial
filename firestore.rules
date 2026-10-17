@@ -215,14 +215,14 @@ service cloud.firestore {
     }
 
     // ---- scheduled_rides ---------------------------------------------------
-    // A reservation, which the traveler may also cancel - unlike a travel that happened,
-    // this one is a plan and deleting it is what cancelling means.
+    // Scheduled Travel is a durable operational and payment record. Clients
+    // can READ their own reservation but may never delete or rewrite it:
+    // DELETE /travel/schedule/:id atomically checks status === reserved on
+    // the server, recording 'cancelled' without erasing dispatch evidence.
+    // A direct client delete would bypass that guard mid-assignment.
     match /scheduled_rides/{schedId} {
       allow read: if ownsExisting();
-      // Created by POST /travel/schedule after the server derives its fare and Travel Number.
-      allow create: if false;
-      allow update: if false;
-      allow delete: if ownsExisting();
+      allow create, update, delete: if false;
     }
 
     // ---- support_tickets ---------------------------------------------------

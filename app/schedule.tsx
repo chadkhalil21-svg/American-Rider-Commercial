@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
 import React, { useEffect, useMemo, useState } from 'react';
-import { Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { AppState, Pressable, StyleSheet, TextInput, useWindowDimensions, View } from 'react-native';
 import { Text } from '../src/components/AppText';
 import Svg, { Path, Rect } from 'react-native-svg';
 import { useGoBack } from '../src/components/nav';
@@ -14,9 +14,9 @@ import {
   Sub,
   Title,
 } from '../src/components/UI';
-import { platformFee } from '../src/data';
+import { classNameKey } from '../src/data';
 import { publicPickupMarket } from '../src/backend/markets';
-import { pickupDate, pickupMinutes, nextDate, resolvePickupWall } from '../backend/scheduleclock';
+import { pickupDate, pickupMinutes, nextDate, resolvePickupWall, scheduleReadiness } from '../backend/scheduleclock';
 import { SchedInfo, useRide } from '../src/state/RideContext';
 import { useLanguage } from '../src/state/LanguageContext';
 import { colors, fmt, radii } from '../src/theme';
@@ -59,30 +59,58 @@ function CalendarCheck() {
 
 export default function Schedule() {
   const { t, language } = useLanguage();
+  const { width: screenWidth, fontScale } = useWindowDimensions();
+  // Keep the existing single-row quick-time layout on ordinary phones. Reflow
+  // only for genuinely narrow viewports or enlarged accessibility text.
+  const timeOptionsWrap = screenWidth < 360 || fontScale > 1.2;
   const router = useRouter();
   const goBack = useGoBack();
   const ride = useRide();
   const [calOffset, setCalOffset] = useState(0); // months ahead of the current month
+  const [timeEditing, setTimeEditing] = useState(false);
   // Once scheduled, the demo shows its Travel Scheduled splash before returning home.
   const [doneInfo, setDoneInfo] = useState<SchedInfo | null>(null);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState(false);
   const [pickupZone, setPickupZone] = useState<string | null>(null);
-  const [pickedDate, setPickedDate] = useState<string | null>(null);
-  const lat = ride.departure.lat;
-  const lng = ride.departure.lng;
+  const [zoneChecking, setZoneChecking] = useState(true);
+  const [zoneRetry, setZoneRetry] = useState(0);
+  // Clock-only refresh. No new database reads or network traffic; corrects time
+  // validity across midnight and when a Traveler returns after locking the phone.
+  const [clockMs, setClockMs] = useState(Date.now());
+  useEffect(() => {
+    const ticker = setInterval(() => {
+      if (AppState.currentState === 'active') setClockMs(Date.now());
+    }, 30_000);
+    const onResume = AppState.addEventListener('change', (state) => {
+      if (state === 'active') setClockMs(Date.now());
+    });
+    return () => { clearInterval(ticker); onResume.remove(); };
+  }, []);
+  // The pickup market is determined by the actual chosen pickup pin when present,
+  // not an old named departure (important when crossing time-zone boundaries).
+  const lat = ride.pickupPin?.lat ?? ride.tripCoords?.pickup?.lat ?? ride.departure.lat;
+  const lng = ride.pickupPin?.lng ?? ride.tripCoords?.pickup?.lng ?? ride.departure.lng;
   useEffect(() => {
     let current = true;
     setPickupZone(null);
-    setPickedDate(null);
-    if (typeof lat !== 'number' || typeof lng !== 'number') return () => { current = false; };
+    setZoneChecking(true);
+    if (typeof lat !== 'number' || typeof lng !== 'number') {
+      setZoneChecking(false);
+      return () => { current = false; };
+    }
     publicPickupMarket(lat,lng).then((market) => {
-      if (current) setPickupZone(market.status==='active' ? market.timeZone || null : null);
-    }).catch(() => { if (current) setPickupZone(null); });
+      if (current) {
+        setPickupZone(market.status==='active' ? market.timeZone || null : null);
+        setZoneChecking(false);
+      }
+    }).catch(() => {
+      if (current) { setPickupZone(null); setZoneChecking(false); }
+    });
     return () => { current = false; };
-  },[lat,lng]);
+  },[lat,lng,zoneRetry]);
 
-  const now = new Date();
+  const now = new Date(clockMs);
   const marketToday = pickupZone ? pickupDate(now.getTime(),pickupZone) : null;
   const nowMin = pickupZone ? pickupMinutes(now.getTime(),pickupZone) : 24*60;
 
@@ -90,7 +118,17 @@ export default function Schedule() {
   const calBase = new Date(Date.UTC(Number(marketToday?.slice(0,4) || 2026),
     Number(marketToday?.slice(5,7) || 1)-1 + calOffset, 1));
   const calTitle = calBase.toLocaleDateString(language, { month: 'long', year: 'numeric', timeZone: 'UTC' });
-  const firstDow = calBase.getUTCDay();
+  // Calendar weekdays follow the supported locale, not fixed English initials.
+  // English currently uses the US Sunday-first calendar; DE/ES/FR/IT use Monday-first.
+  const weekStart = language === 'en' ? 0 : 1;
+  const firstDow = (calBase.getUTCDay() - weekStart + 7) % 7;
+  const weekdayHeaders = Array.from({ length: 7 }, (_, index) => {
+    const day = new Date(Date.UTC(2026, 9, 18 + (weekStart + index)));
+    return {
+      short: day.toLocaleDateString(language, { weekday: 'short', timeZone: 'UTC' }).slice(0, 2),
+      full: day.toLocaleDateString(language, { weekday: 'long', timeZone: 'UTC' }),
+    };
+  });
   const daysInM = new Date(Date.UTC(calBase.getUTCFullYear(), calBase.getUTCMonth() + 1, 0)).getUTCDate();
   // "Pick a day" starts the day after tomorrow — Today/Tomorrow have their own buttons.
   const minPick = marketToday ? new Date(`${nextDate(marketToday,2)}T00:00:00Z`) : new Date(8640000000000000);
@@ -106,10 +144,13 @@ export default function Schedule() {
     // The pickup-zone date is included even when two different months share the same grid shape.
   }, [calOffset, daysInM, firstDow, marketToday]);
 
+  // The chosen calendar date is kept in RideContext rather than computed afresh
+  // from the word Tomorrow. That prevents a midnight or route change from
+  // silently moving a reservation to a different day.
+  const selectedPickupDate = pickupZone ? ride.schedPickupDate : null;
+  const isToday = !!marketToday && selectedPickupDate === marketToday;
   const timeSlots = slotsFor(ride.schedPeriod);
-  const isToday = ride.schedDate === 'today';
   const slotPassed = (t: string) => !!pickupZone && isToday && toMinutes(t, ride.schedPeriod) <= nowMin;
-  const allSlotsPassed = timeSlots.every(slotPassed);
 
   // Custom time: quarter-hour slots are open; others suggest the nearest one.
   const rawT = ride.customTime.trim();
@@ -147,31 +188,73 @@ export default function Schedule() {
 
   const chosenTime = customState === 'ok' ? customLabel : ride.schedTime;
 
-  const selectedPickupDate = marketToday
-    ? ride.schedDate === 'today' ? marketToday
-      : ride.schedDate === 'tomorrow' ? nextDate(marketToday) : pickedDate
-    : null;
   const resolved = pickupZone && selectedPickupDate
     ? resolvePickupWall(selectedPickupDate, chosenTime, ride.schedPeriod, pickupZone)
     : {ok:false as const, code:'pickup_zone_required'};
 
-  const whenLabels: Record<string, string> = {
-    today: t('traveler.schedToday'),
-    tomorrow: t('traveler.schedTomorrow'),
-    pick: ride.schedDay,
-  };
-  // Only fully blocked when EVERY slot in this period has passed; if just the
-  // selected slot passed, the effect below moves the selection forward.
-  const schedInvalid = !resolved.ok || resolved.atMs <= Date.now() || ride.travelerTotal <= 0 ||
-    (isToday && customState !== 'ok' && allSlotsPassed);
+  const activeDayChoice: 'today' | 'tomorrow' | 'pick' = selectedPickupDate && marketToday
+    ? selectedPickupDate === marketToday ? 'today'
+      : selectedPickupDate === nextDate(marketToday) ? 'tomorrow' : 'pick'
+    : ride.schedDate;
+  // A stored reservation must never say only "Tomorrow": tomorrow changes at
+  // midnight. Keep relative words on selection chips, but print the exact
+  // pickup date (including year) in the summary, success and saved record.
+  const chosenDayLabel = selectedPickupDate
+    ? new Date(`${selectedPickupDate}T00:00:00Z`).toLocaleDateString(language, {
+      weekday: 'long', month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC',
+    })
+    : t('traveler.schedPickDay');
+  const hasDestination = !!ride.arrival.short.trim();
+  const hasQuote = hasDestination && !!ride.tripCoords && !ride.repricing &&
+    ride.quotedFareCents != null && ride.quotedFareCents > 0 &&
+    ride.quotedTotalCents != null && ride.quotedTotalCents > 0 &&
+    ride.quotedForClass === ride.travelClass;
+  // Missing destination or authoritative price must not masquerade as a past time.
+  // No new pricing or market calls here; reuse the existing reservation context.
+  const scheduleStatus = scheduleReadiness({
+    hasDestination, hasQuote, pickupZone, pickupDate: selectedPickupDate,
+    resolved, customState, nowMs: clockMs,
+  });
+  const schedInvalid = scheduleStatus !== 'ready';
+  const pickupTimeDisplay = rawT && customState !== 'ok'
+    ? t('traveler.schedTimeUnconfirmed') : `${chosenTime} ${ride.schedPeriod}`;
+  const pickupZoneLabel = (() => {
+    if (!pickupZone) return '';
+    try {
+      return new Intl.DateTimeFormat(language, { timeZone: pickupZone, timeZoneName: 'short' })
+        .formatToParts(new Date(resolved.ok ? resolved.atMs : clockMs))
+        .find((part) => part.type === 'timeZoneName')?.value || pickupZone;
+    } catch {
+      return pickupZone; // Bad external time-zone data must never crash this screen.
+    }
+  })();
 
   useEffect(() => {
-    if (isToday && !allSlotsPassed && slotPassed(ride.schedTime)) {
-      const firstOpen = timeSlots.find((t) => !slotPassed(t));
-      if (firstOpen) ride.setSchedTime(firstOpen);
+    if (!marketToday) return;
+    if (!ride.schedPickupDate && ride.schedDate !== 'pick') {
+      ride.setSchedPickupDate(ride.schedDate === 'today' ? marketToday : nextDate(marketToday));
+      return;
     }
+    // As midnight passes, update the Today/Tomorrow chip to match the SAME
+    // already-selected date; never move the selected date to match a chip.
+    if (ride.schedPickupDate && ride.schedDate !== activeDayChoice)
+      ride.setSchedDate(activeDayChoice);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isToday, allSlotsPassed, ride.schedTime, ride.schedPeriod]);
+  }, [marketToday, ride.schedDate, ride.schedPickupDate, activeDayChoice]);
+
+  // Returning from destination search may remount this screen. Show the
+  // month containing the exact chosen date rather than resetting the calendar
+  // to today's month and hiding the existing selection from view.
+  useEffect(() => {
+    if (activeDayChoice !== 'pick' || !selectedPickupDate || !marketToday) return;
+    const monthIndex = (date: string) =>
+      Number(date.slice(0,4)) * 12 + Number(date.slice(5,7));
+    const offset = Math.max(0, Math.min(2, monthIndex(selectedPickupDate) - monthIndex(marketToday)));
+    setCalOffset(offset);
+  }, [activeDayChoice, selectedPickupDate, marketToday]);
+
+  // Never replace a Traveler's chosen pickup hour automatically, even as time passes.
+  // An expired time remains visible and requires an explicit new selection.
 
   const dateOpts: { key: 'today' | 'tomorrow' | 'pick'; label: string }[] = [
     { key: 'today', label: t('traveler.schedToday') },
@@ -218,18 +301,78 @@ export default function Schedule() {
     <Screen>
       <LetterheadBar onBack={goBack} />
       <Title>{t('traveler.planAhead')}</Title>
-      <Sub>
-        {ride.departure.short} → {ride.arrival.short}
-      </Sub>
+      {/* One itinerary, two editable locations. The Traveler can start with a time
+          on Home without losing the ability to select a destination here. */}
+      <Card style={styles.journeyCard}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={t('traveler.schedEditPickup')}
+          onPress={() => router.navigate({
+            pathname: '/reserve',
+            params: { scheduling: '1', pickup: '1' },
+          })}
+          style={styles.journeyRow}
+        >
+          <View style={[styles.journeyDot, { backgroundColor: colors.ink }]} />
+          <View style={styles.journeyText}>
+            <Text style={styles.journeyLabel}>{t('traveler.schedPickupPlace')}</Text>
+            <Text style={styles.journeyValue} numberOfLines={2}>
+              {ride.departure.short || t('traveler.schedEditPickup')}
+            </Text>
+          </View>
+          <Text style={styles.journeyChev}>›</Text>
+        </Pressable>
+        <View style={styles.journeyHairline} />
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={hasDestination ? t('traveler.schedChangeDestination')
+            : t('traveler.schedChooseDestination')}
+          onPress={() => router.navigate({
+            pathname: '/reserve',
+            params: { search: '1', scheduling: '1' },
+          })}
+          style={styles.journeyRow}
+        >
+          <View style={[styles.journeyDot, { backgroundColor: colors.blue }]} />
+          <View style={styles.journeyText}>
+            <Text style={styles.journeyLabel}>{t('traveler.schedDestination')}</Text>
+            <Text style={[styles.journeyValue, !hasDestination && styles.journeyEmpty]} numberOfLines={2}>
+              {hasDestination ? ride.arrival.short : t('traveler.schedChooseDestination')}
+            </Text>
+          </View>
+          <Text style={styles.journeyChev}>›</Text>
+        </Pressable>
+      </Card>
 
-      <SectionLabel style={styles.sectionTitle}>{t('traveler.day')}</SectionLabel>
+      <SectionLabel style={styles.sectionTitle}>{t('traveler.schedPickupDateLabel')}</SectionLabel>
       <View style={styles.dayRow}>
         {dateOpts.map((o) => {
-          const on = ride.schedDate === o.key;
+          const on = activeDayChoice === o.key;
           return (
             <Pressable
               key={o.key}
-              onPress={() => ride.setSchedDate(o.key)}
+              accessibilityRole="button"
+              accessibilityState={{ selected: on }}
+              onPress={() => {
+                ride.setSchedDate(o.key);
+                if (o.key === 'pick') {
+                  // Revisiting the date picker is not permission to erase the
+                  // exact date the Traveler already chose. Preserve an eligible
+                  // custom day; otherwise let the Traveler choose one.
+                  const keepDate = marketToday && ride.schedPickupDate &&
+                    ride.schedPickupDate >= nextDate(marketToday, 2)
+                    ? ride.schedPickupDate : null;
+                  ride.setSchedPickupDate(keepDate);
+                  if (keepDate && marketToday) {
+                    const monthIndex = (date: string) =>
+                      Number(date.slice(0,4)) * 12 + Number(date.slice(5,7));
+                    setCalOffset(Math.max(0, Math.min(2, monthIndex(keepDate) - monthIndex(marketToday))));
+                  }
+                } else {
+                  ride.setSchedPickupDate(marketToday
+                    ? o.key === 'today' ? marketToday : nextDate(marketToday) : null);
+                }
+              }}
               style={({ pressed }) => [
                 styles.dayBtn,
                 {
@@ -239,18 +382,27 @@ export default function Schedule() {
                 pressed && { transform: [{ scale: 0.94 }] },
               ]}
             >
-              <Text style={{ fontSize: 14, fontWeight: '500', color: on ? '#fff' : colors.ink2 }}>
+              <Text style={{ fontSize: 14, fontWeight: '500', color: on ? '#fff' : colors.ink2, textAlign: 'center', flexShrink: 1 }}>
                 {o.label}
               </Text>
             </Pressable>
           );
         })}
       </View>
+      <Text style={styles.dateChosen}>
+        {selectedPickupDate ? new Date(`${selectedPickupDate}T00:00:00Z`)
+          .toLocaleDateString(language, { weekday: 'long', month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' })
+          : t('traveler.schedPickDay')}
+      </Text>
 
-      {ride.schedDate === 'pick' && (
+      {activeDayChoice === 'pick' && (
         <Card style={styles.calCard}>
           <View style={styles.calHead}>
             <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={t('traveler.schedPreviousMonth')}
+              accessibilityState={{ disabled: calOffset <= 0 }}
+              disabled={calOffset <= 0}
               onPress={() => calOffset > 0 && setCalOffset(calOffset - 1)}
               style={styles.calNav}
               hitSlop={6}
@@ -261,6 +413,10 @@ export default function Schedule() {
             </Pressable>
             <Text style={styles.calTitle}>{calTitle}</Text>
             <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={t('traveler.schedNextMonth')}
+              accessibilityState={{ disabled: calOffset >= 2 }}
+              disabled={calOffset >= 2}
               onPress={() => calOffset < 2 && setCalOffset(calOffset + 1)}
               style={styles.calNav}
               hitSlop={6}
@@ -271,23 +427,28 @@ export default function Schedule() {
             </Pressable>
           </View>
           <View style={styles.calGrid}>
-            {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((d, i) => (
-              <Text key={i} style={styles.calDow}>
-                {d}
+            {weekdayHeaders.map((day, i) => (
+              <Text key={i} accessibilityLabel={day.full} style={styles.calDow}>
+                {day.short}
               </Text>
             ))}
           </View>
           <View style={styles.calGrid}>
             {calCells.map((c, i) => {
-              const on = c.day && pickedDate === c.day.toISOString().slice(0,10);
+              const on = c.day && ride.schedPickupDate === c.day.toISOString().slice(0,10);
               return (
                 <Pressable
                   key={i}
+                  accessibilityRole="button"
+                  accessibilityLabel={c.day ? c.day.toLocaleDateString(language, {
+                    weekday: 'long', month: 'long', day: 'numeric', year: 'numeric', timeZone: 'UTC',
+                  }) : undefined}
+                  accessibilityState={{ selected: !!on, disabled: !c.selectable }}
                   disabled={!c.selectable}
                   onPress={() => {
                     if (!c.day) return;
                     ride.setSchedDay(dayLabel(c.day,language));
-                    setPickedDate(c.day.toISOString().slice(0,10));
+                    ride.setSchedPickupDate(c.day.toISOString().slice(0,10));
                   }}
                   style={[styles.calCell, on && { backgroundColor: colors.ink }]}
                 >
@@ -304,21 +465,40 @@ export default function Schedule() {
               );
             })}
           </View>
-          <Text style={styles.calGoing}>{t('traveler.goingOn', { day: ride.schedDay })}</Text>
+          <Text style={styles.calGoing}>{t('traveler.goingOn', {
+            day: selectedPickupDate ? dayLabel(new Date(`${selectedPickupDate}T00:00:00Z`), language)
+              : t('traveler.schedPickDay'),
+          })}</Text>
         </Card>
       )}
 
+      <SectionLabel style={styles.timeSectionLabel}>{t('traveler.pickupTime')}</SectionLabel>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={`${t('traveler.pickupTime')}: ${pickupTimeDisplay}. ${t('traveler.schedChangeTime')}`}
+        accessibilityState={{ expanded: timeEditing }}
+        onPress={() => setTimeEditing((wasOpen) => !wasOpen)}
+        style={styles.selectedTime}
+      >
+        <Text style={styles.selectedTimeText}>{pickupTimeDisplay}</Text>
+        <Text style={styles.selectedTimeAction}>{t('traveler.schedChangeTime')} ›</Text>
+      </Pressable>
+      {timeEditing && (
+        <>
       <View style={styles.timeHead}>
-        <SectionLabel>{t('traveler.pickupTime')}</SectionLabel>
+        <Text style={styles.timeOptionsHint}>{t('traveler.schedTimeOptions')}</Text>
         <View style={{ flexDirection: 'row', gap: 6 }}>
           {(['AM', 'PM'] as const).map((p) => {
             const on = ride.schedPeriod === p;
             return (
               <Pressable
                 key={p}
+                accessibilityRole="button"
+                accessibilityState={{ selected: on }}
                 onPress={() => {
+                  // Changing AM/PM changes only the period. Never silently
+                  // replace the minute or hour with a different preset.
                   ride.setSchedPeriod(p);
-                  if (!slotsFor(p).includes(ride.schedTime)) ride.setSchedTime('6:30');
                 }}
                 style={[
                   styles.periodBtn,
@@ -338,20 +518,24 @@ export default function Schedule() {
         </View>
       </View>
 
-      <View style={styles.timeGrid}>
+      <View style={[styles.timeGrid, timeOptionsWrap && styles.timeGridWrap]}>
         {timeSlots.map((t) => {
           const on = ride.schedTime === t && ride.customTime.trim() === '';
           const passed = slotPassed(t);
           return (
             <Pressable
               key={t}
+              accessibilityRole="button"
+              accessibilityState={{ selected: on, disabled: passed }}
               disabled={passed}
               onPress={() => {
                 ride.setSchedTime(t);
                 ride.setCustomTime('');
+                setTimeEditing(false);
               }}
               style={({ pressed }) => [
                 styles.timeBtn,
+                timeOptionsWrap && styles.timeBtnWrap,
                 {
                   backgroundColor: on ? colors.ink : colors.card,
                   borderColor: on ? colors.ink : colors.border,
@@ -371,16 +555,26 @@ export default function Schedule() {
       <Card style={styles.customCard}>
         <Text style={styles.customLabel}>{t('traveler.anotherTime')}</Text>
         <TextInput
+          accessibilityLabel={t('traveler.anotherTime')}
           value={ride.customTime}
           onChangeText={ride.setCustomTime}
+          autoCorrect={false}
+          autoCapitalize="none"
+          keyboardType="numbers-and-punctuation"
           placeholder={t('traveler.typeATimePh')}
           placeholderTextColor={colors.muted}
           style={styles.customInput}
         />
         {customState === 'ok' && (
-          <Text style={styles.customOk}>
-            {t('traveler.schedTimeChosen', { time: `${customLabel} ${ride.schedPeriod}` })}
-          </Text>
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => setTimeEditing(false)}
+            style={styles.customDone}
+          >
+            <Text style={styles.customOk}>
+              {t('traveler.schedTimeChosen', { time: `${customLabel} ${ride.schedPeriod}` })} ✓
+            </Text>
+          </Pressable>
         )}
         {customState === 'suggest' && (
           <View style={styles.suggestRow}>
@@ -388,6 +582,8 @@ export default function Schedule() {
               {t('traveler.schedClosestIs', { time: `${suggestLabel} ${suggestPeriod}` })}
             </Text>
             <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={`${t('traveler.useIt')} ${suggestLabel} ${suggestPeriod}`}
               onPress={() => {
                 // Adopt the suggestion as a confirmed custom time so noon/midnight
                 // boundary suggestions land in the right period.
@@ -411,34 +607,103 @@ export default function Schedule() {
         )}
       </Card>
 
-      {schedInvalid && (
+        </>
+      )}
+
+      {scheduleStatus === 'time_past' && customState !== 'past' && (
         <View style={styles.invalidBanner}>
           <Text style={styles.invalidText}>
-            {t('traveler.schedTimesPassed', {
-              time: nowClockLabel(nowMin),
-              alt: ride.schedPeriod === 'AM' ? 'PM' : t('traveler.schedAltLater'),
-            })}
+            {t('traveler.schedTimesPassed', { time: nowClockLabel(nowMin) })}
           </Text>
         </View>
       )}
-      <Text style={styles.summaryNote}>{pickupZone
-        ? t('traveler.schedPickupZone', { zone: pickupZone })
-        : t('traveler.schedZoneUnavailable')}</Text>
-      {pickupZone && !resolved.ok ? <Text style={styles.customPast}>{t('traveler.schedTimeInvalid')}</Text> : null}
+      {scheduleStatus === 'time_invalid' && (
+        <Text style={styles.customPast}>{t('traveler.schedTimeInvalid')}</Text>
+      )}
+      {scheduleStatus === 'date_required' && (
+        <Text style={styles.customPast}>{t('traveler.schedPickDay')}</Text>
+      )}
+      {pickupZone && (
+        <Text style={styles.summaryNote}>
+          {t('traveler.schedPickupZone', { zone: pickupZoneLabel })}
+        </Text>
+      )}
+      {!pickupZone && hasDestination && hasQuote && (
+        <View>
+          <Text style={zoneChecking ? styles.zoneCheckingText : styles.customPast}>
+            {t(zoneChecking ? 'traveler.schedCheckingZone' : 'traveler.schedZoneUnavailable')}
+          </Text>
+          {!zoneChecking && (
+            <Pressable accessibilityRole="button"
+              style={styles.zoneRetryButton}
+              onPress={() => setZoneRetry((n) => n + 1)}>
+              <Text style={styles.zoneRetryText}>{t('traveler.tryAgain')} ›</Text>
+            </Pressable>
+          )}
+        </View>
+      )}
 
       <Card style={styles.summaryCard}>
+        {/* Final review repeats the actual itinerary beside the confirmation
+            control. On a small screen the editable location rows can be above
+            the viewport by the time the Traveler reviews the Total. */}
         <View style={styles.summaryRow}>
-          <Text style={styles.summaryLabel}>{t('traveler.pickup')}</Text>
+          <Text style={styles.summaryLabel}>{t('traveler.schedPickupPlace')}</Text>
+          <Text style={styles.summaryValue} numberOfLines={2}>
+            {ride.departure.short || t('traveler.schedEditPickup')}
+          </Text>
+        </View>
+        {hasDestination && (
+          <View style={[styles.summaryRow, { marginTop: 10 }]}>
+            <Text style={styles.summaryLabel}>{t('traveler.schedDestination')}</Text>
+            <Text style={styles.summaryValue} numberOfLines={2}>{ride.arrival.short}</Text>
+          </View>
+        )}
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={`${t('traveler.vehicleClassLabel')}: ${t(classNameKey(ride.travelClass))}. ${t('traveler.schedChangeVehicle')}`}
+          onPress={() => router.navigate({ pathname: '/reserve', params: { scheduling: '1' } })}
+          style={[styles.summaryRow, { marginTop: 10, minHeight: 44, alignItems: 'center' }]}
+        >
+          <Text style={styles.summaryLabel}>{t('traveler.vehicleClassLabel')}</Text>
+          <Text style={styles.summaryValue}>{t(classNameKey(ride.travelClass))}  ›</Text>
+        </Pressable>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={`${t('traveler.whoIsTraveling')}. ${t('traveler.schedChangeTraveler')}`}
+          onPress={() => router.navigate({ pathname: '/reserve', params: { scheduling: '1' } })}
+          style={[styles.summaryRow, { marginTop: 10, minHeight: 44, alignItems: 'center' }]}
+        >
+          <Text style={styles.summaryLabel}>{t('traveler.whoIsTraveling')}</Text>
           <Text style={styles.summaryValue}>
-            {whenLabels[ride.schedDate]} · {chosenTime} {ride.schedPeriod}
+            {ride.travelParty.mode === 'self' ? t('traveler.me') :
+              ride.travelParty.travelerName || t('traveler.anotherAdult')}  ›
+          </Text>
+        </Pressable>
+        <View style={[styles.summaryRow, { marginTop: 10 }]}>
+          <Text style={styles.summaryLabel}>{t('traveler.pickupTime')}</Text>
+          <Text style={styles.summaryValue}>
+            {chosenDayLabel} · {pickupTimeDisplay}
           </Text>
         </View>
         <View style={[styles.summaryRow, { marginTop: 10 }]}>
           <Text style={styles.summaryLabel}>{t('traveler.totalTravelCost')}</Text>
-          <Num size={17} weight="600">
-            {fmt(ride.travelerTotal)}
-          </Num>
+          {hasQuote ? (
+            <Num size={17} weight="600">{fmt(ride.travelerTotal)}</Num>
+          ) : (
+            <Text style={styles.unquotedPrice}>{t('traveler.schedNotQuoted')}</Text>
+          )}
         </View>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={t('traveler.paymentMethods')}
+          onPress={() => router.navigate('/wallet')}
+          style={{ minHeight: 44, justifyContent: 'center', alignSelf: 'flex-start', marginTop: 8 }}
+        >
+          <Text style={{ color: colors.ink, fontSize: 14, fontWeight: '600' }}>
+            {t('traveler.paymentMethods')} ›
+          </Text>
+        </Pressable>
         {/* WAS: "Locked in when you book — it won't change, even if prices are up that
             morning. Your operator is set the night before." Two problems. The first half
             reassures against a doubt rather than stating the fact (the rubric: state the
@@ -452,14 +717,40 @@ export default function Schedule() {
             somewhere permanent, not a reassurance beside the amount. */}
       </Card>
 
+      {scheduleStatus === 'destination_required' && (
+        <Text style={styles.journeyHelp}>{t('traveler.schedDestinationNeeded')}</Text>
+      )}
+      {scheduleStatus === 'quote_required' && (
+        <Text style={styles.journeyHelp}>{t('traveler.schedQuoteNeeded')}</Text>
+      )}
+      {scheduleStatus === 'time_unconfirmed' && (
+        <Text style={styles.customPast}>{t('traveler.schedConfirmTimeHint')}</Text>
+      )}
+      {scheduleStatus === 'ready' && (
+        <>
+          <Text style={styles.bookingNotice}>{t('traveler.schedBookingNotice')}</Text>
+          <Text style={styles.bookingNotice}>{t('traveler.schedManageNotice')}</Text>
+        </>
+      )}
       {saveError ? <Text style={styles.splashWarn}>{t('traveler.schedSaveReview')}</Text> : null}
       <PrimaryButton
-        label={t('traveler.scheduleTravel')}
-        disabled={schedInvalid || saving}
+        label={t(scheduleStatus === 'destination_required' ? 'traveler.schedChooseDestination'
+          : scheduleStatus === 'quote_required' ? 'traveler.schedReviewFare'
+          : 'traveler.scheduleTravel')}
+        disabled={saving || (schedInvalid &&
+          scheduleStatus !== 'destination_required' && scheduleStatus !== 'quote_required')}
         onPress={async () => {
-          if (!resolved.ok || !pickupZone || !selectedPickupDate) return;
+          if (scheduleStatus === 'destination_required' || scheduleStatus === 'quote_required') {
+            router.navigate({
+              pathname: '/reserve',
+              params: hasDestination ? { scheduling: '1' } : { search: '1', scheduling: '1' },
+            });
+            return;
+          }
+          if (scheduleStatus !== 'ready' || !resolved.ok || resolved.atMs <= Date.now() ||
+              !pickupZone || !selectedPickupDate) return;
           const info: SchedInfo = {
-            when: whenLabels[ride.schedDate],
+            when: chosenDayLabel,
             time: chosenTime,
             period: ride.schedPeriod,
             arr: ride.arrival.name, // the demo's splash names the destination in full
@@ -504,6 +795,23 @@ const styles = StyleSheet.create({
     lineHeight: 21.75,
     textAlign: 'center',
   },
+  zoneCheckingText: { fontSize: 13.5, color: colors.ink2, marginTop: 6 },
+  zoneRetryButton: { minHeight: 44, alignSelf: 'flex-start', justifyContent: 'center' },
+  zoneRetryText: { fontSize: 14, fontWeight: '600', color: colors.ink, textDecorationLine: 'underline' },
+  journeyCard: { marginTop: 18, paddingHorizontal: 18, paddingVertical: 0 },
+  journeyRow: { minHeight: 68, flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 12 },
+  journeyDot: { width: 9, height: 9, borderRadius: 5 },
+  journeyText: { flex: 1, minWidth: 0 },
+  journeyLabel: { fontSize: 12, color: colors.ink2, marginBottom: 4 },
+  journeyValue: { fontSize: 16, fontWeight: '600', color: colors.ink, lineHeight: 22 },
+  journeyEmpty: { color: colors.blue },
+  journeyChev: { fontSize: 22, color: colors.ink2, paddingHorizontal: 4 },
+  journeyHairline: { height: 1, backgroundColor: colors.border, marginLeft: 23 },
+  dateChosen: { fontSize: 13, color: colors.ink2, marginTop: 9, lineHeight: 19 },
+  journeyGuidance: { marginTop: 6, marginBottom: 14 },
+  journeyGuidanceText: { fontSize: 14, color: colors.ink2, lineHeight: 21 },
+  journeyGuidanceLink: { minHeight: 44, alignSelf: 'flex-start', justifyContent: 'center' },
+  journeyGuidanceAction: { fontSize: 14, color: colors.ink, fontWeight: '600', textDecorationLine: 'underline' },
   sectionTitle: { marginTop: 24, marginBottom: 11 },
   dayRow: { flexDirection: 'row', gap: 9 },
   // The demo's chip geometry: radius 11, 11px vertical padding.
@@ -511,6 +819,8 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     paddingVertical: 11,
+    minHeight: 44,
+    justifyContent: 'center',
     borderRadius: 11,
     borderWidth: 1,
   },
@@ -522,9 +832,9 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   calNav: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -533,18 +843,30 @@ const styles = StyleSheet.create({
   calDow: {
     width: `${100 / 7}%`,
     textAlign: 'center',
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: '600',
-    color: colors.faint,
+    color: colors.ink2,
     marginBottom: 4,
   },
   calCell: {
     width: `${100 / 7}%`,
+    minHeight: 44,
+    justifyContent: 'center',
     paddingVertical: 9,
     borderRadius: 10,
     alignItems: 'center',
   },
   calGoing: { fontSize: 13, color: colors.muted, marginTop: 10, textAlign: 'center' },
+  timeSectionLabel: { marginTop: 22, marginBottom: 10 },
+  selectedTime: {
+    backgroundColor: colors.card, borderColor: colors.border, borderWidth: 1,
+    borderRadius: 12, minHeight: 56, paddingHorizontal: 18,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12,
+  },
+  selectedTimeText: { fontSize: 17, fontWeight: '600', color: colors.ink, flexShrink: 1 },
+  selectedTimeAction: { fontSize: 13, color: colors.ink2, fontWeight: '600' },
+  timeOptionsHint: { color: colors.ink2, fontSize: 12, fontWeight: '500' },
+  customDone: { minHeight: 44, alignSelf: 'flex-start', justifyContent: 'center', paddingTop: 5 },
   timeHead: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -553,19 +875,25 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   periodBtn: {
+    minHeight: 44,
+    justifyContent: 'center',
     paddingVertical: 7,
     paddingHorizontal: 14,
     borderRadius: 11,
     borderWidth: 1,
   },
   timeGrid: { flexDirection: 'row', gap: 9 },
+  timeGridWrap: { flexWrap: 'wrap', justifyContent: 'space-between' },
   timeBtn: {
     flex: 1,
     alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 44,
     paddingVertical: 11,
     borderWidth: 1,
     borderRadius: 11,
   },
+  timeBtnWrap: { flex: 0, width: '48%' },
   // 16/18 is the demo's own card padding; this was 14.
   customCard: { marginTop: 14, paddingVertical: 16, paddingHorizontal: 18 },
   customLabel: { fontSize: 13.5, color: colors.muted },
@@ -582,6 +910,8 @@ const styles = StyleSheet.create({
   // and red on a suggestion tells a traveler something has gone wrong when nothing has.
   suggestText: { flex: 1, fontSize: 13.5, color: colors.ink, lineHeight: 19.5 },
   useItBtn: {
+    minHeight: 44,
+    justifyContent: 'center',
     backgroundColor: colors.ink,
     borderRadius: 999,
     paddingVertical: 8,
@@ -602,13 +932,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: 18,
   },
   invalidText: { fontSize: 13.5, color: colors.red, lineHeight: 20 },
-  summaryCard: { marginTop: 16, paddingVertical: 18, paddingHorizontal: 20, marginBottom: 16 },
+  journeyHelp: { fontSize: 13.5, color: colors.ink2, marginTop: 8, marginBottom: 8, lineHeight: 20 },
+  bookingNotice: { fontSize: 13, color: colors.ink2, marginTop: 8, marginBottom: 14, lineHeight: 19 },
+  unquotedPrice: { fontSize: 14, fontWeight: '600', color: colors.ink2, flexShrink: 1, textAlign: 'right' },
+  summaryCard: { marginTop: 16, paddingVertical: 18, paddingHorizontal: 20, marginBottom: 12 },
   summaryRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'baseline',
+    gap: 10,
   },
-  summaryLabel: { fontSize: 15, color: colors.muted },
-  summaryValue: { fontSize: 15, fontWeight: '600', color: colors.ink },
-  summaryNote: { fontSize: 13, color: colors.muted, marginTop: 8, lineHeight: 19.5 },
+  summaryLabel: { fontSize: 15, color: colors.ink2, flexShrink: 1 },
+  summaryValue: { fontSize: 15, fontWeight: '600', color: colors.ink, flexShrink: 1, textAlign: 'right' },
+  summaryNote: { fontSize: 13, color: colors.ink2, marginTop: 8, lineHeight: 19.5 },
 });

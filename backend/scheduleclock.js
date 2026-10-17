@@ -46,4 +46,19 @@ function resolvePickupWall(date, time, period, zone) {
     return { ok:true, atMs:candidates[0] };
   } catch { return { ok:false, code:'invalid_zone' }; }
 }
-module.exports={ pickupDate, pickupMinutes, nextDate, resolvePickupWall };
+// Pure, no-network decision used by the scheduling screen. A missing Fare is never
+// evidence that a future pickup time has passed. The server still independently
+// checks date, jurisdiction and authoritative fare before creating a reservation.
+function scheduleReadiness({ hasDestination, hasQuote, pickupZone, pickupDate: date,
+  resolved, customState, nowMs }) {
+  if (!hasDestination) return 'destination_required';
+  if (!hasQuote) return 'quote_required';
+  if (!pickupZone) return 'zone_unavailable';
+  if (!date) return 'date_required';
+  if (customState === 'bad' || customState === 'suggest') return 'time_unconfirmed';
+  if (customState === 'past') return 'time_past';
+  if (!resolved || !resolved.ok) return 'time_invalid';
+  if (!Number.isFinite(resolved.atMs) || resolved.atMs <= nowMs) return 'time_past';
+  return 'ready';
+}
+module.exports={ pickupDate, pickupMinutes, nextDate, resolvePickupWall, scheduleReadiness };

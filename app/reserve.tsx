@@ -97,10 +97,10 @@ export default function TravelConfirmation() {
   const { user, accountName } = useAuth();
   const payConfig = usePaymentConfig();
   const cabin = useCabinPrefs();
-  const params = useLocalSearchParams<{ search?: string; q?: string }>();
+  const params = useLocalSearchParams<{ search?: string; q?: string; scheduling?: string; pickup?: string }>();
 
-  const [searching, setSearching] = useState(params.search === '1');
-  const [searchingDep, setSearchingDep] = useState(false);
+  const [searching, setSearching] = useState(params.search === '1' && params.pickup !== '1');
+  const [searchingDep, setSearchingDep] = useState(params.pickup === '1');
   const [query, setQuery] = useState('');
   const [queryDep, setQueryDep] = useState('');
   const [partyOpen, setPartyOpen] = useState(false);
@@ -110,7 +110,11 @@ export default function TravelConfirmation() {
 
   // navigate() can update params on an already-mounted screen — reopen search then too.
   useEffect(() => {
-    if (params.search === '1') {
+    if (params.pickup === '1') {
+      setSearchingDep(true);
+      setSearching(false);
+      setQueryDep('');
+    } else if (params.search === '1') {
       setSearching(true);
       setSearchingDep(false);
       // A destination handed in by name — a receipt's "Travel to … again" for a place that is
@@ -118,7 +122,7 @@ export default function TravelConfirmation() {
       // tap from the sheet rather than back at an empty field.
       if (typeof params.q === 'string' && params.q) setQuery(params.q);
     }
-  }, [params.search, params.q]);
+  }, [params.search, params.pickup, params.q]);
 
   const [pricing, setPricing] = useState(false);
   const [priceFailed, setPriceFailed] = useState(false);
@@ -447,6 +451,11 @@ export default function TravelConfirmation() {
   const busy = pricing || ride.repricing;
   const partyReady = travelPartyReady(ride.travelParty);
   const canReserve = payConfig.canTakePayment && partyReady && authoritativePriceReady && !!ride.tripCoords && !busy && !priceFailed && !unavailable;
+  // A Traveler choosing a destination for a future reservation must never
+  // accidentally trigger the immediate booking/payment button.
+  const selectingScheduledTravel = params.scheduling === '1';
+  const canContinueScheduling = partyReady && authoritativePriceReady &&
+    !!ride.tripCoords && !busy && !priceFailed && !unavailable;
   const quoteFailureText = quoteFailure === 'toll_unavailable' ? t('traveler.quoteTollUnavailable')
     : quoteFailure === 'route_geometry_required' ? t('traveler.quoteLocationUnresolved')
     : quoteFailure === 'network_unavailable' ? t('traveler.errNetwork')
@@ -604,8 +613,10 @@ export default function TravelConfirmation() {
             {!editing && !smartLeg && (
               <Pressable accessibilityRole="button" onPress={() => router.navigate('/schedule')}>
                 <View style={[styles.slot, styles.hair]}>
-                  <Text style={styles.whenText}>{t('traveler.leavingNow')}</Text>
-                  <Text style={styles.modify}>{t('traveler.change')} ›</Text>
+                  <Text style={styles.whenText}>{t(params.scheduling === '1'
+                    ? 'traveler.schedReturnToPickup' : 'traveler.leavingNow')}</Text>
+                  <Text style={styles.modify}>{t(params.scheduling === '1'
+                    ? 'traveler.schedContinue' : 'traveler.change')} ›</Text>
                 </View>
               </Pressable>
             )}
@@ -946,12 +957,17 @@ export default function TravelConfirmation() {
                 </View>
               )}
             <PrimaryButton
-              label={busy ? t('traveler.busyChecking') : t('traveler.confirmTravel')}
-              disabled={!canReserve}
-              onPress={confirm}
+              label={busy ? t('traveler.busyChecking')
+                : t(selectingScheduledTravel ? 'traveler.schedContinueScheduling' : 'traveler.confirmTravel')}
+              disabled={selectingScheduledTravel ? !canContinueScheduling : !canReserve}
+              onPress={selectingScheduledTravel
+                ? () => { if (canContinueScheduling) router.navigate('/schedule'); }
+                : confirm}
               style={styles.confirm}
             />
-            <Text style={styles.cancelTerms}>{t('traveler.cancellationGrace')}</Text>
+            {!selectingScheduledTravel && (
+              <Text style={styles.cancelTerms}>{t('traveler.cancellationGrace')}</Text>
+            )}
           </View>
         )}
       </KeyboardAvoidingView>

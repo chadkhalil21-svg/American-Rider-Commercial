@@ -14,8 +14,13 @@ import {
   doc,
   getDocs,
   onSnapshot,
+  orderBy,
+  limit,
+  startAfter,
   query,
   where,
+  type DocumentData,
+  type QueryDocumentSnapshot,
 } from 'firebase/firestore';
 import { auth, db } from '../firebase';
 import { PAYMENT_SERVER_URL } from '../config';
@@ -26,6 +31,7 @@ export type SchedStatus =
   | 'dispatched' // an operator has been sent
   | 'unmatched' // nobody was available, and the hour has passed
   | 'payment_failed' // the card on file was declined
+  | 'price_changed' // the price is no longer the agreed Total; no charge made
   | 'needs_attention' // charged, but the travel could not be created — for us, not them
   | 'cancelled'; // cancelled before dispatch, including revoked Family authorization
 
@@ -108,6 +114,46 @@ export async function saveScheduledRide(
   }
 }
 
+/** Bounded, ordered page of a Traveler's own appointments. Requires the
+ * travelerUid/atMs composite index before this candidate can be released.
+ * One page is at most twenty reservations; no historic full-collection scan.
+ */
+export type ScheduledPage = {
+  rides: ScheduledRide[];
+  nextCursor: QueryDocumentSnapshot<DocumentData> | null;
+  hasMore: boolean;
+};
+
+export async function fetchScheduledRidesPage(
+  after?: QueryDocumentSnapshot<DocumentData> | null,
+): Promise<ScheduledPage | null> {
+  const uid = auth.currentUser?.uid;
+  if (!uid) return null;
+  try {
+    // Include recent failures and just-dispatched pickup times so an operator
+    // sent shortly before pickup remains visible when the app reopens.
+    const filters = [
+      where('travelerUid', '==', uid),
+      where('atMs', '>=', Date.now() - 90 * 60 * 1000),
+      orderBy('atMs', 'asc'),
+    ];
+    const q = after
+      ? query(collection(db, 'scheduled_rides'), ...filters, startAfter(after), limit(21))
+      : query(collection(db, 'scheduled_rides'), ...filters, limit(21));
+    const snap = await getDocs(q);
+    const shown = snap.docs.slice(0, 20);
+    return {
+      rides: shown.map((d) => ({ id: d.id, ...(d.data() as Omit<ScheduledRide, 'id'>) })),
+      nextCursor: shown.length === 20 ? shown[19] : null,
+      hasMore: snap.docs.length > 20,
+    };
+  } catch {
+    // Missing index, permission denial or offline must be shown as unavailable,
+    // NEVER misrepresented as "no reservations".
+    return null;
+  }
+}
+
 /**
  * The traveler's next reservation, or null.
  *
@@ -120,31 +166,28 @@ export async function saveScheduledRide(
  * saying.
  */
 export async function fetchScheduledRide(): Promise<ScheduledRide | null> {
-  const uid = auth.currentUser?.uid;
-  if (!uid) return null;
-  try {
-    const snap = await getDocs(
-      query(collection(db, 'scheduled_rides'), where('travelerUid', '==', uid)),
-    );
-    const rows = snap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<ScheduledRide, 'id'>) }));
-    const live = rows
-      .filter((r) => typeof r.atMs === 'number')
-      .filter((r) => {
-        const s = r.status ?? 'reserved';
-        if (s === 'dispatched') return r.atMs > Date.now() - 90 * 60 * 1000;
-        // A reservation that failed is kept in view for an hour, because the traveler has to
-        // be told. Silently dropping it is how a 6:30 AM pickup that never came became
-        // indistinguishable from one that was never made.
-        if (s === 'unmatched' || s === 'payment_failed' || s === 'needs_attention' || s === 'cancelled') {
-          return r.atMs > Date.now() - 60 * 60 * 1000;
-        }
-        return r.atMs > Date.now();
-      })
-      .sort((a, b) => a.atMs - b.atMs);
-    return live[0] ?? null;
-  } catch {
-    return null;
+  // Home is a compact summary; the dedicated Upcoming Travel screen can show
+  // every reservation. This lookup uses bounded, indexed pages, never a
+  // lifetime-wide query as the account's booking history grows.
+  let after: ScheduledPage['nextCursor'] = null;
+  for (let pageNo = 0; pageNo < 5; pageNo++) {
+    const page = await fetchScheduledRidesPage(after);
+    if (!page) return null; // network/index errors cannot become invented bookings
+    const next = page.rides.find((r) => {
+      if (!Number.isFinite(r.atMs)) return false;
+      const status = r.status ?? 'reserved';
+      if (status === 'dispatched') return r.atMs > Date.now() - 90 * 60 * 1000;
+      if (['unmatched', 'payment_failed', 'needs_attention', 'cancelled', 'price_changed'].includes(status))
+        return r.atMs > Date.now() - 60 * 60 * 1000;
+      return r.atMs > Date.now();
+    });
+    if (next) return next;
+    if (!page.hasMore || !page.nextCursor) return null;
+    after = page.nextCursor;
   }
+  // The menu's full paginated Upcoming Travel screen remains available;
+  // the small Home card does not expand into an unbounded historical scan.
+  return null;
 }
 
 /**
