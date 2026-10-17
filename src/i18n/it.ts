@@ -1060,6 +1060,8 @@ export default {
     schedZoneUnavailable: 'Il fuso orario del prelievo non è disponibile. La programmazione è sospesa; riprova.',
     schedTimeInvalid: 'L’ora del prelievo non esiste, è ripetuta o non è più selezionata. Scegli un altro orario.',
     schedPickupDateLabel: "Data del prelievo",
+    schedPreviousMonth: "Mese precedente",
+    schedNextMonth: "Mese successivo",
     schedPickupPlace: "Prelievo",
     schedEditPickup: "Modifica punto di prelievo",
     schedDestination: "Destinazione",
