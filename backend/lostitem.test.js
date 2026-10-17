@@ -103,8 +103,10 @@ const fakeDb = {
     },
   };
   const rides = {
-    'AR-A': { operatorId: 'op1' },
-    'AR-B': { operatorId: 'op2' },
+    'AR-2117-MIA': { tripNo: 'AR-2117-MIA', travelerUid: 'traveler1', operatorId: 'op1', operatorName: 'Operator 1' },
+    'AR-A': { tripNo: 'AR-A', travelerUid: 'traveler1', operatorId: 'op1', operatorName: 'Operator 1' },
+    'AR-B': { tripNo: 'AR-B', travelerUid: 'traveler1', operatorId: 'op2', operatorName: 'Operator 2' },
+    'AR-C': { tripNo: 'AR-C', travelerUid: 'traveler2', operatorId: 'op3', operatorName: 'Operator 3' },
   };
   const recoveryDb = {
     collection: (name) => ({
@@ -113,6 +115,11 @@ const fakeDb = {
         set: async (patch) => { if (name === 'lost_items') Object.assign(lost[id], patch); },
       }),
       where: (field, op, value) => ({
+        get: async () => ({
+          docs: name === 'rides' && field === 'tripNo' && op === 'in' && Array.isArray(value)
+            ? value.filter(v => rides[v]).map(v => ({ data: () => rides[v] }))
+            : [],
+        }),
         limit: () => ({
           get: async () => ({
             docs: name === 'rides' && rides[value]
@@ -130,6 +137,39 @@ const fakeDb = {
   );
   check('operator-notified is earned by a durable inbox delivery', delivery.ok && delivery.delivered === 1 && lost.li1.status === 'operator-notified');
   check('the Operator message opens the exact report', /itemId=li1/.test(sent[0]?.action?.screen || ''));
+  // A modified Traveler phone may nominate any Operator ID. That never
+  // constitutes proof the Operator served a Travel or should be notified.
+  lost.liForged = {
+    travelerUid: 'traveler1', tripNo: 'AR-A', candidateTripNos: ['AR-A'],
+    notifiedOperatorIds: ['op3'], description: 'Notebook', status: 'reported',
+  };
+  const stolenNotifications = [];
+  const corrected = await notifyLostItemOperators(
+    { itemId: 'liForged', uid: 'traveler1' },
+    { database: recoveryDb, postMessage: async msg => { stolenNotifications.push(msg); return { ok: true }; } },
+  );
+  check('forged Operator nomination is replaced by the real Travel Operator',
+    corrected.ok && corrected.delivered === 1 &&
+    lost.liForged.notifiedOperatorIds.join(',') === 'op1' &&
+    stolenNotifications.every(x => x.uid === 'op1'));
+  const evilRead = await operatorLostItem({ itemId: 'liForged', operatorUid: 'op3' }, { database: recoveryDb });
+  check('a forged Operator never receives private lost-item details', !evilRead.ok && evilRead.status === 403);
+  const evilResponse = await respondLostItem(
+    { itemId: 'liForged', operatorUid: 'op3', outcome: 'located' }, { database: recoveryDb });
+  check('a forged Operator cannot claim the item was found', !evilResponse.ok && evilResponse.status === 403);
+
+  lost.liForeign = {
+    travelerUid: 'traveler1', tripNo: 'AR-C', candidateTripNos: ['AR-C'],
+    notifiedOperatorIds: ['op3'], description: 'Bag', status: 'reported',
+  };
+  const wrongTravelerDelivery = [];
+  const foreign = await notifyLostItemOperators(
+    { itemId: 'liForeign', uid: 'traveler1' },
+    { database: recoveryDb, postMessage: async msg => { wrongTravelerDelivery.push(msg); return { ok: true }; } },
+  );
+  check('another Traveler’s real Travel never authorizes a false lost-item notification',
+    !foreign.ok && foreign.delivered === 0 && wrongTravelerDelivery.length === 0 &&
+    lost.liForeign.notifiedOperatorIds.length === 0);
   const denied = await operatorLostItem({ itemId: 'li1', operatorUid: 'op2' }, { database: recoveryDb });
   check('an unrelated Operator cannot read the report', !denied.ok && denied.status === 403);
   const ownReport = await operatorLostItem({ itemId: 'li1', operatorUid: 'op1' }, { database: recoveryDb });
