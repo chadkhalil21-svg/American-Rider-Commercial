@@ -222,7 +222,7 @@ async function respondLostItem({ itemId, operatorUid, outcome, tripNo }, { datab
     body: outcome === 'located'
       ? 'The Operator located the item. Open the report to arrange its return.'
       : (patch.status === 'not-found' ? 'The Operators connected with this report did not locate the item.' : 'One Operator checked and did not locate the item. Other checks remain open.'),
-    action: { screen: `/lost?itemId=${encodeURIComponent(String(itemId))}` },
+    action: { screen: `/lost?item=${encodeURIComponent(String(itemId))}` },
     required: true,
   }).catch(() => {});
   return { ok: true, status: patch.status, tripNo: boundTrip };
