@@ -64,6 +64,7 @@ export default {
   // is deliberate and it translates as vocabulary, not as description — "Commence Operations"
   // becomes the equivalent formal undertaking in each language, never "start working".
   operator: {
+    platformCommunicationsUnavailable: "Communications could not be loaded. Check your connection and try again; messages already shown may be out of date.",
     fareResearchLink: "Help keep fares fair",
     fareResearchCountyUnavailable: "County list unavailable. Please try again.",
     fareResearchReceiptUnconfirmed: "Research submission not confirmed.",
@@ -260,6 +261,7 @@ export default {
   // Traveler surfaces speak human. Same restraint, plainer words — and the same refusal to
   // reassure: the price is stated, never defended.
   traveler: {
+    platformCommunicationsUnavailable: "Communications could not be loaded. Check your connection and try again; messages already shown may be out of date.",
     platformCommunications: "American Rider messages",
     platformCommunicationsBody: "Messages from American Rider about your account, safety, and Travel.",
     noPlatformCommunications: "No communications yet.",
