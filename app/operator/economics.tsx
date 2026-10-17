@@ -118,10 +118,10 @@ const styles = StyleSheet.create({
   amount: { fontSize: 15, fontWeight: '600', color: colors.ink, textAlign: 'right' },
   input: { minHeight: 48, marginTop: 8, borderWidth: 1, borderColor: colors.border, borderRadius: 10, paddingHorizontal: 14, fontSize: 17, color: colors.ink },
   error: { color: colors.red, marginTop: 8, fontSize: 13 },
-  estimateNote: { color: colors.muted, marginTop: 12, fontSize: 13, lineHeight: 19 },
+  estimateNote: { color: colors.ink2, marginTop: 12, fontSize: 13, lineHeight: 19 },
   termsToggle: { minHeight: 44, justifyContent: 'center', alignSelf: 'flex-start', marginTop: 6 },
   termsToggleText: { color: colors.ink, fontSize: 14, fontWeight: '600', textDecorationLine: 'underline' },
   researchLink: { minHeight: 44, justifyContent: 'center', alignSelf: 'flex-start', marginTop: 10 },
   researchLinkText: { color: colors.ink2, fontSize: 14, textDecorationLine: 'underline' },
-  disclaimer: { color: colors.muted, fontSize: 13, lineHeight: 19, marginTop: 16 },
+  disclaimer: { color: colors.ink2, fontSize: 13, lineHeight: 19, marginTop: 16 },
 });
