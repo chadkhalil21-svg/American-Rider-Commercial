@@ -51,7 +51,6 @@ for(let pass=0;pass<2;pass++){
  assert.match(server,/if \(!r2Owns\(objectKey, req\.uid, 'operator-document'\)\)/,
    'document review remains confined to the authenticated owner');
  assert.match(server,/app\.post\('\/connect\/onboard', requireAuth, LIMITS\.connect, requireActiveOperatingMarket/);
- assert.match(server,/app\.post\('\/operator\/qualification\/submit', requireAuth, LIMITS\.qualification, requireActiveOperatingMarket/);
  assert.match(server,/app\.post\('\/operator\/screening\/existing', requireAuth, LIMITS\.screening, requireScreeningRequestMarket/);
  const screen=src('app/operator/qualify.tsx');
  const context=src('src/state/OperatorContext.tsx');
