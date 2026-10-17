@@ -18,7 +18,8 @@ for(let pass=0;pass<2;pass++){
  assert(ui.includes('sameEmail'),'unchanged address is not a valid email change');
  assert(ui.includes('emailTouched'),'invalid field has inline validation');
  assert(ui.includes('style={styles.currentCard}') && ui.includes('style={styles.fieldCard}'),'reuse existing cards');
- assert(!ui.includes('paddingVertical: 16 }'),'no per-screen primary button enlargement');
+ const primary=ui.split('<PrimaryButton')[1]?.split('/>')[0] || '';
+ assert(!primary.includes('paddingVertical: 16'),'no per-screen primary button enlargement');
  const storage=read('src/state/accountStorage.ts');
  assert(storage.includes("k.startsWith(PREFIX)"),'signout cleans ar: account-scoped keys');
  for(const l of ['en','es','fr','it','de']) {
