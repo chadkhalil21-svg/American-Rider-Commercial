@@ -84,6 +84,8 @@ export default function OperatorHome() {
   requestRef.current = request;
   const acceptingRef = useRef(false);
   const [accepting, setAccepting] = useState(false);
+  const decliningRef = useRef(false);
+  const [declining, setDeclining] = useState(false);
   const [acceptError, setAcceptError] = useState<string | null>(null);
   const [countdown, setCountdown] = useState(RESPOND_SECONDS);
   const armTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -105,7 +107,7 @@ export default function OperatorHome() {
     tickTimer.current = null;
   }, []);
 
-  // Closing the sheet DECLINES the travel. It used to only clear the screen, which was
+  // A timer lapse does not explicitly decline a Travel. It used to only clear the screen, which was
   // harmless while requests were invented and is not now: a real travel left on one phone that
   // said nothing keeps a traveler waiting for an operator who already walked away.
   const closeRequest = useCallback(() => {
@@ -150,6 +152,31 @@ export default function OperatorHome() {
     }, 1000);
   }, [cbar]);
 
+  // Only an intentional tap declines the offer with the server. A timed-out offer
+  // remains eligible for re-offering; a tap must never be treated as a silent timeout.
+  const explicitlyDecline = useCallback(async () => {
+    const offered = requestRef.current;
+    if (!offered || acceptingRef.current || decliningRef.current) return;
+    decliningRef.current = true;
+    setDeclining(true);
+    clearTimers();
+    cbar.stopAnimation();
+    try {
+      if (await op.declineRequest(offered)) {
+        dismissAccepted();
+      } else {
+        setAcceptError(t('traveler.couldNotSaveConn'));
+        openRequest(offered);
+      }
+    } catch {
+      setAcceptError(t('traveler.couldNotSaveConn'));
+      openRequest(offered);
+    } finally {
+      decliningRef.current = false;
+      setDeclining(false);
+    }
+  }, [cbar, clearTimers, dismissAccepted, openRequest, op, t]);
+
   // THE COUNTDOWN ONLY RUNS WHILE THE APP IS IN FRONT OF SOMEBODY.
   //
   // At zero the request declines itself. That is right for an operator looking at the screen
@@ -165,8 +192,17 @@ export default function OperatorHome() {
   useEffect(() => {
     const sub = AppState.addEventListener('change', (state) => {
       if (state === 'active') {
-        if (requestRef.current) {
+        if (requestRef.current && !acceptingRef.current && !decliningRef.current) {
           setCountdown(RESPOND_SECONDS);
+          // Restore both the numeral and the visual bar after returning from another app.
+          // A frozen bar beside a fresh 15-second countdown is misleading.
+          cbar.setValue(1);
+          Animated.timing(cbar, {
+            toValue: 0,
+            duration: RESPOND_SECONDS * 1000,
+            easing: (value) => value,
+            useNativeDriver: false,
+          }).start();
           if (!tickTimer.current) {
             tickTimer.current = setInterval(() => setCountdown((c) => c - 1), 1000);
           }
@@ -181,8 +217,8 @@ export default function OperatorHome() {
   }, [cbar]);
 
   useEffect(() => {
-    if (request && countdown <= 0 && !accepting && AppState.currentState === 'active') closeRequest();
-  }, [countdown, request, accepting, closeRequest]);
+    if (request && countdown <= 0 && !accepting && !declining && AppState.currentState === 'active') closeRequest();
+  }, [countdown, request, accepting, declining, closeRequest]);
 
   // A REQUEST APPEARS BECAUSE ONE WAS DISPATCHED, not because a timer fired.
   //
@@ -423,7 +459,7 @@ export default function OperatorHome() {
                         and telling somebody how far a pickup is when nobody measured it is
                         the same defect as a fare nobody charged. */}
                     <Text style={styles.routeMeta}>
-                      {request.pickupMin != null ? t('traveler.opPickupMinAway', { n: request.pickupMin }) : 'Pickup'}
+                      {request.pickupMin != null ? t('traveler.opPickupMinAway', { n: request.pickupMin }) : t('traveler.pickup')}
                     </Text>
                     <Text style={styles.routePlace}>{request.pickup}</Text>
                   </View>
@@ -434,7 +470,7 @@ export default function OperatorHome() {
                     <Text style={styles.routeMeta}>
                       {request.tripMin != null && request.dist != null
                         ? t('traveler.opDestinationMeta', { min: request.tripMin, mi: request.dist })
-                        : 'Destination'}
+                        : t('traveler.destination')}
                     </Text>
                     <Text style={styles.routePlace}>{request.dest}</Text>
                   </View>
@@ -445,8 +481,8 @@ export default function OperatorHome() {
                   label={t('operator.decline')}
                   textColor={colors.red}
                   borderColor={colors.redBorder}
-                  onPress={() => { if (!acceptingRef.current) closeRequest(); }}
-                  style={{ flex: 1, opacity: accepting ? 0.5 : 1 }}
+                  onPress={() => { if (!acceptingRef.current && !decliningRef.current) void explicitlyDecline(); }}
+                  style={{ flex: 1, opacity: accepting || declining ? 0.5 : 1 }}
                 />
                 <PrimaryButton
                   // ACCEPT TRAVELER, not Accept Travel (Chad, 4 Sept 2026, overruling me).
@@ -465,7 +501,7 @@ export default function OperatorHome() {
                   label={t('operator.acceptTraveler')}
                   color={colors.green}
                   onPress={async () => {
-                    if (acceptingRef.current) return;
+                    if (acceptingRef.current || decliningRef.current) return;
                     acceptingRef.current = true;
                     setAccepting(true);
                     setAcceptError(null);
@@ -487,7 +523,7 @@ export default function OperatorHome() {
                       setAccepting(false);
                     }
                   }}
-                  disabled={accepting}
+                  disabled={accepting || declining}
                   style={{ flex: 1.6 }}
                 />
               </View>
@@ -600,7 +636,7 @@ const styles = StyleSheet.create({
   cbarFill: { height: '100%', backgroundColor: colors.ink },
   cbarText: {
     fontSize: 12,
-    color: colors.muted,
+    color: colors.ink2,
     marginTop: 8,
     textAlign: 'center',
     letterSpacing: 0.24,
@@ -609,7 +645,7 @@ const styles = StyleSheet.create({
   travelerRow: { flexDirection: 'row', alignItems: 'center', marginTop: 14 },
   travelerName: { fontSize: 16, fontWeight: '600', color: colors.ink },
   travelerRating: { fontSize: 13, color: colors.muted, marginTop: 2 },
-  estLabel: { fontSize: 9.5, fontWeight: '600', letterSpacing: 1.43, color: colors.muted },
+  estLabel: { fontSize: 11, fontWeight: '600', letterSpacing: 1.1, color: colors.ink2 },
   routeCard: {
     marginTop: 16,
     backgroundColor: colors.blueTint, // the demo's neutral --fill
@@ -622,7 +658,7 @@ const styles = StyleSheet.create({
   routeRow: { flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 16 },
   hair: { borderTopWidth: 1, borderTopColor: colors.hairline },
   dot: { width: 9, height: 9, borderRadius: 5, backgroundColor: colors.ink },
-  routeMeta: { fontSize: 12, color: colors.muted },
+  routeMeta: { fontSize: 12, color: colors.ink2 },
   routePlace: { fontSize: 15, color: colors.ink, marginTop: 2 },
   requestButtons: { flexDirection: 'row', gap: 10, marginTop: 18 },
 });
