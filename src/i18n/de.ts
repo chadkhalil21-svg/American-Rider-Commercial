@@ -227,8 +227,6 @@ export default {
     openAllParts: 'Öffnen Sie alle %{n} Teile, um fortzufahren',
 
     lostOpenFailed: "Dieser Bericht konnte nicht geöffnet werden.",
-    lostHistoryCouldNotLoad: "Ihre Fundverlustmeldungen konnten nicht geladen werden. Bereits angezeigte Meldungen sind möglicherweise veraltet.",
-    lostHistoryMore: "Weitere Verlustmeldungen anzeigen",
     lostUnavailable: "Dieser Fundgegenstandsbericht ist nicht verfügbar.",
     lostSelectTravel: "Wählen Sie die Fahrt aus, in der Sie den Gegenstand gefunden haben.",
     lostUpdateFailed: "Diese Aktualisierung konnte nicht gespeichert werden.",
@@ -748,6 +746,8 @@ export default {
     selectAnotherTravel: 'Andere Fahrt wählen ›',
     selectTravelForCase: 'Wählen Sie die betreffende Fahrt ›',
     yourCases: 'Ihre Fälle',
+    lostHistoryCouldNotLoad: "Ihre Fundverlustmeldungen konnten nicht geladen werden. Bereits angezeigte Meldungen sind möglicherweise veraltet.",
+    lostHistoryMore: "Weitere Verlustmeldungen anzeigen",
     casesCouldNotLoad: 'Ihr Fallverlauf konnte nicht geladen werden. Bereits angezeigte Fälle sind möglicherweise veraltet.',
     caseHistoryPartial: 'Es wird nur ein Teil Ihres Fallverlaufs angezeigt. Für ältere Fälle schreiben Sie an support@americanrider.app.',
     retryCases: 'Fallverlauf erneut laden',
