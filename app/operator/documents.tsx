@@ -133,9 +133,13 @@ export default function OperatorDocuments() {
                 )}
 
                 {!accepted && !checking && (
-                  <Pressable accessibilityRole="button" onPress={() => submit(d.key, d.title)} hitSlop={6}>
+                  <Pressable accessibilityRole="button" onPress={() => {
+                    if (d.key === 'insurance') router.navigate('/operator/insurance');
+                    else void submit(d.key, d.title);
+                  }} hitSlop={6}>
                     <Text style={styles.action}>
-                      {review ? t('traveler.submitDifferentDoc') : `${t('traveler.submit')} ›`}
+                      {d.key === 'insurance' ? `${t('traveler.open')} ›` :
+                        review ? t('traveler.submitDifferentDoc') : `${t('traveler.submit')} ›`}
                     </Text>
                   </Pressable>
                 )}
