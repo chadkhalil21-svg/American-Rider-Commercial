@@ -14,8 +14,13 @@ import {
   doc,
   getDocs,
   onSnapshot,
+  orderBy,
+  limit,
+  startAfter,
   query,
   where,
+  type DocumentData,
+  type QueryDocumentSnapshot,
 } from 'firebase/firestore';
 import { auth, db } from '../firebase';
 import { PAYMENT_SERVER_URL } from '../config';
@@ -104,6 +109,46 @@ export async function saveScheduledRide(
     const saved = await res.json();
     return { ...info, ...saved, cost: typeof saved.costCents === 'number' ? saved.costCents / 100 : info.cost } as ScheduledRide;
   } catch {
+    return null;
+  }
+}
+
+/** Bounded, ordered page of a Traveler's own appointments. Requires the
+ * travelerUid/atMs composite index before this candidate can be released.
+ * One page is at most twenty reservations; no historic full-collection scan.
+ */
+export type ScheduledPage = {
+  rides: ScheduledRide[];
+  nextCursor: QueryDocumentSnapshot<DocumentData> | null;
+  hasMore: boolean;
+};
+
+export async function fetchScheduledRidesPage(
+  after?: QueryDocumentSnapshot<DocumentData> | null,
+): Promise<ScheduledPage | null> {
+  const uid = auth.currentUser?.uid;
+  if (!uid) return null;
+  try {
+    // Include recent failures and just-dispatched pickup times so an operator
+    // sent shortly before pickup remains visible when the app reopens.
+    const filters = [
+      where('travelerUid', '==', uid),
+      where('atMs', '>=', Date.now() - 90 * 60 * 1000),
+      orderBy('atMs', 'asc'),
+    ];
+    const q = after
+      ? query(collection(db, 'scheduled_rides'), ...filters, startAfter(after), limit(21))
+      : query(collection(db, 'scheduled_rides'), ...filters, limit(21));
+    const snap = await getDocs(q);
+    const shown = snap.docs.slice(0, 20);
+    return {
+      rides: shown.map((d) => ({ id: d.id, ...(d.data() as Omit<ScheduledRide, 'id'>) })),
+      nextCursor: shown.length === 20 ? shown[19] : null,
+      hasMore: snap.docs.length > 20,
+    };
+  } catch {
+    // Missing index, permission denial or offline must be shown as unavailable,
+    // NEVER misrepresented as "no reservations".
     return null;
   }
 }
