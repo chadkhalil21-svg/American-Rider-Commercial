@@ -54,6 +54,7 @@ export default {
     language: 'Lingua',
   },
   operator: {
+    platformCommunicationsUnavailable: "Impossibile caricare le comunicazioni. Controlla la connessione e riprova; i messaggi visualizzati potrebbero non essere aggiornati.",
     fareResearchLink: "Contribuisca a tariffe eque",
     fareResearchCountyUnavailable: "Elenco delle contee non disponibile. Riprovi.",
     fareResearchReceiptUnconfirmed: "Invio dei dati non confermato.",
@@ -242,6 +243,7 @@ export default {
     lostNotFound: "Oggetto non trovato",
   },
   traveler: {
+    platformCommunicationsUnavailable: "Impossibile caricare le comunicazioni. Controlla la connessione e riprova; i messaggi visualizzati potrebbero non essere aggiornati.",
     platformCommunications: "Messaggi di American Rider",
     platformCommunicationsBody: "Messaggi di American Rider sul tuo account, sulla sicurezza e sui viaggi.",
     noPlatformCommunications: "Nessuna comunicazione per ora.",
