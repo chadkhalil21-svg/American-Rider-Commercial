@@ -185,10 +185,15 @@ export default function Schedule() {
   const schedInvalid = scheduleStatus !== 'ready';
   const pickupTimeDisplay = rawT && customState !== 'ok'
     ? t('traveler.schedTimeUnconfirmed') : `${chosenTime} ${ride.schedPeriod}`;
-  const pickupZoneLabel = pickupZone
-    ? new Intl.DateTimeFormat(language, { timeZone: pickupZone, timeZoneName: 'short' })
-      .formatToParts(now).find((part) => part.type === 'timeZoneName')?.value || pickupZone
-    : '';
+  const pickupZoneLabel = (() => {
+    if (!pickupZone) return '';
+    try {
+      return new Intl.DateTimeFormat(language, { timeZone: pickupZone, timeZoneName: 'short' })
+        .formatToParts(now).find((part) => part.type === 'timeZoneName')?.value || pickupZone;
+    } catch {
+      return pickupZone; // Bad external time-zone data must never crash this screen.
+    }
+  })();
 
   useEffect(() => {
     if (isToday && !allSlotsPassed && slotPassed(ride.schedTime)) {
@@ -447,7 +452,7 @@ export default function Schedule() {
       {scheduleStatus === 'time_past' && (
         <View style={styles.invalidBanner}>
           <Text style={styles.invalidText}>
-            {t('traveler.schedTimePast', { time: nowClockLabel(nowMin) })}
+            {t('traveler.schedTimesPassed', { time: nowClockLabel(nowMin) })}
           </Text>
         </View>
       )}
