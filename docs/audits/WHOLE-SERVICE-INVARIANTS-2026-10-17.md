@@ -1,3 +1,45 @@
+## Continued cross-system audit: Lost Item concurrent recovery (17 October)
+
+**Verified race in two original server functions:** `backend/lostitem.js`
+previously read a report and saved `operatorResponses` with an ordinary merge.
+Two Operators responding together could overwrite each other's responses, and
+a later negative reply could move an already `located` report back to
+`operator-notified`. Separately, `notifyLostItemOperators` persisted
+`operator-notified` *after* delivering its inbox message. An Operator who
+responded quickly could have the located state reverted by that late
+notification-bookkeeping write.
+
+**Actual corrective code:** Both state updates now use Firestore server-side
+transactions with a re-read at commit. A successful find cannot be overridden
+by another Operator's negative reply, and a return in progress or completed
+cannot be reopened by a late reply. Responses for distinct Operators survive
+a race. A duplicate identical response does not generate another Traveler
+notification; a negative reply after a prior confirmed find is silently
+recorded without implying the item became lost again. External inbox
+notifications happen only **after** transaction completion, since Firestore
+can retry a transaction callback.
+
+**Deterministic adversarial tests:** simultaneous locate / not-found;
+both Operator responses persisted; repeated identical locate; terminal
+`returned` refusing further changes; post-link authorization denying a
+different candidate Operator; very fast locate racing notification bookkeeping;
+and late notifier after return. The fake transactional database demonstrates
+state invariants; real Firebase emulator transactions and phone interactions
+are still distinct release evidence.
+
+**Residual risk:** The initial lost-item notice uses a new inbox document
+ID each time, so a repeated `POST /lost-item` can issue a duplicate Operator
+notice if the original succeeded and the response was lost. A durable,
+Operator-and-report-scoped idempotency key should be commissioned in the
+platform inbox service before claiming replay-safe delivery; no such fix
+is claimed in this PR yet. The existing report notification authority remains
+the backend, never the phone's submitted Operator list.
+
+**External source:** [Google Firebase transaction semantics](https://firebase.google.com/docs/firestore/transaction-data-contention),
+[atomic transaction guide](https://firebase.google.com/docs/firestore/manage-data/transactions);
+AWS [safe idempotent retries](https://aws.amazon.com/builders-library/making-retries-safe-with-idempotent-APIs/).
+None endorses this specific implementation.
+
 # American Rider Commercial: whole-service invariant audit
 **17 October 2026 • Draft only • Not released**
 
