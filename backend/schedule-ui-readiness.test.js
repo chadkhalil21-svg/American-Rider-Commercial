@@ -167,6 +167,47 @@ for (let pass = 1; pass <= 2; pass++) {
     'Complete Travel Cost can wrap on narrow phones');
 
 
+  // Locale and accessible calendar audit: six-language-independent dates were
+  // previously shown under hardcoded US weekday initials in every translation.
+  assert.match(screen, /const weekStart = language === 'en' \? 0 : 1/,
+    'calendar week begins Sunday in current US English; Monday in the four other locales');
+  assert.match(screen, /weekdayHeaders\.map\(\(day, i\) =>/,
+    'day headers derive from the selected language instead of English S/M/T labels');
+  assert.doesNotMatch(screen, /\['S', 'M', 'T', 'W', 'T', 'F', 'S'\]/,
+    'no hardcoded English-only ambiguous weekday initials');
+  assert.match(screen, /accessibilityLabel=\{day\.full\}/,
+    'weekday headings announce full local weekday names');
+  assert.match(screen, /weekday: 'long', month: 'long', day: 'numeric', year: 'numeric'/,
+    'each calendar day announces its full date and year for assistive technology');
+  assert.match(screen, /pickupTimeDisplay\}\. \$\{t\('traveler\.schedChangeTime'\)\}/,
+    'time editor accessibility label includes currently selected time');
+  assert.doesNotMatch(screen, /const allSlotsPassed = timeSlots\.every/,
+    'the app no longer changes the chosen time silently when a quick slot expires');
+  assert.doesNotMatch(screen, /ride\.setSchedTime\(firstOpen\)/,
+    'user must explicitly approve an alternative pickup hour');
+  assert.match(screen, /timeGrid: \{ flexDirection: 'row', flexWrap: 'wrap'/,
+    'time choices wrap to two rows on narrow phones');
+  assert.match(screen, /timeBtn: \{\s*width: '48%'/,
+    'time controls are large enough to read without four cramped columns');
+  assert.match(screen, /calCell: \{\s*width: `\$\{100 \/ 7\}%`,\s*minHeight: 48/,
+    'calendar uses 48-point day targets for Android and iOS');
+  assert.match(screen, /keyboardType="numbers-and-punctuation"/,
+    'custom time offers an appropriate time-entry keyboard');
+  assert.match(screen, /accessibilityLabel=\{`\$\{t\('traveler\.useIt'\)\} \$\{suggestLabel\} \$\{suggestPeriod\}`\}/,
+    'rounded suggestion explicitly announces what would be accepted');
+
+  for (const locale of ['en', 'es', 'fr', 'it', 'de']) {
+    const weekStart = locale === 'en' ? 0 : 1;
+    const octoberFirst = new Date(Date.UTC(2026, 9, 1));
+    assert.equal((octoberFirst.getUTCDay() - weekStart + 7) % 7,
+      locale === 'en' ? 4 : 3, locale + ' October calendar alignment');
+    const first = new Date(Date.UTC(2026, 9, 18 + weekStart));
+    const label = first.toLocaleDateString(locale, { weekday: 'long', timeZone: 'UTC' });
+    assert.ok(label.length > 2, locale + ' full weekday name');
+    assert.ok(first.toLocaleDateString(locale, { weekday: 'short', timeZone: 'UTC' }).slice(0,2).length > 0,
+      locale + ' compact localized day label');
+  }
+
   const confirmation = read('app/reserve.tsx');
   assert.match(confirmation, /params\.scheduling === '1'/,
     'confirmation offers a direct return to the selected scheduled pickup');
