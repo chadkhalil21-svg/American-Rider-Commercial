@@ -94,20 +94,6 @@ export default function AccountSecurity() {
     else setError(t('traveler.passwordResetFailed'));
   };
 
-  const changeEmail = async () => {
-    if (!user || provider !== 'password' || !emailOk(nextEmail) || !currentPassword || busy) return;
-    clearMessages();
-    const ok = await requestEmailChange(nextEmail, () => reauthenticateWithPassword(user, currentPassword));
-    if (ok) {
-      setNotice(t('traveler.emailChangeSent', { email: nextEmail.trim() }));
-      setNextEmail('');
-      setCurrentPassword('');
-      setMode('idle');
-    } else {
-      setError(t('traveler.emailChangeFailed'));
-    }
-  };
-
   const changePassword = async () => {
     clearMessages();
     if (!user || provider !== 'password') return;
