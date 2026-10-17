@@ -1060,6 +1060,8 @@ export default {
     schedZoneUnavailable: 'Il fuso orario del prelievo non è disponibile. La programmazione è sospesa; riprova.',
     schedTimeInvalid: 'L’ora del prelievo non esiste, è ripetuta o non è più selezionata. Scegli un altro orario.',
     schedChooseDestination: "Scegli destinazione",
+    schedReturnToPickup: "Ritiro programmato",
+    schedContinue: "Continua",
     schedDestinationNeeded: "Scegli una destinazione per vedere il costo totale del viaggio.",
     schedQuoteNeeded: "Il costo del viaggio non è confermato. Controlla il percorso per conoscere il prezzo aggiornato.",
     schedReviewFare: "Controlla costo del viaggio",
