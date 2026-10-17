@@ -30,8 +30,15 @@ async function postPlatformMessage({ uid, category, title, body, action = null, 
   // Best effort. The inbox already exists even if push delivery fails.
   await notify({
     uid, kind: 'platform_message', title: message.title, body: message.body.slice(0, 180),
-    // Shared, authenticated inbox is valid for both Travelers and Operators.
-    data: { screen: '/inbox', messageId: ref.id },
+    // Older Operator builds know /operator/inbox, not the newer shared
+    // /inbox alias. When a trusted platform event names its actual report,
+    // open that destination directly (e.g. /lost?item=...). Otherwise retain
+    // the legacy Operator route until version-aware delivery is commissioned.
+    data: {
+      screen: typeof action?.screen === 'string' && action.screen.startsWith('/')
+        ? action.screen : '/operator/inbox',
+      messageId: ref.id,
+    },
   }).catch(() => {});
   return { ok: true, id: ref.id, message };
 }
