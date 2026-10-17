@@ -260,6 +260,11 @@ export default {
   // Traveler surfaces speak human. Same restraint, plainer words — and the same refusal to
   // reassure: the price is stated, never defended.
   traveler: {
+    platformCommunications: "American Rider messages",
+    platformCommunicationsBody: "Messages from American Rider about your account, safety, and Travel.",
+    noPlatformCommunications: "No communications yet.",
+    newPlatformCommunication: "New",
+    platformCommunicationReadFailed: "Could not mark this communication as read. Please try again.",
     updateRequiredTitle: 'Update required',
     updateRequiredBody: 'Update American Rider to review and confirm the current Travel Total. No booking or payment was made.',
     priceChangedTitle: 'Travel Total updated',
