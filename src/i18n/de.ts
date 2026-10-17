@@ -1059,6 +1059,7 @@ export default {
     schedTimeChosen: '%{time} ausgewählt.',
     schedPickupZone: "Ortszeit der Abholung · %{zone}",
     schedZoneUnavailable: 'Die Zeitzone der Abholung ist nicht verfügbar. Terminplanung ist ausgesetzt; bitte erneut versuchen.',
+    schedCheckingZone: "Abholgebiet wird geprüft…",
     schedTimeInvalid: 'Diese Abholzeit fällt aus, kommt doppelt vor oder ist nicht mehr ausgewählt. Bitte eine andere Zeit wählen.',
     schedPickupDateLabel: "Abholdatum",
     schedPreviousMonth: "Vorheriger Monat",
