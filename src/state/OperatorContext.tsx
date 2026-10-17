@@ -289,7 +289,9 @@ type OperatorState = {
   lastCompleted: CompletedOp | null;
   msgs: OpMsg[];
   sendMsg: (text: string) => void;
-  // revenue (derived from completed simulated operations — starts at zero, earned)
+  /** Whether the last authenticated attempt to check unpaid Travel was confirmed. */
+  payoutRecoveryStatus: 'not_checked' | 'checking' | 'checked' | 'unconfirmed';
+  // Local operational estimates, not authoritative Stripe transfer or bank figures.
   ops: CompletedOp[];
   todayTotal: number;
   todayOps: number;
@@ -380,6 +382,7 @@ export function OperatorProvider({ children }: { children: React.ReactNode }) {
   const [lastCompleted, setLastCompleted] = useState<CompletedOp | null>(null);
   const [msgs, setMsgs] = useState<OpMsg[]>([]);
   const [revenue, setRevenue] = useState<RevenueBlob>(EMPTY_REVENUE);
+  const [payoutRecoveryStatus, setPayoutRecoveryStatus] = useState<OperatorState['payoutRecoveryStatus']>('not_checked');
 
   // Mirror of the revenue blob so mutations never nest setState inside an updater
   // (React updaters must stay pure — StrictMode runs them twice).
@@ -759,12 +762,16 @@ export function OperatorProvider({ children }: { children: React.ReactNode }) {
       return;
     }
     setInboxError(null);
-    // Ask for anything still owed. A travel settles once, at completion, and that attempt
-    // fails for ordinary reasons — money still clearing, onboarding unfinished at the time, a
-    // dropped connection. Nothing retried, so the fare stayed with the platform and the
-    // operator was not paid. Silent by design: it either moves money or it does not, and an
-    // operator opening the app should not be shown plumbing.
-    settlePendingPayouts();
+    // A request to recover a past unpaid fare is not evidence of successful settlement.
+    // Keep failures distinct from a genuine server response and scope late replies to the
+    // account that made the request, so switching accounts cannot present stale results.
+    const recoveryUid = user.uid;
+    setPayoutRecoveryStatus('checking');
+    void settlePendingPayouts().then((result) => {
+      if (userUidRef.current === recoveryUid) {
+        setPayoutRecoveryStatus(result.ok ? 'checked' : 'unconfirmed');
+      }
+    });
     return watchAssignedTravel((list) => {
       // A TRAVEL UNDERWAY SURVIVES THE APP CLOSING.
       //
@@ -1415,6 +1422,7 @@ tr('traveler.gateLocation'),
 
   const value: OperatorState = {
     ready,
+    payoutRecoveryStatus,
     opName,
     opInitials,
     role,
