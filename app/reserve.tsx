@@ -447,6 +447,11 @@ export default function TravelConfirmation() {
   const busy = pricing || ride.repricing;
   const partyReady = travelPartyReady(ride.travelParty);
   const canReserve = payConfig.canTakePayment && partyReady && authoritativePriceReady && !!ride.tripCoords && !busy && !priceFailed && !unavailable;
+  // A Traveler choosing a destination for a future reservation must never
+  // accidentally trigger the immediate booking/payment button.
+  const selectingScheduledTravel = params.scheduling === '1';
+  const canContinueScheduling = partyReady && authoritativePriceReady &&
+    !!ride.tripCoords && !busy && !priceFailed && !unavailable;
   const quoteFailureText = quoteFailure === 'toll_unavailable' ? t('traveler.quoteTollUnavailable')
     : quoteFailure === 'route_geometry_required' ? t('traveler.quoteLocationUnresolved')
     : quoteFailure === 'network_unavailable' ? t('traveler.errNetwork')
@@ -948,12 +953,17 @@ export default function TravelConfirmation() {
                 </View>
               )}
             <PrimaryButton
-              label={busy ? t('traveler.busyChecking') : t('traveler.confirmTravel')}
-              disabled={!canReserve}
-              onPress={confirm}
+              label={busy ? t('traveler.busyChecking')
+                : t(selectingScheduledTravel ? 'traveler.schedContinueScheduling' : 'traveler.confirmTravel')}
+              disabled={selectingScheduledTravel ? !canContinueScheduling : !canReserve}
+              onPress={selectingScheduledTravel
+                ? () => { if (canContinueScheduling) router.navigate('/schedule'); }
+                : confirm}
               style={styles.confirm}
             />
-            <Text style={styles.cancelTerms}>{t('traveler.cancellationGrace')}</Text>
+            {!selectingScheduledTravel && (
+              <Text style={styles.cancelTerms}>{t('traveler.cancellationGrace')}</Text>
+            )}
           </View>
         )}
       </KeyboardAvoidingView>
