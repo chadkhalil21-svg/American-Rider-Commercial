@@ -547,9 +547,14 @@ export default function Schedule() {
       {scheduleStatus === 'date_required' && (
         <Text style={styles.customPast}>{t('traveler.schedPickDay')}</Text>
       )}
-      <Text style={styles.summaryNote}>{pickupZone
-        ? t('traveler.schedPickupZone', { zone: pickupZoneLabel })
-        : t('traveler.schedZoneUnavailable')}</Text>
+      {pickupZone && (
+        <Text style={styles.summaryNote}>
+          {t('traveler.schedPickupZone', { zone: pickupZoneLabel })}
+        </Text>
+      )}
+      {!pickupZone && hasDestination && hasQuote && (
+        <Text style={styles.customPast}>{t('traveler.schedZoneUnavailable')}</Text>
+      )}
 
       <Card style={styles.summaryCard}>
         <View style={styles.summaryRow}>
@@ -560,9 +565,11 @@ export default function Schedule() {
         </View>
         <View style={[styles.summaryRow, { marginTop: 10 }]}>
           <Text style={styles.summaryLabel}>{t('traveler.totalTravelCost')}</Text>
-          <Num size={17} weight="600">
-            {hasQuote ? fmt(ride.travelerTotal) : '—'}
-          </Num>
+          {hasQuote ? (
+            <Num size={17} weight="600">{fmt(ride.travelerTotal)}</Num>
+          ) : (
+            <Text style={styles.unquotedPrice}>{t('traveler.schedNotQuoted')}</Text>
+          )}
         </View>
         {/* WAS: "Locked in when you book — it won't change, even if prices are up that
             morning. Your operator is set the night before." Two problems. The first half
@@ -577,32 +584,30 @@ export default function Schedule() {
             somewhere permanent, not a reassurance beside the amount. */}
       </Card>
 
-      {(scheduleStatus === 'destination_required' || scheduleStatus === 'quote_required') && (
-        <View style={styles.journeyGuidance}>
-          <Text style={styles.journeyGuidanceText}>
-            {t(scheduleStatus === 'destination_required'
-              ? 'traveler.schedDestinationNeeded' : 'traveler.schedQuoteNeeded')}
-          </Text>
-          <Pressable
-            accessibilityRole="button"
-            onPress={() => router.navigate({
-              pathname: '/reserve',
-              params: hasDestination ? { scheduling: '1' } : { search: '1', scheduling: '1' },
-            })}
-            style={styles.journeyGuidanceLink}
-          >
-            <Text style={styles.journeyGuidanceAction}>
-              {t(scheduleStatus === 'destination_required'
-                ? 'traveler.schedChooseDestination' : 'traveler.schedReviewFare')} ›
-            </Text>
-          </Pressable>
-        </View>
+      {scheduleStatus === 'destination_required' && (
+        <Text style={styles.journeyHelp}>{t('traveler.schedDestinationNeeded')}</Text>
+      )}
+      {scheduleStatus === 'quote_required' && (
+        <Text style={styles.journeyHelp}>{t('traveler.schedQuoteNeeded')}</Text>
+      )}
+      {scheduleStatus === 'time_unconfirmed' && (
+        <Text style={styles.customPast}>{t('traveler.schedConfirmTimeHint')}</Text>
       )}
       {saveError ? <Text style={styles.splashWarn}>{t('traveler.schedSaveReview')}</Text> : null}
       <PrimaryButton
-        label={t('traveler.scheduleTravel')}
-        disabled={schedInvalid || saving}
+        label={t(scheduleStatus === 'destination_required' ? 'traveler.schedChooseDestination'
+          : scheduleStatus === 'quote_required' ? 'traveler.schedReviewFare'
+          : 'traveler.scheduleTravel')}
+        disabled={saving || (schedInvalid &&
+          scheduleStatus !== 'destination_required' && scheduleStatus !== 'quote_required')}
         onPress={async () => {
+          if (scheduleStatus === 'destination_required' || scheduleStatus === 'quote_required') {
+            router.navigate({
+              pathname: '/reserve',
+              params: hasDestination ? { scheduling: '1' } : { search: '1', scheduling: '1' },
+            });
+            return;
+          }
           if (scheduleStatus !== 'ready' || !resolved.ok || resolved.atMs <= Date.now() ||
               !pickupZone || !selectedPickupDate) return;
           const info: SchedInfo = {
@@ -773,7 +778,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 18,
   },
   invalidText: { fontSize: 13.5, color: colors.red, lineHeight: 20 },
-  summaryCard: { marginTop: 16, paddingVertical: 18, paddingHorizontal: 20, marginBottom: 16 },
+  journeyHelp: { fontSize: 13.5, color: colors.ink2, marginTop: 8, marginBottom: 8, lineHeight: 20 },
+  unquotedPrice: { fontSize: 14, fontWeight: '600', color: colors.ink2 },
+  summaryCard: { marginTop: 16, paddingVertical: 18, paddingHorizontal: 20, marginBottom: 12 },
   summaryRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
