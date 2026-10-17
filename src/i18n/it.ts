@@ -1007,6 +1007,7 @@ export default {
     passwordResetFailed: 'Non è stato possibile inviare l’e-mail per reimpostare la password. Riprovi.',
     saveNewPassword: 'Salvare la nuova password',
     mobileContactSub: 'Mantenga il numero che American Rider può usare per contattarla in merito ai Viaggi o all’account.',
+    mobileReadUnavailable: "Impossibile caricare il numero di cellulare salvato. Controlla la connessione e riprova. Non è stata apportata alcuna modifica.",
     mobileContactNote: 'Il numero di cellulare è un dato di contatto. Non viene usato per accedere o recuperare l’account.',
     mobileInvalid: 'Inserisca un numero di cellulare valido.',
     emailAddressTitle: 'Indirizzo e-mail',
