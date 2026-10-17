@@ -238,6 +238,17 @@ export default function Schedule() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [marketToday, ride.schedDate, ride.schedPickupDate, activeDayChoice]);
 
+  // Returning from destination search may remount this screen. Show the
+  // month containing the exact chosen date rather than resetting the calendar
+  // to today's month and hiding the existing selection from view.
+  useEffect(() => {
+    if (activeDayChoice !== 'pick' || !selectedPickupDate || !marketToday) return;
+    const monthIndex = (date: string) =>
+      Number(date.slice(0,4)) * 12 + Number(date.slice(5,7));
+    const offset = Math.max(0, Math.min(2, monthIndex(selectedPickupDate) - monthIndex(marketToday)));
+    setCalOffset(offset);
+  }, [activeDayChoice, selectedPickupDate, marketToday]);
+
   // Never replace a Traveler's chosen pickup hour automatically, even as time passes.
   // An expired time remains visible and requires an explicit new selection.
 
