@@ -1035,6 +1035,7 @@ export default {
     emailChangedTitle: "Adresse électronique mise à jour",
     emailSameAddress: "C’est déjà votre adresse actuelle.",
     emailChangeFailed: 'La modification de l’adresse e-mail n’a pas pu être lancée. Vérifiez votre mot de passe et réessayez.',
+    emailManagedUnsupported: "Ce mode de connexion ne permet pas de modifier l’adresse ici. Contactez l’assistance.",
     emailManagedTitle: 'Gérée par votre fournisseur de connexion',
     emailManagedApple: 'Ce compte utilise Apple pour se connecter. Gérez l’adresse associée à Se connecter avec Apple depuis votre compte Apple.',
     emailManagedGoogle: 'Ce compte utilise Google pour se connecter. Gérez l’adresse associée à cette connexion depuis votre compte Google.',
