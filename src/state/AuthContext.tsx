@@ -3,6 +3,7 @@
 import { updateProfile,
   createUserWithEmailAndPassword,
   onAuthStateChanged,
+  reload,
   sendEmailVerification,
   sendPasswordResetEmail,
   signInWithEmailAndPassword,
@@ -50,6 +51,8 @@ type AuthState = {
   setDisplayName: (name: string) => Promise<boolean>;
   resendEmailVerification: () => Promise<boolean>;
   requestEmailChange: (newEmail: string, reauthenticate: () => Promise<void>) => Promise<boolean>;
+  /** One explicit Firebase Auth refresh after following the verification link. */
+  refreshEmailStatus: () => Promise<boolean>;
   deleteAccount: (reauthenticate: () => Promise<void>) => Promise<void>;
   signOut: () => Promise<void>;
 };
@@ -90,6 +93,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [onboarding, setOnboarding] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [diagnosticCode, setDiagnosticCode] = useState<string | null>(null);
+  // Firebase reload mutates the User object in place. Publish a revision so
+  // account/profile consumers redraw without spreading a User and losing SDK methods.
+  const [, setIdentityRevision] = useState(0);
 
   useEffect(() => {
     let version = 0;
@@ -250,7 +256,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     },
     requestEmailChange: async (newEmail, reauthenticate) => {
       const u = auth.currentUser;
-      const clean = newEmail.trim().toLowerCase();
+      // Firebase owns normalization. Preserve the entered local-part's casing;
+      // changing every letter here can alter technically case-sensitive addresses.
+      const clean = newEmail.trim();
       if (!u || !clean) return false;
       setBusy(true);
       setError(null);
@@ -263,6 +271,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return false;
       } finally {
         setBusy(false);
+      }
+    },
+    refreshEmailStatus: async () => {
+      const u = auth.currentUser;
+      if (!u) return false;
+      try {
+        const beforeEmail = u.email;
+        const beforeVerified = u.emailVerified;
+        await reload(u);
+        if (auth.currentUser?.uid !== u.uid) return false;
+        if (u.email !== beforeEmail || u.emailVerified !== beforeVerified) {
+          // Authenticated API routes derive the receipt/contact address from
+          // the Firebase ID token, not just from the visible profile. A
+          // verification change needs ONE refreshed token before future Travel.
+          await u.getIdToken(true);
+        }
+        setIdentityRevision(v => v + 1);
+        return true;
+      } catch {
+        return false;
       }
     },
     deleteAccount: (reauthenticate) =>

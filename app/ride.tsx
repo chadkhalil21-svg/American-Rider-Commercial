@@ -627,7 +627,7 @@ export default function RideScreen() {
             <OutlineButton
               label={t('traveler.patronSupport')}
               onPress={() => {
-                ride.openHelp(ride.lastTrip.no);
+                ride.openHelp();
                 router.navigate({ pathname: '/issues', params: { from: 'status' } });
               }}
               style={{ flex: 1 }}

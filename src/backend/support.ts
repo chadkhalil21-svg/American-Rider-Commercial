@@ -31,11 +31,12 @@ export type SupportOutcome =
   // Reaching nobody at all is its own outcome and must read as one.
   | { action: 'unreachable'; message: string };
 
-const UNREACHABLE: SupportOutcome = {
+// Resolve language at the moment of a failure, not once at app startup.
+// Travelers may change language without reloading the application.
+const unreachable = (): SupportOutcome => ({
   action: 'unreachable',
-  message:
-    t('traveler.supportUnreachable'),
-};
+  message: t('traveler.supportUnreachable'),
+});
 
 async function authHeaders(): Promise<Record<string, string>> {
   const token = await auth.currentUser?.getIdToken().catch(() => null);
@@ -75,7 +76,7 @@ export async function submitIssue(args: {
       }),
     });
     const d = await res.json().catch(() => ({}));
-    if (!res.ok) return UNREACHABLE;
+    if (!res.ok) return unreachable();
 
     if (d.action === 'credit' && typeof d.credit_cents === 'number') {
       return {
@@ -96,9 +97,9 @@ export async function submitIssue(args: {
         filed: d.filed === true,
       };
     }
-    return UNREACHABLE;
+    return unreachable();
   } catch {
-    return UNREACHABLE;
+    return unreachable();
   }
 }
 

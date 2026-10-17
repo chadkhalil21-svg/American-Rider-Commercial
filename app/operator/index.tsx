@@ -335,6 +335,11 @@ export default function OperatorHome() {
                 that is cleared by reading one screen, so the refusal points straight at it
                 rather than leaving somebody to hunt through a menu for the thing standing
                 between them and working. */}
+            {op.offlinePending && !op.onlineError && (
+              <Text style={styles.dutyError}>
+                {t('operator.offlineConfirming')}
+              </Text>
+            )}
             {op.onlineError && <Text style={styles.dutyError}>{op.onlineError}</Text>}
             {op.onlineErrorCode === 'disclosure_required' && (
               <Pressable onPress={() => router.navigate('/operator/disclosure')} hitSlop={8}>
@@ -347,10 +352,12 @@ export default function OperatorHome() {
               // one journey. "Operations" is the whole undertaking; the singular belongs to a
               // single travel, which is why the request sheet accepts a travel rather than
               // commencing anything. The state this produces is In Service.
-              label={op.onlineBusy ? t('operator.commencing') : t('operator.commence')}
+              label={op.offlinePending
+                ? (op.offlineBusy ? t('operator.offlineConfirming') : t('operator.retryConclude'))
+                : (op.onlineBusy ? t('operator.commencing') : t('operator.commence'))}
               color={colors.green}
-              onPress={() => op.setOnline(true)}
-              disabled={op.onlineBusy}
+              onPress={() => op.setOnline(op.offlinePending ? false : true)}
+              disabled={op.onlineBusy || op.offlineBusy}
               style={{ marginTop: 24 }}
             />
           </View>

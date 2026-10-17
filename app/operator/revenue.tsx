@@ -59,18 +59,22 @@ export default function OperatorRevenue() {
         </Card>
       </View>
 
-      {/* "Available to withdraw" and "Withdraw Revenue" described a decision an operator does
+      {/* This device's recorded amounts are estimates, not confirmed transfers. "Available to withdraw" and "Withdraw Revenue" described a decision an operator does
           not have. American Rider does not hold their money — the 99% goes to their own Stripe
           account as each travel completes, and Stripe pays it to their bank on its own
           schedule, whether or not anybody presses anything here. Naming a control after
           something it does not do is the rubric's own example of a screen failing. */}
       <Card style={styles.withdrawCard}>
         <View style={styles.rowBetween}>
-          <Text style={styles.withdrawLabel}>{t('traveler.earnedOnItsWay')}</Text>
+          <Text style={styles.withdrawLabel}>{t('operator.deviceEarningsLabel')}</Text>
           <Num size={18} weight="600">
             {fmt(op.balance)}
           </Num>
         </View>
+        <Text style={styles.sourceNote}>{t('operator.deviceEarningsNotice')}</Text>
+        {op.payoutRecoveryStatus === 'unconfirmed' && (
+          <Text style={styles.payoutWarning}>{t('operator.payoutRecoveryUnconfirmed')}</Text>
+        )}
         <PrimaryButton
           label={t('operator.yourPayouts')}
           onPress={() => router.navigate('/operator/withdraw')}
@@ -118,6 +122,8 @@ const styles = StyleSheet.create({
   pairCard: { flex: 1, paddingVertical: 16, paddingHorizontal: 18 },
   withdrawCard: { marginTop: 14, paddingVertical: 18, paddingHorizontal: 20 },
   withdrawLabel: { fontSize: 14, color: colors.ink2 },
+  sourceNote: { fontSize: 12.5, color: colors.muted, lineHeight: 19, marginTop: 10 },
+  payoutWarning: { fontSize: 12.5, color: colors.red, lineHeight: 19, marginTop: 8 },
   opsCard: { marginTop: 12, paddingVertical: 2, paddingHorizontal: 20 },
   opRow: {
     flexDirection: 'row',

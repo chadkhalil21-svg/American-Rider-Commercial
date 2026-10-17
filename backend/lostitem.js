@@ -76,6 +76,34 @@ async function stampLostItemCase({ itemId, uid, caseNo }, { database } = {}) {
   }
 }
 
+/** Resolve the Operators from the server's real Travel records, never from a
+ * phone-supplied list. One indexed query for up to 20 candidate travels.
+ * A selected exact Travel takes precedence over unsure candidate Travels.
+ */
+async function verifiedLostItemOperators(item, d) {
+  const nominated = item.tripNo
+    ? [String(item.tripNo)]
+    : Array.isArray(item.candidateTripNos) ? item.candidateTripNos : [];
+  const trips = Array.from(new Set(nominated.filter(x => typeof x === 'string' && x.length > 0))).slice(0, MAX_LISTED);
+  if (!trips.length || !item.travelerUid) return [];
+  const found = await d.collection('rides').where('tripNo', 'in', trips).get();
+  const valid = new Map();
+  for (const doc of found.docs || []) {
+    const r = doc.data() || {};
+    if (r.travelerUid !== item.travelerUid || !trips.includes(String(r.tripNo || '')) || !r.operatorId) continue;
+    const operatorUid = String(r.operatorId);
+    if (!valid.has(operatorUid)) valid.set(operatorUid, {
+      uid: operatorUid,
+      name: String(r.operatorName || '').slice(0, 120),
+      tripNo: String(r.tripNo),
+      tripNos: [],
+    });
+    const entry = valid.get(operatorUid);
+    if (!entry.tripNos.includes(String(r.tripNo))) entry.tripNos.push(String(r.tripNo));
+  }
+  return [...valid.values()];
+}
+
 async function notifyLostItemOperators({ itemId, uid }, { database, postMessage } = {}) {
   const d = database || adminDb();
   const send = postMessage || postPlatformMessage;
@@ -85,12 +113,20 @@ async function notifyLostItemOperators({ itemId, uid }, { database, postMessage 
   if (!snap.exists) return { ok: false, delivered: 0 };
   const item = snap.data() || {};
   if (item.travelerUid !== uid) return { ok: false, delivered: 0 };
-  const ids = Array.from(new Set(Array.isArray(item.notifiedOperatorIds) ? item.notifiedOperatorIds.map(String).filter(Boolean) : []));
+  // Ignore any Operator identifiers written by the phone. Recompute from
+  // completed Travel ownership before sending a mandatory platform notice.
+  let verified;
+  try { verified = await verifiedLostItemOperators(item, d); }
+  catch { return { ok: false, delivered: 0 }; }
+  const ids = verified.map(x => x.uid);
   let delivered = 0;
   for (const operatorUid of ids) {
     const out = await send({
       uid: operatorUid,
       category: 'support',
+      // Repeating POST /lost-item after an uncertain response must never
+      // create two inbox notices to the same Operator for one report.
+      idempotencyKey: `lost-item-report:${itemId}:${operatorUid}`,
       title: 'Lost item report',
       body: item.tripNo
         ? `A Traveler reported an item from Travel ${item.tripNo}. Please check the vehicle and record what you find.`
@@ -100,16 +136,33 @@ async function notifyLostItemOperators({ itemId, uid }, { database, postMessage 
     }).catch(() => ({ ok: false }));
     if (out?.ok) delivered += 1;
   }
-  const patch = {
-    operatorDeliveryCount: delivered,
-    operatorDeliveryAt: delivered > 0 ? Date.now() : null,
-  };
-  if (delivered > 0) {
-    patch.status = 'operator-notified';
-    patch.statusAt = Date.now();
+  if (typeof d.runTransaction !== 'function') return { ok: false, delivered, expected: ids.length };
+  // A pushed/inbox notice can arrive before this function finishes. The
+  // Operator may then locate the item immediately. Record notification
+  // evidence without moving an already located, arranged or returned item
+  // backward to "operator-notified".
+  try {
+    const persisted = await d.runTransaction(async (tx) => {
+      const currentSnap = await tx.get(ref);
+      if (!currentSnap.exists || currentSnap.data()?.travelerUid !== uid) return false;
+      const current = currentSnap.data() || {};
+      const patch = {
+        notifiedOperatorIds: ids,
+        notifiedOperatorNames: verified.map(x => x.name).filter(Boolean),
+        operatorDeliveryCount: delivered,
+        operatorDeliveryAt: delivered > 0 ? Date.now() : null,
+      };
+      if (delivered > 0 && ['reported', 'operator-notified'].includes(current.status)) {
+        patch.status = 'operator-notified';
+        patch.statusAt = Date.now();
+      }
+      tx.set(ref, patch, { merge: true });
+      return true;
+    });
+    return { ok: !!persisted && delivered > 0, delivered, expected: ids.length };
+  } catch {
+    return { ok: false, delivered, expected: ids.length };
   }
-  await ref.set(patch, { merge: true });
-  return { ok: delivered > 0, delivered, expected: ids.length };
 }
 
 async function operatorLostItem({ itemId, operatorUid }, { database } = {}) {
@@ -119,8 +172,17 @@ async function operatorLostItem({ itemId, operatorUid }, { database } = {}) {
   if (!snap.exists) return { ok: false, status: 404, error: 'Report not found' };
   const item = snap.data() || {};
   const ids = Array.isArray(item.notifiedOperatorIds) ? item.notifiedOperatorIds.map(String) : [];
-  if (!ids.includes(String(operatorUid))) return { ok: false, status: 403, error: 'Not authorized for this report' };
-  const candidateTripNos = Array.isArray(item.candidateTripNos) ? item.candidateTripNos.map(String) : [];
+  // A phone can nominate an Operator ID at creation. Never grant that person
+  // access to private details or photos without verifying real ride ownership.
+  let verified;
+  try { verified = await verifiedLostItemOperators(item, d); }
+  catch { return { ok: false, status: 503, error: 'Travel verification unavailable' }; }
+  if (!ids.includes(String(operatorUid)) || !verified.some(x => x.uid === String(operatorUid)))
+    return { ok: false, status: 403, error: 'Not authorized for this report' };
+  // Only present this Operator's *verified* Travels, not every candidate
+  // supplied by the Traveler. An Operator who drove two possible journeys
+  // may select either; journeys belonging to another Operator stay private.
+  const candidateTripNos = verified.find(x => x.uid === String(operatorUid))?.tripNos || [];
   return {
     ok: true,
     item: {
@@ -136,52 +198,118 @@ async function operatorLostItem({ itemId, operatorUid }, { database } = {}) {
   };
 }
 
-async function respondLostItem({ itemId, operatorUid, outcome, tripNo }, { database } = {}) {
+async function respondLostItem({ itemId, operatorUid, outcome, tripNo }, { database, postMessage } = {}) {
   const d = database || adminDb();
+  const send = postMessage || postPlatformMessage;
   if (!d || !itemId || !operatorUid) return { ok: false, status: 503, error: 'Lost-item service unavailable' };
-  if (!['located', 'not-found'].includes(outcome)) return { ok: false, status: 400, error: 'Outcome must be located or not-found' };
+  if (!['located', 'not-found'].includes(outcome))
+    return { ok: false, status: 400, error: 'Outcome must be located or not-found' };
+  if (typeof d.runTransaction !== 'function')
+    return { ok: false, status: 503, error: 'Transactional report recovery unavailable' };
+
   const ref = d.collection('lost_items').doc(String(itemId));
   const snap = await ref.get();
   if (!snap.exists) return { ok: false, status: 404, error: 'Report not found' };
   const item = snap.data() || {};
   const ids = Array.isArray(item.notifiedOperatorIds) ? item.notifiedOperatorIds.map(String) : [];
-  if (!ids.includes(String(operatorUid))) return { ok: false, status: 403, error: 'Not authorized for this report' };
+  // A phone can nominate arbitrary Operators. Verify real Travel ownership
+  // independently before the transaction, then recheck membership inside.
+  let verified;
+  try { verified = await verifiedLostItemOperators(item, d); }
+  catch { return { ok: false, status: 503, error: 'Travel verification unavailable' }; }
+  if (!ids.includes(String(operatorUid)) || !verified.some(x => x.uid === String(operatorUid)))
+    return { ok: false, status: 403, error: 'Not authorized for this report' };
+
   const candidates = Array.isArray(item.candidateTripNos) ? item.candidateTripNos.map(String) : [];
   let boundTrip = item.tripNo || null;
-  if (outcome === 'located') {
-    if (!boundTrip) {
-      if (!tripNo || !candidates.includes(String(tripNo))) return { ok: false, status: 400, error: 'Select the Travel in which the item was found' };
+  if (outcome === 'located' && !boundTrip) {
+    if (!tripNo || !candidates.includes(String(tripNo)))
+      return { ok: false, status: 400, error: 'Select the Travel in which the item was found' };
+    try {
       const ride = await d.collection('rides').where('tripNo', '==', String(tripNo)).limit(1).get();
       const rideDoc = ride.docs?.[0];
-      if (!rideDoc || String((rideDoc.data() || {}).operatorId || '') !== String(operatorUid)) {
+      const recorded = rideDoc?.data() || {};
+      if (recorded.operatorId !== String(operatorUid) || recorded.travelerUid !== item.travelerUid)
         return { ok: false, status: 403, error: 'That Travel is not assigned to this Operator' };
-      }
-      boundTrip = String(tripNo);
+    } catch {
+      return { ok: false, status: 503, error: 'Travel verification unavailable' };
     }
+    boundTrip = String(tripNo);
   }
-  const now = Date.now();
-  const responses = { ...(item.operatorResponses || {}), [String(operatorUid)]: { outcome, tripNo: boundTrip, at: now } };
-  const patch = { operatorResponses: responses, statusAt: now };
-  if (outcome === 'located') {
-    patch.status = 'located';
-    patch.tripNo = boundTrip;
-    patch.locatedByOperatorId = String(operatorUid);
-  } else {
-    const everyAnsweredNotFound = ids.length > 0 && ids.every((id) => responses[id]?.outcome === 'not-found');
-    patch.status = everyAnsweredNotFound ? 'not-found' : 'operator-notified';
+
+  let result;
+  try {
+    result = await d.runTransaction(async (tx) => {
+      // Firestore retries a contested transaction against the newest version.
+      // Do not send inbox messages or charge anything inside this callback.
+      const latest = await tx.get(ref);
+      if (!latest.exists) return { ok: false, status: 404, error: 'Report not found' };
+      const current = latest.data() || {};
+      const currentIds = Array.isArray(current.notifiedOperatorIds) ? current.notifiedOperatorIds.map(String) : [];
+      if (current.travelerUid !== item.travelerUid || !currentIds.includes(String(operatorUid)) ||
+          !verified.some(x => x.uid === String(operatorUid)))
+        return { ok: false, status: 403, error: 'Not authorized for this report' };
+      if (['return-arranged', 'returned'].includes(current.status))
+        return { ok: false, status: 409, error: 'Return already being arranged or completed' };
+      if (current.status === 'located' && outcome === 'located')
+        return { ok: true, status: 'located', tripNo: current.tripNo || null, reused: true };
+
+      const prior = current.operatorResponses?.[String(operatorUid)] || null;
+      if (prior?.outcome === outcome && (outcome === 'not-found' || prior.tripNo === boundTrip))
+        return { ok: true, status: current.status, tripNo: current.tripNo || null, reused: true };
+
+      const now = Date.now();
+      const responses = {
+        ...(current.operatorResponses || {}),
+        [String(operatorUid)]: { outcome, tripNo: current.tripNo || boundTrip, at: now },
+      };
+      const patch = { operatorResponses: responses, statusAt: now };
+      if (outcome === 'located') {
+        // A newly located item supersedes any earlier 'not-found' results.
+        // An established item location is never rebound by another Operator.
+        patch.status = 'located';
+        patch.tripNo = current.tripNo || boundTrip;
+        patch.locatedByOperatorId = String(operatorUid);
+      } else if (current.status === 'located') {
+        // Other Operators may report that they did not find it, but this cannot
+        // un-find a report that someone already positively located.
+        patch.status = 'located';
+      } else {
+        const everyoneAnswered = currentIds.length > 0 &&
+          currentIds.every(id => responses[id]?.outcome === 'not-found');
+        patch.status = everyoneAnswered ? 'not-found' : 'operator-notified';
+      }
+      tx.set(ref, patch, { merge: true });
+      return {
+        ok: true,
+        status: patch.status,
+        tripNo: patch.tripNo || current.tripNo || null,
+        // A negative check by another Operator cannot change the proven
+        // location, so it is not a new Traveler notification.
+        silent: current.status === 'located' && outcome === 'not-found',
+        notifyTravelerUid: current.travelerUid,
+      };
+    });
+  } catch {
+    return { ok: false, status: 503, error: 'Unable to save report update' };
   }
-  await ref.set(patch, { merge: true });
-  await postPlatformMessage({
-    uid: item.travelerUid,
+  if (!result.ok || result.reused || result.silent) return result;
+
+  // Notify once after committed state, not from a transaction callback which
+  // Firestore can run more than once during a race.
+  await send({
+    uid: result.notifyTravelerUid,
     category: 'support',
     title: outcome === 'located' ? 'Your item was located' : 'Lost item update',
-    body: outcome === 'located'
-      ? 'The Operator located the item. Open the report to arrange its return.'
-      : (patch.status === 'not-found' ? 'The Operators connected with this report did not locate the item.' : 'One Operator checked and did not locate the item. Other checks remain open.'),
-    action: { screen: `/lost?itemId=${encodeURIComponent(String(itemId))}` },
+    body: result.status === 'located'
+      ? 'An Operator located the item. Open the report for return coordination.'
+      : result.status === 'not-found'
+        ? 'The Operators connected with this report did not locate the item.'
+        : 'An Operator checked and did not locate the item. Other checks remain open.',
+    action: { screen: `/lost?item=${encodeURIComponent(String(itemId))}` },
     required: true,
   }).catch(() => {});
-  return { ok: true, status: patch.status, tripNo: boundTrip };
+  return { ok: true, status: result.status, tripNo: result.tripNo };
 }
 
 module.exports = {

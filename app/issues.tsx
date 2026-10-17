@@ -29,7 +29,7 @@ import {
   Sub,
   Title,
 } from '../src/components/UI';
-import { fetchMyLostItems, type LostItem, type LostItemStatus } from '../src/backend/lostitem';
+import { fetchMyLostItemsPage, type LostItem, type LostItemPage, type LostItemStatus } from '../src/backend/lostitem';
 import { fetchMyCases, type SupportCase } from '../src/backend/support';
 import { ISSUES, prettyPlace } from '../src/data';
 import { travelDate, travelDateTime } from '../src/dates';
@@ -95,6 +95,10 @@ export default function PatronSupport() {
   const [casesPartial, setCasesPartial] = useState(false);
   const [casesLoading, setCasesLoading] = useState(false);
   const [lost, setLost] = useState<LostItem[]>([]);
+  const [lostLoading, setLostLoading] = useState(false);
+  const [lostUnavailable, setLostUnavailable] = useState(false);
+  const [lostMore, setLostMore] = useState(false);
+  const [lostCursor, setLostCursor] = useState<LostItemPage['cursor']>(null);
 
   // Failed case-history reads must never be represented as an empty inbox.
   // Keep the last known cases visible until a successful refresh replaces them.
@@ -110,17 +114,37 @@ export default function PatronSupport() {
     }
     setCasesLoading(false);
   }, []);
-  // Read again every time the screen comes into view, not once on mount: a report filed a
-  // moment ago on the Lost Item screen is listed the moment the traveler comes back here.
+  const refreshLost = useCallback(async (
+    after: LostItemPage['cursor'] = null,
+    live: () => boolean = () => true,
+  ) => {
+    setLostLoading(true);
+    try {
+      const page = await fetchMyLostItemsPage(after);
+      if (!live()) return;
+      setLost(previous => after
+        ? [...previous, ...page.items.filter(item => !previous.some(old => old.id === item.id))]
+        : page.items);
+      setLostCursor(page.cursor);
+      setLostMore(page.hasMore);
+      setLostUnavailable(false);
+    } catch {
+      // Preserve any already visible reports; offline is not an empty history.
+      if (live()) setLostUnavailable(true);
+    } finally {
+      if (live()) setLostLoading(false);
+    }
+  }, []);
+
+  // Refresh on return from Lost Item, not every render. "More" fetches only
+  // the next Firestore cursor page if explicitly requested.
   useFocusEffect(
     useCallback(() => {
       let live = true;
       void refreshCases(() => live);
-      fetchMyLostItems().then((items) => live && setLost(items));
-      return () => {
-        live = false;
-      };
-    }, [refreshCases]),
+      void refreshLost(null, () => live);
+      return () => { live = false; };
+    }, [refreshCases, refreshLost]),
   );
 
   // THE TRAVEL THE CASE CONCERNS, stated before the traveler writes a word (Chad, 15 Sept
@@ -244,6 +268,15 @@ export default function PatronSupport() {
           </Pressable>
         </Card>
       )}
+      {ride.issueState === null && lostUnavailable && (
+        <Card style={styles.regardingCard}>
+          <Text style={styles.submissionError}>{t('traveler.lostHistoryCouldNotLoad')}</Text>
+          <Pressable accessibilityRole="button" disabled={lostLoading}
+            onPress={() => { void refreshLost(lostMore ? lostCursor : null); }} style={styles.linkRow}>
+            <Text style={styles.link}>{t('traveler.tryAgain')}</Text>
+          </Pressable>
+        </Card>
+      )}
       {ride.issueState === null && casesPartial && !casesUnavailable && (
         <Card style={styles.regardingCard}>
           <Text style={styles.caseMeta}>{t('traveler.caseHistoryPartial')}</Text>
@@ -314,6 +347,13 @@ export default function PatronSupport() {
             })}
           </Card>
         </>
+      )}
+
+      {ride.issueState === null && lostMore && lostCursor && !lostUnavailable && (
+        <Pressable accessibilityRole="button" disabled={lostLoading}
+          onPress={() => { void refreshLost(lostCursor); }} style={styles.linkRow}>
+          <Text style={styles.link}>{lostLoading ? t('traveler.busyChecking') : t('traveler.lostHistoryMore')}</Text>
+        </Pressable>
       )}
 
       {/* ---- the traveler's own words ---- */}

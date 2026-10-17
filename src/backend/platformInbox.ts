@@ -18,14 +18,14 @@ async function headers() {
 }
 
 export async function fetchOperatorInbox(): Promise<PlatformMessage[]> {
-  const res = await fetch(`${PAYMENT_SERVER_URL}/operator/inbox`, { headers: await headers() });
+  const res = await fetch(`${PAYMENT_SERVER_URL}/account/inbox`, { headers: await headers() });
   if (!res.ok) throw new Error('platform_inbox_unavailable');
   const out = await res.json();
   return Array.isArray(out.messages) ? out.messages : [];
 }
 
 export async function markOperatorMessageRead(id: string): Promise<boolean> {
-  const res = await fetch(`${PAYMENT_SERVER_URL}/operator/inbox/${encodeURIComponent(id)}/read`, {
+  const res = await fetch(`${PAYMENT_SERVER_URL}/account/inbox/${encodeURIComponent(id)}/read`, {
     method: 'POST', headers: await headers(),
   });
   return res.ok;
