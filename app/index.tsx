@@ -358,7 +358,7 @@ export default function Home() {
         // itinerary belongs in the menu). Each opens the screen that shows it.
         ...(ride.rideActive ? [{ label: t('traveler.travelInProgress'), onPress: () => go('/ride') }] : []),
         ...(ride.scheduled && !ride.rideActive
-          ? [{ label: t('traveler.scheduledTravel'), onPress: () => setMenuOpen(false) }]
+          ? [{ label: t('traveler.scheduledTravel'), onPress: () => go('/upcoming') }]
           : []),
         { label: t('traveler.travelLog'), onPress: () => go({ pathname: '/history', params: { from: 'home' } }) },
       ],
@@ -570,6 +570,11 @@ export default function Home() {
               {t('traveler.chargedNotCreated')}
             </Text>
           )}
+          <Pressable accessibilityRole="button"
+            style={{ minHeight: 44, alignSelf: 'flex-start', justifyContent: 'center', marginTop: 8 }}
+            onPress={() => router.navigate('/upcoming')}>
+            <Text style={styles.upcomingOpen}>{t('traveler.schedManageTravel')} ›</Text>
+          </Pressable>
         </View>
       )}
 
