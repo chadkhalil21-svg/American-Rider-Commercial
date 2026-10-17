@@ -25,9 +25,6 @@ export default function OperatorEconomics() {
         <Text style={styles.backText}>{t('common.back')}</Text>
       </Pressable>
       <Title>{t('operator.econTitle')}</Title>
-      <Pressable accessibilityRole="button" onPress={() => router.navigate('/operator/market-research')} style={{ paddingVertical: 14 }}>
-        <Text>{t('operator.fareResearchLink')} ›</Text>
-      </Pressable>
       <Text style={styles.lead}>{t('operator.econIntro')}</Text>
       <Card style={styles.ruleCard}>
         <Num size={46} weight="600" style={styles.heroPercent}>99%</Num>
@@ -93,6 +90,9 @@ export default function OperatorEconomics() {
         {showAccountTerms && <Text style={styles.detail}>{t('operator.activeAccountCostBody')}</Text>}
       </Card>
       <Text style={styles.disclaimer}>{t('operator.econDisclaimer')}</Text>
+      <Pressable accessibilityRole="button" onPress={() => router.navigate('/operator/market-research')} style={styles.researchLink}>
+        <Text style={styles.researchLinkText}>{t('operator.fareResearchLink')} ›</Text>
+      </Pressable>
       <PrimaryButton
         label={t('operator.econReviewRequirements')}
         onPress={() => router.replace('/operator/qualify')}
@@ -121,5 +121,7 @@ const styles = StyleSheet.create({
   estimateNote: { color: colors.muted, marginTop: 12, fontSize: 13, lineHeight: 19 },
   termsToggle: { minHeight: 44, justifyContent: 'center', alignSelf: 'flex-start', marginTop: 6 },
   termsToggleText: { color: colors.ink, fontSize: 14, fontWeight: '600', textDecorationLine: 'underline' },
+  researchLink: { minHeight: 44, justifyContent: 'center', alignSelf: 'flex-start', marginTop: 10 },
+  researchLinkText: { color: colors.ink2, fontSize: 14, textDecorationLine: 'underline' },
   disclaimer: { color: colors.muted, fontSize: 13, lineHeight: 19, marginTop: 16 },
 });
