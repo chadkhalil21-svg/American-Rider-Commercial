@@ -1081,6 +1081,8 @@ export default {
     schedZoneUnavailable: 'Pickup market time zone is unavailable. Scheduling is paused; try again.',
     schedTimeInvalid: 'That pickup hour is missing, repeated, or no longer selected. Choose another time.',
     schedChooseDestination: "Choose destination",
+    schedReturnToPickup: "Scheduled pickup",
+    schedContinue: "Continue",
     schedDestinationNeeded: "Choose a destination to see your complete Travel Cost.",
     schedQuoteNeeded: "The Travel Cost has not been confirmed. Review your journey for a current price.",
     schedReviewFare: "Review Travel Cost",
