@@ -1079,6 +1079,7 @@ export default {
     schedTimeChosen: '%{time} selected.',
     schedPickupZone: "Times shown at pickup · %{zone}",
     schedZoneUnavailable: 'Pickup market time zone is unavailable. Scheduling is paused; try again.',
+    schedCheckingZone: "Checking pickup area…",
     schedTimeInvalid: 'That pickup hour is missing, repeated, or no longer selected. Choose another time.',
     schedPickupDateLabel: "Pickup date",
     schedPreviousMonth: "Previous month",
