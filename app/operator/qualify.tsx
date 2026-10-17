@@ -37,30 +37,31 @@ export default function OperatorQualification() {
   const [area, setArea] = useState<MarketState | null>(null);
   const [areaBusy, setAreaBusy] = useState(false);
   const [areaError, setAreaError] = useState<string | null>(null);
+  // A failed market request must not look like a valid empty county list.
+  // Retry only when the Operator asks, and do not request GPS permission.
+  const loadArea = React.useCallback(async (alive: () => boolean = () => true) => {
+    setAreaBusy(true);
+    let st = await getOperatingMarket();
+    if (!st.error && !st.market) {
+      try {
+        const perm = await Location.getForegroundPermissionsAsync();
+        const pos = perm.granted ? await Location.getLastKnownPositionAsync() : null;
+        if (pos) st = await setOperatingMarket({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+      } catch { /* The Operator can select their county manually. */ }
+    }
+    if (alive()) {
+      setAreaBusy(false);
+      if (st.error) setAreaError(st.error);
+      else { setArea(st); setAreaError(null); }
+    }
+  }, []);
   useEffect(() => {
     let live = true;
-    (async () => {
-      try {
-        let st = await getOperatingMarket();
-        if (!st.market) {
-          try {
-            const perm = await Location.getForegroundPermissionsAsync();
-            const pos = perm.granted ? await Location.getLastKnownPositionAsync() : null;
-            if (pos) st = await setOperatingMarket({ lat: pos.coords.latitude, lng: pos.coords.longitude });
-          } catch {
-            /* no position: the operator chooses below */
-          }
-        }
-        if (live) setArea(st);
-      } catch {
-        if (live) setAreaError(t('traveler.couldNotSaveConn'));
-      }
-    })();
-    return () => {
-      live = false;
-    };
-  }, [t]);
+    void loadArea(() => live);
+    return () => { live = false; };
+  }, [loadArea]);
   const areaActive = area?.market?.status === 'active';
+  // Final commercial submission is different from early paperwork preparation.
   const areaAuthorized = areaActive || area?.market?.status === 'onboarding';
 
   return (
@@ -134,8 +135,9 @@ export default function OperatorQualification() {
                         setAreaError(null);
                         try {
                           const next = await setOperatingMarket({ marketId: m.id });
-                          setArea(next);
-                          if (next.market?.id !== m.id) setAreaError(t('traveler.couldNotSaveConn'));
+                          if (next.error) setAreaError(next.error);
+                          else if (next.market?.id !== m.id) setAreaError(t('traveler.couldNotSaveConn'));
+                          else setArea(next);
                         } catch {
                           setAreaError(t('traveler.couldNotSaveConn'));
                         } finally {
@@ -155,9 +157,12 @@ export default function OperatorQualification() {
         </Card>
         </>
       )}
-      {!area && <Text accessibilityRole={areaError ? 'alert' : undefined} style={styles.footnote}>
-        {areaError || t('operator.checking')}
-      </Text>}
+      {!area && <>
+        <Text accessibilityRole={areaError ? 'alert' : undefined} style={styles.footnote}>
+          {areaError || t('operator.checking')}
+        </Text>
+        {areaError && <PrimaryButton label={t('traveler.tryAgain')} onPress={() => { void loadArea(); }} disabled={areaBusy} style={{ marginTop: 10 }} />}
+      </>}
 
       <Card style={styles.listCard}>
         {QUAL_DOCS.map((d, i) => {
@@ -167,15 +172,12 @@ export default function OperatorQualification() {
               accessibilityRole="button"
               key={d.key}
               onPress={() => {
-                if (!areaAuthorized) {
-                  // Screening request is preparatory only. Operators on the
-                  // waitlist may request an existing-report review or guidance,
-                  // but NOT submit qualification, pay or commence operations.
-                  if (d.key === 'background' && area?.market?.status === 'waitlist') {
-                    router.navigate('/operator/background');
-                    return;
-                  }
-                  setAreaError(t('operator.marketAdmissionRequired'));
+                // Basics is a self-completed form step, not a verified credential.
+                if (d.key === 'basics') { op.verifyDoc(d.key); return; }
+                // Jurisdiction is needed for documents and screening, but
+                // the county need not yet be open for paid Travel.
+                if (!area?.market) {
+                  setAreaError(t('operator.chooseOperatingArea'));
                   return;
                 }
                 // THE FOUR DOCUMENT STEPS GO TO THE SCREEN THAT CAN READ ONE. They used to call
@@ -195,7 +197,7 @@ export default function OperatorQualification() {
                   {d.sub ? <Text style={styles.rowSub}>{t(d.sub)}</Text> : null}
                 </View>
                 {st === 'ok' ? (
-                  <BadgeOk label={t('operator.verified')} />
+                  <BadgeOk label={d.key === 'basics' ? t('traveler.complete') : t('operator.verified')} />
                 ) : st === 'checking' ? (
                   <Text style={styles.pillChecking}>{t('operator.checking')}</Text>
                 ) : (
