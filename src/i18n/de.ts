@@ -1057,7 +1057,7 @@ export default {
     schedPickDay: 'Tag wählen',
     schedBookingNotice: 'Vor der Abholung kann ein Fahrer zugewiesen und die hinterlegte Karte dann belastet werden. Die Zuweisung erscheint auf der Startseite.',
     schedTimeChosen: '%{time} ausgewählt.',
-    schedPickupZone: 'Zeitzone der Abholung: %{zone}',
+    schedPickupZone: "Ortszeit der Abholung · %{zone}",
     schedZoneUnavailable: 'Die Zeitzone der Abholung ist nicht verfügbar. Terminplanung ist ausgesetzt; bitte erneut versuchen.',
     schedTimeInvalid: 'Diese Abholzeit fällt aus, kommt doppelt vor oder ist nicht mehr ausgewählt. Bitte eine andere Zeit wählen.',
     schedPickupDateLabel: "Abholdatum",
