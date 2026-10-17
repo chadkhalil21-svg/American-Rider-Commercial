@@ -1,3 +1,77 @@
+## Whole-service scheduled Travel design, not screen cosmetics (17 October 2026)
+
+**Founder challenge and cause:** Earlier reviews checked whether the existing date
+screen was internally polished, rather than asking what a scheduled booking
+must contain from the Travel customer's first action through dispatch, changes
+and cancellation. Increasing visible button sizes to pass an accessibility
+checkbox contradicted the founder's established "Friendly" design language.
+The architecture must start from the complete journey and existing shared
+components, not invent a standalone overbuilt scheduling UI.
+
+**Comparative workflow research, used as patterns rather than brand copy:**
+- [Uber Reserve](https://help.uber.com/en/riders/article/c%C3%B3mo-usar-uber%20reserve?nodeId=71708d67-bbac-4dda-9d32-53c2509bdd1b): place/time, explicit vehicle option, full quote, confirmation, and an Upcoming trips location for changing/cancelling; do not copy Uber's reservation fees or guarantees.
+- [Lyft scheduled rides](https://help.lyft.com/hc/en-us/all/articles/115013078668): both Home-first and destination-first entry, vehicle type selection, persistent scheduled-trip details, edit/cancel with stated conditions.
+- [Blacklane booking changes](https://help.blacklane.com/en/articles/2690381-how-can-i-make-changes-to-my-booking): service class, date/time and addresses are consequential editable fields; the fare must be reviewed after a material change, and policy applies to its actual provider.
+- [Nielsen Norman Group consistency and standards](https://www.nngroup.com/articles/consistency-and-standards/): internal design consistency is as important as familiar travel-booking patterns.
+- [Apple buttons](https://developer.apple.com/design/human-interface-guidelines/buttons): coherent styles, not arbitrary heights or widths to differentiate adjacent choices; favor one prominent action and preserve spacing.
+- [Android Accessibility touch size](https://support.google.com/accessibility/android/answer/7101858?hl=en&ref_type=adv): when a visible control is already appropriate, expand its accessible hit target when possible rather than enlarging all rendered furniture; true 48×48dp nonoverlapping touch acceptance still requires handset tests.
+- [GOV.UK review summary](https://design-system.service.gov.uk/components/summary-list/): visible current answers and explicit Change paths before a consequential final submit.
+
+**Implemented now on draft PR #52:**
+1. Display the selected vehicle class and named Traveler in the scheduling
+   review. Tap either row to open the **existing** Travel Confirmation class,
+   family/other-adult selection and authoritative re-quoting. Only the
+   actually bookable classes (Standard, Large Vehicle, Pet Friendly) are
+   offered by the shared selector. Unavailable Premium, Shared and
+   Accessible classes remain unavailable, without claiming a fleet capability
+   that has not been commissioned.
+2. Correct previously increased visual target dimensions back to the
+   existing 44-unit family, while preserving the app's existing spacing
+   and options. The expanded time presets retain two readable columns
+   rather than four compressed ones. The seven-column calendar is **not**
+   yet certified as 48dp wide or screen-reader complete.
+3. A booked reservation appears on Home. One Cancel tap now requests
+   a second explicit decision, `Keep Travel` or
+   `Cancel scheduled Travel`, explaining that no Operator has yet been
+   assigned and cancellation is without charge for that reserved status.
+   Only `reserved` may call the existing server-confirmed reservation
+   cancellation; `dispatched` must use the active Travel's cancellation
+   lifecycle. Cancellation never mutates only local state or invents
+   a refund. The existing backend transaction remains the authority.
+4. The Travel menu entry previously routed an **existing** reservation
+   back to `/schedule`, a new booking form. It now closes the Home
+   drawer and reveals the actual Upcoming Travel card, rather than implying
+   an unrelated new booking is a details page.
+5. Before final confirmation, the screen now states where cancellation
+   can be managed, without copying arbitrary competitor cancellation fees.
+
+**Still NOT implemented and must not be implied to work:** transactional
+edit of an existing confirmed reservation (date/time, pickup/destination,
+vehicle class, Traveler). A proper design needs an authenticated
+reservation-edit endpoint with time/status checks, class and route
+revalidation, new server Fare + explicit Traveler approval of any changed
+Total, reservation ID/idempotency semantics, Operator-assignment race
+handling, and a visible success/failure result. Rebooking by blindly
+editing local text, deleting a dispatched Travel, or pretending to
+preserve the original price is unsafe. Design approval is separate from
+authorizing this money-related backend feature.
+
+**Other end-to-end acceptance cases** remain: Traveler category and
+guardian-authorized Teen, route and pickup point, travel preferences,
+different classes/eligibility, vehicle-specific prices, scheduled-time
+validity across zones and DST, quote retry and failure, payment-on-file,
+saved reservation reopening, simultaneous cancel/dispatch, Operator
+assignment, live Travel restoration, support, notification delivery, all
+five languages, phone widths, iOS and Android assistive technology, and
+signed sandbox journey. None is certified by a source-only regex test.
+
+**Council review:** Ford favors one reused operating chain; Rockefeller
+requires bounded quote and Firestore expense; Jobs/Apple demand the same
+visual language and expected user path; top universities' research requires
+real customer observation, not endorsement; discreet hospitality requires
+a truthful, reversible pre-dispatch cancellation. No Council member or
+institution was personally contacted.
+
 # Scheduled Travel: research-first, whole-journey UX review
 
 **Date:** 2026-10-17. **Scope:** Home, Plan ahead, route selection, price, calendar, confirmation. **Status:** review candidate, not an installed-device sign-off.
