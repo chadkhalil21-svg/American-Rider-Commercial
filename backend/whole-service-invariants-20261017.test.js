@@ -240,6 +240,38 @@ for (let pass = 1; pass <= 2; pass++) {
   assert.doesNotMatch(opContext, /Date\.parse\(\`\$\{coverageRef\.current\}T23:59:59\`\)/,
     'no local-time date parse permitted at duty decision');
 
+  // Conclude Operations is a server state transition, not a local-only
+  // green/gray toggle. An unconfirmed withdrawal must survive app restart.
+  const connectClient = read('src/backend/connect.ts');
+  const operatorHome = read('app/operator/index.tsx');
+  assert.match(connectClient, /export async function goOffline\(\): Promise<boolean>/);
+  assert.match(connectClient, /if \(!res\.ok\) return false/);
+  assert.match(connectClient, /return result\?\.ok === true/);
+  assert.match(connectClient, /catch \{\s*return false;/,
+    'network and HTTP errors never count as a concluded operation');
+  assert.match(opContext, /ar:operator-offline-pending:/,
+    'unconfirmed off-duty request is scoped to the Operator account');
+  assert.match(opContext, /AsyncStorage\.setItem\(key, '1'\)/,
+    'pending conclusion persists before notifying the server');
+  assert.match(opContext, /AsyncStorage\.getItem\(key\)/,
+    'app restart rehydrates pending server confirmation');
+  assert.match(opContext, /AsyncStorage\.removeItem\(key\)/,
+    'a confirmed server response clears the durable retry marker');
+  assert.match(opContext, /if \(state === 'active' && offlinePendingRef\.current/,
+    'return from network outage prompts bounded reconnect retry');
+  assert.match(opContext, /if \(!dutyRestoreReady \|\| offlinePendingRef\.current\)/,
+    'a pending conclusion cannot race with a new commencement');
+  assert.match(opContext, /setOnlineError\(tr\('operator\.offlineUnconfirmed'\)\)/,
+    'unconfirmed server transition has an honest error');
+  assert.match(operatorHome, /op\.offlinePending/,
+    'Operator dashboard reveals pending server conclusion');
+  assert.match(operatorHome, /t\('operator\.retryConclude'\)/,
+    'Operator can retry without confusing the request with Commence');
+  assert.match(operatorHome, /op\.setOnline\(op\.offlinePending \? false : true\)/,
+    'retry sends the same idempotent conclude request');
+  assert.doesNotMatch(opContext, /setOnlineState\(false\);\s*goOffline\(\);/,
+    'local-off alone is never reported as confirmed server success');
+
   const found = indexes.indexes.some(x => x.collectionGroup === 'lost_items' &&
     x.queryScope === 'COLLECTION' &&
     x.fields?.[0]?.fieldPath === 'travelerUid' &&
@@ -269,6 +301,9 @@ for (let pass = 1; pass <= 2; pass++) {
       lang + ': Operator also receives an understandable read error');
     assert.match(operator, /^\s{4}lostRetry:/m,
       lang + ': Operator Lost Item load has a localized Retry action');
+    for (const key of ['offlineConfirming', 'offlineUnconfirmed', 'retryConclude'])
+      assert.match(operator, new RegExp('^\\s{4}' + key + ':', 'm'),
+        lang + ': missing Operator off-duty confirmation and recovery copy');
     assert.match(operator, /^\s{4}lostLoading:/m,
       lang + ': Operator report loading state is translated');
     for (const key of ['removeDefaultCardNotice', 'removeCardNotice', 'mobileReadUnavailable',
