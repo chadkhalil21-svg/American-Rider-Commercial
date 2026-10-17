@@ -230,15 +230,22 @@ export async function joinOperatorAreaWaitlist(marketId: string): Promise<boolea
 }
 
 /** Stop being matchable. Never throws — going off duty must always be possible. */
-export async function goOffline(): Promise<void> {
+/** Only a confirmed success means server dispatch eligibility was withdrawn.
+ * A failed HTTP response is just as unconfirmed as a network exception.
+ * Caller retains a durable pending-conclusion request for retry.
+ */
+export async function goOffline(): Promise<boolean> {
   try {
-    await fetch(`${PAYMENT_SERVER_URL}/operator/offline`, {
+    const res = await fetch(`${PAYMENT_SERVER_URL}/operator/offline`, {
       method: 'POST',
       headers: await authHeaders(),
       body: '{}',
     });
+    if (!res.ok) return false;
+    const result = await res.json().catch(() => null);
+    return result?.ok === true;
   } catch {
-    // The local toggle already flipped. A server we cannot reach must not trap somebody on duty.
+    return false;
   }
 }
 
