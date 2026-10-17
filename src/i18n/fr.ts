@@ -139,7 +139,7 @@ export default {
     econMonth: 'Par mois (52 semaines ÷ 12)',
     econYear: 'Par an (52 semaines)',
     econDisclaimer: "Ces exemples ne garantissent aucun Travel ni revenu. Le montant total pour le Traveler est communiqué avant chaque Travel.",
-    econProjectionNote: "Suppose le même total de tarifs Travel chaque semaine pendant 52 semaines. Il ne s'agit pas d'un revenu net : aucune dépense n'est déduite.",
+    econProjectionNote: "L’estimation applique la part de 1 % au total hebdomadaire. La commission réelle est arrondie au centime inférieur pour chaque Travel : le montant conservé peut donc varier légèrement. Les projections mensuelles et annuelles supposent 52 semaines identiques. Les dépenses ne sont pas déduites.",
     econCostsHeading: "Frais de compte et dépenses",
     econAccountCostNote: "Les mois où un versement a lieu, des frais de compte de 2 $ et des frais de perception peuvent s'appliquer. Consultez les conditions actuelles ci-dessous. Assurance, carburant et frais de véhicule restent à votre charge.",
     econShowAccountTerms: "Voir les conditions actuelles du compte",
