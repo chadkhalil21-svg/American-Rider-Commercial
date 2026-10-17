@@ -185,10 +185,14 @@ for (let pass = 1; pass <= 2; pass++) {
     'the app no longer changes the chosen time silently when a quick slot expires');
   assert.doesNotMatch(screen, /ride\.setSchedTime\(firstOpen\)/,
     'user must explicitly approve an alternative pickup hour');
-  assert.match(screen, /timeGrid: \{ flexDirection: 'row', flexWrap: 'wrap'/,
-    'time choices wrap to two rows on narrow phones');
-  assert.match(screen, /timeBtn: \{\s*width: '48%'/,
-    'time controls are large enough to read without four cramped columns');
+  assert.match(screen, /const timeOptionsWrap = screenWidth < 360 \|\| fontScale > 1\.2/,
+    'large text or narrow phone chooses a reflowed time layout');
+  assert.match(screen, /timeGrid: \{ flexDirection: 'row', gap: 9 \}/,
+    'ordinary phones preserve the original one-row four-time layout');
+  assert.match(screen, /timeGridWrap: \{ flexWrap: 'wrap', justifyContent: 'space-between' \}/,
+    'only narrow or accessibility-font layouts wrap onto two rows');
+  assert.match(screen, /timeBtnWrap: \{ flex: 0, width: '48%' \}/,
+    'two-column fallback keeps readable time choices on small phones');
   assert.match(screen, /calCell: \{\s*width: `\$\{100 \/ 7\}%`,\s*minHeight: 44/,
     'calendar uses the existing application control height, not an arbitrary larger variant');
   assert.match(screen, /keyboardType="numbers-and-punctuation"/,
