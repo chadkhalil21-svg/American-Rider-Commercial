@@ -198,7 +198,10 @@ export default function OperatorInsurance() {
           />
           </>
         )}
-        {configResolved && !config && <Text style={styles.attention}>{t('traveler.insJurisdictionUnavailable')}</Text>}
+        {configResolved && !config && <>
+          <Text accessibilityRole="alert" style={styles.attention}>{t('traveler.insJurisdictionUnavailable')}</Text>
+          <PrimaryButton label={t('traveler.tryAgain')} onPress={() => { void refresh(); }} style={styles.action} />
+        </>}
         {/* Insurance issues are rare exceptions, never a daily questionnaire. */}
         <Pressable accessibilityRole="button"
           accessibilityState={{ expanded: showRiskOptions }}
@@ -285,6 +288,7 @@ export default function OperatorInsurance() {
         </> : <Text style={styles.attention}>{t('traveler.insJurisdictionUnavailable')}</Text>}
       </>}
 
+      {configResolved && !liveStatus && <PrimaryButton label={t('traveler.tryAgain')} onPress={() => { void refresh(); }} style={styles.action} />}
       <SectionLabel style={styles.label}>{t('traveler.insStatusTitle')}</SectionLabel>
       <Card style={styles.card}>
         <Text style={styles.body}>{t('operator.insMonitoringIntro')}</Text>
