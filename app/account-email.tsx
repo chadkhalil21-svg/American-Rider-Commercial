@@ -166,7 +166,9 @@ export default function AccountEmail() {
               <Text style={styles.fieldLabel}>{t('traveler.newEmail')}</Text>
               <TextInput
                 value={nextEmail}
-                onChangeText={setNextEmail}
+                onChangeText={(value) => { setNextEmail(value); setError(''); }}
+                onBlur={() => setEmailTouched(true)}
+                accessibilityLabel={t('traveler.newEmail')}
                 keyboardType="email-address"
                 autoCapitalize="none"
                 autoCorrect={false}
@@ -207,14 +209,14 @@ export default function AccountEmail() {
       {notice ? <Text style={styles.notice}>{notice}</Text> : null}
       {error ? <Text style={styles.error}>{error}</Text> : null}
 
-      {provider === 'password' ? (
+      {provider === 'password' && !pendingEmail && !confirmedEmail ? (
         <>
           <View style={{ flex: 1, minHeight: 30 }} />
           <PrimaryButton
             label={busy ? t('traveler.busyChecking') : t('traveler.emailSendChangeLink')}
-            disabled={busy || !emailOk(nextEmail) || !password}
+            disabled={!canSubmit}
             onPress={change}
-            style={{ paddingVertical: 16 }}
+            style={undefined}
           />
         </>
       ) : null}
