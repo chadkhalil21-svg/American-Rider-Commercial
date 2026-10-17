@@ -272,6 +272,17 @@ for (let pass = 1; pass <= 2; pass++) {
   assert.doesNotMatch(opContext, /setOnlineState\(false\);\s*goOffline\(\);/,
     'local-off alone is never reported as confirmed server success');
 
+  assert.match(opContext, /const confirmOfflineRef = useRef<\(\(\) => Promise<void>\) \| null>\(null\)/,
+    'all off-duty callers share the durable server-acknowledged withdrawal routine');
+  assert.match(opContext, /confirmOfflineRef\.current = confirmOffline/,
+    'callbacks declared before the confirmation handler use its latest implementation');
+  assert.match(opContext, /void confirmOfflineRef\.current\?\.\(\)/,
+    'cancelled operations cannot silently ignore a rejected off-duty request');
+  assert.match(opContext, /if \(r\.ok && !onlineRef\.current\) void confirmOfflineRef\.current\?\.\(\)/,
+    'late presence renewal must not revive matchability without a tracked withdrawal');
+  assert.match(opContext, /if \(r\.ok\) void confirmOffline\(\)/,
+    'late initial commence response is followed by acknowledged off-duty withdrawal');
+
   const found = indexes.indexes.some(x => x.collectionGroup === 'lost_items' &&
     x.queryScope === 'COLLECTION' &&
     x.fields?.[0]?.fieldPath === 'travelerUid' &&
