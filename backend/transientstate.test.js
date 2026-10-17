@@ -54,9 +54,12 @@ assert.match(economics, /const commission = coordinationFee\(example\)/);
 assert.match(economics, /const retained = fare == null \? null : fare - coordinationFee\(fare\)/);
 assert.match(economics, /operator\.econRetainedIllustration/);
 const qualification = read('app/operator/qualify.tsx');
-assert.ok(qualification.indexOf('operator.econYourScenario') < qualification.indexOf('operator.qualCostPreview')
-  && qualification.indexOf('operator.qualCostPreview') < qualification.indexOf('QUAL_DOCS.map((d, i)'),
-  'economics and third-party costs precede the qualification checklist');
+assert.match(operatorHome, /router.replace\(op.verification === 'pending' \? '\/operator\/review' : '\/operator\/economics'/,
+  'new Operators still see their economic scenario before registration');
+assert.match(qualification, /QUAL_DOCS.map\(\(d, i\)/,
+  'the short compliance checklist remains available in open counties');
+assert.match(qualification, /operator.econTitle/,
+  'Operator can revisit economics whenever needed without rereading a long preamble');
 const insurance = read('app/operator/insurance.tsx');
 assert.match(insurance, /const policyApproved = liveStatus\?\.documentApproved === true/,
   'original document approval must be read from authenticated server, not stale phone cache');
@@ -67,9 +70,11 @@ assert.match(insurance, /const canUpload = !policyApproved \|\| expiring/,
   'renewal and replacement must remain possible before expiry');
 assert.match(insurance, /\{policyApproved && <>/,
   'server-reviewed insurance must let the Operator request independent status confirmation');
-assert.ok(insurance.indexOf('operator.coverageOnFile') < insurance.indexOf('operator.insWhoDecides')
-  && insurance.indexOf('operator.insOwnBroker') < insurance.indexOf('operator.compareProviders'),
-  'status and an own-broker path precede optional source lists');
+assert.ok(insurance.indexOf('operator.insRequirementsHeadline') < insurance.indexOf('operator.coverageOnFile')
+  && insurance.indexOf('operator.insOwnBroker') < insurance.indexOf('operator.insCompareDisclosure'),
+  'show essential coverage requirements first; own-broker and comparison paths remain visible');
+assert.match(insurance, /showLegalDetails/,
+  'the statutory details must remain available without crowding the initial screen');
 for (const authority of ['insFloridaLawBody', 'insARPolicyBody', 'insBrokerDecisionBody', 'insARVerificationBody']) {
   assert.ok(insurance.includes(authority), `${authority} must remain distinct`);
 }
