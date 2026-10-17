@@ -341,6 +341,8 @@ export function OperatorProvider({ children }: { children: React.ReactNode }) {
   const [dutyRestoreReady, setDutyRestoreReady] = useState(false);
   const offlinePendingRef = useRef(false);
   const offlineInFlightRef = useRef(false);
+  // A superseded Commence request must not revive local duty after cancellation.
+  const dutyAttemptRef = useRef(0);
   const confirmOfflineRef = useRef<(() => Promise<void>) | null>(null);
   const userUidRef = useRef(user?.uid ?? null);
   userUidRef.current = user?.uid ?? null;
@@ -950,6 +952,7 @@ export function OperatorProvider({ children }: { children: React.ReactNode }) {
     // Never erase the local operation and pretend the Travel disappeared while the server
     // still assigns it to this Operator. Going off duty may stop new offers, but the accepted
     // Travel remains visible until an authoritative terminal/reassignment path exists.
+    ++dutyAttemptRef.current;
     setOnlineState(false);
     // Use the same acknowledged, persisted off-duty path as the main control.
     void confirmOfflineRef.current?.();
@@ -1290,7 +1293,6 @@ tr('traveler.blockCoverage'),
     return () => { active = false; subscription?.remove(); };
   }, [user?.uid, confirmOffline]);
 
-  const dutyAttemptRef = useRef(0);
   const setOnline = useCallback(
     (want: boolean) => {
       const attempt = ++dutyAttemptRef.current;
