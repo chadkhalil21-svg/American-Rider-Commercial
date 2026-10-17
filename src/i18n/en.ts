@@ -240,6 +240,8 @@ export default {
     partRead: 'Read',
     openAllParts: 'Open all %{n} parts to continue',
 
+    lostLoading: "Loading report…",
+
     lostRetry: "Try again",
 
     lostOpenFailed: "This report could not be opened.",
