@@ -46,7 +46,9 @@ for(let pass=0;pass<2;pass++){
  });
  assert.ok(mismatched,'Florida rules cannot be inherited by Georgia');
  const server=src('backend/server.js');
- assert.match(server,/app\.post\('\/storage\/upload-url', requireAuth, LIMITS\.document, requireFreshAuth, requireOperatorPreparationMarket/);
+ assert.match(server,/app\.post\('\/storage\/upload-url', requireAuth, LIMITS\.document, requireFreshAuth, requireScopedPrivateUpload/);
+ assert.match(server,/if \(scope === 'operator-preparation'\) return requireOperatorPreparationMarket\(req, res, next\)/,
+   'Operator compliance files still require a configured jurisdiction');
  assert.match(server,/app\.post\('\/operator\/document', requireAuth, LIMITS\.document, requireFreshAuth, requireOperatorPreparationMarket/);
  assert.match(server,/if \(!r2Owns\(objectKey, req\.uid, 'operator-document'\)\)/,
    'document review remains confined to the authenticated owner');
