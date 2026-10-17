@@ -11,7 +11,7 @@ const review = fs.readFileSync(path.join(__dirname,'../app/operator/review.tsx')
 
 assert.match(qualify, /label=\{t\('traveler\.qualSubmitReview'\)\}/,
   'The review submission must have one clear name');
-assert.match(qualify, /disabled=\{submitting \|\| !areaAuthorized\}/,
+assert.match(qualify, /disabled=\{submitting \|\| !area\?\.market\}/,
   'Submission cannot depend on memory-only uploaded-document review flags');
 assert.doesNotMatch(qualify, /disabled=\{!done \|\| submitting/,
   'After phone restart, local review flags disappear and would trap an Operator');
@@ -20,8 +20,8 @@ assert.match(qualify, /setSubmitError\(out\.error \|\| null\)/,
   'The server must return an actionable reason if an item is genuinely missing');
 assert.match(context, /const \[docReviews, setDocReviews\] = useState/,
   'The memory-only source of the old dead-end is explicitly recognized');
-assert.match(server, /app\.post\('\/operator\/qualification\/submit', requireAuth, LIMITS\.qualification, requireActiveOperatingMarket/,
-  'Authenticated market-checked backend owns the eligibility decision');
+assert.match(server, /app\.post\('\/operator\/qualification\/submit', requireAuth, LIMITS\.qualification, requireOperatorPreparationMarket/,
+  'Authenticated jurisdiction-checked backend owns the eligibility decision');
 assert.match(server, /const a = await assessAndRecord\(\{ db, uid: req\.uid, checks: qualificationChecks, liveMoney: operationalMode \}\)/);
 assert.match(server, /if \(a\.status === 'incomplete'\)/,
   'Incomplete applications must remain server-rejected');
