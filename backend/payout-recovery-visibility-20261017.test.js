@@ -12,6 +12,7 @@ function verify() {
   const bridge = source('src/backend/connect.ts');
   const context = source('src/state/OperatorContext.tsx');
   const revenue = source('app/operator/revenue.tsx');
+  const payout = source('app/operator/withdraw.tsx');
 
   assert.match(bridge, /export type PayoutRecoveryResult\s*=/);
   assert.match(bridge, /\| \{ ok: false; code: string; error: string \}/);
@@ -34,12 +35,16 @@ function verify() {
   assert.match(revenue, /payoutRecoveryStatus === 'unconfirmed'/);
   assert.match(revenue, /operator\.payoutRecoveryUnconfirmed/);
   assert.doesNotMatch(revenue, /traveler\.earnedOnItsWay/);
+  for (const key of ['payoutTruthIntro', 'payoutTruthTransfer', 'payoutTruthBank', 'payoutTruthInstant']) {
+    assert.match(payout, new RegExp('operator\\.' + key));
+  }
+  assert.doesNotMatch(payout, /American Rider never holds it\./);
 
   for (const locale of ['en', 'es', 'fr', 'de', 'it']) {
     const catalog = source(`src/i18n/${locale}.ts`);
     const operator = catalog.match(/^  operator:\s*\{([\s\S]*?)^  \},/m)?.[1];
     assert.ok(operator, locale + ': Operator section not present');
-    for (const key of ['deviceEarningsLabel', 'deviceEarningsNotice', 'payoutRecoveryUnconfirmed']) {
+    for (const key of ['deviceEarningsLabel', 'deviceEarningsNotice', 'payoutRecoveryUnconfirmed', 'payoutTruthIntro', 'payoutTruthTransfer', 'payoutTruthBank', 'payoutTruthInstant']) {
       assert.match(operator, new RegExp('^\\s{4}' + key + ':', 'm'), locale + ': key missing or in the wrong translation section: ' + key);
     }
   }
