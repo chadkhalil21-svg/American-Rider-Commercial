@@ -49,23 +49,33 @@ async function listPlatformMessages(uid, limit = 50) {
   const requested = Number(limit);
   const pageSize = Number.isInteger(requested) && requested > 0
     ? Math.min(100, requested) : 50;
-  // Native bounded query: never load an account's entire lifetime of messages.
-  // createdAt is a single-field index on this user's own subcollection.
-  const snap = await db.collection('users').doc(String(uid))
-    .collection('platform_messages').orderBy('createdAt', 'desc').limit(pageSize).get();
-  const messages = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-  return { ok: true, messages };
+  try {
+    // Native bounded query: never load an account's entire message history.
+    const snap = await db.collection('users').doc(String(uid))
+      .collection('platform_messages').orderBy('createdAt', 'desc').limit(pageSize).get();
+    const messages = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    return { ok: true, messages };
+  } catch {
+    // Express 4 does not implicitly handle a rejected async route. Return a
+    // deliberate 503 so the phone shows Retry, never a fake "empty inbox".
+    return { ok: false, reason: 'platform_inbox_unavailable', messages: [] };
+  }
 }
 
 async function markPlatformMessageRead(uid, id, now = Date.now()) {
   const db = adminDb();
   if (!db) return { ok: false, reason: adminStatus().reason };
-  const ref = db.collection('users').doc(String(uid)).collection('platform_messages').doc(String(id));
-  const snap = await ref.get();
-  if (!snap.exists) return { ok: false, reason: 'not found' };
-  // Read-once semantics: reopening a notice must not rewrite the evidence timestamp.
-  if (!snap.data()?.readAt) await ref.set({ readAt: now }, { merge: true });
-  return { ok: true };
+  try {
+    const ref = db.collection('users').doc(String(uid)).collection('platform_messages').doc(String(id));
+    const snap = await ref.get();
+    if (!snap.exists) return { ok: false, reason: 'not found' };
+    // Read-once semantics: reopening a notice must not rewrite the timestamp.
+    if (!snap.data()?.readAt) await ref.set({ readAt: now }, { merge: true });
+    return { ok: true };
+  } catch {
+    // Preserve the unread marker if the durable write was not confirmed.
+    return { ok: false, reason: 'platform_inbox_unavailable' };
+  }
 }
 
 module.exports = { ALLOWED, postPlatformMessage, listPlatformMessages, markPlatformMessageRead };
