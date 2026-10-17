@@ -1,6 +1,6 @@
 # American Rider — Fare and Unit-Economics Model
 
-Status: **current model, audited 25 September 2026**.
+Status: **pricing description checked against the commercial `release/current` engine on 16 October 2026**. Rates are Founder-ratified; this document does not authorize an automatic change to live fares.
 
 The server is authoritative. Request clients provide route inputs; they do not provide a price.
 
@@ -9,7 +9,7 @@ The server is authoritative. Request clients provide route inputs; they do not p
 Standard Travel Fare:
 
 ```
-Travel Fare = $1.00 + ($0.85 × routed miles) + ($0.15 × routed minutes)
+Travel Fare = $1.00 + ($0.95 × routed miles) + ($0.32 × routed minutes)
 minimum Travel Fare = $3.00
 ```
 
@@ -17,6 +17,10 @@ The operator retains 99% of Travel Fare. American Rider's coordination commissio
 Travel Fare, floored to whole cents and uncapped.
 
 Travel classes apply to Travel Fare before the 99%/1% split.
+
+This is the current **South Florida Standard** tariff in `backend/market-pricing.js`. Other areas require their own explicit jurisdictional pricing record. Route-based miles and minutes are priced server-side; unavailable routing can invoke an expressly identified estimate rather than a claim of observed traffic. There is no automatic holiday, weather or passenger-specific surge multiplier in this tariff. The older $0.85/mile and $0.15/minute values are historical, not present commercial prices.
+
+Our separate market-reference service may research an approximately 90% share of **genuinely comparable, ordinary, all-in local market prices** when independently verified observation quality and promotion requirements pass. The target is a hypothesis, not a universal discount, and a published historical taxi tariff or another city's public rideshare dataset is **not a current independent ride-hail price observation** for South Florida. Only an authorized source-based pricing change and a confirmed Traveler Total may affect a booking.
 
 ## 2. Traveler Total
 
@@ -62,14 +66,14 @@ it can be enabled.
 |---:|---:|---:|
 | $5 | $2.50 | $2.50 |
 | $10 | $2.50 | $2.50 |
-| $20 | $2.50 | $2.61 |
-| $30 | $2.51 | $3.02 |
-| $40 | $2.75 | $3.43 |
-| $50 | $3.00 | $3.83 |
-| $61 | $3.28 | $4.29 |
-| $75 | $3.62 | $4.86 |
-| $100 | $4.24 | $5.87 |
-| $150 | $5.47 | $7.91 |
+| $20 | $2.50 | $2.50 |
+| $30 | $2.50 | $2.91 |
+| $40 | $2.65 | $3.32 |
+| $50 | $2.90 | $3.73 |
+| $61 | $3.18 | $4.18 |
+| $75 | $3.52 | $4.75 |
+| $100 | $4.13 | $5.77 |
+| $150 | $5.37 | $7.81 |
 
 These are outputs of the integer-cent economic model, not manually selected tiers.
 
@@ -121,6 +125,12 @@ insufficient to carry those costs.
 **No projection may be labeled fully loaded until the Florida TNC insurance/backstop structure
 has an authoritative coverage opinion and actual quote.**
 
+## Operator livelihood and market comparison (research, not an automatic surcharge)
+
+99% of the paid Travel Fare is a payment-share promise, **not** proof of fair net hourly earnings. Evaluate pickup/deadhead distance, unpaid waiting time, commercial vehicle costs, cancellations, utilization and duty-time earnings by county and route/time class. Official BLS wage statistics are employee occupational comparisons rather than verified platform-Operator net income; the IRS's 76¢/mile July–December 2026 optional business deduction rate is a research proxy, **not** every Operator's actual vehicle cost, a guaranteed pay rate or a tax ruling. Gather actual voluntary Operator cost and time distributions before using an earnings target to change fares.
+
+Never infer that a cheap Traveler Total is competitive from an unmatched historical taxi estimate. Prefer the full quoted Total for the same route, service, hour, toll and government fees with current rights-permitted source observations. Exclude personalized promotional discounts and make data vintage visible. See `docs/audits/INSTITUTIONAL-PRICING-REVIEW-2026-10-16.md`.
+
 ## 8. Release invariant
 
 The release gate must prove, exhaustively across the tested fare domain, that:
@@ -132,4 +142,4 @@ The release gate must prove, exhaustively across the tested fare domain, that:
 5. unknown cards are internationally safe; and
 6. Smart Travel funds each separately charged leg's fixed economics.
 
-The authoritative tests are `backend/economics.test.js` and `backend/payments.test.js`.
+The authoritative tests are `backend/economics.test.js`, `backend/payments.test.js` and `backend/institutional-pricing-integrity.test.js`. The latter also asserts that this document matches the commercial code and runs twice across synthetic 10K, 100K and 1M arithmetic tiers, with smaller end-to-end pricing-function scenarios. Those synthetic tiers are not certified concurrency, device, Stripe or production database load tests.
