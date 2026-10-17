@@ -259,6 +259,8 @@ for (let pass = 1; pass <= 2; pass++) {
     'a confirmed server response clears the durable retry marker');
   assert.match(opContext, /if \(state === 'active' && offlinePendingRef\.current/,
     'return from network outage prompts bounded reconnect retry');
+  assert.match(opContext, /Platform\.OS === 'web' \? null : AppState\.addEventListener/,
+    'web preview never calls unsupported native AppState lifecycle listener');
   assert.match(opContext, /if \(!dutyRestoreReady \|\| offlinePendingRef\.current\)/,
     'a pending conclusion cannot race with a new commencement');
   assert.match(opContext, /setOnlineError\(tr\('operator\.offlineUnconfirmed'\)\)/,
