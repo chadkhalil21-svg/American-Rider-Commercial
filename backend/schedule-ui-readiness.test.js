@@ -119,6 +119,14 @@ for (let pass = 1; pass <= 2; pass++) {
     'confirmation offers a direct return to the selected scheduled pickup');
   assert.match(confirmation, /const selectingScheduledTravel = params\.scheduling === '1'/,
     'scheduled destination/price flow cannot silently become an immediate Travel');
+  assert.match(screen, /params: \{ scheduling: '1', pickup: '1' \}/,
+    'scheduled itinerary pickup action opens the existing pickup editor');
+  assert.match(confirmation, /params\.pickup === '1'/,
+    'Travel Confirmation recognizes the scheduled pickup edit parameter');
+  assert.match(confirmation, /setSearchingDep\(true\)/,
+    'scheduled pickup edit opens the pickup search rather than doing nothing');
+  assert.match(screen, /accessibilityState=\{\{ expanded: timeEditing \}\}/,
+    'optional detailed pickup-time choices disclose their expanded state');
   assert.match(confirmation, /disabled=\{selectingScheduledTravel \? !canContinueScheduling : !canReserve\}/,
     'the scheduled return button requires server quote and route, not live payment acceptance');
   assert.match(confirmation, /selectingScheduledTravel\s*\? \(\) => \{ if \(canContinueScheduling\) router\.navigate\('\/schedule'\); \}/,
