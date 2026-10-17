@@ -227,6 +227,20 @@
       ]
     },
     {
+      "collectionGroup": "scheduled_rides",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "travelerUid",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "atMs",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
       "collectionGroup": "lost_items",
       "queryScope": "COLLECTION",
       "fields": [

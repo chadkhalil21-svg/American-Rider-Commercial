@@ -267,6 +267,9 @@ export type RideStore = {
   // scheduling
   schedDate: SchedDate;
   setSchedDate: (d: SchedDate) => void;
+  /** The actual pickup day chosen, frozen across midnight and screen navigation. */
+  schedPickupDate: string | null;
+  setSchedPickupDate: (date: string | null) => void;
   schedDay: string; // label like 'Wed, Jul 8'
   setSchedDay: (d: string) => void;
   schedPeriod: 'AM' | 'PM';
@@ -623,6 +626,7 @@ export function RideProvider({ children }: { children: React.ReactNode }) {
   const [issueTripNo, setIssueTripNo] = useState('');
   const [credited, setCredited] = useState<{ no: string; cents: number } | null>(null);
   const [schedDate, setSchedDate] = useState<SchedDate>('tomorrow');
+  const [schedPickupDate, setSchedPickupDate] = useState<string | null>(null);
   const [schedDay, setSchedDay] = useState(() => {
     const d = new Date();
     d.setDate(d.getDate() + 2);
@@ -711,6 +715,7 @@ export function RideProvider({ children }: { children: React.ReactNode }) {
       // when the device just told us where it is.
       setDeparture((prev) => (prev?.resolved ? prev : DEFAULT_DEPARTURE));
       setTripCoords(null);
+      setSchedPickupDate(null); // New journey gets a fresh pickup-day choice.
       setTravelClass('standard');
       setQuotedFareCents(null);
       setQuotedFeeLines([]);
@@ -1689,8 +1694,10 @@ export function RideProvider({ children }: { children: React.ReactNode }) {
         pickupTimeZone: info.pickupTimeZone,
         dep: departure.short,
         dest: arrival.short,
-        pickupLat: tripCoords?.pickup?.lat ?? departure.lat,
-        pickupLng: tripCoords?.pickup?.lng ?? departure.lng,
+        // The map pin is the Traveler's authoritative selected pickup. If it has
+        // moved, the same pin must be sent for scheduled price confirmation.
+        pickupLat: pickupPin?.lat ?? tripCoords?.pickup?.lat ?? departure.lat,
+        pickupLng: pickupPin?.lng ?? tripCoords?.pickup?.lng ?? departure.lng,
         destinationLat: tripCoords?.dest?.lat ?? arrival.lat,
         destinationLng: tripCoords?.dest?.lng ?? arrival.lng,
         travelClass: operatorClassFor(travelClass),
@@ -1712,7 +1719,7 @@ export function RideProvider({ children }: { children: React.ReactNode }) {
       setScheduled(true);
       return true;
     },
-    [arrival, departure, travelClass, tripCoords, travelParty],
+    [arrival, departure, pickupPin, travelClass, tripCoords, travelParty],
   );
 
   const cancelScheduled = useCallback(async () => {
@@ -1865,6 +1872,8 @@ export function RideProvider({ children }: { children: React.ReactNode }) {
     credited,
     schedDate,
     setSchedDate,
+    schedPickupDate,
+    setSchedPickupDate,
     schedDay,
     setSchedDay,
     schedPeriod,
