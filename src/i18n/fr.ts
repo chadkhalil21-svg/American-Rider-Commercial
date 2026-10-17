@@ -93,6 +93,7 @@ export default {
     activeAccountCostBody: "Stripe facture 2 $ pour un mois où un versement est envoyé vers votre compte bancaire ou carte de débit. American Rider renonce à ce coût lorsque vous effectuez au moins 20 Voyages durant le même mois. En dessous de 20, les 2 $ et le coût inévitable du traitement de carte pour les percevoir sont facturés séparément ; votre part de 99 % du Tarif de chaque Voyage n'est pas réduite.",
     operatingArea: 'Zone d’Opération',
     changeOperatingArea: 'Changer de zone d’exploitation',
+    searchOperatingArea: 'Rechercher un comté d’exploitation',
     chooseOperatingArea: 'Choisissez le comté dans lequel vous opérerez.',
     marketNotActive: 'Les voyages payants ne sont pas encore disponibles dans %{name}. Vous pouvez préparer vos documents et demander l’examen de vos antécédents.',
     marketPrelaunch: 'Les vérifications préalables au lancement sont autorisées dans %{name}. Les documents peuvent être examinés, mais ni les voyages payants ni la prise de service ne sont encore autorisés.',
