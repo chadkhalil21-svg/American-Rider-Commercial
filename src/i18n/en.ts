@@ -146,7 +146,7 @@ export default {
     econMonth: 'Per month (52 weeks ÷ 12)',
     econYear: 'Per year (52 weeks)',
     econDisclaimer: "These examples do not guarantee Travels or income. Actual Traveler Totals are quoted before each Travel.",
-    econProjectionNote: "Assumes the same Travel Fare total every week for 52 weeks. This is not take-home pay; expenses have not been deducted.",
+    econProjectionNote: "Estimates apply the 1% share to the weekly total. Actual commission is rounded down for each Travel, so your final retained amount can differ slightly. Monthly and annual figures assume 52 identical weeks. Expenses are not deducted.",
     econCostsHeading: "Account costs and expenses",
     econAccountCostNote: "In months with a payout, a separate $2 account cost plus payment collection costs may apply. See the current terms below. Insurance, fuel and vehicle expenses are also your responsibility.",
     econShowAccountTerms: "Show current account terms",
