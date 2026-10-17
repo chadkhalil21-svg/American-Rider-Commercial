@@ -341,6 +341,7 @@ export function OperatorProvider({ children }: { children: React.ReactNode }) {
   const [dutyRestoreReady, setDutyRestoreReady] = useState(false);
   const offlinePendingRef = useRef(false);
   const offlineInFlightRef = useRef(false);
+  const confirmOfflineRef = useRef<(() => Promise<void>) | null>(null);
   const userUidRef = useRef(user?.uid ?? null);
   userUidRef.current = user?.uid ?? null;
   // Why going on duty was refused, in Stripe's terms. Held here rather than thrown because
@@ -950,7 +951,8 @@ export function OperatorProvider({ children }: { children: React.ReactNode }) {
     // still assigns it to this Operator. Going off duty may stop new offers, but the accepted
     // Travel remains visible until an authoritative terminal/reassignment path exists.
     setOnlineState(false);
-    goOffline();
+    // Use the same acknowledged, persisted off-duty path as the main control.
+    void confirmOfflineRef.current?.();
   }, []);
 
   opRef.current = op;
@@ -1136,7 +1138,7 @@ export function OperatorProvider({ children }: { children: React.ReactNode }) {
         if (stopped) {
           // The Operator has ended service while a renewal was in flight.
           // A late success must not resurrect dispatch availability.
-          if (r.ok && !onlineRef.current) void goOffline();
+          if (r.ok && !onlineRef.current) void confirmOfflineRef.current?.();
           return;
         }
         if (r.ok) {
@@ -1252,6 +1254,7 @@ tr('traveler.blockCoverage'),
       if (userUidRef.current === uid) setOfflineBusy(false);
     }
   }, []);
+  confirmOfflineRef.current = confirmOffline;
 
   useEffect(() => {
     let active = true;
@@ -1378,7 +1381,7 @@ tr('traveler.gateLocation'),
           // A newer duty choice superseded this request. If this stale request reached the
           // server successfully, explicitly withdraw that presence rather than resurrecting
           // an Operator who has since gone off duty.
-          if (r.ok) goOffline();
+          if (r.ok) void confirmOffline();
           return;
         }
         setOnlineBusy(false);
