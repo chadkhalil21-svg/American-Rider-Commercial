@@ -1165,7 +1165,9 @@ export function OperatorProvider({ children }: { children: React.ReactNode }) {
   /** Days until coverage lapses. Negative once it has. Null when no date is on file. */
   const coverageDaysLeft = useMemo(() => {
     if (!insuranceExpiry) return null;
-    const end = Date.parse(`${insuranceExpiry}T23:59:59`);
+    // Match the authoritative backend, which evaluates the recorded policy
+    // end at 23:59:59 UTC, not the device's timezone.
+    const end = Date.parse(`${insuranceExpiry}T23:59:59Z`);
     if (Number.isNaN(end)) return null;
     return Math.ceil((end - Date.now()) / 86400000);
   }, [insuranceExpiry]);
