@@ -53,7 +53,11 @@ export default function Message() {
   // would never have appeared here at all — the operator's screen watched Firestore, this
   // one did not. The live demo ride keeps its scripted thread; every real travel watches the
   // record, and a message the record has not taken yet stays on screen from the store.
-  const isLiveDemoRide = isCurrentTravel && ride.rideActive;
+  // A real active booking is NOT a demonstration. Its Operator's messages
+  // must come from the persisted, authenticated Travel thread.
+  const isLiveDemoRide = isCurrentTravel && ride.rideActive &&
+    ride.matchedOp?.demo === true && !lostItemId &&
+    !ride.myRides.some((record) => record.tripNo === tripNo && !!record.id);
   const [stored, setStored] = useState<TravelMessage[] | null>(null);
   const [threadError, setThreadError] = useState<string | null>(null);
   useEffect(() => {
