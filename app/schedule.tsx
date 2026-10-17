@@ -68,7 +68,6 @@ export default function Schedule() {
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState(false);
   const [pickupZone, setPickupZone] = useState<string | null>(null);
-  const [pickedDate, setPickedDate] = useState<string | null>(null);
   // Clock-only refresh. No new database reads or network traffic; corrects time
   // validity across midnight and when a Traveler returns after locking the phone.
   const [clockMs, setClockMs] = useState(Date.now());
@@ -86,7 +85,6 @@ export default function Schedule() {
   useEffect(() => {
     let current = true;
     setPickupZone(null);
-    setPickedDate(null);
     if (typeof lat !== 'number' || typeof lng !== 'number') return () => { current = false; };
     publicPickupMarket(lat,lng).then((market) => {
       if (current) setPickupZone(market.status==='active' ? market.timeZone || null : null);
@@ -118,8 +116,12 @@ export default function Schedule() {
     // The pickup-zone date is included even when two different months share the same grid shape.
   }, [calOffset, daysInM, firstDow, marketToday]);
 
+  // The chosen calendar date is kept in RideContext rather than computed afresh
+  // from the word Tomorrow. That prevents a midnight or route change from
+  // silently moving a reservation to a different day.
+  const selectedPickupDate = pickupZone ? ride.schedPickupDate : null;
+  const isToday = !!marketToday && selectedPickupDate === marketToday;
   const timeSlots = slotsFor(ride.schedPeriod);
-  const isToday = ride.schedDate === 'today';
   const slotPassed = (t: string) => !!pickupZone && isToday && toMinutes(t, ride.schedPeriod) <= nowMin;
   const allSlotsPassed = timeSlots.every(slotPassed);
 
@@ -159,19 +161,19 @@ export default function Schedule() {
 
   const chosenTime = customState === 'ok' ? customLabel : ride.schedTime;
 
-  const selectedPickupDate = marketToday
-    ? ride.schedDate === 'today' ? marketToday
-      : ride.schedDate === 'tomorrow' ? nextDate(marketToday) : pickedDate
-    : null;
   const resolved = pickupZone && selectedPickupDate
     ? resolvePickupWall(selectedPickupDate, chosenTime, ride.schedPeriod, pickupZone)
     : {ok:false as const, code:'pickup_zone_required'};
 
-  const whenLabels: Record<string, string> = {
-    today: t('traveler.schedToday'),
-    tomorrow: t('traveler.schedTomorrow'),
-    pick: pickedDate ? ride.schedDay : t('traveler.schedPickDay'),
-  };
+  const activeDayChoice: 'today' | 'tomorrow' | 'pick' = selectedPickupDate && marketToday
+    ? selectedPickupDate === marketToday ? 'today'
+      : selectedPickupDate === nextDate(marketToday) ? 'tomorrow' : 'pick'
+    : ride.schedDate;
+  const chosenDayLabel = selectedPickupDate && marketToday
+    ? activeDayChoice === 'today' ? t('traveler.schedToday')
+      : activeDayChoice === 'tomorrow' ? t('traveler.schedTomorrow')
+      : dayLabel(new Date(`${selectedPickupDate}T00:00:00Z`), language)
+    : t('traveler.schedPickDay');
   const hasDestination = !!ride.arrival.short.trim();
   const hasQuote = hasDestination && !!ride.tripCoords && !ride.repricing &&
     ride.quotedFareCents != null && ride.quotedFareCents > 0 &&
@@ -196,6 +198,19 @@ export default function Schedule() {
       return pickupZone; // Bad external time-zone data must never crash this screen.
     }
   })();
+
+  useEffect(() => {
+    if (!marketToday) return;
+    if (!ride.schedPickupDate && ride.schedDate !== 'pick') {
+      ride.setSchedPickupDate(ride.schedDate === 'today' ? marketToday : nextDate(marketToday));
+      return;
+    }
+    // As midnight passes, update the Today/Tomorrow chip to match the SAME
+    // already-selected date; never move the selected date to match a chip.
+    if (ride.schedPickupDate && ride.schedDate !== activeDayChoice)
+      ride.setSchedDate(activeDayChoice);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [marketToday, ride.schedDate, ride.schedPickupDate, activeDayChoice]);
 
   useEffect(() => {
     if (isToday && !allSlotsPassed && slotPassed(ride.schedTime)) {
@@ -265,11 +280,15 @@ export default function Schedule() {
       <SectionLabel style={styles.sectionTitle}>{t('traveler.day')}</SectionLabel>
       <View style={styles.dayRow}>
         {dateOpts.map((o) => {
-          const on = ride.schedDate === o.key;
+          const on = activeDayChoice === o.key;
           return (
             <Pressable
               key={o.key}
-              onPress={() => ride.setSchedDate(o.key)}
+              onPress={() => {
+                ride.setSchedDate(o.key);
+                ride.setSchedPickupDate(o.key === 'pick' || !marketToday ? null
+                  : o.key === 'today' ? marketToday : nextDate(marketToday));
+              }}
               style={({ pressed }) => [
                 styles.dayBtn,
                 {
@@ -287,7 +306,7 @@ export default function Schedule() {
         })}
       </View>
 
-      {ride.schedDate === 'pick' && (
+      {activeDayChoice === 'pick' && (
         <Card style={styles.calCard}>
           <View style={styles.calHead}>
             <Pressable
@@ -319,7 +338,7 @@ export default function Schedule() {
           </View>
           <View style={styles.calGrid}>
             {calCells.map((c, i) => {
-              const on = c.day && pickedDate === c.day.toISOString().slice(0,10);
+              const on = c.day && ride.schedPickupDate === c.day.toISOString().slice(0,10);
               return (
                 <Pressable
                   key={i}
@@ -327,7 +346,7 @@ export default function Schedule() {
                   onPress={() => {
                     if (!c.day) return;
                     ride.setSchedDay(dayLabel(c.day,language));
-                    setPickedDate(c.day.toISOString().slice(0,10));
+                    ride.setSchedPickupDate(c.day.toISOString().slice(0,10));
                   }}
                   style={[styles.calCell, on && { backgroundColor: colors.ink }]}
                 >
@@ -344,7 +363,10 @@ export default function Schedule() {
               );
             })}
           </View>
-          <Text style={styles.calGoing}>{t('traveler.goingOn', { day: ride.schedDay })}</Text>
+          <Text style={styles.calGoing}>{t('traveler.goingOn', {
+            day: selectedPickupDate ? dayLabel(new Date(`${selectedPickupDate}T00:00:00Z`), language)
+              : t('traveler.schedPickDay'),
+          })}</Text>
         </Card>
       )}
 
@@ -472,7 +494,7 @@ export default function Schedule() {
         <View style={styles.summaryRow}>
           <Text style={styles.summaryLabel}>{t('traveler.pickup')}</Text>
           <Text style={styles.summaryValue}>
-            {whenLabels[ride.schedDate]} · {pickupTimeDisplay}
+            {chosenDayLabel} · {pickupTimeDisplay}
           </Text>
         </View>
         <View style={[styles.summaryRow, { marginTop: 10 }]}>
@@ -523,7 +545,7 @@ export default function Schedule() {
           if (scheduleStatus !== 'ready' || !resolved.ok || resolved.atMs <= Date.now() ||
               !pickupZone || !selectedPickupDate) return;
           const info: SchedInfo = {
-            when: whenLabels[ride.schedDate],
+            when: chosenDayLabel,
             time: chosenTime,
             period: ride.schedPeriod,
             arr: ride.arrival.name, // the demo's splash names the destination in full
