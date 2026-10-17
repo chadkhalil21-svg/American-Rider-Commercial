@@ -154,6 +154,28 @@ for (let pass = 1; pass <= 2; pass++) {
   assert.match(platform, /\.collection\('platform_messages'\)\.orderBy\('createdAt', 'desc'\)\.limit\(pageSize\)/,
     'backend caps reads before querying Firestore, not after');
 
+  // Logged-on Operators should not see one insurance expiry on their duty
+  // dashboard and a later one on Insurance: both match the backend UTC
+  // cutoff, regardless of device timezone (or DST).
+  const operatorState = read('src/state/OperatorContext.tsx');
+  const insuranceScreen = read('app/operator/insurance.tsx');
+  const insuranceBackend = read('backend/insurance-horizon.js');
+  assert.match(operatorState, /\$\{insuranceExpiry\}T23:59:59\.999Z/,
+    'Operator duty calendar uses the exact UTC policy end');
+  assert.match(insuranceScreen, /policyExpiry \+ 'T23:59:59\.999Z'/,
+    'Insurance detail shares the backend policy end');
+  assert.match(insuranceBackend, /expiry \+ 'T23:59:59\.999Z'/,
+    'the UTC cutoff is grounded in the existing server policy');
+  assert.doesNotMatch(operatorState, /\$\{insuranceExpiry\}T23:59:59`/,
+    'do not interpret expiry in the phone local timezone');
+
+  // Any transient database error has an explicit non-success response.
+  const noticeService = read('backend/platforminbox.js');
+  assert.match(noticeService, /reason: 'platform_inbox_unavailable', messages: \[\]/,
+    'inbox read errors cannot cause unhandled route rejection or false empty state');
+  assert.match(noticeService, /reason: 'platform_inbox_unavailable' \}/,
+    'failed read-marking preserves unread status instead of throwing');
+
   const found = indexes.indexes.some(x => x.collectionGroup === 'lost_items' &&
     x.queryScope === 'COLLECTION' &&
     x.fields?.[0]?.fieldPath === 'travelerUid' &&
