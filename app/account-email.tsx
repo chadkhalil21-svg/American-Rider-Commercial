@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { AppState, Keyboard, Platform, Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { Text } from '../src/components/AppText';
@@ -41,6 +42,18 @@ export default function AccountEmail() {
     [user?.providerData],
   );
 
+  // Local account-scoped reminder survives app restart; never store a password.
+  // Every ar: account key is wiped by the existing sign-out/delete routine.
+  const pendingKey = user?.uid ? `ar:email-change-pending:${user.uid}` : null;
+  useEffect(() => {
+    if (!pendingKey) return;
+    let active = true;
+    void AsyncStorage.getItem(pendingKey).then(value => {
+      if (active && value) setPendingEmail(value);
+    }).catch(() => {});
+    return () => { active = false; };
+  }, [pendingKey]);
+
   const requestedEmail = nextEmail.trim();
   const sameEmail = requestedEmail.length > 0 &&
     requestedEmail.toLowerCase() === (user?.email || '').trim().toLowerCase();
@@ -54,6 +67,7 @@ export default function AccountEmail() {
         user.emailVerified) {
       setConfirmedEmail(pendingEmail);
       setPendingEmail('');
+      if (pendingKey) void AsyncStorage.removeItem(pendingKey).catch(() => {});
       setNotice('');
       setError('');
     }
@@ -106,6 +120,7 @@ export default function AccountEmail() {
       setShowPassword(false);
       if (ok) {
         setPendingEmail(requested);
+        if (pendingKey) void AsyncStorage.setItem(pendingKey, requested).catch(() => {});
         setNextEmail('');
         setEmailTouched(false);
         setConfirmedEmail('');
@@ -150,7 +165,7 @@ export default function AccountEmail() {
           </Pressable>
           <Text style={styles.managedBody}>{t('traveler.emailNotReceived')}</Text>
           <Pressable accessibilityRole="button" style={styles.secondaryAction}
-            onPress={() => { setNextEmail(pendingEmail); setPendingEmail(''); setPassword(''); setError(''); setNotice(''); }}>
+            onPress={() => { setNextEmail(pendingEmail); setPendingEmail(''); if (pendingKey) void AsyncStorage.removeItem(pendingKey).catch(() => {}); setPassword(''); setError(''); setNotice(''); }}>
             <Text style={styles.link}>{t('traveler.emailEditRequest')}</Text>
           </Pressable>
         </Card>
