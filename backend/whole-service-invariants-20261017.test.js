@@ -190,6 +190,18 @@ for (let pass = 1; pass <= 2; pass++) {
   assert.match(rideStore, /tripNo \?\? \(rideActiveRef\.current \? lastTrip\.no : ''\)/,
     'common support API uses lastTrip only while Travel is actually active');
 
+  // Operator's actual Lost Item details screen must not strand someone on
+  // a failed load or apply a stale response after they leave.
+  const opLost = read('app/operator/lost-item.tsx');
+  assert.match(opLost, /\[retryCount, setRetryCount\] = useState\(0\)/);
+  assert.match(opLost, /fetchOperatorLostItem\(id\)\.then/);
+  assert.match(opLost, /if \(!active\) return/,
+    'a stale Operator report cannot replace the current report');
+  assert.match(opLost, /return \(\) => \{ active = false; \}/);
+  assert.match(opLost, /t\('operator\.lostRetry'\)/);
+  assert.match(opLost, /setRetryCount\(n => n \+ 1\)/);
+  assert.match(opLost, /t\('operator\.busyChecking'\)/);
+
   const found = indexes.indexes.some(x => x.collectionGroup === 'lost_items' &&
     x.queryScope === 'COLLECTION' &&
     x.fields?.[0]?.fieldPath === 'travelerUid' &&
@@ -217,6 +229,8 @@ for (let pass = 1; pass <= 2; pass++) {
     assert.ok(operator, lang + ': Operator translations must exist');
     assert.match(operator, /^\s{4}platformCommunicationsUnavailable:/m,
       lang + ': Operator also receives an understandable read error');
+    assert.match(operator, /^\s{4}lostRetry:/m,
+      lang + ': Operator Lost Item load has a localized Retry action');
     for (const key of ['removeDefaultCardNotice', 'removeCardNotice', 'mobileReadUnavailable',
       'lostHistoryCouldNotLoad', 'lostHistoryMore', 'lostNoVerifiedTravelThread', 'msgTravelUnavailable', 'platformCommunications', 'platformCommunicationsBody', 'noPlatformCommunications', 'newPlatformCommunication', 'platformCommunicationReadFailed', 'platformCommunicationsUnavailable']) {
       assert.match(traveler, new RegExp('^\\s{4}' + key + ':', 'm'),
