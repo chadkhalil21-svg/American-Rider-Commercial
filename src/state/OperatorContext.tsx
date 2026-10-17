@@ -239,6 +239,9 @@ type OperatorState = {
   resetQualification: () => void;
   // availability + the simulated operation loop
   online: boolean;
+  /** This device is off, but the server has not yet confirmed concluding duty. */
+  offlinePending: boolean;
+  offlineBusy: boolean;
   /** False when this device cannot hold presence while locked — the screen must say so. */
   backgroundPresence: boolean;
   setOnline: (b: boolean) => void;
@@ -333,6 +336,13 @@ export function OperatorProvider({ children }: { children: React.ReactNode }) {
   // the ordinary case, which is a date passing while nobody was watching.
   const [insuranceExpiry, setInsuranceExpiryState] = useState<string | null>(null);
   const [online, setOnlineState] = useState(false);
+  const [offlinePending, setOfflinePendingState] = useState(false);
+  const [offlineBusy, setOfflineBusy] = useState(false);
+  const [dutyRestoreReady, setDutyRestoreReady] = useState(false);
+  const offlinePendingRef = useRef(false);
+  const offlineInFlightRef = useRef(false);
+  const userUidRef = useRef(user?.uid ?? null);
+  userUidRef.current = user?.uid ?? null;
   // Why going on duty was refused, in Stripe's terms. Held here rather than thrown because
   // an operator who cannot be paid must be TOLD, not silently flipped back off.
   const [onlineError, setOnlineError] = useState<string | null>(null);
@@ -1345,6 +1355,8 @@ tr('traveler.gateLocation'),
     resetQualification,
     commission,
     online,
+    offlinePending,
+    offlineBusy,
     backgroundPresence,
     setOnline,
     onlineError,
