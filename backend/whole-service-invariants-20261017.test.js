@@ -205,7 +205,7 @@ for (let pass = 1; pass <= 2; pass++) {
   // Genuine paid Travel must never be misclassified as a demonstration
   // merely because it is currently active. Otherwise it hides actual
   // Operator messages and displays a scripted reply.
-  const rideStore = read('src/state/RideContext.tsx');
+  // Reuse the RideContext source already loaded for the Safety audit above.
   assert.match(messageScreen, /ride\.matchedOp\?\.demo === true && !lostItemId/,
     'the message UI only hides Firestore updates for an explicit demo Operator');
   assert.match(messageScreen, /!ride\.myRides\.some\(\(record\) => record\.tripNo === tripNo && !!record\.id\)/,
