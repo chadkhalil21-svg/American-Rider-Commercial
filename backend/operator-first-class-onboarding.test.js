@@ -17,8 +17,9 @@ for(let round=1;round<=2;round++){
  assert.match(insurance,/insFloridaRequirementsShort/,'show basic statutory amounts');
  assert.ok(insurance.indexOf('insRequirementsHeadline') < insurance.indexOf('insCompareHeadline'),
    'state the required coverage before directing a purchase');
- assert.match(insurance,/featured = \['Insureon', 'Limousine Insurance HQ', 'Progressive Commercial'\]/,
-   'multi-company quote entry points and an optional insurer are clearly accessible');
+ assert.match(insurance,/featured = \['Insureon', 'Limousine Insurance HQ'\]/,
+   'multi-company quote entry points remain clearly accessible');
+ assert.match(insurance,/const additional = national.filter/,'specialist carriers remain optional');
  assert.match(data,/name: 'Insureon'/);
  assert.match(data,/name: 'Limousine Insurance HQ'/);
  assert.match(insurance,/insCompareDisclosure/,'never promise real-time best prices');
