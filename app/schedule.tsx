@@ -694,6 +694,16 @@ export default function Schedule() {
             <Text style={styles.unquotedPrice}>{t('traveler.schedNotQuoted')}</Text>
           )}
         </View>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={t('traveler.paymentMethods')}
+          onPress={() => router.navigate('/wallet')}
+          style={{ minHeight: 44, justifyContent: 'center', alignSelf: 'flex-start', marginTop: 8 }}
+        >
+          <Text style={{ color: colors.ink, fontSize: 14, fontWeight: '600' }}>
+            {t('traveler.paymentMethods')} ›
+          </Text>
+        </Pressable>
         {/* WAS: "Locked in when you book — it won't change, even if prices are up that
             morning. Your operator is set the night before." Two problems. The first half
             reassures against a doubt rather than stating the fact (the rubric: state the
