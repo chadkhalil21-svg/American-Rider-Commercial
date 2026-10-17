@@ -58,7 +58,7 @@ export const QUAL_DOCS: {
   sub: string;
   detail?: boolean; // step opens a guidance screen instead of inline verification
 }[] = [
-  { key: 'basics', title: 'traveler.qualBasics', sub: 'traveler.qualBasicsSub' },
+  // No self-verified Basics badge: data entry is not independent approval.
   { key: 'license', title: 'traveler.qualLicense', sub: 'traveler.qualLicenseSub' },
   { key: 'registration', title: 'traveler.qualRegistration', sub: '' },
   { key: 'insurance', title: 'traveler.qualInsurance', sub: 'traveler.qualInsuranceSub', detail: true },
