@@ -227,6 +227,8 @@ export default {
     partRead: 'Gelesen',
     openAllParts: 'Öffnen Sie alle %{n} Teile, um fortzufahren',
 
+    lostRetry: "Erneut versuchen",
+
     lostOpenFailed: "Dieser Bericht konnte nicht geöffnet werden.",
     lostUnavailable: "Dieser Fundgegenstandsbericht ist nicht verfügbar.",
     lostSelectTravel: "Wählen Sie die Fahrt aus, in der Sie den Gegenstand gefunden haben.",
