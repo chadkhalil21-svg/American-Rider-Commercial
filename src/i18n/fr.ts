@@ -1067,6 +1067,8 @@ export default {
     schedZoneUnavailable: 'Le fuseau horaire du départ est indisponible. La réservation est suspendue; réessayez.',
     schedTimeInvalid: 'Cette heure de départ est inexistante, répétée ou n’est plus sélectionnée. Choisissez une autre heure.',
     schedChooseDestination: "Choisir une destination",
+    schedReturnToPickup: "Prise en charge programmée",
+    schedContinue: "Continuer",
     schedDestinationNeeded: "Choisissez une destination pour connaître le coût total du trajet.",
     schedQuoteNeeded: "Le coût du trajet n’est pas confirmé. Vérifiez le trajet pour obtenir un prix à jour.",
     schedReviewFare: "Vérifier le prix du trajet",
