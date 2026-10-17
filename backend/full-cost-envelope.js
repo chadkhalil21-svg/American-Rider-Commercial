@@ -101,7 +101,7 @@ function operatingAllowanceCheck({
     infrastructureUsdPerTravel,
     operatingAllowanceUsd:economics.operatingOverheadCents/100,
     uncommittedAllowanceUsd:economics.operatingOverheadCents/100-infrastructureUsdPerTravel,
-    feeIncreaseJustified:false,
+    feeIncreaseJustified:'not established by these estimates',
     caveat:'Do not raise prices or certify profit from this modeled comparison. Replace inputs with actual bills, then price every remaining cost.',
   });
 }
