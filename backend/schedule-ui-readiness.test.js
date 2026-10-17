@@ -146,6 +146,21 @@ for (let pass = 1; pass <= 2; pass++) {
     'missing destination has a direct, clear place-selection label');
   assert.match(screen, /t\('traveler\.schedDestinationNeeded'\)/,
     'missing destination provides a brief explanation, not an alarming red error');
+  assert.match(screen, /accessibilityLabel=\{t\('traveler\.schedPreviousMonth'\)\}/,
+    'month-back control announces its purpose');
+  assert.match(screen, /accessibilityLabel=\{t\('traveler\.schedNextMonth'\)\}/,
+    'month-forward control announces its purpose');
+  assert.match(screen, /accessibilityState=\{\{ selected: !!on, disabled: !c\.selectable \}\}/,
+    'calendar days announce selected and unavailable states');
+  assert.match(screen, /accessibilityState=\{\{ selected: on, disabled: passed \}\}/,
+    'quick pickup times announce selected and expired states');
+  assert.match(screen, /accessibilityLabel=\{t\('traveler\.anotherTime'\)\}/,
+    'custom-time input has an explicit accessible name');
+  assert.match(screen, /minHeight: 44/,
+    'date/time tap targets preserve a comfortable minimum height');
+  assert.match(screen, /summaryLabel: \{[^\n]*flexShrink: 1/,
+    'Complete Travel Cost can wrap on narrow phones');
+
 
   const confirmation = read('app/reserve.tsx');
   assert.match(confirmation, /params\.scheduling === '1'/,
@@ -197,6 +212,7 @@ for (let pass = 1; pass <= 2; pass++) {
     const src=read('src/i18n/'+l+'.ts');
     for(const key of ['schedPickupDateLabel','schedPickupPlace','schedEditPickup',
       'schedDestination','schedChangeDestination','schedChangeTime','schedTimeOptions',
+      'schedPreviousMonth','schedNextMonth',
       'schedNotQuoted','schedConfirmTimeHint',
       'schedContinueScheduling','schedChooseDestination','schedDestinationNeeded','schedQuoteNeeded',
       'schedReviewFare','schedTimeUnconfirmed','schedTimesPassed','schedReturnToPickup','schedContinue']) {
