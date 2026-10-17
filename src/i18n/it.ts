@@ -1058,6 +1058,7 @@ export default {
     schedTimeChosen: '%{time} selezionato.',
     schedPickupZone: "Orario locale del prelievo · %{zone}",
     schedZoneUnavailable: 'Il fuso orario del prelievo non è disponibile. La programmazione è sospesa; riprova.',
+    schedCheckingZone: "Verifica dell'area di partenza…",
     schedTimeInvalid: 'L’ora del prelievo non esiste, è ripetuta o non è più selezionata. Scegli un altro orario.',
     schedPickupDateLabel: "Data del prelievo",
     schedPreviousMonth: "Mese precedente",
