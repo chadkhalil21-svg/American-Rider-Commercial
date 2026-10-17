@@ -109,11 +109,16 @@ const fakeDb = {
       travelerUid: 'traveler1', tripNo: 'AR-A', candidateTripNos: ['AR-A'],
       notifiedOperatorIds: ['op1'], description: 'Wallet', status: 'reported', operatorResponses: {},
     },
+    liMulti: {
+      travelerUid: 'traveler1', tripNo: null, candidateTripNos: ['AR-A','AR-B','AR-D'],
+      notifiedOperatorIds: ['op1','op2'], description: 'Coat', status: 'operator-notified', operatorResponses: {},
+    },
   };
   const rides = {
     'AR-2117-MIA': { tripNo: 'AR-2117-MIA', travelerUid: 'traveler1', operatorId: 'op1', operatorName: 'Operator 1' },
     'AR-A': { tripNo: 'AR-A', travelerUid: 'traveler1', operatorId: 'op1', operatorName: 'Operator 1' },
     'AR-B': { tripNo: 'AR-B', travelerUid: 'traveler1', operatorId: 'op2', operatorName: 'Operator 2' },
+    'AR-D': { tripNo: 'AR-D', travelerUid: 'traveler1', operatorId: 'op1', operatorName: 'Operator 1' },
     'AR-C': { tripNo: 'AR-C', travelerUid: 'traveler2', operatorId: 'op3', operatorName: 'Operator 3' },
   };
   // Simulate Firestore transaction serialization for simultaneous requests.
@@ -194,6 +199,12 @@ const fakeDb = {
   check('an unrelated Operator cannot read the report', !denied.ok && denied.status === 403);
   const ownReport = await operatorLostItem({ itemId: 'li1', operatorUid: 'op1' }, { database: recoveryDb });
   check('a named Operator can read the minimum recovery record', ownReport.ok && ownReport.item.description === 'Black bag');
+
+  const op1Candidates = await operatorLostItem({ itemId:'liMulti', operatorUid:'op1' }, { database: recoveryDb });
+  const op2Candidates = await operatorLostItem({ itemId:'liMulti', operatorUid:'op2' }, { database: recoveryDb });
+  check('an Operator sees each of their own possible Travels and no other Operator trips',
+    op1Candidates.ok && op1Candidates.item.candidateTripNos.join(',') === 'AR-A,AR-D' &&
+    op2Candidates.ok && op2Candidates.item.candidateTripNos.join(',') === 'AR-B');
 
   const wrongTrip = await respondLostItem({ itemId: 'li2', operatorUid: 'op1', outcome: 'located', tripNo: 'AR-B' }, { database: recoveryDb });
   check('an Operator cannot claim another candidate Operator’s Travel', !wrongTrip.ok && wrongTrip.status === 403);
