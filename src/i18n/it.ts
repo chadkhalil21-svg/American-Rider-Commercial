@@ -312,7 +312,7 @@ export default {
     insNotLicenceChecked: 'Licenza non verificata da American Rider. Chieda loro di confermare che sono autorizzati in Florida.',
     insVerifyLicence: 'American Rider non riceve alcun compenso per le segnalazioni presenti in questa schermata e non rilascia dichiarazioni sul prezzo finale, che resta materia tra l’Operatore e l’assicuratore. La licenza di qualsiasi agenzia può essere verificata presso il Florida Department of Financial Services.',
     brokerGarzorNote: 'Trasporto commerciale di persone, sottoscritto in Florida',
-    brokerGarzorHours: 'Dal lunedì al venerdì, 8–20 · Sabato, 9–16',
+    brokerGarzorHours: 'Dal lunedì al venerdì, dalle 9:00 alle 18:00 (ora orientale) · Fine settimana su appuntamento',
     placeHome: 'Casa',
     placeWork: 'Lavoro',
     placeCurrent: 'Posizione attuale',
