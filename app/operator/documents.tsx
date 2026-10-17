@@ -104,6 +104,7 @@ export default function OperatorDocuments() {
       <Title>{t('operator.documents')}</Title>
       {/* WAS: "All qualifications current." It said that whatever was true. */}
       <Sub>{t('traveler.docsHeld')}</Sub>
+      <Text style={styles.note}>{t('traveler.docUploadGuidance')}</Text>
 
       <Card style={styles.listCard}>
         {DOCUMENTS.map((d, i) => {
