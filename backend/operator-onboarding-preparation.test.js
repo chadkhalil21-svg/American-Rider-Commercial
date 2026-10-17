@@ -60,6 +60,12 @@ for(let pass=0;pass<2;pass++){
  assert.match(screen,/d\.key === 'insurance'\) router\.navigate/);
  assert.match(screen,/label=\{t\('traveler\.tryAgain'\)\}/,'explicit operating-market retry');
  assert.match(screen,/if \(!area\?\.market\)/,'selected market precedes jurisdictional preparation');
+ assert.match(screen,/setShowMarkets\(v => !v\)/,'Operator may change the selected county without resetting registration');
+ assert.match(screen,/operator\.changeOperatingArea/,'market selector must be clearly labelled');
+ for(const lang of ['en','es','fr','it','de']) {
+   assert.match(src('src/i18n/'+lang+'.ts'),/changeOperatingArea:/,'localized change control missing: '+lang);
+ }
+
  assert.match(screen,/disabled=\{submitting \|\| !areaAuthorized\}/,'final submission remains closed in waitlisted counties');
  const connect=src('src/backend/connect.ts');
  assert.match(connect,/error\?: string/);
@@ -70,5 +76,7 @@ for(let pass=0;pass<2;pass++){
  assert.match(background,/Linking\.openURL\(url\)\.catch/,'provider link must have failure recovery');
  assert.match(background,/status\?\.ok === false/,'screening status loss must be visible');
  assert.match(src('app/operator/insurance.tsx'),/configResolved && !config &&/);
+ assert.match(src('app/operator/insurance.tsx'),/BROKER!\.phone[\s\S]*?\.catch\(\(\) => Alert\.alert/,'broker phone failures must be handled');
+ assert.match(src('app/operator/insurance.tsx'),/mailto:\$\{BROKER!\.email\}`\)\.catch/,'broker mail failures must be handled');
 }
 console.log('PASS twice: waitlisted/onboarding paperwork, invalid jurisdictions, document ownership, independent paid eligibility, screening safety, error recovery and corrected four-step UI. No real external commissioning.');
