@@ -63,6 +63,25 @@ for (let pass = 1; pass <= 2; pass++) {
   assert.doesNotMatch(support, /fetchMyLostItems\(\)\.then/,
     'old failure-as-empty history call was removed');
 
+  // A customer support thread must never infer a real Operator or trip
+  // from the demonstration/last-visited reservation.
+  const lostScreen = read('app/lost.tsx');
+  const messageScreen = read('app/message.tsx');
+  assert.match(lostScreen, /const recordedTripNo = item\?\.tripNo \|\| item\?\.candidateTripNos\?\.find\(Boolean\) \|\| null/);
+  assert.doesNotMatch(lostScreen, /item\?\.candidateTripNos\[0\] \?\? ride\.lastTrip\.no/);
+  assert.match(lostScreen, /if \(!item\?\.id \|\| !recordedTripNo\) return/,
+    'do not open a message thread without a filed, trip-bound report');
+  assert.match(lostScreen, /ride\.openHelp\(\)/,
+    'no-Travel cases explicitly open Support without a demonstration Travel');
+  assert.match(messageScreen, /\(ride\.rideActive \? ride\.lastTrip\.no : ''\)/,
+    'the missing route param falls back only when a ride is truly underway');
+  assert.match(messageScreen, /if \(isLiveDemoRide \|\| !tripNo\) return/,
+    'no Firestore message listener on a missing Travel');
+  assert.match(messageScreen, /if \(!text \|\| sending \|\| !tripNo\) return/,
+    'no message may be sent without a Travel identifier');
+  assert.match(messageScreen, /traveler\.msgTravelUnavailable/,
+    'unavailable conversation explains the condition instead of inventing a party');
+  
   const found = indexes.indexes.some(x => x.collectionGroup === 'lost_items' &&
     x.queryScope === 'COLLECTION' &&
     x.fields?.[0]?.fieldPath === 'travelerUid' &&
@@ -87,7 +106,7 @@ for (let pass = 1; pass <= 2; pass++) {
     const traveler = d.match(/^  traveler:\s*\{([\s\S]*?)^  \},/m)?.[1];
     assert.ok(traveler, lang + ': Traveler translations must exist');
     for (const key of ['removeDefaultCardNotice', 'removeCardNotice', 'mobileReadUnavailable',
-      'lostHistoryCouldNotLoad', 'lostHistoryMore']) {
+      'lostHistoryCouldNotLoad', 'lostHistoryMore', 'lostNoVerifiedTravelThread', 'msgTravelUnavailable']) {
       assert.match(traveler, new RegExp('^\\s{4}' + key + ':', 'm'),
         lang + ': missing Traveler copy or placed under the wrong role: ' + key);
     }
