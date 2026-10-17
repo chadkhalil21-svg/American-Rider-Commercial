@@ -1083,6 +1083,7 @@ export default {
     schedChooseDestination: "Choose destination",
     schedReturnToPickup: "Scheduled pickup",
     schedContinue: "Continue",
+    schedContinueScheduling: "Continue to Schedule",
     schedDestinationNeeded: "Choose a destination to see your complete Travel Cost.",
     schedQuoteNeeded: "The Travel Cost has not been confirmed. Review your journey for a current price.",
     schedReviewFare: "Review Travel Cost",
