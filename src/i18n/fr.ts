@@ -232,6 +232,8 @@ export default {
     openAllParts: 'Ouvrez les %{n} parties pour continuer',
 
     lostOpenFailed: "Ce signalement n’a pas pu être ouvert.",
+    lostHistoryCouldNotLoad: "Impossible de charger vos déclarations d’objets perdus. Les déclarations affichées peuvent ne plus être à jour.",
+    lostHistoryMore: "Voir d’autres déclarations d’objets perdus",
     lostUnavailable: "Ce signalement d’objet perdu est indisponible.",
     lostSelectTravel: "Sélectionnez le Voyage dans lequel vous avez trouvé l’objet.",
     lostUpdateFailed: "Cette mise à jour n’a pas pu être enregistrée.",
