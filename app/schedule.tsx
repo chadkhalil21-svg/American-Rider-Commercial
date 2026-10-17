@@ -63,6 +63,7 @@ export default function Schedule() {
   const goBack = useGoBack();
   const ride = useRide();
   const [calOffset, setCalOffset] = useState(0); // months ahead of the current month
+  const [timeEditing, setTimeEditing] = useState(false);
   // Once scheduled, the demo shows its Travel Scheduled splash before returning home.
   const [doneInfo, setDoneInfo] = useState<SchedInfo | null>(null);
   const [saving, setSaving] = useState(false);
@@ -267,19 +268,50 @@ export default function Schedule() {
     <Screen>
       <LetterheadBar onBack={goBack} />
       <Title>{t('traveler.planAhead')}</Title>
-      <Pressable
-        accessibilityRole="button"
-        onPress={() => router.navigate({
-          pathname: '/reserve',
-          params: hasDestination ? { scheduling: '1' } : { search: '1', scheduling: '1' },
-        })}
-        style={styles.journeyLink}
-      >
-        <Sub>{ride.departure.short} → {hasDestination
-          ? ride.arrival.short : t('traveler.schedChooseDestination')} ›</Sub>
-      </Pressable>
+      {/* One itinerary, two editable locations. The Traveler can start with a time
+          on Home without losing the ability to select a destination here. */}
+      <Card style={styles.journeyCard}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={t('traveler.schedEditPickup')}
+          onPress={() => router.navigate({
+            pathname: '/reserve',
+            params: { scheduling: '1', pickup: '1' },
+          })}
+          style={styles.journeyRow}
+        >
+          <View style={[styles.journeyDot, { backgroundColor: colors.ink }]} />
+          <View style={styles.journeyText}>
+            <Text style={styles.journeyLabel}>{t('traveler.schedPickupPlace')}</Text>
+            <Text style={styles.journeyValue} numberOfLines={2}>
+              {ride.departure.short || t('traveler.schedEditPickup')}
+            </Text>
+          </View>
+          <Text style={styles.journeyChev}>›</Text>
+        </Pressable>
+        <View style={styles.journeyHairline} />
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={hasDestination ? t('traveler.schedChangeDestination')
+            : t('traveler.schedChooseDestination')}
+          onPress={() => router.navigate({
+            pathname: '/reserve',
+            params: { search: '1', scheduling: '1' },
+          })}
+          style={styles.journeyRow}
+        >
+          <View style={[styles.journeyDot, { backgroundColor: colors.blue }]} />
+          <View style={styles.journeyText}>
+            <Text style={styles.journeyLabel}>{t('traveler.schedDestination')}</Text>
+            <Text style={[styles.journeyValue, !hasDestination && styles.journeyEmpty]} numberOfLines={2}>
+              {hasDestination ? ride.arrival.short : t('traveler.schedChooseDestination')}
+            </Text>
+          </View>
+          <Text style={styles.journeyChev}>›</Text>
+        </Pressable>
+      </Card>
 
-      <SectionLabel style={styles.sectionTitle}>{t('traveler.day')}</SectionLabel>
+      <SectionLabel style={styles.sectionTitle}>{t('traveler.schedPickupDateLabel')}</SectionLabel>
       <View style={styles.dayRow}>
         {dateOpts.map((o) => {
           const on = activeDayChoice === o.key;
@@ -307,6 +339,11 @@ export default function Schedule() {
           );
         })}
       </View>
+      <Text style={styles.dateChosen}>
+        {selectedPickupDate ? new Date(`${selectedPickupDate}T00:00:00Z`)
+          .toLocaleDateString(language, { weekday: 'long', month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' })
+          : t('traveler.schedPickDay')}
+      </Text>
 
       {activeDayChoice === 'pick' && (
         <Card style={styles.calCard}>
@@ -592,7 +629,16 @@ const styles = StyleSheet.create({
     lineHeight: 21.75,
     textAlign: 'center',
   },
-  journeyLink: { minHeight: 44, justifyContent: 'center' },
+  journeyCard: { marginTop: 18, paddingHorizontal: 18, paddingVertical: 0 },
+  journeyRow: { minHeight: 68, flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 12 },
+  journeyDot: { width: 9, height: 9, borderRadius: 5 },
+  journeyText: { flex: 1, minWidth: 0 },
+  journeyLabel: { fontSize: 12, color: colors.ink2, marginBottom: 4 },
+  journeyValue: { fontSize: 16, fontWeight: '600', color: colors.ink, lineHeight: 22 },
+  journeyEmpty: { color: colors.blue },
+  journeyChev: { fontSize: 22, color: colors.ink2, paddingHorizontal: 4 },
+  journeyHairline: { height: 1, backgroundColor: colors.border, marginLeft: 23 },
+  dateChosen: { fontSize: 13, color: colors.ink2, marginTop: 9, lineHeight: 19 },
   journeyGuidance: { marginTop: 6, marginBottom: 14 },
   journeyGuidanceText: { fontSize: 14, color: colors.ink2, lineHeight: 21 },
   journeyGuidanceLink: { minHeight: 44, alignSelf: 'flex-start', justifyContent: 'center' },
