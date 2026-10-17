@@ -227,6 +227,8 @@ export default {
     partRead: 'Gelesen',
     openAllParts: 'Öffnen Sie alle %{n} Teile, um fortzufahren',
 
+    lostLoading: "Bericht wird geladen…",
+
     lostRetry: "Erneut versuchen",
 
     lostOpenFailed: "Dieser Bericht konnte nicht geöffnet werden.",
