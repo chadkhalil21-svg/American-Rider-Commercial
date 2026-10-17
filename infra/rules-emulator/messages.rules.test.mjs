@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { initializeTestEnvironment, assertSucceeds, assertFails } from '@firebase/rules-unit-testing';
-import { doc, setDoc, addDoc, collection, getDocs, query, where } from 'firebase/firestore';
+import { doc, setDoc, addDoc, collection, getDoc, getDocs, updateDoc, deleteDoc, query, where } from 'firebase/firestore';
 // THE APP'S OWN WRITE — the module operatorInbox.ts setStatus() sends, imported as-is (Node strips
 // the TypeScript types). A rule that refuses what the app really sends fails here.
 import { operatorStatusWrite } from '../../src/backend/rideStatusWrite.ts';
@@ -56,6 +56,35 @@ await env.withSecurityRulesDisabled(async (ctx) => {
   await addDoc(collection(ctx.firestore(), 'messages'), fromOperator('rideA', rides.rideA));
   await addDoc(collection(ctx.firestore(), 'messages'), fromGuardian('rideTeen', rides.rideTeen));
 });
+
+// ——— scheduled Travel cancellations must pass the server transaction ————————
+await env.withSecurityRulesDisabled(async (ctx) => {
+  await setDoc(doc(ctx.firestore(), 'scheduled_rides', 'reservedA'), {
+    travelerUid: 'travA', status: 'reserved', atMs: Date.now() + 86_400_000,
+  });
+  await setDoc(doc(ctx.firestore(), 'scheduled_rides', 'dispatchedA'), {
+    travelerUid: 'travA', status: 'dispatched', rideId: 'rideA', atMs: Date.now() + 30_000,
+  });
+  await setDoc(doc(ctx.firestore(), 'scheduled_rides', 'reservedB'), {
+    travelerUid: 'travB', status: 'reserved', atMs: Date.now() + 86_400_000,
+  });
+});
+await check('traveler reads own scheduled reservation', () =>
+  assertSucceeds(getDoc(doc(as('travA'), 'scheduled_rides', 'reservedA'))));
+await check('traveler cannot read another account scheduled reservation', () =>
+  assertFails(getDoc(doc(as('travA'), 'scheduled_rides', 'reservedB'))));
+await check('phone cannot directly delete unassigned reservation; use server transaction', () =>
+  assertFails(deleteDoc(doc(as('travA'), 'scheduled_rides', 'reservedA'))));
+await check('phone cannot delete dispatched reservation during matching or payment', () =>
+  assertFails(deleteDoc(doc(as('travA'), 'scheduled_rides', 'dispatchedA'))));
+await check('phone cannot forge scheduled cancellation status', () =>
+  assertFails(updateDoc(doc(as('travA'), 'scheduled_rides', 'reservedA'), { status: 'cancelled' })));
+await check('phone cannot forge a new reserved trip', () =>
+  assertFails(setDoc(doc(as('travA'), 'scheduled_rides', 'forgedA'), {
+    travelerUid: 'travA', status: 'reserved', atMs: Date.now() + 86_400_000,
+  })));
+await check('unauthenticated user cannot remove reservation', () =>
+  assertFails(deleteDoc(doc(env.unauthenticatedContext().firestore(), 'scheduled_rides', 'reservedA'))));
 
 // ——— the assigned parties talk normally ————————————————————————————————————————
 await check('assigned traveler cannot write directly, must use the authenticated server', () => assertFails(write('travA', fromTraveler('rideA', rides.rideA))));
