@@ -165,7 +165,7 @@ export default function OperatorQualification() {
         const latest = await getOperatingMarket();
         if (latest.error) setAreaError(latest.error);
         else { setArea(latest); setAreaError(null); }
-      }}><Text style={styles.backText}>{t('traveler.marketCheckAgain')} ›</Text></Pressable>
+      }}><Text style={styles.backText}>{t('traveler.marketCheckAgain')} ›</Text></Pressable>}
 
       {areaActive && <Card style={styles.listCard}>
         {QUAL_DOCS.map((d, i) => {
