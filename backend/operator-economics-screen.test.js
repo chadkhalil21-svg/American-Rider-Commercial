@@ -4,7 +4,7 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const { commissionCents } = require('./economics');
+const { commissionCents, MIN_PLATFORM_FEE_CENTS, minimumPlatformFeeCents } = require('./economics');
 
 const source = (name) => fs.readFileSync(path.join(__dirname, '..', name), 'utf8');
 const screen = source('app/operator/economics.tsx');
@@ -12,6 +12,7 @@ const clientMath = source('src/data.ts');
 
 const requiredKeys = [
   'econTitle', 'econIntro', 'econShare', 'econFee', 'econExamples',
+  'econPlatformFeeTitle', 'econPlatformFeeDetail',
   'econExampleFare', 'econOperatorRetains', 'econAmericanRiderShare',
   'econYourScenario', 'econWeeklyInput', 'econAmountPlaceholder',
   'econInvalid', 'econRetainedIllustration', 'econProjectionNote',
@@ -25,6 +26,18 @@ for (let pass = 0; pass < 2; pass++) {
   assert.match(screen, /<Num size=\{46\} weight="600" style=\{styles\.heroPercent\}>99%<\/Num>/,
     'make the exact 99% share the principal visual');
   assert.match(screen, /coordinationFee\(example\)/, 'use existing canonical 1% client display helper');
+  assert.match(screen, /t\('operator\.econPlatformFeeTitle', \{ amount: fmt\(APP_FEE\) \}\)/,
+    'display minimum Platform Fee from shared app constant, not a hardcoded stale amount');
+  assert.match(screen, /t\('operator\.econPlatformFeeDetail'\)/,
+    'explain what the Traveler Platform Fee funds without altering the fare split');
+  assert.ok(screen.indexOf('operator.econPlatformFeeTitle') < screen.indexOf('operator.econExamples'),
+    'minimum Platform Fee is visible before any Fare examples');
+  assert.match(clientMath, /export const APP_FEE = 2\.5;/,
+    'minimum Fee shown to Operators must use the app shared 2.50 floor');
+  assert.equal(MIN_PLATFORM_FEE_CENTS, 250,
+    'authoritative server minimum Platform Fee is $2.50');
+  assert.equal(minimumPlatformFeeCents({travelCostCents: 2000, cardCountry: 'US'}), 250,
+    'example $20 Fare uses the actual minimum $2.50 processing-based Fee');
   assert.match(screen, /coordinationFee\(fare\)/, 'use the same commission rule for scenarios');
   assert.match(screen, /weeklyFare\.trim\(\)\.replace\(',', '\.'\)/, 'accept comma decimal input');
   assert.match(screen, /!valid/, 'reject invalid weekly-fare input');
@@ -91,6 +104,8 @@ for (let pass = 0; pass < 2; pass++) {
     for (const key of requiredKeys) {
       assert.match(locale, new RegExp('^\\s*' + key + ':', 'm'), language + ': ' + key);
     }
+    assert.match(locale, /econPlatformFeeTitle:[^\n]*%\{amount\}/,
+      language + ': Fee amount is localized through the shared constant');
     assert.match(locale, /econAccountCostNote:[^\n]*2\s*\$|econAccountCostNote:[^\n]*\$2/,
       language + ': $2 separate account cost must be visible');
   }
