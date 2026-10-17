@@ -13,6 +13,14 @@ assert.ok(county,'configured Florida county required');
 const stored=id=>({operatingMarket:{id}});
 for(let pass=0;pass<2;pass++){
  const counties=markets();
+ const {assessOperator}=require('./qualification');
+ const missing=assessOperator({user:{operatingMarket:{id:county.id}},account:{disabled:false},liveMoney:false});
+ assert.ok(missing.blockers.some(b=>b.code==='screening_required'),
+  'sandbox may not qualify an unscreened Operator');
+ const incomplete=assessOperator({user:{operatingMarket:{id:county.id},screening:{decision:'awaiting_agency'}},account:{disabled:false},liveMoney:false});
+ assert.ok(incomplete.blockers.some(b=>b.code==='screening_incomplete'),
+  'pending external report cannot be represented as a qualification pass');
+
  const approved=operatorPreparationGate(stored(county.id));
  assert.equal(approved,null,'source-verified Florida preparation permitted');
  const waitlisted=operatorPreparationGate(stored(county.id),{
