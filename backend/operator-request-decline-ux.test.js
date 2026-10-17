@@ -32,8 +32,8 @@ for (let pass = 0; pass < 2; pass++) {
     'the client must receive authoritative success or failure');
   assert.match(context, /const declineRequest = useCallback\(async \(r: SimRequest\): Promise<boolean> => \{/);
   assert.match(context,
-    /const accepted = await declineTravel\(r\.rideId\);\s*if \(accepted\) setIncoming\(null\);\s*return accepted;/,
-    'never silently discard an offer when the decline was not accepted');
+    /const accepted = await declineTravel\(r\.rideId\);\s*if \(accepted\) setIncoming\(\(current\) => current\?\.rideId === r\.rideId \? null : current\);\s*return accepted;/,
+    'never discard an unacknowledged refusal or a newer assigned offer');
   assert.match(context, /lapsedRef\.current\.set\(r\.rideId, Date\.now\(\)\)/,
     'elapsed countdown leaves the Travel assigned and eligible to return');
   assert.match(api, /export const declineTravel = \(rideId: string\) => setStatus\(rideId, 'declined'\)/,
