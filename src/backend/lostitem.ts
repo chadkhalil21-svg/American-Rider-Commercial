@@ -255,7 +255,7 @@ export async function fetchMyLostItemsPage(
   const uid = auth.currentUser?.uid;
   if (!uid) throw new Error('Sign in required');
   if (!Number.isInteger(pageSize) || pageSize < 1 || pageSize > 50)
-    throw new Error('Invalid lost-item page size');
+    throw new Error('invalid-lost-item-page-size');
 
   const base = query(
     collection(db, 'lost_items'),
