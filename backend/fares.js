@@ -1,4 +1,7 @@
 // Canonical fare table (travel cost, in cents), keyed by destination.
+// CURRENT REGIONAL TARIFF: backend/market-pricing.js is authoritative ($1.00 +
+// $0.95/mile + $0.32/minute, $3.00 minimum in South Florida on 16 Oct 2026).
+// Historical rate explanations below preserve the decision history, NOT the current tariff.
 //
 // The SERVER prices every ride from THIS table and never trusts an amount sent by the app.
 // That way a tampered or malicious client can't decide its own price (e.g. "charge me 1 cent"):
@@ -122,8 +125,8 @@ const PER_MINUTE_CENTS = CURRENT_FL_PRICING.perMinuteCents;
 // operator to our headline price, and it is the failure mode the $1.80 flat rate reintroduced.
 
 // THE FLOOR IS ON THE TRAVELER'S FARE+PLATFORM-FEE TOTAL. The absolute platform-fee
-// floor is $2.00 and economics.js confirms that the $2 floor controls at the $3 minimum fare,
-// so a no-pass-through Standard Travel starts at $5.00. Government fees and tolls, when
+// floor is $2.50 and economics.js confirms that the $2.50 floor controls at the $3 minimum fare,
+// so a no-pass-through Standard Travel starts at $5.50. Government fees and tolls, when
 // applicable, are true pass-throughs and may raise the final Total.
 const MIN_TOTAL_CENTS = 550;
 const MINIMUM_CENTS = CURRENT_FL_PRICING.minimumFareCents; // compatibility export; runtime uses the market record
