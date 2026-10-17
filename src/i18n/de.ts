@@ -225,6 +225,9 @@ export default {
     month: 'Monat',
     year: 'Jahr',
     yourPayouts: 'Ihre Auszahlungen',
+    deviceEarningsLabel: 'Auf diesem Gerät erfasste Einnahmen',
+    deviceEarningsNotice: 'Diese Beträge stammen aus auf diesem Gerät gespeicherten Fahrten. Sie sind keine bestätigten Stripe-Überweisungen oder Bankzahlungen.',
+    payoutRecoveryUnconfirmed: 'Die Nachzahlung älterer unbezahlter Fahrten konnte nicht bestätigt werden. Die Auszahlungsdaten können unvollständig sein.'
     recentOperations: 'Letzte Fahrten',
     insuranceDisclosure: 'Gesetzliche Versicherungsauskunft',
     partRead: 'Gelesen',
