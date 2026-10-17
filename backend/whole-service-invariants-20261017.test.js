@@ -176,6 +176,20 @@ for (let pass = 1; pass <= 2; pass++) {
   assert.match(noticeService, /reason: 'platform_inbox_unavailable' \}/,
     'failed read-marking preserves unread status instead of throwing');
 
+  // General Safety and Travel screen support attach a live journey only.
+  // A prior completed ride is not evidence that today's safety report concerns it.
+  const safetyScreen = read('app/safety.tsx');
+  const liveRideScreen = read('app/ride.tsx');
+  const rideStore = read('src/state/RideContext.tsx');
+  assert.match(safetyScreen, /ride\.openHelp\(\)/,
+    'Safety supports new accounts and between-Travel concerns without inventing a trip');
+  assert.doesNotMatch(safetyScreen, /ride\.openHelp\(ride\.lastTrip\.no\)/,
+    'general safety concern must not attach prior Travel implicitly');
+  assert.match(liveRideScreen, /ride\.openHelp\(\)/,
+    'Travel support obtains the authoritative live journey from shared store');
+  assert.match(rideStore, /tripNo \?\? \(rideActiveRef\.current \? lastTrip\.no : ''\)/,
+    'common support API uses lastTrip only while Travel is actually active');
+
   const found = indexes.indexes.some(x => x.collectionGroup === 'lost_items' &&
     x.queryScope === 'COLLECTION' &&
     x.fields?.[0]?.fieldPath === 'travelerUid' &&
