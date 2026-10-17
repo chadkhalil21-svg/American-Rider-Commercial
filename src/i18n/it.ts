@@ -121,6 +121,8 @@ export default {
     econIntro: "Scopri come viene suddivisa la tariffa Travel prima di acquistare una polizza. Questi esempi non sono previsioni di reddito.",
     econShare: "di ogni tariffa Travel spetta a te.",
     econFee: "American Rider trattiene il restante 1%. La commissione di piattaforma separata del Traveler non riduce la tua quota della tariffa Travel.",
+    econPlatformFeeTitle: "Quota piattaforma · minimo %{amount} per Travel",
+    econPlatformFeeDetail: "Il Traveler paga questa quota separatamente dalla tariffa Travel, nel Totale preventivato. Contribuisce a coprire pagamenti, versamenti, tecnologia, assistenza e riserve operative. Può aumentare in base ai costi. La tua quota del 99% resta invariata.",
     econExamples: "Esempi per Travel",
     econExampleFare: "Tariffa Travel: %{amount}",
     econOperatorRetains: "Tariffa Travel trattenuta",
