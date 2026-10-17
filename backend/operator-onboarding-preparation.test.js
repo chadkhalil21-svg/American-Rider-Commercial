@@ -62,8 +62,11 @@ for(let pass=0;pass<2;pass++){
  assert.match(screen,/if \(!area\?\.market\)/,'selected market precedes jurisdictional preparation');
  assert.match(screen,/setShowMarkets\(v => !v\)/,'Operator may change the selected county without resetting registration');
  assert.match(screen,/operator\.changeOperatingArea/,'market selector must be clearly labelled');
+ assert.match(screen,/onChangeText=\{setMarketQuery\}/,'local county search must be functional');
+ assert.match(screen,/\.slice\(0, 12\)\.map/,'county list must be bounded on mobile without repeated server queries');
  for(const lang of ['en','es','fr','it','de']) {
    assert.match(src('src/i18n/'+lang+'.ts'),/changeOperatingArea:/,'localized change control missing: '+lang);
+   assert.match(src('src/i18n/'+lang+'.ts'),/searchOperatingArea:/,'localized county search missing: '+lang);
  }
 
  assert.match(screen,/disabled=\{submitting \|\| !area\?\.market\}/,
