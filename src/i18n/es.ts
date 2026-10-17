@@ -1077,6 +1077,8 @@ export default {
     schedZoneUnavailable: 'La zona horaria de recogida no está disponible. No se puede programar por ahora; inténtalo de nuevo.',
     schedTimeInvalid: 'Esa hora de recogida no existe, se repite o ya no está seleccionada. Elige otra hora.',
     schedPickupDateLabel: "Fecha de recogida",
+    schedPreviousMonth: "Mes anterior",
+    schedNextMonth: "Mes siguiente",
     schedPickupPlace: "Recogida",
     schedEditPickup: "Cambiar lugar de recogida",
     schedDestination: "Destino",
