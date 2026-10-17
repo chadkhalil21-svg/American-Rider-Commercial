@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
 import React, { useEffect, useMemo, useState } from 'react';
-import { Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { AppState, Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { Text } from '../src/components/AppText';
 import Svg, { Path, Rect } from 'react-native-svg';
 import { useGoBack } from '../src/components/nav';
@@ -16,7 +16,7 @@ import {
 } from '../src/components/UI';
 import { platformFee } from '../src/data';
 import { publicPickupMarket } from '../src/backend/markets';
-import { pickupDate, pickupMinutes, nextDate, resolvePickupWall } from '../backend/scheduleclock';
+import { pickupDate, pickupMinutes, nextDate, resolvePickupWall, scheduleReadiness } from '../backend/scheduleclock';
 import { SchedInfo, useRide } from '../src/state/RideContext';
 import { useLanguage } from '../src/state/LanguageContext';
 import { colors, fmt, radii } from '../src/theme';
@@ -69,6 +69,18 @@ export default function Schedule() {
   const [saveError, setSaveError] = useState(false);
   const [pickupZone, setPickupZone] = useState<string | null>(null);
   const [pickedDate, setPickedDate] = useState<string | null>(null);
+  // Clock-only refresh. No new database reads or network traffic; corrects time
+  // validity across midnight and when a Traveler returns after locking the phone.
+  const [clockMs, setClockMs] = useState(Date.now());
+  useEffect(() => {
+    const ticker = setInterval(() => {
+      if (AppState.currentState === 'active') setClockMs(Date.now());
+    }, 30_000);
+    const onResume = AppState.addEventListener('change', (state) => {
+      if (state === 'active') setClockMs(Date.now());
+    });
+    return () => { clearInterval(ticker); onResume.remove(); };
+  }, []);
   const lat = ride.departure.lat;
   const lng = ride.departure.lng;
   useEffect(() => {
@@ -82,7 +94,7 @@ export default function Schedule() {
     return () => { current = false; };
   },[lat,lng]);
 
-  const now = new Date();
+  const now = new Date(clockMs);
   const marketToday = pickupZone ? pickupDate(now.getTime(),pickupZone) : null;
   const nowMin = pickupZone ? pickupMinutes(now.getTime(),pickupZone) : 24*60;
 
@@ -160,10 +172,23 @@ export default function Schedule() {
     tomorrow: t('traveler.schedTomorrow'),
     pick: ride.schedDay,
   };
-  // Only fully blocked when EVERY slot in this period has passed; if just the
-  // selected slot passed, the effect below moves the selection forward.
-  const schedInvalid = !resolved.ok || resolved.atMs <= Date.now() || ride.travelerTotal <= 0 ||
-    (isToday && customState !== 'ok' && allSlotsPassed);
+  const hasDestination = !!ride.arrival.short.trim();
+  const hasQuote = hasDestination && ride.quotedFareCents != null && ride.quotedFareCents > 0 &&
+    ride.quotedTotalCents != null && ride.quotedTotalCents > 0 &&
+    ride.quotedForClass === ride.travelClass;
+  // Missing destination or authoritative price must not masquerade as a past time.
+  // No new pricing or market calls here; reuse the existing reservation context.
+  const scheduleStatus = scheduleReadiness({
+    hasDestination, hasQuote, pickupZone, pickupDate: selectedPickupDate,
+    resolved, customState, nowMs: clockMs,
+  });
+  const schedInvalid = scheduleStatus !== 'ready';
+  const pickupTimeDisplay = rawT && customState !== 'ok'
+    ? t('traveler.schedTimeUnconfirmed') : `${chosenTime} ${ride.schedPeriod}`;
+  const pickupZoneLabel = pickupZone
+    ? new Intl.DateTimeFormat(language, { timeZone: pickupZone, timeZoneName: 'short' })
+      .formatToParts(now).find((part) => part.type === 'timeZoneName')?.value || pickupZone
+    : '';
 
   useEffect(() => {
     if (isToday && !allSlotsPassed && slotPassed(ride.schedTime)) {
@@ -218,9 +243,17 @@ export default function Schedule() {
     <Screen>
       <LetterheadBar onBack={goBack} />
       <Title>{t('traveler.planAhead')}</Title>
-      <Sub>
-        {ride.departure.short} → {ride.arrival.short}
-      </Sub>
+      <Pressable
+        accessibilityRole="button"
+        onPress={() => router.navigate({
+          pathname: '/reserve',
+          params: hasDestination ? {} : { search: '1' },
+        })}
+        style={styles.journeyLink}
+      >
+        <Sub>{ride.departure.short} → {hasDestination
+          ? ride.arrival.short : t('traveler.schedChooseDestination')} ›</Sub>
+      </Pressable>
 
       <SectionLabel style={styles.sectionTitle}>{t('traveler.day')}</SectionLabel>
       <View style={styles.dayRow}>
@@ -411,32 +444,34 @@ export default function Schedule() {
         )}
       </Card>
 
-      {schedInvalid && (
+      {scheduleStatus === 'time_past' && (
         <View style={styles.invalidBanner}>
           <Text style={styles.invalidText}>
-            {t('traveler.schedTimesPassed', {
-              time: nowClockLabel(nowMin),
-              alt: ride.schedPeriod === 'AM' ? 'PM' : t('traveler.schedAltLater'),
-            })}
+            {t('traveler.schedTimePast', { time: nowClockLabel(nowMin) })}
           </Text>
         </View>
       )}
+      {scheduleStatus === 'time_invalid' && (
+        <Text style={styles.customPast}>{t('traveler.schedTimeInvalid')}</Text>
+      )}
+      {scheduleStatus === 'date_required' && (
+        <Text style={styles.customPast}>{t('traveler.schedChooseDay')}</Text>
+      )}
       <Text style={styles.summaryNote}>{pickupZone
-        ? t('traveler.schedPickupZone', { zone: pickupZone })
+        ? t('traveler.schedPickupZone', { zone: pickupZoneLabel })
         : t('traveler.schedZoneUnavailable')}</Text>
-      {pickupZone && !resolved.ok ? <Text style={styles.customPast}>{t('traveler.schedTimeInvalid')}</Text> : null}
 
       <Card style={styles.summaryCard}>
         <View style={styles.summaryRow}>
           <Text style={styles.summaryLabel}>{t('traveler.pickup')}</Text>
           <Text style={styles.summaryValue}>
-            {whenLabels[ride.schedDate]} · {chosenTime} {ride.schedPeriod}
+            {whenLabels[ride.schedDate]} · {pickupTimeDisplay}
           </Text>
         </View>
         <View style={[styles.summaryRow, { marginTop: 10 }]}>
           <Text style={styles.summaryLabel}>{t('traveler.totalTravelCost')}</Text>
           <Num size={17} weight="600">
-            {fmt(ride.travelerTotal)}
+            {hasQuote ? fmt(ride.travelerTotal) : '—'}
           </Num>
         </View>
         {/* WAS: "Locked in when you book — it won't change, even if prices are up that
@@ -452,12 +487,33 @@ export default function Schedule() {
             somewhere permanent, not a reassurance beside the amount. */}
       </Card>
 
+      {(scheduleStatus === 'destination_required' || scheduleStatus === 'quote_required') && (
+        <View style={styles.journeyGuidance}>
+          <Text style={styles.journeyGuidanceText}>
+            {t(scheduleStatus === 'destination_required'
+              ? 'traveler.schedDestinationNeeded' : 'traveler.schedQuoteNeeded')}
+          </Text>
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => router.navigate({
+              pathname: '/reserve',
+              params: hasDestination ? {} : { search: '1' },
+            })}
+            style={styles.journeyGuidanceLink}
+          >
+            <Text style={styles.journeyGuidanceAction}>
+              {t(scheduleStatus === 'destination_required'
+                ? 'traveler.schedChooseDestination' : 'traveler.schedReviewFare')} ›
+            </Text>
+          </Pressable>
+        </View>
+      )}
       {saveError ? <Text style={styles.splashWarn}>{t('traveler.schedSaveReview')}</Text> : null}
       <PrimaryButton
         label={t('traveler.scheduleTravel')}
         disabled={schedInvalid || saving}
         onPress={async () => {
-          if (!resolved.ok || !pickupZone || !selectedPickupDate) return;
+          if (scheduleStatus !== 'ready' || !resolved.ok || !pickupZone || !selectedPickupDate) return;
           const info: SchedInfo = {
             when: whenLabels[ride.schedDate],
             time: chosenTime,
@@ -504,6 +560,11 @@ const styles = StyleSheet.create({
     lineHeight: 21.75,
     textAlign: 'center',
   },
+  journeyLink: { minHeight: 44, justifyContent: 'center' },
+  journeyGuidance: { marginTop: 6, marginBottom: 14 },
+  journeyGuidanceText: { fontSize: 14, color: colors.ink2, lineHeight: 21 },
+  journeyGuidanceLink: { minHeight: 44, alignSelf: 'flex-start', justifyContent: 'center' },
+  journeyGuidanceAction: { fontSize: 14, color: colors.ink, fontWeight: '600', textDecorationLine: 'underline' },
   sectionTitle: { marginTop: 24, marginBottom: 11 },
   dayRow: { flexDirection: 'row', gap: 9 },
   // The demo's chip geometry: radius 11, 11px vertical padding.
