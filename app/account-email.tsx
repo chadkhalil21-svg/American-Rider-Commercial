@@ -46,6 +46,10 @@ export default function AccountEmail() {
   // Every ar: account key is wiped by the existing sign-out/delete routine.
   const pendingKey = user?.uid ? `ar:email-change-pending:${user.uid}` : null;
   useEffect(() => {
+    // Never show a previous account's pending address after account switching.
+    setPendingEmail('');
+    setConfirmedEmail('');
+    setPassword('');
     if (!pendingKey) return;
     let active = true;
     void AsyncStorage.getItem(pendingKey).then(value => {
@@ -120,7 +124,7 @@ export default function AccountEmail() {
       setShowPassword(false);
       if (ok) {
         setPendingEmail(requested);
-        if (pendingKey) void AsyncStorage.setItem(pendingKey, requested).catch(() => {});
+        if (pendingKey) await AsyncStorage.setItem(pendingKey, requested).catch(() => {});
         setNextEmail('');
         setEmailTouched(false);
         setConfirmedEmail('');
