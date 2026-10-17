@@ -460,7 +460,7 @@ export default function Schedule() {
         <Text style={styles.customPast}>{t('traveler.schedTimeInvalid')}</Text>
       )}
       {scheduleStatus === 'date_required' && (
-        <Text style={styles.customPast}>{t('traveler.schedChooseDay')}</Text>
+        <Text style={styles.customPast}>{t('traveler.schedPickDay')}</Text>
       )}
       <Text style={styles.summaryNote}>{pickupZone
         ? t('traveler.schedPickupZone', { zone: pickupZoneLabel })
