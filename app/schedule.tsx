@@ -611,6 +611,9 @@ export default function Schedule() {
       {scheduleStatus === 'time_unconfirmed' && (
         <Text style={styles.customPast}>{t('traveler.schedConfirmTimeHint')}</Text>
       )}
+      {scheduleStatus === 'ready' && (
+        <Text style={styles.bookingNotice}>{t('traveler.schedBookingNotice')}</Text>
+      )}
       {saveError ? <Text style={styles.splashWarn}>{t('traveler.schedSaveReview')}</Text> : null}
       <PrimaryButton
         label={t(scheduleStatus === 'destination_required' ? 'traveler.schedChooseDestination'
@@ -807,6 +810,7 @@ const styles = StyleSheet.create({
   },
   invalidText: { fontSize: 13.5, color: colors.red, lineHeight: 20 },
   journeyHelp: { fontSize: 13.5, color: colors.ink2, marginTop: 8, marginBottom: 8, lineHeight: 20 },
+  bookingNotice: { fontSize: 13, color: colors.ink2, marginTop: 8, marginBottom: 14, lineHeight: 19 },
   unquotedPrice: { fontSize: 14, fontWeight: '600', color: colors.ink2, flexShrink: 1, textAlign: 'right' },
   summaryCard: { marginTop: 16, paddingVertical: 18, paddingHorizontal: 20, marginBottom: 12 },
   summaryRow: {
