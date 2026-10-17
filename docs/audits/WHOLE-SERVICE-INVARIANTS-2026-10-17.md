@@ -45,6 +45,11 @@ Review American Rider as a complete service, not an isolated screen. Read the cu
 
 **Separate investigation, not a proven defect:** The number is described as **contact information only**, not a verified sign-in or recovery credential. Trace safety/SMS/notification consumers before imposing or claiming phone verification.
 
+### 5. Lost-item messages could acquire a demonstration Travel Number
+**Evidence:** `app/lost.tsx` used `item.tripNo ?? item.candidateTripNos[0] ?? ride.lastTrip.no`, and `app/message.tsx` fell back to `ride.lastTrip.no` even with no active Travel. A filed report without a recorded journey could navigate toward a conversation labeled with the seeded/demonstration or an unrelated last journey. The actual server must still authenticate message participants, but the interface should never invent a trip.
+
+**Draft fix:** Only a Travel Number present on the actual lost-item report may open its Operator conversation. Otherwise display clear guidance to contact Patron Support. No-Travel Lost Item support calls `openHelp()` with no arbitrary reference. The message screen also refuses to watch or send on an absent route, unless there is a real active Travel. Existing class sizes and navigation semantics remain unchanged. Five localized messages, a twice-run source contract, and real-phone deep-link/participant checks remain required. This does not authorize messaging with an unverified Operator.
+
 ## Related existing draft fixes, not duplicated here
 - Commercial PR #52: Scheduled Travel final review, vehicle/person selection, multi-reservation list, cancellation consent, Firestore deletion boundary, and an independently required scheduled-rides composite index.
 - Commercial PR #53: Email change, pending verification and one consistent account entry point.
