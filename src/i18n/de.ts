@@ -1219,6 +1219,8 @@ export default {
     familySendMessage: 'Nachricht Senden',
     familyMessageFailed: 'Die Nachricht wurde nicht gesendet.',
 
+    lostNoVerifiedTravelThread: "Diesem Gegenstand ist keine aufgezeichnete Fahrt zugeordnet. Der Support hilft Ihnen, ohne einen unbeteiligten Operator zuzuweisen.",
+    msgTravelUnavailable: "Für diese Unterhaltung liegt keine verifizierte Fahrt vor. Wählen Sie eine aufgezeichnete Fahrt oder kontaktieren Sie den Support.",
     msgNotSent: "Nachricht nicht gesendet. Prüfen Sie Ihre Verbindung und versuchen Sie es erneut.",
     lostOperatorInboxDelivered: "An %{names} im Operator-Postfach zugestellt.",
     notifSaveFailed: "Die Benachrichtigungseinstellung wurde nicht gespeichert. Versuchen Sie es erneut.",
