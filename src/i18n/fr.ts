@@ -1067,6 +1067,8 @@ export default {
     schedZoneUnavailable: 'Le fuseau horaire du départ est indisponible. La réservation est suspendue; réessayez.',
     schedTimeInvalid: 'Cette heure de départ est inexistante, répétée ou n’est plus sélectionnée. Choisissez une autre heure.',
     schedPickupDateLabel: "Date de prise en charge",
+    schedPreviousMonth: "Mois précédent",
+    schedNextMonth: "Mois suivant",
     schedPickupPlace: "Prise en charge",
     schedEditPickup: "Modifier le lieu de prise en charge",
     schedDestination: "Destination",
