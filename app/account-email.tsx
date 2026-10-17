@@ -41,6 +41,49 @@ export default function AccountEmail() {
     [user?.providerData],
   );
 
+  const requestedEmail = nextEmail.trim();
+  const sameEmail = requestedEmail.length > 0 &&
+    requestedEmail.toLowerCase() === (user?.email || '').trim().toLowerCase();
+  const canSubmit = provider === 'password' && emailOk(requestedEmail) &&
+    !sameEmail && password.length > 0 && !busy && !pendingEmail;
+
+  // A sent link is only pending. The account's Firebase identity remains the
+  // source of truth; never mark an email changed just because an email was sent.
+  useEffect(() => {
+    if (pendingEmail && user?.email?.toLowerCase() === pendingEmail.toLowerCase() &&
+        user.emailVerified) {
+      setConfirmedEmail(pendingEmail);
+      setPendingEmail('');
+      setNotice('');
+      setError('');
+    }
+  }, [pendingEmail, user?.email, user?.emailVerified]);
+
+  const checkStatus = async (manual: boolean) => {
+    if (refreshLock.current) return;
+    refreshLock.current = true;
+    lastRefresh.current = Date.now();
+    if (manual) { setCheckingStatus(true); setError(''); setNotice(''); }
+    try {
+      const refreshed = await refreshFn.current();
+      if (!refreshed && manual) setError(t('traveler.emailRefreshFailed'));
+      if (refreshed && manual && pendingEmail) setNotice(t('traveler.emailStillPending'));
+    } finally {
+      refreshLock.current = false;
+      if (manual) setCheckingStatus(false);
+    }
+  };
+  const checkRef = useRef(checkStatus);
+  checkRef.current = checkStatus;
+  useFocusEffect(useCallback(() => {
+    void checkRef.current(false);
+    const subscription = AppState.addEventListener('change', state => {
+      if (state === 'active' && Date.now() - lastRefresh.current > 15000)
+        void checkRef.current(false);
+    });
+    return () => subscription.remove();
+  }, []));
+
   const resend = async () => {
     setError('');
     setNotice('');
