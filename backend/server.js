@@ -69,6 +69,7 @@ const LIMITS = {
   screening: perAccount({ name: 'screening', limit: 10, windowMs: 60 * 60 * 1000 }),
   payments: perAccount({ name: 'payments', limit: 60, windowMs: 60 * 60 * 1000 }),
   connect: perAccount({ name: 'connect', limit: 20, windowMs: 60 * 60 * 1000 }),
+  payoutRecovery: perAccount({ name: 'payout-recovery', limit: 12, windowMs: 60 * 60 * 1000 }),
   dispatch: perAccount({ name: 'dispatch', limit: 30, windowMs: 60 * 60 * 1000 }),
   announce: perAccount({ name: 'announce', limit: 60, windowMs: 60 * 60 * 1000 }),
   voice: perAccount({ name: 'voice', limit: 30, windowMs: 60 * 60 * 1000 }),
@@ -1297,7 +1298,7 @@ app.post('/operator/offline', requireAuth, async (req, res) => {
 // reconciled against Stripe before any new transfer; the periodic settlement
 // sweep separately handles newly completed, ledger-versioned Travels.
 // This endpoint must never trigger N transfers merely by opening an app.
-app.post('/operator/settle-pending', requireAuth, async (req, res) => {
+app.post('/operator/settle-pending', requireAuth, LIMITS.payoutRecovery, async (req, res) => {
   const db = adminDb();
   if (!db) return res.status(503).json({ ok: false, code: 'no_admin_db' });
   try {
