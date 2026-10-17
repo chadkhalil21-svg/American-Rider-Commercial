@@ -37,6 +37,13 @@ for(let i=0;i<2;i++){
   'qualification submission still requires an open service county');
  assert.match(server,/app.post\('\/connect\/onboard', requireAuth, LIMITS.connect, requireActiveOperatingMarket/,
   'payout onboarding requires an open service county');
+ for(const route of ['authorize-status','attest','request-confirmation']){
+  const limit=route==='request-confirmation'?'document':'qualification';
+  assert.ok(server.includes("app.post('/operator/insurance/"+route+"', requireAuth, LIMITS."+limit+", requireActiveOperatingMarket"),
+   'insurance action must not write or contact a provider in an unopened county: '+route);
+ }
+ assert.ok(server.includes("app.post('/operator/insurance/report-risk', requireAuth, LIMITS.qualification, async"),
+  'insurance cancellation and nonpayment risk can always be reported to protect Travelers');
  assert.match(server,/const gate = screeningPreparationFor\(market, region\)/,
   'screening checks current market status in backend');
  assert.match(server,/requireOperationalReadiness/,
