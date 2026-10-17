@@ -252,7 +252,7 @@ export default function Schedule() {
         accessibilityRole="button"
         onPress={() => router.navigate({
           pathname: '/reserve',
-          params: hasDestination ? {} : { search: '1' },
+          params: hasDestination ? { scheduling: '1' } : { search: '1', scheduling: '1' },
         })}
         style={styles.journeyLink}
       >
@@ -502,7 +502,7 @@ export default function Schedule() {
             accessibilityRole="button"
             onPress={() => router.navigate({
               pathname: '/reserve',
-              params: hasDestination ? {} : { search: '1' },
+              params: hasDestination ? { scheduling: '1' } : { search: '1', scheduling: '1' },
             })}
             style={styles.journeyGuidanceLink}
           >
