@@ -106,8 +106,9 @@ check('go on duty: declared market active and position in an active market', /op
 const doc = route("post\\('\\/operator\\/document'");
 check('document reading prepares a configured jurisdiction, not a paid county',
   /operatorPreparationGate\(u\)/.test(doc) && /requireOperatorPreparationMarket/.test(doc));
-check('private document uploads also require configured jurisdictional preparation',
-  /app\.post\('\/storage\/upload-url', requireAuth, LIMITS\.document, requireFreshAuth, requireOperatorPreparationMarket/.test(server));
+check('Operator document uploads require preparation without blocking lost-item photos',
+  /app\.post\('\/storage\/upload-url', requireAuth, LIMITS\.document, requireFreshAuth, requireScopedPrivateUpload/.test(server) &&
+  /if \(scope === 'operator-preparation'\) return requireOperatorPreparationMarket\(req, res, next\)/.test(server));
 check(
   'screening report intake is tied to the configured jurisdiction registry before commercial activation',
   /app\.post\('\/operator\/screening\/existing', requireAuth, LIMITS\.screening, requireScreeningRequestMarket/.test(server) &&
