@@ -142,51 +142,13 @@ export default function AccountSecurity() {
             </View>
           </Pressable>
         ) : null}
-        {provider === 'password' ? (
-          <Pressable onPress={() => { clearMessages(); setMode(mode === 'email' ? 'idle' : 'email'); }} accessibilityRole="button">
+        <Pressable onPress={() => router.navigate('/account-email')} accessibilityRole="button">
             <View style={[styles.actionRow, styles.hair]}>
               <Text style={styles.action}>{t('traveler.changeEmail')}</Text>
               <Text style={styles.chev}>›</Text>
             </View>
           </Pressable>
-        ) : null}
       </Card>
-
-      {provider === 'password' && mode === 'email' ? (
-        <Card style={styles.formCard}>
-          <View style={styles.fieldWrap}>
-            <Text style={styles.fieldLabel}>{t('traveler.newEmail')}</Text>
-            <TextInput
-              value={nextEmail}
-              onChangeText={setNextEmail}
-              keyboardType="email-address"
-              autoCapitalize="none"
-              autoCorrect={false}
-              autoComplete="email"
-              textContentType="emailAddress"
-              placeholder="name@example.com"
-              placeholderTextColor={colors.faint}
-              style={styles.field}
-            />
-          </View>
-          <View style={styles.hair} />
-          <SecretField
-            label={t('traveler.currentPassword')}
-            value={currentPassword}
-            onChangeText={setCurrentPassword}
-            autoComplete="current-password"
-            textContentType="password"
-            t={t}
-          />
-          <Sub style={styles.note}>{t('traveler.emailChangeNote')}</Sub>
-          <PrimaryButton
-            label={busy ? t('traveler.busyChecking') : t('auth.continueLabel')}
-            disabled={busy || !emailOk(nextEmail) || !currentPassword}
-            onPress={changeEmail}
-            style={styles.formButton}
-          />
-        </Card>
-      ) : null}
 
       {provider === 'password' ? (
         <>
