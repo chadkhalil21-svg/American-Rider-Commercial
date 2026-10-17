@@ -1248,7 +1248,9 @@ tr('traveler.blockCoverage'),
         setOnlineError(tr('traveler.gateCoverageDate'));
         return;
       }
-      const end = Date.parse(`${coverageRef.current}T23:59:59`);
+      // Use the same absolute cutoff as backend/insurance-horizon.js, never
+      // this phone's local timezone or a different final millisecond.
+      const end = Date.parse(`${coverageRef.current}T23:59:59.999Z`);
       if (Number.isNaN(end) || end < Date.now()) {
         setOnlineState(false);
         setOnlineError(
