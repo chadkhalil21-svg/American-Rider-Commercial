@@ -91,6 +91,7 @@ export default {
     activeAccountCostBody: "Stripe berechnet in einem Monat 2 $, wenn eine Auszahlung auf Ihr Bankkonto oder Ihre Debitkarte erfolgt. American Rider erlässt diese Kosten, wenn Sie im selben Monat mindestens 20 Reisen abschließen. Unter 20 werden die 2 $ und die unvermeidbaren Kartenverarbeitungskosten für deren Einzug separat berechnet; Ihr Anteil von 99 % an jedem Reisepreis wird nicht gekürzt.",
     operatingArea: 'Einsatzgebiet',
     chooseOperatingArea: 'Wählen Sie das County, in dem Sie tätig sein werden.',
+    marketUnknownSoon: "Bald in weiteren Gebieten. Die Registrierung für Operatoren ist nur in Regionen möglich, in denen American Rider bereits tätig ist. Wählen Sie ein geöffnetes County.",
     marketNotActive: 'Demnächst in %{name}. Die Registrierung für Operatoren beginnt, sobald der Dienst hier startet.',
     marketAdmissionRequired: 'Wählen Sie vor der Registrierung oder Prüfung ein County mit aktivem Dienst. Für noch nicht geöffnete Gebiete ist die Interessenliste verfügbar.',
     ready: 'Betriebsbereit',
