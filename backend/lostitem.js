@@ -121,6 +121,9 @@ async function notifyLostItemOperators({ itemId, uid }, { database, postMessage 
     const out = await send({
       uid: operatorUid,
       category: 'support',
+      // Repeating POST /lost-item after an uncertain response must never
+      // create two inbox notices to the same Operator for one report.
+      idempotencyKey: `lost-item-report:${itemId}:${operatorUid}`,
       title: 'Lost item report',
       body: item.tripNo
         ? `A Traveler reported an item from Travel ${item.tripNo}. Please check the vehicle and record what you find.`
