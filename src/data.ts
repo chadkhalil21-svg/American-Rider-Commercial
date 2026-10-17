@@ -375,7 +375,7 @@ export const INSURERS: {
   {
     name: 'Insureon',
     note: 'traveler.insurerInsureonNote',
-    url: 'https://www.insureon.com/livery-business-insurance/limousine-insurance',
+    url: 'https://www.insureon.com/livery-business-insurance',
     secondary: true,
   },
 ];
