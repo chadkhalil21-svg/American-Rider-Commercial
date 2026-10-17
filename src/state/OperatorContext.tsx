@@ -16,7 +16,6 @@ import { accountInitials, accountName } from '../account';
 import { APP_FEE, coordinationFee, fareFromTotal } from '../data';
 import { goOffline, goOnline, settlePendingPayouts, submitForReview } from '../backend/connect';
 import { confirmOperatorBackgroundLocationUse, startBackgroundPresence, stopBackgroundPresence } from '../backend/presence';
-import { startHeartbeat } from '../backend/heartbeat';
 import {
   acceptTravel,
   declineTravel,
@@ -1127,10 +1126,6 @@ export function OperatorProvider({ children }: { children: React.ReactNode }) {
   // operator waiting to be dispatched to is the one person guaranteed to be holding a phone
   // when the clock matters, so their app runs it. Costs nothing, needs no account, and stops
   // the moment they go off duty.
-  useEffect(() => {
-    if (!online) return;
-    return startHeartbeat();
-  }, [online]);
 
   // BEING ON DUTY IS A CLAIM THAT HAS TO BE RENEWED, and until 29 Aug 2026 it never was.
   //
