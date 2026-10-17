@@ -58,7 +58,8 @@ export const QUAL_DOCS: {
   sub: string;
   detail?: boolean; // step opens a guidance screen instead of inline verification
 }[] = [
-  { key: 'basics', title: 'traveler.qualBasics', sub: 'traveler.qualBasicsSub' },
+  // Profile details come from the authenticated account and agency evidence.
+  // No self-approved 'Basics' checkbox: a tap must not imply legal identity validation.
   { key: 'license', title: 'traveler.qualLicense', sub: 'traveler.qualLicenseSub' },
   { key: 'registration', title: 'traveler.qualRegistration', sub: '' },
   { key: 'insurance', title: 'traveler.qualInsurance', sub: 'traveler.qualInsuranceSub', detail: true },
@@ -492,7 +493,7 @@ export function OperatorProvider({ children }: { children: React.ReactNode }) {
    */
   const verifyDoc = useCallback(
     (k: DocKey) => {
-      if (k === 'license' || k === 'registration' || k === 'inspection' || k === 'insurance') {
+      if (k !== 'basics') {
         // Refused rather than silently ignored: a caller reaching for this on a document step is
         // reaching for the 900ms timer, and it should stop being there to find.
         if (__DEV__) console.warn(`verifyDoc('${k}') is not a document path — use reviewDoc().`);
@@ -507,11 +508,6 @@ export function OperatorProvider({ children }: { children: React.ReactNode }) {
         persistDocs(next);
         return next;
       });
-      if (k === 'background') {
-        const iso = new Date().toISOString();
-        setBgCheckedAt(iso);
-        AsyncStorage.setItem(K_BGCHECK, iso).catch(() => {});
-      }
     },
     [persistDocs],
   );
