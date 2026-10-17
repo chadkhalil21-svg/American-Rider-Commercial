@@ -1,6 +1,6 @@
 'use strict';
-// Static contract test for prelaunch screening preparation: no live market or
-// payment may be enabled to request a CRA report review.
+// Static contract test: screening requires an open market and authentic
+// jurisdictional clearance. Waitlist interest must never start onboarding.
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
@@ -13,9 +13,9 @@ const ops = read('backend/ops.js');
 const external = read('backend/external-screening.js');
 
 assert.match(server, /async function requireScreeningRequestMarket\(req, res, next\)/,
-  'screening has a separate early-interest market gate');
+  'screening uses an independent jurisdiction gate after the market opens');
 assert.match(server, /app\.post\('\/operator\/screening\/existing', requireAuth, LIMITS\.screening, requireScreeningRequestMarket/,
-  'screening accepts policy-authorized prelaunch preparation independently of commercial admission');
+  'screening has an authenticated policy and market gate');
 assert.match(server, /const gate = screeningPreparationFor\(market, region\)/,
   'the screening gate reads the national jurisdiction policy registry');
 assert.match(server, /req\.screeningPolicy = gate\.policy/,
@@ -41,9 +41,13 @@ assert.match(server, /jurisdictionCode: policy\.stateCode, policyId: policy\.id/
   'the new case binds the authoritative state and screening policy');
 assert.match(server, /oldCase\.exists && oldCase\.data\(\)\.uid === req\.uid/,
   'repeated request checks case ownership and reuses its existing case');
-assert.match(ui, /\.\.\.area\.waitlist/, 'Operator can find listed prelaunch counties');
-assert.match(ui, /d\.key === 'background' && area\?\.market\?\.status === 'waitlist'/,
-  'a waitlisted Operator can request screening preparation only');
+assert.match(ui, /\.\.\.area\.waitlist/, 'Operator can find unopened counties without onboarding');
+assert.doesNotMatch(ui, /d\.key === 'background' && area\?\.market\?\.status === 'waitlist'/,
+  'a waitlisted Operator must not enter screening preparation');
+assert.match(ui, /const areaAuthorized = areaActive;/,
+  'onboarding cannot start before the selected market opens');
+assert.match(server, /app\.post\('\/waitlist', requireAuth, LIMITS\.waitlist/,
+  'interest registration is separate and rate-limited');
 assert.match(ui, /disabled=\{submitting \|\| !areaAuthorized\}/,
   'Waitlisted Operators cannot submit qualification; the server checks real document completion');
 assert.match(connect, /waitlist: Market\[\]/, 'API client carries waitlist options');
@@ -55,4 +59,4 @@ for(const lang of ['en','es','fr','it','de']) {
   assert.match(read('src/i18n/'+lang+'.ts'), /bgProviderPending: '.{70,}',/,
     'screening waiting guidance must exist in '+lang);
 }
-console.log('PASS provider-neutral prelaunch screening remains an audited, noncommercial preparation workflow');
+console.log('PASS: unopened markets use lightweight interest only; screening requires active market and jurisdiction policy');
