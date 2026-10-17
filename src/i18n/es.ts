@@ -243,6 +243,10 @@ export default {
     deviceEarningsLabel: 'Ingresos registrados en este dispositivo',
     deviceEarningsNotice: 'Estas cifras proceden de operaciones guardadas en este dispositivo, no de transferencias de Stripe ni pagos bancarios confirmados.',
     payoutRecoveryUnconfirmed: 'No se pudo confirmar la recuperación de viajes pendientes de pago. Es posible que falten datos de los pagos.'
+    payoutTruthIntro: 'Su parte es el 99 % de la tarifa del Viaje. Completar un Viaje no confirma por sí solo un depósito bancario.',
+    payoutTruthTransfer: 'Tras completar un Viaje, American Rider intenta transferir su parte a Stripe. Las verificaciones del pago o la cuenta pueden retrasar la transferencia.',
+    payoutTruthBank: 'Una transferencia confirmada a Stripe no es un depósito bancario. Stripe determina cuándo llegan los fondos disponibles a su banco.',
+    payoutTruthInstant: 'Si su cuenta de Stripe cumple los requisitos, puede solicitar un pago instantáneo. Stripe puede cobrar una comisión.',
     recentOperations: 'Operaciones Recientes',
     insuranceDisclosure: 'Divulgación Legal de Seguros',
     partRead: 'Leído',
