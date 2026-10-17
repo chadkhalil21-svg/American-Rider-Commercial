@@ -27,13 +27,25 @@ and late notifier after return. The fake transactional database demonstrates
 state invariants; real Firebase emulator transactions and phone interactions
 are still distinct release evidence.
 
-**Residual risk:** The initial lost-item notice uses a new inbox document
-ID each time, so a repeated `POST /lost-item` can issue a duplicate Operator
-notice if the original succeeded and the response was lost. A durable,
-Operator-and-report-scoped idempotency key should be commissioned in the
-platform inbox service before claiming replay-safe delivery; no such fix
-is claimed in this PR yet. The existing report notification authority remains
-the backend, never the phone's submitted Operator list.
+**Replay protection added:** Previously the initial lost-item notice
+used a new random inbox ID for each request, so replay of
+`POST /lost-item` after a lost response could send duplicate Operator
+notices. `postPlatformMessage` now optionally accepts a report-and-Operator
+idempotency key. It hashes the account/category/key into a stable, private
+Firestore document ID and uses atomic `create`, so concurrent retries
+return the existing result and **do not generate another push**. Ordinary
+platform announcements still use unique IDs. The Lost Item caller supplies
+this stable key from its authenticated, verified report and Operator. An
+offline test launches concurrent duplicate attempts and checks that one
+durable message and one push attempt result, with separate accounts/reports
+unaffected. Actual push-device receipt/restart remains unverified.
+
+**Delivery limitation:** If a durable inbox record is written but push
+fails, a replay finds the record and does not retry the push. The account
+inbox remains authoritative and readable, but separate resilient push
+redelivery can be designed if measured notifications are insufficient.
+The report notification authority remains the backend, never the phone's
+unverified Operator list.
 
 **External source:** [Google Firebase transaction semantics](https://firebase.google.com/docs/firestore/transaction-data-contention),
 [atomic transaction guide](https://firebase.google.com/docs/firestore/manage-data/transactions);
