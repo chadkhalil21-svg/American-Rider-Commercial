@@ -16,7 +16,7 @@ export default function AccountEmail() {
   const goBack = useGoBack();
   const router = useRouter();
   const { t } = useLanguage();
-  const { user, busy, resendEmailVerification, requestEmailChange, refreshEmailStatus } = useAuth();
+  const { user, busy, resendEmailVerification, requestEmailChange, refreshEmailStatus, resetPassword } = useAuth();
   const [nextEmail, setNextEmail] = useState('');
   const [password, setPassword] = useState('');
   const [notice, setNotice] = useState('');
@@ -206,6 +206,23 @@ export default function AccountEmail() {
                 <Text style={styles.link}>
                   {t(showPassword ? 'traveler.hidePassword' : 'traveler.showPassword')}
                 </Text>
+              </Pressable>
+              <Pressable accessibilityRole="button" style={styles.secondaryAction}
+                disabled={busy || !user?.email}
+                onPress={async () => {
+                  if (!user?.email || busy || requestLock.current) return;
+                  requestLock.current = true;
+                  setError('');
+                  setNotice('');
+                  try {
+                    const ok = await resetPassword(user.email);
+                    if (ok) setNotice(t('traveler.passwordResetSent', { email: user.email }));
+                    else setError(t('traveler.passwordResetFailed'));
+                  } finally {
+                    requestLock.current = false;
+                  }
+                }}>
+                <Text style={styles.link}>{t('auth.forgotPassword')}</Text>
               </Pressable>
             </View>
           </Card>
