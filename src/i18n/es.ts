@@ -242,6 +242,8 @@ export default {
     partRead: 'Leído',
     openAllParts: 'Abra las %{n} partes para continuar',
 
+    lostRetry: "Volver a intentar",
+
     lostOpenFailed: "No se pudo abrir este informe.",
     lostUnavailable: "Este informe de objeto perdido no está disponible.",
     lostSelectTravel: "Seleccione el Viaje en el que encontró el objeto.",
