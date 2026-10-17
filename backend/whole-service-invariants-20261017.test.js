@@ -141,6 +141,19 @@ for (let pass = 1; pass <= 2; pass++) {
   assert.match(homeScreen, /traveler\.platformCommunications'\), onPress: \(\) => go\('\/inbox'\)/,
     'Traveler can reopen durable notices without relying on push delivery');
 
+  // A loading inbox is not empty, a failed read is not proof of no messages,
+  // and both signed-in roles need an accurate, user-triggered recovery path.
+  assert.match(sharedScreen, /\[loading, setLoading\] = useState\(true\)/);
+  assert.match(sharedScreen, /!error && !loading && items\.length === 0/);
+  assert.match(sharedScreen, /setRefreshCount\(n => n \+ 1\)/,
+    'manual Retry is available; no polling while idle');
+  assert.match(sharedScreen, /platformCommunicationsUnavailable/,
+    'server failure is translated rather than showing backend internals');
+  assert.match(sharedScreen, /if \(!active\) return/,
+    'screen departure ignores late asynchronous inbox responses');
+  assert.match(platform, /\.collection\('platform_messages'\)\.orderBy\('createdAt', 'desc'\)\.limit\(pageSize\)/,
+    'backend caps reads before querying Firestore, not after');
+
   const found = indexes.indexes.some(x => x.collectionGroup === 'lost_items' &&
     x.queryScope === 'COLLECTION' &&
     x.fields?.[0]?.fieldPath === 'travelerUid' &&
@@ -164,8 +177,12 @@ for (let pass = 1; pass <= 2; pass++) {
     const d = read('src/i18n/' + lang + '.ts');
     const traveler = d.match(/^  traveler:\s*\{([\s\S]*?)^  \},/m)?.[1];
     assert.ok(traveler, lang + ': Traveler translations must exist');
+    const operator = d.match(/^  operator:\\s*\\{([\\s\\S]*?)^  \\},/m)?.[1];
+    assert.ok(operator, lang + ': Operator translations must exist');
+    assert.match(operator, /^\\s{4}platformCommunicationsUnavailable:/m,
+      lang + ': Operator also receives an understandable read error');
     for (const key of ['removeDefaultCardNotice', 'removeCardNotice', 'mobileReadUnavailable',
-      'lostHistoryCouldNotLoad', 'lostHistoryMore', 'lostNoVerifiedTravelThread', 'msgTravelUnavailable', 'platformCommunications', 'platformCommunicationsBody', 'noPlatformCommunications', 'newPlatformCommunication', 'platformCommunicationReadFailed']) {
+      'lostHistoryCouldNotLoad', 'lostHistoryMore', 'lostNoVerifiedTravelThread', 'msgTravelUnavailable', 'platformCommunications', 'platformCommunicationsBody', 'noPlatformCommunications', 'newPlatformCommunication', 'platformCommunicationReadFailed', 'platformCommunicationsUnavailable']) {
       assert.match(traveler, new RegExp('^\\s{4}' + key + ':', 'm'),
         lang + ': missing Traveler copy or placed under the wrong role: ' + key);
     }
