@@ -981,6 +981,8 @@ export default {
     noPaymentMethodSaved: 'Aucun moyen de paiement enregistré.',
     methodsUnreadable: 'Les moyens de paiement enregistrés n’ont pas pu être lus.',
     addPaymentMethod: 'Ajouter un moyen de paiement',
+    removeDefaultSavedMethodNote: "La suppression de votre carte par défaut fera d’une autre carte enregistrée la carte par défaut. Vérifiez vos prochains Voyages avant de continuer.",
+    removeLastSavedMethodNote: "La suppression de votre seule carte enregistrée peut empêcher le paiement de futurs Voyages programmés. Vous pourrez ajouter une nouvelle carte à tout moment.",
     defaultMethod: 'Par défaut',
     setAsDefault: 'Définir par défaut',
     expires: 'Expire %{date}',
