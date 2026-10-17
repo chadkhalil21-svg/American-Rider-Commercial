@@ -2494,7 +2494,8 @@ app.post('/ops/markets/:id/pause', requireOps, requireOpsMutation, (req,res) =>
   res.status(410).json({code:'use_geographic_service_configuration'}));
 
 // The operator names the county they will operate in — or sends a position and it is derived.
-// A WAITLIST county is recorded (and joins the waitlist) and unlocks nothing costly.
+// A WAITLIST county is recorded. It permits only policy-configured preparation;
+// paid Travel, Connect onboarding, commissioning and duty remain separately gated.
 app.post('/operator/market', requireAuth, LIMITS.market, async (req, res) => {
   const db = adminDb();
   if (!db) return res.status(503).json({ error: adminStatus().reason, code: 'no_admin_db' });
