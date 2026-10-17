@@ -26,7 +26,7 @@ const {pathToFileURL}=require('node:url');
  function count(hours, moving){
   let writes=0,last=-1;
   for(let ms=0;ms<hours*3600000;ms+=15000){
-   if(should({elapsedMs:ms-last,moved,hasPublished:last>=0})){writes++;last=ms;}
+   if(should({elapsedMs:ms-last,moved:moving,hasPublished:last>=0})){writes++;last=ms;}
   }
   return writes;
  }
