@@ -58,9 +58,21 @@ for (let pass = 1; pass <= 2; pass++) {
     x.fields?.[1]?.order === 'DESCENDING');
   assert.ok(found, 'bounded newest-first query has a declared Firestore composite index');
 
+  // A failed mobile-account read must not be represented as an empty
+  // account number, and no edit may be saved until the real read succeeds.
+  const mobile = read('app/account-mobile.tsx');
+  assert.match(mobile, /loadState !== 'ready'/,
+    'do not allow an unknown contact record to be overwritten');
+  assert.match(mobile, /setLoadState\('unavailable'\)/,
+    'failed Firestore read has an explicit unavailable status');
+  assert.match(mobile, /setReloadCount\(n => n \+ 1\)/,
+    'Traveler can explicitly retry, without perpetual polling');
+  assert.doesNotMatch(mobile, /\.catch\(\(\) => \{\}\)/,
+    'reading the mobile record cannot fail silently');
+
   for (const lang of ['en', 'es', 'fr', 'it', 'de']) {
     const d = read('src/i18n/' + lang + '.ts');
-    for (const key of ['removeDefaultCardNotice', 'removeCardNotice'])
+    for (const key of ['removeDefaultCardNotice', 'removeCardNotice', 'mobileReadUnavailable'])
       assert.match(d, new RegExp('^\\s*' + key + ':', 'm'),
         lang + ': missing payment-method removal explanation');
   }
