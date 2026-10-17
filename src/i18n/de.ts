@@ -134,7 +134,7 @@ export default {
     econMonth: 'Pro Monat (52 Wochen ÷ 12)',
     econYear: 'Pro Jahr (52 Wochen)',
     econDisclaimer: "Diese Beispiele garantieren weder Travels noch Einkommen. Der Gesamtpreis für Traveler wird vor jeder Travel angezeigt.",
-    econProjectionNote: "Dabei wird für alle 52 Wochen derselbe Gesamtfahrpreis angenommen. Dies ist kein Nettoeinkommen; Ausgaben sind nicht abgezogen.",
+    econProjectionNote: "Die Schätzung wendet den 1-%-Anteil auf die Wochensumme an. Die tatsächliche Provision wird je Travel auf volle Cent abgerundet; deshalb kann der einbehaltene Betrag geringfügig abweichen. Monats- und Jahreswerte setzen 52 gleiche Wochen voraus. Ausgaben werden nicht abgezogen.",
     econCostsHeading: "Kontogebühren und Ausgaben",
     econAccountCostNote: "In Monaten mit einer Auszahlung können eine separate Kontogebühr von 2 $ und Kosten für deren Einzug anfallen. Die aktuellen Bedingungen stehen unten. Versicherung, Kraftstoff und Fahrzeugkosten tragen Sie selbst.",
     econShowAccountTerms: "Aktuelle Kontobedingungen anzeigen",
