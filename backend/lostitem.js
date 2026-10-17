@@ -130,18 +130,33 @@ async function notifyLostItemOperators({ itemId, uid }, { database, postMessage 
     }).catch(() => ({ ok: false }));
     if (out?.ok) delivered += 1;
   }
-  const patch = {
-    notifiedOperatorIds: ids,
-    notifiedOperatorNames: verified.map(x => x.name).filter(Boolean),
-    operatorDeliveryCount: delivered,
-    operatorDeliveryAt: delivered > 0 ? Date.now() : null,
-  };
-  if (delivered > 0) {
-    patch.status = 'operator-notified';
-    patch.statusAt = Date.now();
+  if (typeof d.runTransaction !== 'function') return { ok: false, delivered, expected: ids.length };
+  // A pushed/inbox notice can arrive before this function finishes. The
+  // Operator may then locate the item immediately. Record notification
+  // evidence without moving an already located, arranged or returned item
+  // backward to "operator-notified".
+  try {
+    const persisted = await d.runTransaction(async (tx) => {
+      const currentSnap = await tx.get(ref);
+      if (!currentSnap.exists || currentSnap.data()?.travelerUid !== uid) return false;
+      const current = currentSnap.data() || {};
+      const patch = {
+        notifiedOperatorIds: ids,
+        notifiedOperatorNames: verified.map(x => x.name).filter(Boolean),
+        operatorDeliveryCount: delivered,
+        operatorDeliveryAt: delivered > 0 ? Date.now() : null,
+      };
+      if (delivered > 0 && ['reported', 'operator-notified'].includes(current.status)) {
+        patch.status = 'operator-notified';
+        patch.statusAt = Date.now();
+      }
+      tx.set(ref, patch, { merge: true });
+      return true;
+    });
+    return { ok: !!persisted && delivered > 0, delivered, expected: ids.length };
+  } catch {
+    return { ok: false, delivered, expected: ids.length };
   }
-  await ref.set(patch, { merge: true });
-  return { ok: delivered > 0, delivered, expected: ids.length };
 }
 
 async function operatorLostItem({ itemId, operatorUid }, { database } = {}) {
