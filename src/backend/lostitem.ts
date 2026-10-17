@@ -16,6 +16,11 @@ import {
   onSnapshot,
   query,
   where,
+  orderBy,
+  startAfter,
+  limit,
+  type DocumentData,
+  type QueryDocumentSnapshot,
 } from 'firebase/firestore';
 import { auth, db } from '../firebase';
 import { PAYMENT_SERVER_URL } from '../config';
@@ -232,19 +237,43 @@ export function watchLostItem(id: string, onChange: (item: LostItem | null) => v
   }
 }
 
-/** Every open report this traveler has filed, newest first. */
-export async function fetchMyLostItems(): Promise<LostItem[]> {
+/** A small, ordered page of the Traveler's own reports. A failure throws, rather
+ * than masquerading as an empty history. Only read the next page on request.
+ *
+ * Requires the lost_items(travelerUid ASC, createdAt DESC) composite index.
+ */
+export type LostItemPage = {
+  items: LostItem[];
+  cursor: QueryDocumentSnapshot<DocumentData> | null;
+  hasMore: boolean;
+};
+
+export async function fetchMyLostItemsPage(
+  cursor: LostItemPage['cursor'] = null,
+  pageSize = 20,
+): Promise<LostItemPage> {
   const uid = auth.currentUser?.uid;
-  if (!uid) return [];
-  try {
-    const snap = await getDocs(
-      query(collection(db, 'lost_items'), where('travelerUid', '==', uid)),
-    );
-    return snap.docs
-      .map((d) => ({ id: d.id, ...(d.data() as Omit<LostItem, 'id'>) }))
-      .sort((a, b) => b.createdAt - a.createdAt);
-  } catch {
-    return [];
-  }
+  if (!uid) throw new Error('Sign in required');
+  if (!Number.isInteger(pageSize) || pageSize < 1 || pageSize > 50)
+    throw new Error('invalid-lost-item-page-size');
+
+  const base = query(
+    collection(db, 'lost_items'),
+    where('travelerUid', '==', uid),
+    orderBy('createdAt', 'desc'),
+    limit(pageSize + 1),
+  );
+  const snap = await getDocs(cursor ? query(base, startAfter(cursor)) : base);
+  const visible = snap.docs.slice(0, pageSize);
+  return {
+    items: visible.map(d => ({ id: d.id, ...(d.data() as Omit<LostItem, 'id'>) })),
+    cursor: snap.docs.length > pageSize ? (visible[visible.length - 1] ?? null) : null,
+    hasMore: snap.docs.length > pageSize,
+  };
+}
+
+/** Bounded compatibility lookup. For more, use fetchMyLostItemsPage(cursor). */
+export async function fetchMyLostItems(): Promise<LostItem[]> {
+  return (await fetchMyLostItemsPage()).items;
 }
 

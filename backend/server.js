@@ -893,15 +893,21 @@ app.post('/family/invite', requireAuth, requireVerifiedEmail, async (req,res)=>{
 app.post('/family/invite/:id/accept', requireAuth, requireVerifiedEmail, async (req,res)=>{const out=await family.acceptFamilyInvite({id:req.params.id,inviteToken:req.body?.inviteToken,teenUid:req.uid,teenEmail:req.email,emailVerified:req.emailVerified});return res.status(out.ok?200:400).json(out);});
 app.post('/family/:id/revoke', requireAuth, async (req,res)=>{const out=await family.revokeFamilyLink({id:req.params.id,guardianUid:req.uid});return res.status(out.ok?200:403).json(out);});
 
-// --- Platform inbox: durable American Rider -> Operator/account communications. -----------
-app.get('/operator/inbox', requireAuth, async (req, res) => {
+// --- Account inbox: durable American Rider -> Traveler OR Operator messages. -------------
+// Both roles share one authenticated per-account inbox. Keep the older
+// /operator/inbox URLs for already-installed Operator applications.
+const accountInboxList = async (req, res) => {
   const out = await listPlatformMessages(req.uid, req.query?.limit);
   res.status(out.ok ? 200 : 503).json(out);
-});
-app.post('/operator/inbox/:id/read', requireAuth, async (req, res) => {
+};
+const accountInboxRead = async (req, res) => {
   const out = await markPlatformMessageRead(req.uid, req.params.id);
   res.status(out.ok ? 200 : out.reason === 'not found' ? 404 : 503).json(out);
-});
+};
+app.get('/account/inbox', requireAuth, accountInboxList);
+app.post('/account/inbox/:id/read', requireAuth, accountInboxRead);
+app.get('/operator/inbox', requireAuth, accountInboxList);
+app.post('/operator/inbox/:id/read', requireAuth, accountInboxRead);
 
 // --- OPERATOR PAYOUTS: Stripe Connect onboarding. -----------------------------------------
 //

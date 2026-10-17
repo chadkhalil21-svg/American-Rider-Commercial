@@ -191,11 +191,14 @@ export default function LostItemScreen() {
   };
 
 
+  // The report itself, not a demo/last-visited Travel, establishes whom to
+  // contact. A record without a genuine Travel cannot open an Operator thread.
+  const recordedTripNo = item?.tripNo || item?.candidateTripNos?.find(Boolean) || null;
   const openThread = () => {
-    const tripNo = item?.tripNo ?? item?.candidateTripNos[0] ?? ride.lastTrip.no;
+    if (!item?.id || !recordedTripNo) return;
     router.navigate({
       pathname: '/message',
-      params: { trip: tripNo, lost: item?.id ?? '', from: 'lost' },
+      params: { trip: recordedTripNo, lost: item.id, from: 'lost' },
     });
   };
 
@@ -259,7 +262,7 @@ export default function LostItemScreen() {
         {travels.length === 0 && (
           <Pressable accessibilityRole="button"
             onPress={() => {
-              ride.openHelp(ride.lastTrip.no);
+              ride.openHelp();
               router.replace({ pathname: '/issues', params: { from: 'lost' } });
             }}
           >
@@ -476,14 +479,22 @@ export default function LostItemScreen() {
       </Card>
 
       {/* c · TALK TO THE OPERATOR — required, and scoped to the travel. */}
-      <OutlineButton
-        label={t('traveler.messageTheOperator')}
-        onPress={openThread}
-        style={{ marginTop: 20, marginBottom: 8 }}
-      />
-      <Text style={styles.maskedNote}>
-        {t('traveler.messagesStayInApp')}
-      </Text>
+      {recordedTripNo ? (
+        <>
+          <OutlineButton
+            label={t('traveler.messageTheOperator')}
+            onPress={openThread}
+            style={{ marginTop: 20, marginBottom: 8 }}
+          />
+          <Text style={styles.maskedNote}>
+            {t('traveler.messagesStayInApp')}
+          </Text>
+        </>
+      ) : (
+        <Text style={styles.maskedNote}>
+          {t('traveler.lostNoVerifiedTravelThread')}
+        </Text>
+      )}
     </Screen>
   );
 }

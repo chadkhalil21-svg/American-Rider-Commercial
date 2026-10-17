@@ -239,6 +239,9 @@ type OperatorState = {
   resetQualification: () => void;
   // availability + the simulated operation loop
   online: boolean;
+  /** This device is off, but the server has not yet confirmed concluding duty. */
+  offlinePending: boolean;
+  offlineBusy: boolean;
   /** False when this device cannot hold presence while locked — the screen must say so. */
   backgroundPresence: boolean;
   setOnline: (b: boolean) => void;
@@ -286,7 +289,9 @@ type OperatorState = {
   lastCompleted: CompletedOp | null;
   msgs: OpMsg[];
   sendMsg: (text: string) => void;
-  // revenue (derived from completed simulated operations — starts at zero, earned)
+  /** Whether the last authenticated attempt to check unpaid Travel was confirmed. */
+  payoutRecoveryStatus: 'not_checked' | 'checking' | 'checked' | 'unconfirmed';
+  // Local operational estimates, not authoritative Stripe transfer or bank figures.
   ops: CompletedOp[];
   todayTotal: number;
   todayOps: number;
@@ -333,6 +338,16 @@ export function OperatorProvider({ children }: { children: React.ReactNode }) {
   // the ordinary case, which is a date passing while nobody was watching.
   const [insuranceExpiry, setInsuranceExpiryState] = useState<string | null>(null);
   const [online, setOnlineState] = useState(false);
+  const [offlinePending, setOfflinePendingState] = useState(false);
+  const [offlineBusy, setOfflineBusy] = useState(false);
+  const [dutyRestoreReady, setDutyRestoreReady] = useState(false);
+  const offlinePendingRef = useRef(false);
+  const offlineInFlightRef = useRef(false);
+  // A superseded Commence request must not revive local duty after cancellation.
+  const dutyAttemptRef = useRef(0);
+  const confirmOfflineRef = useRef<(() => Promise<void>) | null>(null);
+  const userUidRef = useRef(user?.uid ?? null);
+  userUidRef.current = user?.uid ?? null;
   // Why going on duty was refused, in Stripe's terms. Held here rather than thrown because
   // an operator who cannot be paid must be TOLD, not silently flipped back off.
   const [onlineError, setOnlineError] = useState<string | null>(null);
@@ -367,6 +382,9 @@ export function OperatorProvider({ children }: { children: React.ReactNode }) {
   const [lastCompleted, setLastCompleted] = useState<CompletedOp | null>(null);
   const [msgs, setMsgs] = useState<OpMsg[]>([]);
   const [revenue, setRevenue] = useState<RevenueBlob>(EMPTY_REVENUE);
+  const [revenueOwnerUid, setRevenueOwnerUid] = useState<string | null>(null);
+  const [payoutRecoveryStatus, setPayoutRecoveryStatus] = useState<OperatorState['payoutRecoveryStatus']>('not_checked');
+  const payoutRecoveryRequestRef = useRef(0);
 
   // Mirror of the revenue blob so mutations never nest setState inside an updater
   // (React updaters must stay pure — StrictMode runs them twice).
@@ -375,7 +393,7 @@ export function OperatorProvider({ children }: { children: React.ReactNode }) {
   // ---- load persisted state once ----
   useEffect(() => {
     AsyncStorage.multiGet([
-      K_ROLE, K_VERIFICATION, K_COMMISSIONED, K_DOCS, K_BGCHECK, K_REVENUE, K_VEHICLE, K_COVERAGE,
+      K_ROLE, K_VERIFICATION, K_COMMISSIONED, K_DOCS, K_BGCHECK, K_VEHICLE, K_COVERAGE,
     ])
       .then((pairs) => {
         const get = (k: string) => pairs.find(([key]) => key === k)?.[1] ?? null;
@@ -407,23 +425,41 @@ export function OperatorProvider({ children }: { children: React.ReactNode }) {
         }
         const bg = get(K_BGCHECK);
         if (bg) setBgCheckedAt(bg);
-        const rev = get(K_REVENUE);
-        if (rev) {
-          try {
-            const parsed = JSON.parse(rev) as RevenueBlob;
-            if (parsed && Array.isArray(parsed.ops)) {
-              const blob = { ...EMPTY_REVENUE, ...parsed };
-              revRef.current = blob;
-              setRevenue(blob);
-            }
-          } catch {
-            /* keep defaults */
-          }
-        }
+
       })
       .catch(() => {})
       .finally(() => setReady(true));
   }, []);
+
+  // The retired shared-device revenue key is preserved as legacy data but never assigned
+  // to a different sign-in. Local estimates are stored per authenticated Operator UID.
+  // A backend-owned earnings ledger will eventually replace this display entirely.
+  useEffect(() => {
+    let active = true;
+    const uid = user?.uid ?? null;
+    revRef.current = EMPTY_REVENUE;
+    setRevenue(EMPTY_REVENUE);
+    setRevenueOwnerUid(null);
+    if (uid) {
+      AsyncStorage.getItem(`${K_REVENUE}:${uid}`).then((saved) => {
+        if (!active || userUidRef.current !== uid) return;
+        let blob = EMPTY_REVENUE;
+        try {
+          const parsed = saved ? JSON.parse(saved) as RevenueBlob : null;
+          if (parsed && Array.isArray(parsed.ops)) blob = { ...EMPTY_REVENUE, ...parsed };
+        } catch {
+          // Unknown local data never becomes certified revenue.
+        }
+        revRef.current = blob;
+        setRevenue(blob);
+        setRevenueOwnerUid(uid);
+      }).catch(() => {
+        // Failure reading existing local records must not overwrite them with zero.
+        if (active && userUidRef.current === uid) setRevenueOwnerUid(null);
+      });
+    }
+    return () => { active = false; };
+  }, [user?.uid]);
 
   const setRole = useCallback((r: Role) => {
     setRoleState(r);
@@ -567,10 +603,12 @@ export function OperatorProvider({ children }: { children: React.ReactNode }) {
 
   // Every revenue write goes through here: ref + state + storage stay one thing.
   const commitRevenue = useCallback((next: RevenueBlob) => {
+    const uid = userUidRef.current;
+    if (!uid || revenueOwnerUid !== uid) return;
     revRef.current = next;
     setRevenue(next);
-    AsyncStorage.setItem(K_REVENUE, JSON.stringify(next)).catch(() => {});
-  }, []);
+    AsyncStorage.setItem(`${K_REVENUE}:${uid}`, JSON.stringify(next)).catch(() => {});
+  }, [revenueOwnerUid]);
 
   /**
    * Put a travel in front of the operator, from whichever path noticed it: the live
@@ -725,6 +763,8 @@ export function OperatorProvider({ children }: { children: React.ReactNode }) {
     // this attached with no user and reported "Not signed in." for the rest of the session.
     // The uid in the dependency list is what makes it attach again once there is one.
     if (verification !== 'commissioned' || !user?.uid) {
+      payoutRecoveryRequestRef.current += 1;
+      setPayoutRecoveryStatus('not_checked');
       // SAY WHICH, because "not attached" and "nothing yet" are different answers.
       //
       // This set inboxError to NULL on the way out, so an inbox that never attached rendered
@@ -746,12 +786,17 @@ export function OperatorProvider({ children }: { children: React.ReactNode }) {
       return;
     }
     setInboxError(null);
-    // Ask for anything still owed. A travel settles once, at completion, and that attempt
-    // fails for ordinary reasons — money still clearing, onboarding unfinished at the time, a
-    // dropped connection. Nothing retried, so the fare stayed with the platform and the
-    // operator was not paid. Silent by design: it either moves money or it does not, and an
-    // operator opening the app should not be shown plumbing.
-    settlePendingPayouts();
+    // A request to recover a past unpaid fare is not evidence of successful settlement.
+    // Keep failures distinct from a genuine server response and scope late replies to the
+    // account that made the request, so switching accounts cannot present stale results.
+    const recoveryUid = user.uid;
+    const recoveryRequest = ++payoutRecoveryRequestRef.current;
+    setPayoutRecoveryStatus('checking');
+    void settlePendingPayouts().then((result) => {
+      if (userUidRef.current === recoveryUid && payoutRecoveryRequestRef.current === recoveryRequest) {
+        setPayoutRecoveryStatus(result.ok ? 'checked' : 'unconfirmed');
+      }
+    });
     return watchAssignedTravel((list) => {
       // A TRAVEL UNDERWAY SURVIVES THE APP CLOSING.
       //
@@ -939,8 +984,10 @@ export function OperatorProvider({ children }: { children: React.ReactNode }) {
     // Never erase the local operation and pretend the Travel disappeared while the server
     // still assigns it to this Operator. Going off duty may stop new offers, but the accepted
     // Travel remains visible until an authoritative terminal/reassignment path exists.
+    ++dutyAttemptRef.current;
     setOnlineState(false);
-    goOffline();
+    // Use the same acknowledged, persisted off-duty path as the main control.
+    void confirmOfflineRef.current?.();
   }, []);
 
   opRef.current = op;
@@ -1005,7 +1052,9 @@ export function OperatorProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
-  // ---- revenue, derived from the operations this operator actually completed ----
+  // Never show another account's device records, including the first render after a switch.
+  const localRevenueForAccount = user?.uid && revenueOwnerUid === user.uid ? revenue : EMPTY_REVENUE;
+  // ---- Local device estimates; never mistaken for actual transfers to a bank ----
   const totals = useMemo(() => {
     const now = new Date();
     const weekAgo = Date.now() - 7 * 24 * 3600 * 1000;
@@ -1015,7 +1064,7 @@ export function OperatorProvider({ children }: { children: React.ReactNode }) {
     let month = 0;
     let year = 0;
     let all = 0;
-    for (const o of revenue.ops) {
+    for (const o of localRevenueForAccount.ops) {
       const d = new Date(o.at);
       all += o.earn;
       if (sameDay(d, now)) {
@@ -1034,9 +1083,9 @@ export function OperatorProvider({ children }: { children: React.ReactNode }) {
       week: round2(week),
       month: round2(month),
       year: round2(year),
-      balance: round2(Math.max(0, all - revenue.withdrawn)),
+      balance: round2(Math.max(0, all - localRevenueForAccount.withdrawn)),
     };
-  }, [revenue]);
+  }, [localRevenueForAccount]);
 
   // withdraw() REMOVED. It subtracted a fee, set `withdrawn` to everything earned so the
   // balance read zero, and moved no money — a recorded withdrawal that had never happened.
@@ -1126,7 +1175,7 @@ export function OperatorProvider({ children }: { children: React.ReactNode }) {
         if (stopped) {
           // The Operator has ended service while a renewal was in flight.
           // A late success must not resurrect dispatch availability.
-          if (r.ok && !onlineRef.current) void goOffline();
+          if (r.ok && !onlineRef.current) void confirmOfflineRef.current?.();
           return;
         }
         if (r.ok) {
@@ -1165,7 +1214,9 @@ export function OperatorProvider({ children }: { children: React.ReactNode }) {
   /** Days until coverage lapses. Negative once it has. Null when no date is on file. */
   const coverageDaysLeft = useMemo(() => {
     if (!insuranceExpiry) return null;
-    const end = Date.parse(`${insuranceExpiry}T23:59:59`);
+    // Match the authoritative backend, which evaluates the recorded policy
+    // end at 23:59:59 UTC, not the device's timezone.
+    const end = Date.parse(`${insuranceExpiry}T23:59:59.999Z`);
     if (Number.isNaN(end)) return null;
     return Math.ceil((end - Date.now()) / 86400000);
   }, [insuranceExpiry]);
@@ -1210,15 +1261,88 @@ tr('traveler.blockCoverage'),
     return out;
   }, [user?.displayName, vehicle, insuranceExpiry, coverageDaysLeft]);
 
-  const dutyAttemptRef = useRef(0);
+  // The phone must not confuse a local OFF toggle with a server-confirmed
+  // end of duty. Persist a tiny, UID-scoped retry flag, never a location,
+  // identity credential, or an Operator's insurance record.
+  const confirmOffline = useCallback(async () => {
+    const uid = userUidRef.current;
+    if (!uid || offlineInFlightRef.current) return;
+    offlineInFlightRef.current = true;
+    offlinePendingRef.current = true;
+    setOfflinePendingState(true);
+    setOfflineBusy(true);
+    const key = `ar:operator-offline-pending:${uid}`;
+    try {
+      await AsyncStorage.setItem(key, '1').catch(() => {});
+      const confirmed = await goOffline();
+      if (userUidRef.current !== uid) return;
+      if (confirmed) {
+        await AsyncStorage.removeItem(key).catch(() => {});
+        offlinePendingRef.current = false;
+        setOfflinePendingState(false);
+        setOnlineError(null);
+        setOnlineErrorCode(null);
+      } else {
+        setOnlineError(tr('operator.offlineUnconfirmed'));
+        setOnlineErrorCode('offline_unconfirmed');
+      }
+    } finally {
+      offlineInFlightRef.current = false;
+      if (userUidRef.current === uid) setOfflineBusy(false);
+    }
+  }, []);
+  confirmOfflineRef.current = confirmOffline;
+
+  useEffect(() => {
+    let active = true;
+    const uid = user?.uid;
+    offlinePendingRef.current = false;
+    setOfflinePendingState(false);
+    setDutyRestoreReady(false);
+    if (!uid) {
+      setDutyRestoreReady(true);
+      return () => { active = false; };
+    }
+    const key = `ar:operator-offline-pending:${uid}`;
+    void AsyncStorage.getItem(key).then(pending => {
+      if (!active || userUidRef.current !== uid) return;
+      if (pending === '1') {
+        offlinePendingRef.current = true;
+        setOfflinePendingState(true);
+        void confirmOffline();
+      }
+    }).catch(() => {
+      if (!active || userUidRef.current !== uid) return;
+      offlinePendingRef.current = true;
+      setOfflinePendingState(true);
+      setOnlineError(tr('operator.offlineUnconfirmed'));
+      setOnlineErrorCode('offline_unconfirmed');
+    }).finally(() => {
+      if (active && userUidRef.current === uid) setDutyRestoreReady(true);
+    });
+    const subscription = Platform.OS === 'web' ? null : AppState.addEventListener('change', state => {
+      if (state === 'active' && offlinePendingRef.current && !onlineRef.current)
+        void confirmOffline();
+    });
+    return () => { active = false; subscription?.remove(); };
+  }, [user?.uid, confirmOffline]);
+
   const setOnline = useCallback(
     (want: boolean) => {
       const attempt = ++dutyAttemptRef.current;
       setOnlineError(null);
       setOnlineErrorCode(null);
       if (!want) {
+        // Locally stop receiving offers immediately, then withdraw the
+        // server's dispatchable presence. Failure is visible and retryable.
         setOnlineState(false);
-        goOffline();
+        void confirmOffline();
+        return;
+      }
+      if (!dutyRestoreReady || offlinePendingRef.current) {
+        setOnlineState(false);
+        setOnlineError(tr('operator.offlineUnconfirmed'));
+        setOnlineErrorCode('offline_unconfirmed');
         return;
       }
       // A TRAVELER MUST BE ABLE TO FIND THE CAR. Same posture as the payout check above: we
@@ -1246,7 +1370,9 @@ tr('traveler.blockCoverage'),
         setOnlineError(tr('traveler.gateCoverageDate'));
         return;
       }
-      const end = Date.parse(`${coverageRef.current}T23:59:59`);
+      // Use the same absolute cutoff as backend/insurance-horizon.js, never
+      // this phone's local timezone or a different final millisecond.
+      const end = Date.parse(`${coverageRef.current}T23:59:59.999Z`);
       if (Number.isNaN(end) || end < Date.now()) {
         setOnlineState(false);
         setOnlineError(
@@ -1291,7 +1417,7 @@ tr('traveler.gateLocation'),
           // A newer duty choice superseded this request. If this stale request reached the
           // server successfully, explicitly withdraw that presence rather than resurrecting
           // an Operator who has since gone off duty.
-          if (r.ok) goOffline();
+          if (r.ok) void confirmOffline();
           return;
         }
         setOnlineBusy(false);
@@ -1318,11 +1444,12 @@ tr('traveler.gateLocation'),
           .catch(() => setBackgroundPresence(false));
       })();
     },
-    [user?.displayName],
+    [user?.displayName, confirmOffline, dutyRestoreReady],
   );
 
   const value: OperatorState = {
     ready,
+    payoutRecoveryStatus,
     opName,
     opInitials,
     role,
@@ -1341,6 +1468,8 @@ tr('traveler.gateLocation'),
     resetQualification,
     commission,
     online,
+    offlinePending,
+    offlineBusy,
     backgroundPresence,
     setOnline,
     onlineError,
@@ -1368,7 +1497,7 @@ tr('traveler.gateLocation'),
     lastCompleted,
     msgs,
     sendMsg,
-    ops: revenue.ops,
+    ops: localRevenueForAccount.ops,
     todayTotal: totals.today,
     todayOps: totals.todayN,
     weekTotal: totals.week,

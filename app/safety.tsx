@@ -227,7 +227,7 @@ export default function SafeTravels() {
             for that, as the receipt's control is. No specialist is connected by pressing it. */}
         <Pressable
           onPress={() => {
-            ride.openHelp(ride.lastTrip.no);
+            ride.openHelp();
             router.navigate({ pathname: '/issues', params: { from: 'safety' } });
           }}
           accessibilityRole="button"
