@@ -96,7 +96,10 @@ async function verifiedLostItemOperators(item, d) {
       uid: operatorUid,
       name: String(r.operatorName || '').slice(0, 120),
       tripNo: String(r.tripNo),
+      tripNos: [],
     });
+    const entry = valid.get(operatorUid);
+    if (!entry.tripNos.includes(String(r.tripNo))) entry.tripNos.push(String(r.tripNo));
   }
   return [...valid.values()];
 }
@@ -176,7 +179,10 @@ async function operatorLostItem({ itemId, operatorUid }, { database } = {}) {
   catch { return { ok: false, status: 503, error: 'Travel verification unavailable' }; }
   if (!ids.includes(String(operatorUid)) || !verified.some(x => x.uid === String(operatorUid)))
     return { ok: false, status: 403, error: 'Not authorized for this report' };
-  const candidateTripNos = Array.isArray(item.candidateTripNos) ? item.candidateTripNos.map(String) : [];
+  // Only present this Operator's *verified* Travels, not every candidate
+  // supplied by the Traveler. An Operator who drove two possible journeys
+  // may select either; journeys belonging to another Operator stay private.
+  const candidateTripNos = verified.find(x => x.uid === String(operatorUid))?.tripNos || [];
   return {
     ok: true,
     item: {
