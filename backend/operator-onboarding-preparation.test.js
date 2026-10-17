@@ -66,7 +66,10 @@ for(let pass=0;pass<2;pass++){
    assert.match(src('src/i18n/'+lang+'.ts'),/changeOperatingArea:/,'localized change control missing: '+lang);
  }
 
- assert.match(screen,/disabled=\{submitting \|\| !areaAuthorized\}/,'final submission remains closed in waitlisted counties');
+ assert.match(screen,/disabled=\{submitting \|\| !area\?\.market\}/,
+  'prelaunch can submit source-verified qualification, but must choose an operating county');
+assert.match(server,/app\.post\('\/operator\/qualification\/submit', requireAuth, LIMITS\.qualification, requireOperatorPreparationMarket/,
+  'server must check jurisdiction and actual documents and screening before commissioning');
  const connect=src('src/backend/connect.ts');
  assert.match(connect,/error\?: string/);
  assert.match(connect,/getOperatingMarket\(\): Promise<MarketState>/);
