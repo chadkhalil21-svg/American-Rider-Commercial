@@ -42,8 +42,10 @@ assert.match(server, /jurisdictionCode: policy\.stateCode, policyId: policy\.id/
 assert.match(server, /oldCase\.exists && oldCase\.data\(\)\.uid === req\.uid/,
   'repeated request checks case ownership and reuses its existing case');
 assert.match(ui, /\.\.\.area\.waitlist/, 'Operator can find listed prelaunch counties');
-assert.match(ui, /d\.key === 'background' && area\?\.market\?\.status === 'waitlist'/,
-  'a waitlisted Operator can request screening preparation only');
+assert.match(ui, /if \(!area\?\.market\)/,
+  'the Operator must select a county before source-verified preparatory checks');
+assert.match(server, /app\.post\('\/operator\/document', requireAuth, LIMITS\.document, requireFreshAuth, requireOperatorPreparationMarket/,
+  'documents and screening are both preparatory; neither approves paid Travel');
 assert.match(ui, /disabled=\{submitting \|\| !areaAuthorized\}/,
   'Waitlisted Operators cannot submit qualification; the server checks real document completion');
 assert.match(connect, /waitlist: Market\[\]/, 'API client carries waitlist options');
