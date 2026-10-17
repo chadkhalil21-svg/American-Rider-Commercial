@@ -357,9 +357,7 @@ export default function Home() {
         // A travel that is live or reserved sits at the head of the group (Chad: an active
         // itinerary belongs in the menu). Each opens the screen that shows it.
         ...(ride.rideActive ? [{ label: t('traveler.travelInProgress'), onPress: () => go('/ride') }] : []),
-        ...(ride.scheduled && !ride.rideActive
-          ? [{ label: t('traveler.scheduledTravel'), onPress: () => go('/upcoming') }]
-          : []),
+        { label: t('traveler.scheduledTravel'), onPress: () => go('/upcoming') },
         { label: t('traveler.travelLog'), onPress: () => go({ pathname: '/history', params: { from: 'home' } }) },
       ],
     },
