@@ -3573,8 +3573,8 @@ app.post('/scheduled/sweep', runSweep);
 // class and distance. Keeping those rules in one gate prevents query optimization from becoming
 // a second qualification system.
 const QUEUE_APPROACH_MI = 3;
-async function availableOperatorCandidates(db, pickup, excludeIds = new Set()) {
-  const fleet = await nearbyOperatorCandidates(db, pickup, { excludeIds });
+async function availableOperatorCandidates(db, pickup, excludeIds = new Set(), safeMatching = null) {
+  const fleet = await nearbyOperatorCandidates(db, pickup, { excludeIds, safeMatching });
   // An Operator may line up exactly one next Travel only while carrying the current Traveler
   // and already approaching that Travel's destination. Discovery marks the possibility; the
   // assignment transaction independently re-reads both Travels before reserving the slot.
