@@ -31,14 +31,15 @@ export default function OperatorQualification() {
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
-  // The server accepts qualification for an admitted prelaunch county, but paid duty only after
-  // full commercial activation. Placed from the phone's last known position when there
-  // is one and nothing is declared yet; otherwise the operator chooses.
+  // The Operator can prepare and submit qualifications before paid Travel opens.
+  // When location permission already exists, last known position can select a county.
+  // Otherwise the Operator makes an explicit choice.
   const [area, setArea] = useState<MarketState | null>(null);
   const [areaBusy, setAreaBusy] = useState(false);
+  const [showMarkets, setShowMarkets] = useState(false);
   const [areaError, setAreaError] = useState<string | null>(null);
   // A failed market request must not look like a valid empty county list.
-  // Retry only when the Operator asks, and do not request GPS permission.
+  // Retry only when the Operator asks, without requesting new GPS permission.
   const loadArea = React.useCallback(async (alive: () => boolean = () => true) => {
     setAreaBusy(true);
     let st = await getOperatingMarket();
@@ -61,8 +62,6 @@ export default function OperatorQualification() {
     return () => { live = false; };
   }, [loadArea]);
   const areaActive = area?.market?.status === 'active';
-  // Final commercial submission is different from early paperwork preparation.
-  const areaAuthorized = areaActive || area?.market?.status === 'onboarding';
 
   return (
     <Screen>
@@ -105,7 +104,10 @@ export default function OperatorQualification() {
 
       {area && (
         <>
-        {areaError ? <Text accessibilityRole="alert" style={styles.footnote}>{areaError}</Text> : null}
+        {areaError ? <>
+          <Text accessibilityRole="alert" style={styles.footnote}>{areaError}</Text>
+          <PrimaryButton label={t('traveler.tryAgain')} onPress={() => { void loadArea(); }} disabled={areaBusy} style={{ marginTop: 8 }} />
+        </> : null}
 
       <Card style={styles.listCard}>
           <View style={styles.row}>
@@ -120,7 +122,10 @@ export default function OperatorQualification() {
                     ? t('operator.marketNotActive', { name: area.market.name })
                     : t('operator.chooseOperatingArea')}
               </Text>
-              {!areaAuthorized && (
+              {area.market && <Pressable accessibilityRole="button" onPress={() => setShowMarkets(v => !v)} style={{ minHeight: 44, justifyContent: 'center', marginTop: 4 }}>
+                <Text style={styles.rowTitle}>{t('operator.changeOperatingArea')} {showMarkets ? '−' : '+'}</Text>
+              </Pressable>}
+              {(!area.market || showMarkets) && (
                 <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginTop: 8 }}>
                   {[...area.active, ...area.onboarding, ...area.waitlist].map((m) => (
                     <Pressable
@@ -137,7 +142,7 @@ export default function OperatorQualification() {
                           const next = await setOperatingMarket({ marketId: m.id });
                           if (next.error) setAreaError(next.error);
                           else if (next.market?.id !== m.id) setAreaError(t('traveler.couldNotSaveConn'));
-                          else setArea(next);
+                          else { setArea(next); setShowMarkets(false); }
                         } catch {
                           setAreaError(t('traveler.couldNotSaveConn'));
                         } finally {
@@ -152,7 +157,6 @@ export default function OperatorQualification() {
                 </View>
               )}
             </View>
-            {areaActive ? <BadgeOk label={t('operator.verified')} /> : null}
           </View>
         </Card>
         </>
@@ -174,6 +178,7 @@ export default function OperatorQualification() {
               onPress={() => {
                 // Jurisdiction is needed for documents and screening, but
                 // the county need not yet be open for paid Travel.
+                if (d.key === 'basics') { op.verifyDoc(d.key); return; }
                 if (!area?.market) {
                   setAreaError(t('operator.chooseOperatingArea'));
                   return;
@@ -195,7 +200,7 @@ export default function OperatorQualification() {
                   {d.sub ? <Text style={styles.rowSub}>{t(d.sub)}</Text> : null}
                 </View>
                 {st === 'ok' ? (
-                  <BadgeOk label={t('operator.verified')} />
+                  <BadgeOk label={d.key === 'basics' ? t('operator.basicsCompleted') : t('operator.verified')} />
                 ) : st === 'checking' ? (
                   <Text style={styles.pillChecking}>{t('operator.checking')}</Text>
                 ) : (
@@ -220,7 +225,7 @@ export default function OperatorQualification() {
       {submitError && <Text accessibilityRole="alert" style={styles.footnote}>{submitError}</Text>}
       <PrimaryButton
         label={t('traveler.qualSubmitReview')}
-        disabled={submitting || !areaAuthorized}
+        disabled={submitting || !area?.market}
         onPress={async () => {
           setSubmitting(true);
           setSubmitError(null);
