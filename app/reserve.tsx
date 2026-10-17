@@ -97,10 +97,10 @@ export default function TravelConfirmation() {
   const { user, accountName } = useAuth();
   const payConfig = usePaymentConfig();
   const cabin = useCabinPrefs();
-  const params = useLocalSearchParams<{ search?: string; q?: string; scheduling?: string }>();
+  const params = useLocalSearchParams<{ search?: string; q?: string; scheduling?: string; pickup?: string }>();
 
-  const [searching, setSearching] = useState(params.search === '1');
-  const [searchingDep, setSearchingDep] = useState(false);
+  const [searching, setSearching] = useState(params.search === '1' && params.pickup !== '1');
+  const [searchingDep, setSearchingDep] = useState(params.pickup === '1');
   const [query, setQuery] = useState('');
   const [queryDep, setQueryDep] = useState('');
   const [partyOpen, setPartyOpen] = useState(false);
@@ -110,7 +110,11 @@ export default function TravelConfirmation() {
 
   // navigate() can update params on an already-mounted screen — reopen search then too.
   useEffect(() => {
-    if (params.search === '1') {
+    if (params.pickup === '1') {
+      setSearchingDep(true);
+      setSearching(false);
+      setQueryDep('');
+    } else if (params.search === '1') {
       setSearching(true);
       setSearchingDep(false);
       // A destination handed in by name — a receipt's "Travel to … again" for a place that is
@@ -118,7 +122,7 @@ export default function TravelConfirmation() {
       // tap from the sheet rather than back at an empty field.
       if (typeof params.q === 'string' && params.q) setQuery(params.q);
     }
-  }, [params.search, params.q]);
+  }, [params.search, params.pickup, params.q]);
 
   const [pricing, setPricing] = useState(false);
   const [priceFailed, setPriceFailed] = useState(false);
