@@ -200,7 +200,7 @@ for (let pass = 1; pass <= 2; pass++) {
   assert.match(opLost, /return \(\) => \{ active = false; \}/);
   assert.match(opLost, /t\('operator\.lostRetry'\)/);
   assert.match(opLost, /setRetryCount\(n => n \+ 1\)/);
-  assert.match(opLost, /t\('operator\.busyChecking'\)/);
+  assert.match(opLost, /t\('operator\.lostLoading'\)/);
 
   const found = indexes.indexes.some(x => x.collectionGroup === 'lost_items' &&
     x.queryScope === 'COLLECTION' &&
@@ -231,6 +231,8 @@ for (let pass = 1; pass <= 2; pass++) {
       lang + ': Operator also receives an understandable read error');
     assert.match(operator, /^\s{4}lostRetry:/m,
       lang + ': Operator Lost Item load has a localized Retry action');
+    assert.match(operator, /^\s{4}lostLoading:/m,
+      lang + ': Operator report loading state is translated');
     for (const key of ['removeDefaultCardNotice', 'removeCardNotice', 'mobileReadUnavailable',
       'lostHistoryCouldNotLoad', 'lostHistoryMore', 'lostNoVerifiedTravelThread', 'msgTravelUnavailable', 'platformCommunications', 'platformCommunicationsBody', 'noPlatformCommunications', 'newPlatformCommunication', 'platformCommunicationReadFailed', 'platformCommunicationsUnavailable']) {
       assert.match(traveler, new RegExp('^\\s{4}' + key + ':', 'm'),
