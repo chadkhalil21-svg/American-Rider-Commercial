@@ -47,6 +47,56 @@ Synthetic tests run twice for no destination, unknown/repricing/class-changed pr
 Keep PR in review until exact-head CI and signed physical-device iPhone/Android tests for font scaling, VoiceOver/TalkBack, scroll, search, keyboard overlap, loading, route changes and actual appointment states. No actual payments, reservations, dispatches, deployment or TestFlight submissions were undertaken by this UX work.
 
 
+## Published institutional evidence review, applied to candidate code (17 October 2026)
+
+This review begins with independently published institutional guidance, then checks
+American Rider's own `AGENTS.md`, `PROJECT-LEDGER.md`,
+`docs/COUNCIL-STANDARDS.md`, `app/schedule.tsx`, `app/reserve.tsx`,
+`src/state/RideContext.tsx`, `backend/scheduleclock.js`, and
+the server's protected scheduled-reservation endpoint.
+No person, school, organization or Council reference figure was personally
+contacted. Citing their published work is not endorsement.
+
+| Guidance institution | Verifiable published principle | American Rider disposition |
+| --- | --- | --- |
+| [Stanford d.school](https://dschool.stanford.edu/tools/design-thinking-bootleg) and [IDEO](https://designthinking.ideo.com/introduction) | Prototype/test with travelers; jointly assess desire, implementation, and cost | Keep itinerary-first screen as candidate, not a confirmed usability outcome; real-device/user observation remains mandatory |
+| [MIT Sloan CISR](https://dspace.mit.edu/handle/1721.1/174978) | Customer insight, accountability, co-design and ongoing customer engagement | One named, end-to-end scheduled journey owner is required; internal automated checks cannot substitute for observed travelers |
+| [Harvard Business School, Frances Frei](https://www.hbs.edu/faculty/Pages/item.aspx?research=7002) | Sustainable service promises need matching delivery capacity and funding | Do not promise guaranteed assignment or future notification; preserve qualified Operator matching, server-authoritative all-in Fare and explicit post-booking status |
+| [Apple](https://developer.apple.com/design/human-interface-guidelines/pickers) | Selection controls should remain in context; predictable small lists, quarter-hour time intervals | Preserve concise Today/Tomorrow/Choose-day and compact time; optional time detail expands in place |
+| [Nielsen Norman Group](https://www.nngroup.com/articles/progressive-disclosure/) | Hide secondary decisions until requested | Keep pickup and destination upfront; defer extra time presets/calendar. No separate scheduling-only search or pricing stack |
+| [Baymard](https://baymard.com/research-articles/mobile-ecommerce-checkout-forms) | Real mobile checkout must not force users to remember costs/dates from earlier screens; absolute clarity on total price | Display selected exact calendar date and all-in server Total in final summary, with informative missing-price state |
+| [GOV.UK Design System](https://design-system.service.gov.uk/components/error-message/) | Describe precise failure and preserve user-entered values | Never silently replace a user's hour; surface unusable date/time or missing Fare and keep selections for correction |
+| [Google/Android Accessibility](https://support.google.com/accessibility/android/answer/7101858?hl=en) and [Apple Accessibility](https://developer.apple.com/design/human-interface-guidelines/accessibility) | Aim for Android 48×48 dp and iOS 44×44 pt touch targets | Height, localization and labels improved; seven-column calendar remains narrower than Android's recommendation on small screens, **unresolved** pending redesign with native date control or verified phone layout |
+| [Google Firestore](https://docs.cloud.google.com/firestore/native/docs/best-practices) | Bound database work and avoid wasteful reads | Scheduling date/time state is local; no new snapshots or polling, reuse existing authoritative pricing and location resolution |
+| [Amazon Builders' Library](https://aws.amazon.com/builders-library/making-retries-safe-with-idempotent-APIs/) | Retries must not duplicate consequential business actions | Preserve deterministic, atomically created scheduled reservation identity and stored consent Total; do not add unverified client retry side-effects |
+| [NASA SWE-055](https://swehb.nasa.gov/spaces/7150/pages/16449673/SWE-055%2B-%2BRequirements%2BValidation) | Verify intended behavior for normal and adverse conditions in the actual customer environment | Source tests and synthetic campaigns are one level of evidence; reject merging pending end-to-end signed handset and accessibility checks |
+
+**Additional direct defects corrected after institution-first research:**
+1. Previously, the saved booking title could be only `Tomorrow`, which is no
+   longer true after local midnight. Relative labels remain on the selection
+   chips; the summary, completion and server-saved `when` use the **exact
+   date with year**, derived from the absolute pickup-day state.
+2. Previously, pressing PM after selecting 6:00 AM could silently alter the
+   pickup to 6:30 PM because that period's four quick presets do not include
+   6:00. AM/PM now changes only the period; a changed hour requires deliberate
+   selection.
+3. A two-pass regression asserts these invariants in all five locales and
+   checks that no automatic PM preset substitution remains.
+
+**Council test:** Ford: reuse a single reservation journey, no duplicate
+backend. Rockefeller: no extra provider calls, per-tap queries or subscription.
+Jobs/Apple: the date and hour printed are exactly the date and hour selected.
+Harvard/Stanford/MIT: no false operational promises, clear customer value,
+measurable physical acceptance. First-class hospitality: calm copy, honest
+failure handling and clear next action. A Council **lens** is not a literal
+interview with Ford, Rockefeller, Jobs or an advisory endorsement.
+
+**Do not overclaim:** PR remains draft; physical viewport measurements, safe
+area/keyboard, screen-reader traversal, real-device date tapping, actual
+signed-server scheduling and release parity have not been attested by CI.
+Neither published principles nor synthetic tests alone prove usability.
+
+
 ## Additional independent institutional review and corrective audit (17 October)
 
 **Method:** compare public research with the PR's actual \`app/schedule.tsx\`,
