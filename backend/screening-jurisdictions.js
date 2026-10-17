@@ -3,8 +3,9 @@
 //
 // U.S. jurisdiction identity is not a legal screening authorization. Every state
 // requires its own explicitly implemented preparation, review and renewal rules.
-// A market being waitlisted may allow PREPARATION; commercial admission is a
-// separate, stricter gate. No environment flag can create a screening policy.
+// Screening and onboarding begin only in ACTIVE service markets, and every
+// active market must also pass its independent jurisdiction screening policy.
+// No environment flag or a statewide policy alone creates service authority.
 const US = require('./jurisdictions/us.json');
 
 const DAYS_IN_YEAR = 365;
@@ -44,6 +45,12 @@ function policyForState(stateCode) {
 }
 
 function screeningPreparationFor(market, region) {
+  // Founder-settled rule: never begin screening or regulated onboarding before
+  // a county is open for service. Screening policy alone cannot open a market.
+  if (market && market.status !== 'active') {
+    return { ok: false, code: 'market_waitlist',
+      error: 'Operator registration will be available when American Rider opens in this area.' };
+  }
   // Do not trust a state code supplied by the phone, or a region detached
   // from the Operator's server-stored county selection.
   if (!market || !region || !market.id || !market.regionId ||
