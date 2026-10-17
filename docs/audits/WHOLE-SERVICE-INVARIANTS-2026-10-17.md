@@ -36,6 +36,8 @@ Review American Rider as a complete service, not an isolated screen. Read the cu
 
 **Commissioning dependency:** Added a `lost_items(travelerUid ASC, createdAt DESC)` composite index declaration. **It is not known to be commissioned/READY in production**; do not deploy query changes or imply production readiness without verified index evidence.
 
+**Caller integration (verified):** Patron Support previously called `fetchMyLostItems().then(...)` with no failure handler. Simply making the backend function throw would create a new unhandled rejection. Updated `app/issues.tsx` itself to show the last known reports if refresh fails, give an explicit Retry, and fetch additional history only when the Traveler selects **Show more**. Pages deduplicate report IDs, and new failure/next-page text is translated into all five languages. The two-pass regression asserts this caller behavior, not just the helper.
+
 ### 4. Account Mobile silently treated a failed read as an empty number
 **Evidence:** `app/account-mobile.tsx` fetched the `users/{uid}` record and swallowed any error. A network failure showed an empty field, inviting overwriting of an unknown existing contact number.
 
