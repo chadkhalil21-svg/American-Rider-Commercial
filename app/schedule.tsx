@@ -409,8 +409,21 @@ export default function Schedule() {
         </Card>
       )}
 
+      <SectionLabel style={styles.timeSectionLabel}>{t('traveler.pickupTime')}</SectionLabel>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={t('traveler.schedChangeTime')}
+        accessibilityState={{ expanded: timeEditing }}
+        onPress={() => setTimeEditing((wasOpen) => !wasOpen)}
+        style={styles.selectedTime}
+      >
+        <Text style={styles.selectedTimeText}>{pickupTimeDisplay}</Text>
+        <Text style={styles.selectedTimeAction}>{t('traveler.schedChangeTime')} ›</Text>
+      </Pressable>
+      {timeEditing && (
+        <>
       <View style={styles.timeHead}>
-        <SectionLabel>{t('traveler.pickupTime')}</SectionLabel>
+        <Text style={styles.timeOptionsHint}>{t('traveler.schedTimeOptions')}</Text>
         <View style={{ flexDirection: 'row', gap: 6 }}>
           {(['AM', 'PM'] as const).map((p) => {
             const on = ride.schedPeriod === p;
@@ -479,9 +492,15 @@ export default function Schedule() {
           style={styles.customInput}
         />
         {customState === 'ok' && (
-          <Text style={styles.customOk}>
-            {t('traveler.schedTimeChosen', { time: `${customLabel} ${ride.schedPeriod}` })}
-          </Text>
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => setTimeEditing(false)}
+            style={styles.customDone}
+          >
+            <Text style={styles.customOk}>
+              {t('traveler.schedTimeChosen', { time: `${customLabel} ${ride.schedPeriod}` })} ✓
+            </Text>
+          </Pressable>
         )}
         {customState === 'suggest' && (
           <View style={styles.suggestRow}>
@@ -511,6 +530,9 @@ export default function Schedule() {
           </Text>
         )}
       </Card>
+
+        </>
+      )}
 
       {scheduleStatus === 'time_past' && customState !== 'past' && (
         <View style={styles.invalidBanner}>
@@ -684,6 +706,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   calGoing: { fontSize: 13, color: colors.muted, marginTop: 10, textAlign: 'center' },
+  timeSectionLabel: { marginTop: 22, marginBottom: 10 },
+  selectedTime: {
+    backgroundColor: colors.card, borderColor: colors.border, borderWidth: 1,
+    borderRadius: 12, minHeight: 56, paddingHorizontal: 18,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12,
+  },
+  selectedTimeText: { fontSize: 17, fontWeight: '600', color: colors.ink },
+  selectedTimeAction: { fontSize: 13, color: colors.ink2, fontWeight: '600' },
+  timeOptionsHint: { color: colors.ink2, fontSize: 12, fontWeight: '500' },
+  customDone: { minHeight: 44, alignSelf: 'flex-start', justifyContent: 'center', paddingTop: 5 },
   timeHead: {
     flexDirection: 'row',
     justifyContent: 'space-between',
