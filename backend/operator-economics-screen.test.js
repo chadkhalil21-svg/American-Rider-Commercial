@@ -72,6 +72,20 @@ for (let pass = 0; pass < 2; pass++) {
       'operator examples must mirror the server 99% entitlement in integer cents');
   }
 
+  // An aggregate weekly estimate is not a statement of exact paid per-Travel commissions.
+  // The actual $20.99 x 100 case has 20c commission per Travel, whereas flooring a
+  // single weekly 1% calculation would assess $20.99 instead of $20.00.
+  const individualFareCents = 2099, weeklyTravels = 100;
+  const weeklyFareCents = individualFareCents * weeklyTravels;
+  const actualCommissionCents = commissionCents(individualFareCents) * weeklyTravels;
+  const scenarioCommissionCents = commissionCents(weeklyFareCents);
+  assert.equal(actualCommissionCents, 2000);
+  assert.equal(scenarioCommissionCents, 2099);
+  assert.equal(scenarioCommissionCents - actualCommissionCents, 99);
+  assert.match(source('src/i18n/en.ts'),
+    /econProjectionNote:[^\n]*rounded down for each Travel/,
+    'weekly calculator must disclose per-Travel cent rounding rather than imply an exact payout');
+
   for (const language of ['en', 'es', 'fr', 'it', 'de']) {
     const locale = source('src/i18n/' + language + '.ts');
     for (const key of requiredKeys) {
