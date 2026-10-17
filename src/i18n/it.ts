@@ -802,6 +802,7 @@ export default {
     emailPh: 'nome@email.com',
     select: 'Selezionare',
     open: 'Aprire',
+    docUploadGuidance: "Carichi una foto nitida o un PDF (massimo 5 MB). American Rider esamina i documenti prima dell'approvazione.",
     docsHeld: 'Ciò che American Rider conserva per lei e ciò che ancora manca.',
     underReview: 'In Esame',
     travelWhileWaiting: 'Viaggi come viaggiatore mentre attende',
