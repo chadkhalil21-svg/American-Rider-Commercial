@@ -265,12 +265,18 @@ for (let pass = 1; pass <= 2; pass++) {
 
   assert.match(screen, /const selectedPickupDate = pickupZone \? ride\.schedPickupDate : null/,
     'the picked calendar date survives midnight and destination-search navigation');
-  assert.match(screen, /ride\.setSchedPickupDate\(o\.key === 'pick'/,
-    'Today, Tomorrow and Pick-day selections update an absolute pickup date');
+  assert.match(screen, /if \(o\.key === 'pick'\)/,
+    'the calendar retains its own date-selection branch');
+  assert.match(screen, /ride\.setSchedPickupDate\(keepDate\)/,
+    'opening Pick a day again must preserve a previously selected future day');
+  assert.match(screen, /setCalOffset\(offset\)/,
+    'route-search return restores the visible month containing the chosen day');
+  assert.match(screen, /o\.key === 'today' \? marketToday : nextDate\(marketToday\)/,
+    'Today and Tomorrow chips still choose their own absolute dates');
   assert.match(screen, /ride\.schedPickupDate && ride\.schedDate !== activeDayChoice/,
     'the date chip adapts at midnight without moving the scheduled appointment');
-  assert.match(screen, /const chosenDayLabel = selectedPickupDate && marketToday/,
-    'the displayed day is derived from the actual selected date, not a stale label');
+  assert.match(screen, /const chosenDayLabel = selectedPickupDate\s*\? new Date/,
+    'the summary prints the absolute selected date, not a stale relative label');
   assert.match(rideContext, /schedPickupDate: string \| null/,
     'RideContext retains the precise selected day while searching for destination');
   assert.match(rideContext, /setSchedPickupDate\(null\); \/\/ New journey/,
