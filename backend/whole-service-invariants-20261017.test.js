@@ -84,9 +84,13 @@ for (let pass = 1; pass <= 2; pass++) {
 
   for (const lang of ['en', 'es', 'fr', 'it', 'de']) {
     const d = read('src/i18n/' + lang + '.ts');
-    for (const key of ['removeDefaultCardNotice', 'removeCardNotice', 'mobileReadUnavailable', 'lostHistoryCouldNotLoad', 'lostHistoryMore'])
-      assert.match(d, new RegExp('^\\s*' + key + ':', 'm'),
-        lang + ': missing payment-method removal explanation');
+    const traveler = d.match(/^  traveler:\\s*\\{([\\s\\S]*?)^  \\},/m)?.[1];
+    assert.ok(traveler, lang + ': Traveler translations must exist');
+    for (const key of ['removeDefaultCardNotice', 'removeCardNotice', 'mobileReadUnavailable',
+      'lostHistoryCouldNotLoad', 'lostHistoryMore']) {
+      assert.match(traveler, new RegExp('^\\s{4}' + key + ':', 'm'),
+        lang + ': missing Traveler copy or placed under the wrong role: ' + key);
+    }
   }
 }
 console.log('PASS twice: default card removal; server ownership; truthful lost-item creation and bounded history.');
