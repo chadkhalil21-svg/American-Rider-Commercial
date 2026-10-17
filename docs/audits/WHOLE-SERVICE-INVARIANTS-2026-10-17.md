@@ -1,3 +1,15 @@
+## 17 October continuation: live communications and language-bound recovery
+
+**Live messaging defect, verified from both layers:** `app/message.tsx` labeled any `rideActive` journey a "live demo" and skipped the actual Firestore thread, even when the Travel was paid and an Operator was assigned. `src/state/RideContext.tsx` likewise fabricated a scripted Operator acknowledgement for any active Travel Number following a successful message write. That could suppress real replies and cause a real Traveler to believe the Operator responded when they had not.
+
+**Draft correction:** Demonstration behavior now requires an explicitly demo-marked Operator, an active session that lacks a persisted Travel record, and no Lost Item report. Real booked Travels listen to their authenticated Firestore messages, and only the actual Operator can author replies. The temporary script cannot run for genuine or Lost Item conversations. The twice-run cross-layer test checks both decisions. The **live-device acceptance** still needs two separate signed accounts, network loss/rejoin, different Operators, delayed replies and actual push/message read behavior.
+
+**Localization defect, verified:** The module-level `UNREACHABLE` object in `src/backend/support.ts` translated the Patron Support unreachable error once at application startup. Changing language in Settings did not change that already-built error message. The error object is now created for each failed request, using the then-current language. This does not add any network traffic or impact case submission; the twice-run source contract checks translation timing.
+
+**External published standards checked before implementation:** [Google Firestore real-time query scaling](https://firebase.google.com/docs/firestore/real-time_queries_at_scale) supports bounded, persistent snapshot listeners for actual changes, rather than substituting a local scripted message; [Apple's design principles](https://developer.apple.com/design/human-interface-guidelines/design-principles) require clear truthful feedback and familiar behavior, not claims unsupported by an actual operation. Neither publication endorses this application.
+
+**Boundary:** draft-only, no live Traveler or Operator messaging was sent. Any new source commit resets exact-head test acceptance. The main `release/current`, app stores and TestFlight have not been modified.
+
 ## Operator-only Travel choices for uncertain lost-item reports
 
 **Verified UX/security mismatch:** A report marked "not sure which Travel"
