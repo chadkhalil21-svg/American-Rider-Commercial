@@ -7,7 +7,7 @@ import { useGoBack } from '../../src/components/nav';
 import { BadgeOk } from '../../src/components/operator';
 import { Card, PrimaryButton, Screen } from '../../src/components/UI';
 import * as Location from 'expo-location';
-import { getOperatingMarket, setOperatingMarket, type MarketState } from '../../src/backend/connect';
+import { getOperatingMarket, setOperatingMarket, joinOperatorAreaWaitlist, type MarketState } from '../../src/backend/connect';
 import { QUAL_DOCS, useOperator } from '../../src/state/OperatorContext';
 import { useLanguage } from '../../src/state/LanguageContext';
 import { colors } from '../../src/theme';
@@ -31,12 +31,12 @@ export default function OperatorQualification() {
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
-  // The server accepts qualification for an admitted prelaunch county, but paid duty only after
-  // full commercial activation. Placed from the phone's last known position when there
-  // is one and nothing is declared yet; otherwise the operator chooses.
+  // Operator onboarding begins only after the selected service county opens.
+  // Last-known location is used only when permission already exists; otherwise choose.
   const [area, setArea] = useState<MarketState | null>(null);
   const [areaBusy, setAreaBusy] = useState(false);
   const [areaError, setAreaError] = useState<string | null>(null);
+  const [interest, setInterest] = useState<'idle' | 'saving' | 'recorded' | 'failed'>('idle');
   useEffect(() => {
     let live = true;
     (async () => {
@@ -61,7 +61,7 @@ export default function OperatorQualification() {
     };
   }, [t]);
   const areaActive = area?.market?.status === 'active';
-  const areaAuthorized = areaActive || area?.market?.status === 'onboarding';
+  const areaAuthorized = areaActive; // Settled rule: no preparation in unopened markets.
 
   return (
     <Screen>
@@ -73,11 +73,11 @@ export default function OperatorQualification() {
         AMERICAN RIDER <Text style={styles.wmOp}>· {t('traveler.operatorCaps')}</Text>
       </Text>
       <Text style={styles.title}>{t('operator.operatorQualification')}</Text>
-      <Text style={styles.sub}>
+      {areaActive && <Text style={styles.sub}>
         {t('traveler.qualProgress', { n, total: QUAL_DOCS.length })}
-      </Text>
+      </Text>}
 
-      <View style={styles.steps}>
+      {areaActive && <View style={styles.steps}>
         {QUAL_DOCS.map((d) => (
           <View
             key={d.key}
@@ -87,20 +87,20 @@ export default function OperatorQualification() {
             ]}
           />
         ))}
-      </View>
+      </View>}
 
-      <View style={styles.banner}>
+      {areaActive && <View style={styles.banner}>
         <Text style={styles.bannerText}>{t('operator.retainOnceCommissioned')}</Text>
         <Pressable accessibilityRole="button" onPress={() => router.navigate('/operator/economics' as never)} style={{ minHeight: 44, justifyContent: 'center', marginTop: 4 }}>
           <Text style={styles.bannerText}>{t('operator.econYourScenario')} ›</Text>
         </Pressable>
-      </View>
+      </View>}
 
-      <Card style={styles.prepCard}>
+      {areaActive && <Card style={styles.prepCard}>
         <Text style={styles.rowTitle}>{t('operator.qualPreparation')}</Text>
         <Text style={styles.prepBody}>{t('operator.qualCostPreview')}</Text>
         <Text style={styles.prepBody}>{t('operator.qualNext')}</Text>
-      </Card>
+      </Card>}
 
       {area && (
         <>
@@ -113,8 +113,6 @@ export default function OperatorQualification() {
               <Text style={styles.rowSub}>
                 {areaActive
                   ? area.market!.name
-                  : area.market?.status === 'onboarding'
-                    ? t('operator.marketPrelaunch', { name: area.market.name })
                   : area.market
                     ? t('operator.marketNotActive', { name: area.market.name })
                     : t('operator.chooseOperatingArea')}
@@ -135,6 +133,7 @@ export default function OperatorQualification() {
                         try {
                           const next = await setOperatingMarket({ marketId: m.id });
                           setArea(next);
+                          setInterest('idle');
                           if (next.market?.id !== m.id) setAreaError(t('traveler.couldNotSaveConn'));
                         } catch {
                           setAreaError(t('traveler.couldNotSaveConn'));
@@ -155,11 +154,26 @@ export default function OperatorQualification() {
         </Card>
         </>
       )}
+      {area?.market && !areaActive && <Card style={styles.prepCard}>
+        <Text style={styles.rowTitle}>{t('operator.marketNotActive', { name: area.market.name })}</Text>
+        {interest === 'recorded' ? <Text style={styles.prepBody}>{t('traveler.waitlistRecorded')}</Text> : <>
+          <Text style={styles.prepBody}>{t('traveler.marketInterestPrivacy')}</Text>
+          <PrimaryButton label={interest === 'saving' ? t('operator.checking') : t('traveler.waitlistJoin')}
+            disabled={interest === 'saving'}
+            onPress={async () => {
+              if (!area.market || interest === 'saving') return;
+              setInterest('saving');
+              const ok = await joinOperatorAreaWaitlist(area.market.id);
+              setInterest(ok ? 'recorded' : 'failed');
+            }} style={{ marginTop: 12 }} />
+          {interest === 'failed' && <Text accessibilityRole="alert" style={styles.footnote}>{t('traveler.waitlistFailed')}</Text>}
+        </>}
+      </Card>}
       {!area && <Text accessibilityRole={areaError ? 'alert' : undefined} style={styles.footnote}>
         {areaError || t('operator.checking')}
       </Text>}
 
-      <Card style={styles.listCard}>
+      {areaActive && <Card style={styles.listCard}>
         {QUAL_DOCS.map((d, i) => {
           const st = op.docs[d.key];
           return (
@@ -168,13 +182,7 @@ export default function OperatorQualification() {
               key={d.key}
               onPress={() => {
                 if (!areaAuthorized) {
-                  // Screening request is preparatory only. Operators on the
-                  // waitlist may request an existing-report review or guidance,
-                  // but NOT submit qualification, pay or commence operations.
-                  if (d.key === 'background' && area?.market?.status === 'waitlist') {
-                    router.navigate('/operator/background');
-                    return;
-                  }
+                  // A closed area has no Operator compliance workflow.
                   setAreaError(t('operator.marketAdmissionRequired'));
                   return;
                 }
@@ -205,11 +213,11 @@ export default function OperatorQualification() {
             </Pressable>
           );
         })}
-      </Card>
+      </Card>}
 
-      <Text style={styles.footnote}>
+      {areaActive && <Text style={styles.footnote}>
         {t('traveler.verifyNotSellShort')}
-      </Text>
+      </Text>}
       {/* WAS: "Test program — document review is simulated." It was true when verifyDoc set a
           flag after 900 milliseconds, and it stopped being true the day reviewDoc started
           sending the document to a model that reads it. A line telling an operator their
@@ -218,7 +226,7 @@ export default function OperatorQualification() {
 
       <View style={{ flex: 1 }} />
       {submitError && <Text accessibilityRole="alert" style={styles.footnote}>{submitError}</Text>}
-      <PrimaryButton
+      {areaActive && <PrimaryButton
         label={t('traveler.qualSubmitReview')}
         disabled={submitting || !areaAuthorized}
         onPress={async () => {
@@ -230,7 +238,7 @@ export default function OperatorQualification() {
           else setSubmitError(out.error || null);
         }}
         style={{ marginTop: 24 }}
-      />
+      />}
     </Screen>
   );
 }
