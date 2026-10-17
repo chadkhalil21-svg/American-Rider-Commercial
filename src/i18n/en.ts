@@ -1077,7 +1077,7 @@ export default {
     schedPickDay: 'Pick a day',
     schedBookingNotice: 'An Operator may be assigned before pickup and your saved card charged then. The assignment appears on Home.',
     schedTimeChosen: '%{time} selected.',
-    schedPickupZone: 'Pickup time zone: %{zone}',
+    schedPickupZone: "Times shown at pickup · %{zone}",
     schedZoneUnavailable: 'Pickup market time zone is unavailable. Scheduling is paused; try again.',
     schedTimeInvalid: 'That pickup hour is missing, repeated, or no longer selected. Choose another time.',
     schedPickupDateLabel: "Pickup date",
