@@ -197,7 +197,7 @@ export default function OperatorQualification() {
                   {d.sub ? <Text style={styles.rowSub}>{t(d.sub)}</Text> : null}
                 </View>
                 {st === 'ok' ? (
-                  <BadgeOk label={t('operator.verified')} />
+                  <BadgeOk label={d.key === 'basics' ? t('traveler.complete') : t('operator.verified')} />
                 ) : st === 'checking' ? (
                   <Text style={styles.pillChecking}>{t('operator.checking')}</Text>
                 ) : (
