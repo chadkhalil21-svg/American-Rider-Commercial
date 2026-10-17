@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react';
+import { useRouter } from 'expo-router';
 import { Platform, Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { updatePassword } from 'firebase/auth';
 import { Text } from '../src/components/AppText';
@@ -11,7 +12,6 @@ import { googleSignInConfigured } from '../src/state/googleSignIn';
 import { colors } from '../src/theme';
 
 const MIN_PASSWORD = 15;
-const emailOk = (e: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e.trim());
 
 function SecretField({
   label,
@@ -54,8 +54,9 @@ function SecretField({
 
 export default function AccountSecurity() {
   const goBack = useGoBack();
+  const router = useRouter();
   const { t } = useLanguage();
-  const { user, busy, resendEmailVerification, requestEmailChange, resetPassword } = useAuth();
+  const { user, busy, resendEmailVerification, resetPassword } = useAuth();
 
   const provider = useMemo(
     () =>
@@ -66,8 +67,7 @@ export default function AccountSecurity() {
     [user?.providerData],
   );
 
-  const [mode, setMode] = useState<'idle' | 'email' | 'password'>('idle');
-  const [nextEmail, setNextEmail] = useState('');
+  const [mode, setMode] = useState<'idle' | 'password'>('idle');
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -92,20 +92,6 @@ export default function AccountSecurity() {
     const ok = await resetPassword(user.email);
     if (ok) setNotice(t('traveler.passwordResetSent', { email: user.email }));
     else setError(t('traveler.passwordResetFailed'));
-  };
-
-  const changeEmail = async () => {
-    if (!user || provider !== 'password' || !emailOk(nextEmail) || !currentPassword || busy) return;
-    clearMessages();
-    const ok = await requestEmailChange(nextEmail, () => reauthenticateWithPassword(user, currentPassword));
-    if (ok) {
-      setNotice(t('traveler.emailChangeSent', { email: nextEmail.trim() }));
-      setNextEmail('');
-      setCurrentPassword('');
-      setMode('idle');
-    } else {
-      setError(t('traveler.emailChangeFailed'));
-    }
   };
 
   const changePassword = async () => {
@@ -156,51 +142,13 @@ export default function AccountSecurity() {
             </View>
           </Pressable>
         ) : null}
-        {provider === 'password' ? (
-          <Pressable onPress={() => { clearMessages(); setMode(mode === 'email' ? 'idle' : 'email'); }} accessibilityRole="button">
+        <Pressable onPress={() => router.navigate('/account-email')} accessibilityRole="button">
             <View style={[styles.actionRow, styles.hair]}>
               <Text style={styles.action}>{t('traveler.changeEmail')}</Text>
               <Text style={styles.chev}>›</Text>
             </View>
           </Pressable>
-        ) : null}
       </Card>
-
-      {provider === 'password' && mode === 'email' ? (
-        <Card style={styles.formCard}>
-          <View style={styles.fieldWrap}>
-            <Text style={styles.fieldLabel}>{t('traveler.newEmail')}</Text>
-            <TextInput
-              value={nextEmail}
-              onChangeText={setNextEmail}
-              keyboardType="email-address"
-              autoCapitalize="none"
-              autoCorrect={false}
-              autoComplete="email"
-              textContentType="emailAddress"
-              placeholder="name@example.com"
-              placeholderTextColor={colors.faint}
-              style={styles.field}
-            />
-          </View>
-          <View style={styles.hair} />
-          <SecretField
-            label={t('traveler.currentPassword')}
-            value={currentPassword}
-            onChangeText={setCurrentPassword}
-            autoComplete="current-password"
-            textContentType="password"
-            t={t}
-          />
-          <Sub style={styles.note}>{t('traveler.emailChangeNote')}</Sub>
-          <PrimaryButton
-            label={busy ? t('traveler.busyChecking') : t('auth.continueLabel')}
-            disabled={busy || !emailOk(nextEmail) || !currentPassword}
-            onPress={changeEmail}
-            style={styles.formButton}
-          />
-        </Card>
-      ) : null}
 
       {provider === 'password' ? (
         <>
@@ -225,10 +173,14 @@ export default function AccountSecurity() {
           <SectionLabel style={{ marginTop: 24 }}>{t('traveler.signInMethod')}</SectionLabel>
           <Card style={styles.managedCard}>
             <Text style={styles.managedTitle}>
-              {provider === 'apple' ? t('auth.continueWithApple') : t('auth.continueWithGoogle')}
+              {provider === 'apple' ? t('auth.continueWithApple')
+                : provider === 'google' ? t('auth.continueWithGoogle')
+                : t('traveler.signInMethod')}
             </Text>
             <Text style={styles.managedBody}>
-              {provider === 'apple' ? t('traveler.emailManagedApple') : t('traveler.emailManagedGoogle')}
+              {t(provider === 'apple' ? 'traveler.emailManagedApple'
+                : provider === 'google' ? 'traveler.emailManagedGoogle'
+                : 'traveler.emailManagedUnsupported')}
             </Text>
           </Card>
         </>
