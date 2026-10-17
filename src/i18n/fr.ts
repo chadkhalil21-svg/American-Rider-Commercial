@@ -1014,6 +1014,7 @@ export default {
     passwordResetFailed: 'L’e-mail de réinitialisation n’a pas pu être envoyé. Réessayez.',
     saveNewPassword: 'Enregistrer le nouveau mot de passe',
     mobileContactSub: 'Conservez le numéro qu’American Rider peut utiliser pour vous joindre au sujet d’un Trajet ou de votre compte.',
+    mobileReadUnavailable: "Impossible de charger votre numéro de téléphone enregistré. Vérifiez votre connexion et réessayez. Aucune modification n’a été effectuée.",
     mobileContactNote: 'Votre numéro de mobile est une information de contact. Il ne sert ni à vous connecter ni à récupérer votre compte.',
     mobileInvalid: 'Saisissez un numéro de mobile valide.',
     emailAddressTitle: 'Adresse e-mail',
