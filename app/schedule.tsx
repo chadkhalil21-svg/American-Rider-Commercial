@@ -170,7 +170,7 @@ export default function Schedule() {
   const whenLabels: Record<string, string> = {
     today: t('traveler.schedToday'),
     tomorrow: t('traveler.schedTomorrow'),
-    pick: ride.schedDay,
+    pick: pickedDate ? ride.schedDay : t('traveler.schedPickDay'),
   };
   const hasDestination = !!ride.arrival.short.trim();
   const hasQuote = hasDestination && ride.quotedFareCents != null && ride.quotedFareCents > 0 &&
@@ -449,7 +449,7 @@ export default function Schedule() {
         )}
       </Card>
 
-      {scheduleStatus === 'time_past' && (
+      {scheduleStatus === 'time_past' && customState !== 'past' && (
         <View style={styles.invalidBanner}>
           <Text style={styles.invalidText}>
             {t('traveler.schedTimesPassed', { time: nowClockLabel(nowMin) })}
