@@ -1030,6 +1030,7 @@ export default {
     passwordResetFailed: 'The password reset email could not be sent. Try again.',
     saveNewPassword: 'Save new password',
     mobileContactSub: 'Keep the number American Rider may use to reach you about Travel or account matters.',
+    mobileReadUnavailable: "We could not load your saved mobile number. Check your connection and try again. No changes have been made.",
     mobileContactNote: 'Your mobile number is contact information. It is not used to sign in or recover your account.',
     mobileInvalid: 'Enter a valid mobile number.',
     emailAddressTitle: 'Email address',
