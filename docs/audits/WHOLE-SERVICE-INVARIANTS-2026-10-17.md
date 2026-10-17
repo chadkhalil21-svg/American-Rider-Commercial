@@ -1,3 +1,11 @@
+## Additional Operator duty review: exact UTC cutoff and conclusion evidence
+
+**Direct defect corrected:** The Operator dashboard's remaining-coverage calculation used `T23:59:59.999Z`, agreeing with the backend, but `setOnline(true)` used `T23:59:59` without a timezone. That interprets the certificate date in the phone's local timezone (hours later in Miami), causing its local eligibility decision to disagree with the server. The direct duty gate now uses `T23:59:59.999Z` exactly, and a source regression checks all three locations (duty, dashboard and backend). The server remains authoritative and still rejects insufficient/expired coverage.
+
+**Open consequential issue, NOT marked fixed:** `src/backend/connect.ts goOffline()` discards both network errors and non-2xx responses, and `OperatorContext.setOnline(false)` sets a local Off state without the server acknowledging `/operator/offline`. The server's stale-presence exclusion prevents long-term matching, but a transient interval can remain after a failed off-duty request. Correct resolution needs a visible server-pending/error status, intentional retry on reconnection and account restart, clear manual recovery, and a two-device race test. A UI-only toggle is not proof that the Operator is no longer dispatchable. Do not bypass actual Operator eligibility or claim off-duty confirmation before server acceptance.
+
+**Operating guidance:** Google's [real-time data and listener rules](https://firebase.google.com/docs/firestore/real-time_queries_at_scale) favors bounded, authoritative events over inferred UI success; Apple's [feedback guidance](https://developer.apple.com/design/human-interface-guidelines/feedback) requires accurate and actionable status. Hold release until the two important external device behaviors are validated.
+
 ## 17 October continuation: live communications and language-bound recovery
 
 **Live messaging defect, verified from both layers:** `app/message.tsx` labeled any `rideActive` journey a "live demo" and skipped the actual Firestore thread, even when the Travel was paid and an Operator was assigned. `src/state/RideContext.tsx` likewise fabricated a scripted Operator acknowledgement for any active Travel Number following a successful message write. That could suppress real replies and cause a real Traveler to believe the Operator responded when they had not.
