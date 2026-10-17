@@ -36,6 +36,10 @@ The Council is a **reference framework**, not evidence of personal consultation:
 - **One bottom action:** Choose destination, Review Travel Cost, or Schedule Travel depending on verified readiness. Scheduling-first travelers return from address/quote selection to the same date/time, not the immediate payment/booking path.
 - **Recovery:** accurate inline messages for unavailable zone, invalid/expired time, absent route/price, and server rejection. Time changes cause no extra vendor query or Firestore polling.
 
+## Further negative-state finding
+
+During pickup-area lookup, the screen could briefly mistake an in-progress request for a confirmed unavailable zone. The revised UI distinguishes **Checking pickup area…** from actual unavailability. The request count remains unchanged; the view updates only when the same existing lookup resolves. The five language bundles and source regression cover this transition.
+
 ## Verification boundaries
 
 Synthetic tests run twice for no destination, unknown/repricing/class-changed price, error recovery, midnight rollover, selected pin/market zone, daylight-saving gaps/overlaps, quarter-hour custom input, actual-time expiry, and schedule versus immediate booking navigation. Server reservation identity, payment and Fare authority are unchanged.
