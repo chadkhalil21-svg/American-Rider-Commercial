@@ -67,6 +67,7 @@ export default {
   },
 
   operator: {
+    platformCommunicationsUnavailable: "No se pudieron cargar las comunicaciones. Compruebe su conexión e inténtelo de nuevo; los mensajes mostrados pueden estar desactualizados.",
     fareResearchLink: "Ayude a mantener tarifas justas",
     fareResearchCountyUnavailable: "No se pudo obtener la lista de condados. Inténtelo de nuevo.",
     fareResearchReceiptUnconfirmed: "No se confirmó el envío de la información.",
@@ -259,6 +260,7 @@ export default {
   },
 
   traveler: {
+    platformCommunicationsUnavailable: "No se pudieron cargar las comunicaciones. Compruebe su conexión e inténtelo de nuevo; los mensajes mostrados pueden estar desactualizados.",
     platformCommunications: "Mensajes de American Rider",
     platformCommunicationsBody: "Mensajes de American Rider sobre su cuenta, seguridad y viajes.",
     noPlatformCommunications: "Aún no hay comunicaciones.",
