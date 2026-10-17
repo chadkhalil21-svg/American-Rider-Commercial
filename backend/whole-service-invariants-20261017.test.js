@@ -95,6 +95,24 @@ for (let pass = 1; pass <= 2; pass++) {
   assert.match(messageScreen, /traveler\.msgTravelUnavailable/,
     'unavailable conversation explains the condition instead of inventing a party');
   
+  // A durable inbox notification is not useful if its deep link uses a query
+  // parameter the destination screen ignores. Test sender and destination.
+  const lostServer = read('backend/lostitem.js');
+  const lostScreenRoute = read('app/lost.tsx');
+  const operatorLostScreen = read('app/operator/lost-item.tsx');
+  assert.match(lostServer, /action: \{ screen: `\/lost\?item=\$\{encodeURIComponent\(String\(itemId\)\)\}` \}/,
+    'Traveler recovery notification must use /lost?item=...');
+  assert.match(lostScreenRoute, /useLocalSearchParams<\{ item\?: string \}>/,
+    'Traveler Lost Item screen reads the same item parameter');
+  assert.match(lostScreenRoute, /const watchId = item\?\.id \?\? params\.item \?\? null/,
+    'notification opens the report being watched');
+  assert.match(lostServer, /action: \{ screen: `\/operator\/lost-item\?itemId=/,
+    'Operator deep link retains its separate itemId name');
+  assert.match(operatorLostScreen, /useLocalSearchParams<\{ itemId\?: string \}>/,
+    'Operator endpoint matches its own route, not Traveler route');
+  assert.doesNotMatch(lostServer, /action: \{ screen: `\/lost\?itemId=/,
+    'no mismatched Traveler lost-item deep-link parameter remains');
+
   const found = indexes.indexes.some(x => x.collectionGroup === 'lost_items' &&
     x.queryScope === 'COLLECTION' &&
     x.fields?.[0]?.fieldPath === 'travelerUid' &&
