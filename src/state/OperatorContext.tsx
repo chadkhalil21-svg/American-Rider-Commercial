@@ -1167,7 +1167,7 @@ export function OperatorProvider({ children }: { children: React.ReactNode }) {
     if (!insuranceExpiry) return null;
     // Match the authoritative backend, which evaluates the recorded policy
     // end at 23:59:59 UTC, not the device's timezone.
-    const end = Date.parse(`${insuranceExpiry}T23:59:59Z`);
+    const end = Date.parse(`${insuranceExpiry}T23:59:59.999Z`);
     if (Number.isNaN(end)) return null;
     return Math.ceil((end - Date.now()) / 86400000);
   }, [insuranceExpiry]);
