@@ -29,6 +29,14 @@ Review American Rider as a complete service, not an isolated screen. Read the cu
 
 **Remaining:** Server lost-item dispatch must still independently validate the linked Travel, real Operator assignment, and notification delivery; a client-supplied Operator name list is not proof of delivery.
 
+### 2b. The backend also trusted phone-nominated Operator IDs
+
+**Follow-through finding:** Tightening the Firestore creation rule was necessary but not sufficient. The client still legitimately includes an array of Operator IDs, and `backend/lostitem.js` previously notified those IDs and allowed report/photo access based on the array without independently proving assignment. A modified client could nominate an unrelated Operator and cause a false mandatory notice.
+
+**Draft fix:** Before sending any Operator notice, exposing a private report/photo, or accepting a recovery response, the backend now resolves candidate Travel numbers against **its own `rides` records**. One bounded `tripNo in` query (maximum 20 candidates) filters by the authenticated Traveler's UID and verifies the actual assigned Operator. The backend overwrites the client-nominated Operator IDs with this verified set. False or unavailable matches fail closed and remain eligible for the human Support fallback. Tests cover a true Travel, forged Operator, and Travel belonging to another Traveler.
+
+**Independent acceptance still required:** Test actual Firestore indexes, private photo access, inbox delivery receipt, recovery replies and incident concurrency in sandbox. This is a critical authorization correction, not evidence that a production Operator was notified.
+
 ### 3. Lost-item history read every record and hid failures
 **Evidence:** `fetchMyLostItems()` queried all reports for a UID, sorted them on the phone, and returned `[]` on any Firestore error. It could make an offline account appear to have no reports, while continuing to increase read cost as reports accumulated.
 
