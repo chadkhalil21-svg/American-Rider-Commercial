@@ -1061,6 +1061,8 @@ export default {
     schedZoneUnavailable: 'Die Zeitzone der Abholung ist nicht verfügbar. Terminplanung ist ausgesetzt; bitte erneut versuchen.',
     schedTimeInvalid: 'Diese Abholzeit fällt aus, kommt doppelt vor oder ist nicht mehr ausgewählt. Bitte eine andere Zeit wählen.',
     schedPickupDateLabel: "Abholdatum",
+    schedPreviousMonth: "Vorheriger Monat",
+    schedNextMonth: "Nächster Monat",
     schedPickupPlace: "Abholung",
     schedEditPickup: "Abholort ändern",
     schedDestination: "Ziel",
