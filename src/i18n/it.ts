@@ -1056,7 +1056,7 @@ export default {
     schedPickDay: 'Scegli un giorno',
     schedBookingNotice: 'Un operatore può essere assegnato prima del prelievo e la carta salvata addebitata allora. L’assegnazione appare nella schermata iniziale.',
     schedTimeChosen: '%{time} selezionato.',
-    schedPickupZone: 'Fuso orario del prelievo: %{zone}',
+    schedPickupZone: "Orario locale del prelievo · %{zone}",
     schedZoneUnavailable: 'Il fuso orario del prelievo non è disponibile. La programmazione è sospesa; riprova.',
     schedTimeInvalid: 'L’ora del prelievo non esiste, è ripetuta o non è più selezionata. Scegli un altro orario.',
     schedPickupDateLabel: "Data del prelievo",
