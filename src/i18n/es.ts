@@ -137,6 +137,8 @@ export default {
     econIntro: "Vea cómo se divide la Tarifa de Viaje antes de contratar un seguro. Estos ejemplos no son previsiones de ingresos.",
     econShare: "de cada Tarifa de Viaje es para usted.",
     econFee: "American Rider conserva el 1 % restante. La Tarifa de Plataforma cobrada al Traveler no reduce su parte de la Tarifa de Viaje.",
+    econPlatformFeeTitle: "Tarifa de plataforma · mínimo de %{amount} por Viaje",
+    econPlatformFeeDetail: "El Traveler paga esta tarifa aparte de la Tarifa de Viaje, dentro del Total cotizado. Ayuda a financiar pagos, transferencias, tecnología, asistencia y reservas operativas. La tarifa puede aumentar cuando los costos lo requieran. Su parte del 99 % no cambia.",
     econExamples: "Ejemplos por Viaje",
     econExampleFare: "Tarifa de Travel: %{amount}",
     econOperatorRetains: "Tarifa de Travel retenida",
