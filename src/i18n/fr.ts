@@ -1063,7 +1063,7 @@ export default {
     schedPickDay: 'Choisir un jour',
     schedBookingNotice: 'Un opérateur peut être attribué avant le départ et la carte enregistrée débitée à ce moment-là. L’attribution apparaît sur l’accueil.',
     schedTimeChosen: '%{time} sélectionné.',
-    schedPickupZone: 'Fuseau horaire de départ : %{zone}',
+    schedPickupZone: "Heure locale de prise en charge · %{zone}",
     schedZoneUnavailable: 'Le fuseau horaire du départ est indisponible. La réservation est suspendue; réessayez.',
     schedTimeInvalid: 'Cette heure de départ est inexistante, répétée ou n’est plus sélectionnée. Choisissez une autre heure.',
     schedPickupDateLabel: "Date de prise en charge",
