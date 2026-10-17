@@ -90,6 +90,7 @@ export default {
     activeAccountCostBody: "Stripe addebita un costo di account di 2 $ in un mese in cui viene inviato un pagamento al conto bancario o alla carta di debito. American Rider rinuncia a tale costo quando completi almeno 20 Viaggi nello stesso mese. Sotto i 20, i 2 $ e l'inevitabile costo di elaborazione della carta per riscuoterli vengono addebitati separatamente; la tua quota del 99% della Tariffa di ogni Viaggio non viene ridotta.",
     operatingArea: 'Area Operativa',
     chooseOperatingArea: 'Scelga la contea in cui opererà.',
+    marketUnknownSoon: "Prossimamente in altre aree. La registrazione degli Operatori è disponibile solo dove American Rider è attivo. Scelga una contea aperta.",
     marketNotActive: "Prossimamente nella contea di %{name}. La registrazione degli Operatori inizierà all'apertura del servizio.",
     marketAdmissionRequired: 'Selezioni una contea con servizio attivo prima di iniziare la registrazione o le verifiche. Le aree non ancora aperte possono iscriversi alla lista di interesse.',
     ready: 'Pronto a Operare',
