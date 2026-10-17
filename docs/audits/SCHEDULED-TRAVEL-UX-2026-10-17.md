@@ -91,6 +91,16 @@ measurable physical acceptance. First-class hospitality: calm copy, honest
 failure handling and clear next action. A Council **lens** is not a literal
 interview with Ford, Rockefeller, Jobs or an advisory endorsement.
 
+**Final-review improvement from Baymard's observed mobile context loss:** the
+confirmation card now restates pickup location, destination, exact date and
+time, and the authoritative Complete Travel Cost together next to the
+`Schedule Travel` action. Previously it showed only a misleading
+`Pickup` label with the date/time and the Total, requiring a return scroll to
+verify the destination before making a consequential reservation. The
+destination is absent from the summary until genuinely chosen; this does not
+invent an address or new pricing call. The double-run source contract asserts
+all four fields and their position before the confirmation control.
+
 **Do not overclaim:** PR remains draft; physical viewport measurements, safe
 area/keyboard, screen-reader traversal, real-device date tapping, actual
 signed-server scheduling and release parity have not been attested by CI.
