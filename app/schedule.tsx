@@ -639,8 +639,23 @@ export default function Schedule() {
       )}
 
       <Card style={styles.summaryCard}>
+        {/* Final review repeats the actual itinerary beside the confirmation
+            control. On a small screen the editable location rows can be above
+            the viewport by the time the Traveler reviews the Total. */}
         <View style={styles.summaryRow}>
-          <Text style={styles.summaryLabel}>{t('traveler.pickup')}</Text>
+          <Text style={styles.summaryLabel}>{t('traveler.schedPickupPlace')}</Text>
+          <Text style={styles.summaryValue} numberOfLines={2}>
+            {ride.departure.short || t('traveler.schedEditPickup')}
+          </Text>
+        </View>
+        {hasDestination && (
+          <View style={[styles.summaryRow, { marginTop: 10 }]}>
+            <Text style={styles.summaryLabel}>{t('traveler.schedDestination')}</Text>
+            <Text style={styles.summaryValue} numberOfLines={2}>{ride.arrival.short}</Text>
+          </View>
+        )}
+        <View style={[styles.summaryRow, { marginTop: 10 }]}>
+          <Text style={styles.summaryLabel}>{t('traveler.pickupTime')}</Text>
           <Text style={styles.summaryValue}>
             {chosenDayLabel} · {pickupTimeDisplay}
           </Text>
