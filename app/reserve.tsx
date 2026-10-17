@@ -97,7 +97,7 @@ export default function TravelConfirmation() {
   const { user, accountName } = useAuth();
   const payConfig = usePaymentConfig();
   const cabin = useCabinPrefs();
-  const params = useLocalSearchParams<{ search?: string; q?: string }>();
+  const params = useLocalSearchParams<{ search?: string; q?: string; scheduling?: string }>();
 
   const [searching, setSearching] = useState(params.search === '1');
   const [searchingDep, setSearchingDep] = useState(false);
@@ -604,8 +604,10 @@ export default function TravelConfirmation() {
             {!editing && !smartLeg && (
               <Pressable accessibilityRole="button" onPress={() => router.navigate('/schedule')}>
                 <View style={[styles.slot, styles.hair]}>
-                  <Text style={styles.whenText}>{t('traveler.leavingNow')}</Text>
-                  <Text style={styles.modify}>{t('traveler.change')} ›</Text>
+                  <Text style={styles.whenText}>{t(params.scheduling === '1'
+                    ? 'traveler.schedReturnToPickup' : 'traveler.leavingNow')}</Text>
+                  <Text style={styles.modify}>{t(params.scheduling === '1'
+                    ? 'traveler.schedContinue' : 'traveler.change')} ›</Text>
                 </View>
               </Pressable>
             )}
