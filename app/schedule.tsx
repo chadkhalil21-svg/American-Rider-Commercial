@@ -192,10 +192,13 @@ export default function Schedule() {
     ? selectedPickupDate === marketToday ? 'today'
       : selectedPickupDate === nextDate(marketToday) ? 'tomorrow' : 'pick'
     : ride.schedDate;
-  const chosenDayLabel = selectedPickupDate && marketToday
-    ? activeDayChoice === 'today' ? t('traveler.schedToday')
-      : activeDayChoice === 'tomorrow' ? t('traveler.schedTomorrow')
-      : dayLabel(new Date(`${selectedPickupDate}T00:00:00Z`), language)
+  // A stored reservation must never say only "Tomorrow": tomorrow changes at
+  // midnight. Keep relative words on selection chips, but print the exact
+  // pickup date (including year) in the summary, success and saved record.
+  const chosenDayLabel = selectedPickupDate
+    ? new Date(`${selectedPickupDate}T00:00:00Z`).toLocaleDateString(language, {
+      weekday: 'long', month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC',
+    })
     : t('traveler.schedPickDay');
   const hasDestination = !!ride.arrival.short.trim();
   const hasQuote = hasDestination && !!ride.tripCoords && !ride.repricing &&
@@ -463,8 +466,9 @@ export default function Schedule() {
                 accessibilityRole="button"
                 accessibilityState={{ selected: on }}
                 onPress={() => {
+                  // Changing AM/PM changes only the period. Never silently
+                  // replace the minute or hour with a different preset.
                   ride.setSchedPeriod(p);
-                  if (!slotsFor(p).includes(ride.schedTime)) ride.setSchedTime('6:30');
                 }}
                 style={[
                   styles.periodBtn,
