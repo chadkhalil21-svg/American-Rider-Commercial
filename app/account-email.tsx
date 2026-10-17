@@ -179,7 +179,7 @@ export default function AccountEmail() {
                 placeholderTextColor={colors.faint}
                 style={styles.field}
               />
-              {emailTouched && requestedEmail && (!emailOk(requestedEmail) || sameEmail) ? (
+              {emailTouched && requestedEmail.length > 0 && (!emailOk(requestedEmail) || sameEmail) ? (
                 <Text style={styles.fieldError}>
                   {sameEmail ? t('traveler.emailSameAddress') : t('traveler.errInvalidEmail')}
                 </Text>
