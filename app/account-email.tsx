@@ -214,8 +214,14 @@ export default function AccountEmail() {
         <Card style={styles.managedCard}>
           <Text style={styles.managedTitle}>{t('traveler.emailManagedTitle')}</Text>
           <Text style={styles.managedBody}>
-            {provider === 'apple' ? t('traveler.emailManagedApple') : t('traveler.emailManagedGoogle')}
+            {t(provider === 'apple' ? 'traveler.emailManagedApple'
+              : provider === 'google' ? 'traveler.emailManagedGoogle'
+              : 'traveler.emailManagedUnsupported')}
           </Text>
+          <Pressable accessibilityRole="button" style={styles.secondaryAction}
+            onPress={() => router.navigate('/issues')}>
+            <Text style={styles.link}>{t('traveler.contactPatronSupport')} ›</Text>
+          </Pressable>
         </Card>
       )}
 
