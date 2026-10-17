@@ -10,7 +10,7 @@ Before this change, the mobile qualification checklist blocked license, registra
 ## Applied design
 - Reuse the **actual configured screening and insurance jurisdiction policies** before permitting private document preparation. The signed-in Operator must have selected a recognized county with matching region/state and both supported policies. Fail closed for unknown or unconfigured jurisdictions.
 - For this preparatory workflow only, do not require the county to sell paid Travel. Preserve full account-bound R2 ownership, fresh authentication, existing rate limits, source document review and independent insurer checks.
-- Preserve the active-market guard on Stripe Connect onboarding and the final qualification submit. No change to duties, dispatch, paid booking, screening pass, insurance attestation or pricing.
+- Preserve the active-market guard on Stripe Connect onboarding, paid duty and dispatch. The Operator may submit an application for authoritative review in a configured waitlisted county, but an actual qualified status always requires current independently verified screening and insurance, including when using test payment keys. No price or passenger booking change.
 - Return visible market request errors. Allow a direct manual retry without requesting new location permissions. Preserve an earlier valid selection when a subsequent request fails.
 - Eliminate the false Basics verification row rather than collecting unnecessary DOB/address a second time. The remaining qualification checklist contains only genuine documents and source-approved screening.
 - Catch external screening link failures and permit retrying screening/insurance status after outages. No invented provider URL, purchase button, carrier acceptance or signed-off CRA.
