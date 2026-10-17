@@ -9,6 +9,7 @@ for(let round=1;round<=2;round++){
  const insurance=read('app/operator/insurance.tsx');
  const qualify=read('app/operator/qualify.tsx');
  const documents=read('app/operator/documents.tsx');
+ const vehicle=read('app/operator/vehicle.tsx');
  const background=read('app/operator/background.tsx');
  const review=read('app/operator/review.tsx');
  const server=read('backend/server.js');
@@ -33,6 +34,12 @@ for(let round=1;round<=2;round++){
    'receipt of a PDF does not itself approve insurance');
  assert.match(qualify,/d.key === 'basics' \? t\('traveler.complete'\) : t\('operator.verified'\)/,
    'self-completed profile details cannot say Verified');
+ assert.match(qualify,/d.key === 'basics'\) router.navigate\('\/operator\/vehicle'\)/,
+   'Basics opens an actual information form instead of accepting a tap');
+ assert.match(vehicle,/op.setVehicle\(car, plate\);[\s\S]*op.verifyDoc\('basics'\)/,
+   'Basics is completed only after real name/car/plate save');
+ assert.match(vehicle,/t\('operator.makeModelColor'\)/,
+   'year, make, model, color are requested for quote eligibility');
  assert.match(qualify,/const areaAuthorized = areaActive;/,
    'Operator onboarding begins only after the service area opens');
  assert.match(qualify,/router.navigate\('\/operator\/payouts'\)/,
