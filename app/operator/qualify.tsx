@@ -168,6 +168,15 @@ export default function OperatorQualification() {
       }}><Text style={styles.backText}>{t('traveler.marketCheckAgain')} ›</Text></Pressable>}
 
       {areaActive && <Card style={styles.listCard}>
+        <Pressable accessibilityRole="button" onPress={() => router.navigate('/operator/vehicle')}>
+          <View style={styles.row}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.rowTitle}>{t('traveler.vehicle')}</Text>
+              <Text style={styles.rowSub}>{op.vehicle?.car || t('traveler.noVehicleOnFile')}</Text>
+            </View>
+            <Text style={styles.pillTodo}>{t('traveler.open')} ›</Text>
+          </View>
+        </Pressable>
         {QUAL_DOCS.map((d, i) => {
           const st = op.docs[d.key];
           return (
@@ -188,7 +197,7 @@ export default function OperatorQualification() {
                 else if (d.key === 'background') router.navigate('/operator/background');
                 else if (d.key === 'license' || d.key === 'registration' || d.key === 'inspection')
                   router.navigate('/operator/documents');
-                else if (d.key === 'basics') router.navigate('/operator/vehicle');
+                else op.verifyDoc(d.key);
               }}
             >
               <View style={[styles.row, i > 0 && styles.hair]}>
@@ -197,7 +206,7 @@ export default function OperatorQualification() {
                   {d.sub ? <Text style={styles.rowSub}>{t(d.sub)}</Text> : null}
                 </View>
                 {st === 'ok' ? (
-                  <BadgeOk label={d.key === 'basics' ? t('traveler.complete') : t('operator.verified')} />
+                  <BadgeOk label={t('operator.verified')} />
                 ) : st === 'checking' ? (
                   <Text style={styles.pillChecking}>{t('operator.checking')}</Text>
                 ) : (
