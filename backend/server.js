@@ -173,6 +173,7 @@ const { page } = require('./shell');
 const { screeningReady, screeningCurrent, sweepScreening } = require('./screening');
 const { screeningPreparationFor } = require('./screening-jurisdictions');
 const { operatorPreparationGate } = require('./operator-preparation');
+const { privateUploadScope } = require('./private-upload-scope');
 const { runMarketReferenceSweep, firestoreReady: marketReferenceReady } = require('./market-reference-service');
 const { configuredCollectors: marketReferenceCollectors } = require('./market-evidence-collectors');
 const { sweepSouthFloridaPublicRates } = require('./south-florida-public-rates');
@@ -2122,7 +2123,7 @@ async function runSweep(req, res) {
 // --- Private file storage. -----------------------------------------------------------------
 // The mobile app may request a five-minute upload URL only for its own namespace. R2 remains
 // private; credentials never leave this server. Object keys, not public URLs, are persisted.
-app.post('/storage/upload-url', requireAuth, LIMITS.document, requireFreshAuth, requireOperatorPreparationMarket, async (req, res) => {
+app.post('/storage/upload-url', requireAuth, LIMITS.document, requireFreshAuth, requireScopedPrivateUpload, async (req, res) => {
   if (!r2Ready()) return res.status(503).json({ error: 'Private storage is not configured.', code: 'storage_not_configured' });
   const purpose = String(req.body?.purpose || '');
   const kind = String(req.body?.kind || '');
@@ -2315,6 +2316,16 @@ function listedMarket(market, listed) {
   return listed.find((item) => item.id === market.id) || marketBody(market);
 }
 async function operatorMarketOptions() { return listMarkets(); }
+
+/** Scope upload permission to the actual use, not to the account's unrelated role.
+ * Traveler lost-item evidence must work for a Traveler with no Operator county.
+ */
+function requireScopedPrivateUpload(req, res, next) {
+  const scope = privateUploadScope(req.body?.purpose);
+  if (scope === 'operator-preparation') return requireOperatorPreparationMarket(req, res, next);
+  if (scope === 'authenticated-traveler') return next();
+  return res.status(400).json({ code: 'unsupported_upload_purpose', error: 'Unsupported private upload purpose.' });
+}
 
 /** Operator paperwork requires valid jurisdictional rules, not commercial market opening. */
 async function requireOperatorPreparationMarket(req, res, next) {
