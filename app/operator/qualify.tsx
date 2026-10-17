@@ -211,7 +211,7 @@ export default function OperatorQualification() {
       {areaActive && <Pressable accessibilityRole="button" onPress={() => router.navigate('/operator/payouts')}
         style={{ minHeight: 48, justifyContent: 'center', marginTop: 10 }}>
         <Text style={styles.rowTitle}>{t('operator.gettingPaid')} ›</Text>
-        <Text style={styles.rowSub}>{t('traveler.payoutsSub')}</Text>
+        <Text style={styles.rowSub}>{t('traveler.stripeHoldsDetails')}</Text>
       </Pressable>}
       {areaActive && <Pressable accessibilityRole="button" onPress={() => router.navigate('/operator/economics' as never)}
         style={{ minHeight: 44, justifyContent: 'center', marginTop: 4 }}>
