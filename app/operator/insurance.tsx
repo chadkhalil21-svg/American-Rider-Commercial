@@ -131,7 +131,9 @@ export default function OperatorInsurance() {
     ? Math.ceil((Date.parse(policyExpiry + 'T23:59:59Z') - Date.now()) / 86_400_000)
     : null;
   const expiring = coverageDaysLeft != null && coverageDaysLeft <= 30;
-  const canUpload = !policyApproved || expiring;
+  // A cancelled policy must always be replaceable, even if its printed expiry is months away.
+  const coverageUnsafe = liveStatus?.status === 'cancelled' || liveStatus?.status === 'pending_cancellation';
+  const canUpload = !policyApproved || expiring || coverageUnsafe;
   const current = policyApproved && liveStatus?.ok === true &&
     coverageDaysLeft != null && coverageDaysLeft >= 0;
   const national = config ? INSURERS.filter((x) => !x.states) : [];
@@ -214,9 +216,9 @@ export default function OperatorInsurance() {
         )}
         {canUpload && (
           <>
-          {expiring && policyApproved && <Text style={styles.note}>{t('operator.insReplacementCaution')}</Text>}
+          {policyApproved && (expiring || coverageUnsafe) && <Text style={styles.note}>{t('operator.insReplacementCaution')}</Text>}
           <PrimaryButton
-            label={expiring && policyApproved ? t('operator.insReplacePolicy') : t('traveler.submitMyPolicy')}
+            label={policyApproved && (expiring || coverageUnsafe) ? t('operator.insReplacePolicy') : t('traveler.submitMyPolicy')}
             disabled={st === 'checking' || !config}
             onPress={() => Alert.alert(t('operator.commercialInsurance'), t('traveler.insWhereDecPage'), [
               { text: t('traveler.takePhotograph'), onPress: () => { void submitPolicy(true); } },
