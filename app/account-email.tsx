@@ -178,6 +178,11 @@ export default function AccountEmail() {
                 placeholderTextColor={colors.faint}
                 style={styles.field}
               />
+              {emailTouched && requestedEmail && (!emailOk(requestedEmail) || sameEmail) ? (
+                <Text style={styles.fieldError}>
+                  {sameEmail ? t('traveler.emailSameAddress') : t('traveler.errInvalidEmail')}
+                </Text>
+              ) : null}
             </View>
             <View style={[styles.fieldWrap, styles.hair]}>
               <Text style={styles.fieldLabel}>{t('auth.passwordLabel')}</Text>
