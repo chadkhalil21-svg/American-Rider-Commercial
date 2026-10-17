@@ -340,8 +340,23 @@ export default function Schedule() {
               accessibilityState={{ selected: on }}
               onPress={() => {
                 ride.setSchedDate(o.key);
-                ride.setSchedPickupDate(o.key === 'pick' || !marketToday ? null
-                  : o.key === 'today' ? marketToday : nextDate(marketToday));
+                if (o.key === 'pick') {
+                  // Revisiting the date picker is not permission to erase the
+                  // exact date the Traveler already chose. Preserve an eligible
+                  // custom day; otherwise let the Traveler choose one.
+                  const keepDate = marketToday && ride.schedPickupDate &&
+                    ride.schedPickupDate >= nextDate(marketToday, 2)
+                    ? ride.schedPickupDate : null;
+                  ride.setSchedPickupDate(keepDate);
+                  if (keepDate && marketToday) {
+                    const monthIndex = (date: string) =>
+                      Number(date.slice(0,4)) * 12 + Number(date.slice(5,7));
+                    setCalOffset(Math.max(0, Math.min(2, monthIndex(keepDate) - monthIndex(marketToday))));
+                  }
+                } else {
+                  ride.setSchedPickupDate(marketToday
+                    ? o.key === 'today' ? marketToday : nextDate(marketToday) : null);
+                }
               }}
               style={({ pressed }) => [
                 styles.dayBtn,
