@@ -3,7 +3,7 @@ import { useRouter } from 'expo-router';
 import { Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { Text } from '../../src/components/AppText';
 import { useLanguage } from '../../src/state/LanguageContext';
-import { coordinationFee } from '../../src/data';
+import { APP_FEE, coordinationFee } from '../../src/data';
 import { Card, Num, PrimaryButton, Screen, SectionLabel, Title } from '../../src/components/UI';
 import { colors, fmt } from '../../src/theme';
 
@@ -30,6 +30,10 @@ export default function OperatorEconomics() {
         <Num size={46} weight="600" style={styles.heroPercent}>99%</Num>
         <Text style={styles.rule}>{t('operator.econShare')}</Text>
         <Text style={styles.detail}>{t('operator.econFee')}</Text>
+      </Card>
+      <Card style={styles.platformCard}>
+        <Text style={styles.platformHeading}>{t('operator.econPlatformFeeTitle', { amount: fmt(APP_FEE) })}</Text>
+        <Text style={styles.detail}>{t('operator.econPlatformFeeDetail')}</Text>
       </Card>
       <SectionLabel style={styles.section}>{t('operator.econExamples')}</SectionLabel>
       {EXAMPLE_FARES.map((example) => {
@@ -107,6 +111,8 @@ const styles = StyleSheet.create({
   backText: { color: colors.ink, fontSize: 15 },
   lead: { color: colors.ink2, fontSize: 15, lineHeight: 23, marginTop: 12 },
   ruleCard: { marginTop: 22, padding: 20 },
+  platformCard: { marginTop: 12, padding: 18 },
+  platformHeading: { color: colors.ink, fontSize: 16, fontWeight: '600', lineHeight: 23, marginBottom: 6 },
   heroPercent: { letterSpacing: -1.5, marginBottom: 4 },
   rule: { color: colors.ink, fontSize: 17, fontWeight: '600', lineHeight: 24, marginBottom: 9 },
   detail: { color: colors.ink2, fontSize: 14, lineHeight: 21, flexShrink: 1 },
