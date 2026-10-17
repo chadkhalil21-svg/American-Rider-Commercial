@@ -238,6 +238,30 @@ for (let pass = 1; pass <= 2; pass++) {
     assert.notEqual(written, 'Tomorrow', locale + ': no relative stored date');
   }
 
+  // Mobile final review: confirm the whole itinerary without scrolling back
+  // above date choices (Baymard mobile context and total-price findings).
+  const finalReview = screen.slice(screen.indexOf('<Card style={styles.summaryCard}>'));
+  assert.match(finalReview, /traveler\.schedPickupPlace/,
+    'final review includes the pickup location');
+  assert.match(finalReview, /ride\.departure\.short/,
+    'final review repeats the actual selected pickup text');
+  assert.match(finalReview, /traveler\.schedDestination/,
+    'final review includes the destination');
+  assert.match(finalReview, /ride\.arrival\.short/,
+    'final review repeats the destination instead of a remembered name');
+  assert.match(finalReview, /traveler\.pickupTime/,
+    'final review includes the actual appointment date and time');
+  assert.match(finalReview, /chosenDayLabel} · {pickupTimeDisplay}/,
+    'date and time are adjacent at final confirmation');
+  assert.match(finalReview, /traveler\.totalTravelCost/,
+    'final review includes the all-in Total');
+  assert.ok(finalReview.indexOf("traveler.schedDestination") <
+    finalReview.indexOf("traveler.totalTravelCost"),
+    'itinerary appears before the final Total and consent');
+  assert.ok(finalReview.indexOf("traveler.totalTravelCost") <
+    finalReview.indexOf("<PrimaryButton"),
+    'final Total appears before the Schedule Travel action');
+
   const confirmation = read('app/reserve.tsx');
   assert.match(confirmation, /params\.scheduling === '1'/,
     'confirmation offers a direct return to the selected scheduled pickup');
