@@ -1,3 +1,26 @@
+## Additional end-to-end gap: upcoming reservations at scale
+
+The actual `src/backend/scheduled.ts` currently runs an unbounded
+`getDocs(query(collection(db,'scheduled_rides'),where('travelerUid','==',uid)))`
+for a Traveler's schedule. It then filters and sorts **every returned record**
+locally, chooses just one next reservation, and retains only a single
+`schedId`/Home card in `RideContext`. This is a customer-management issue
+(multiple future bookings have no visible list) **and** a Google Firestore
+read-cost issue as an account accumulates years of reservations.
+
+**Required architecture, intentionally not disguised as a quick UI patch:**
+a bounded chronological server-authoritative upcoming-reservations query
+with suitable commissioned Firestore index, pagination when more than one
+reservation exists, status-specific operations (reserved → cancellable;
+dispatched → live Travel lifecycle), immutable booking identity, and an
+accessible Upcoming Travel management surface. A valid implementation must
+retrieve each account's **future** records even after thousands of older
+cancellations, and avoid relying on a user-owned collection scan.
+The existing `firestore.indexes.json` has a scheduler index by status + atMs
+but no verified travelerUid + atMs index; changing this query without
+commissioning an index risks breaking production. Do not assert this is done
+or turn a priced booked reservation into a locally edited draft.
+
 ## Whole-service scheduled Travel design, not screen cosmetics (17 October 2026)
 
 **Founder challenge and cause:** Earlier reviews checked whether the existing date
