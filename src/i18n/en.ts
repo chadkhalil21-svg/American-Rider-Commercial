@@ -997,6 +997,8 @@ export default {
     noPaymentMethodSaved: 'No payment method saved.',
     methodsUnreadable: 'Saved payment methods could not be read.',
     addPaymentMethod: 'Add payment method',
+    removeDefaultSavedMethodNote: "Removing your default card will make another saved card the default. Review any upcoming Travel before continuing.",
+    removeLastSavedMethodNote: "Removing your only saved card may prevent future scheduled Travel from being charged. You can add a new card at any time.",
     defaultMethod: 'Default',
     setAsDefault: 'Set as default',
     expires: 'Expires %{date}',
