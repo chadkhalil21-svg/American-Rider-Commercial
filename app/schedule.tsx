@@ -189,7 +189,8 @@ export default function Schedule() {
     if (!pickupZone) return '';
     try {
       return new Intl.DateTimeFormat(language, { timeZone: pickupZone, timeZoneName: 'short' })
-        .formatToParts(now).find((part) => part.type === 'timeZoneName')?.value || pickupZone;
+        .formatToParts(new Date(resolved.ok ? resolved.atMs : clockMs))
+        .find((part) => part.type === 'timeZoneName')?.value || pickupZone;
     } catch {
       return pickupZone; // Bad external time-zone data must never crash this screen.
     }
@@ -518,7 +519,8 @@ export default function Schedule() {
         label={t('traveler.scheduleTravel')}
         disabled={schedInvalid || saving}
         onPress={async () => {
-          if (scheduleStatus !== 'ready' || !resolved.ok || !pickupZone || !selectedPickupDate) return;
+          if (scheduleStatus !== 'ready' || !resolved.ok || resolved.atMs <= Date.now() ||
+              !pickupZone || !selectedPickupDate) return;
           const info: SchedInfo = {
             when: whenLabels[ride.schedDate],
             time: chosenTime,
