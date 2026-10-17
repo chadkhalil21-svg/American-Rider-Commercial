@@ -1,0 +1,68 @@
+'use strict';
+// Offline, repeatable cross-layer regression for the 17 Oct whole-service audit.
+// These static contracts complement, never replace, real emulator/provider tests.
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+const read = p => fs.readFileSync(path.join(__dirname, '..', p), 'utf8');
+
+for (let pass = 1; pass <= 2; pass++) {
+  const wallet = read('app/wallet.tsx');
+  const payments = read('backend/payments.js');
+  const rules = read('firestore.rules');
+  const lost = read('src/backend/lostitem.ts');
+  const indexes = JSON.parse(read('firestore.indexes.json'));
+
+  // A saved default card is not irrevocable and can be removed through the
+  // same confirmed, authenticated Stripe path as any other saved card.
+  assert.match(wallet, /m\.isDefault \? \(\s*<Text style=\{styles\.defaultTag\}/);
+  assert.match(wallet, /onPress=\{\(\) => setPendingRemove\(m\)\}/);
+  assert.doesNotMatch(wallet, /m\.isDefault \? \(\s*<Text[^]*?\) : \(\s*<View style=\{styles\.actions\}>/);
+  assert.match(wallet, /traveler\.removeDefaultCardNotice/);
+  assert.match(wallet, /traveler\.removeCardNotice/);
+  assert.match(wallet, /if \(r\.ok && r\.methods\) setMethods\(r\.methods\)/);
+  assert.match(payments, /const wasDefault = defaultMethodId\(customer\) === owned\.pm\.id/);
+  assert.match(payments, /replacement \? replacement\.id : ''/);
+  assert.ok(payments.indexOf('invoice_settings: { default_payment_method: replacement ? replacement.id') <
+    payments.indexOf('await stripe.paymentMethods.detach(owned.pm.id)'),
+    'Stripe default advances or clears before detached method is removed');
+  assert.match(payments, /await ownedPaymentMethod\(customer, paymentMethodId\)/,
+    'only a saved method belonging to the authenticated Customer may be detached');
+
+  // Lost-item clients may submit a report, never forge a found, delivered,
+  // or Operator-notified report through the first write.
+  const lostRule = rules.split('match /lost_items/{itemId} {')[1]?.split('// Once filed')[0];
+  assert.ok(lostRule);
+  assert.match(lostRule, /request\.resource\.data\.status == 'reported'/);
+  assert.match(lostRule, /request\.resource\.data\.get\('return', 'missing'\) == null/);
+  assert.match(lostRule, /request\.resource\.data\.get\('photoUrl', 'missing'\) == null/);
+  assert.match(lostRule, /request\.resource\.data\.description\.size\(\) <= 2000/);
+  assert.match(lostRule, /request\.resource\.data\.candidateTripNos\.size\(\) <= 20/);
+  assert.match(lostRule, /request\.resource\.data\.notifiedOperatorIds\.size\(\) <= 20/);
+
+  // The old function downloaded an account's lifetime of reports and
+  // converted a network failure into a counterfeit empty list.
+  assert.match(lost, /export async function fetchMyLostItemsPage\(/);
+  assert.match(lost, /where\('travelerUid', '==', uid\)/);
+  assert.match(lost, /orderBy\('createdAt', 'desc'\)/);
+  assert.match(lost, /startAfter\(cursor\)/);
+  assert.match(lost, /limit\(pageSize \+ 1\)/);
+  assert.match(lost, /throw new Error\('Sign in required'\)/);
+  assert.doesNotMatch(lost, /export async function fetchMyLostItems\(\): Promise<LostItem\[\]> \{[^]*?catch \{\s*return \[\];/,
+    'failed reads cannot masquerade as zero filed reports');
+
+  const found = indexes.indexes.some(x => x.collectionGroup === 'lost_items' &&
+    x.queryScope === 'COLLECTION' &&
+    x.fields?.[0]?.fieldPath === 'travelerUid' &&
+    x.fields?.[1]?.fieldPath === 'createdAt' &&
+    x.fields?.[1]?.order === 'DESCENDING');
+  assert.ok(found, 'bounded newest-first query has a declared Firestore composite index');
+
+  for (const lang of ['en', 'es', 'fr', 'it', 'de']) {
+    const d = read('src/i18n/' + lang + '.ts');
+    for (const key of ['removeDefaultCardNotice', 'removeCardNotice'])
+      assert.match(d, new RegExp('^\\s*' + key + ':', 'm'),
+        lang + ': missing payment-method removal explanation');
+  }
+}
+console.log('PASS twice: default card removal; server ownership; truthful lost-item creation and bounded history.');
