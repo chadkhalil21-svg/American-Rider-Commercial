@@ -232,7 +232,7 @@ export default {
     yourPayouts: 'Vos Versements',
     deviceEarningsLabel: 'Revenus enregistrés sur cet appareil',
     deviceEarningsNotice: 'Ces montants viennent des opérations enregistrées sur cet appareil, et non de virements Stripe ou de paiements bancaires confirmés.',
-    payoutRecoveryUnconfirmed: 'Le recouvrement des trajets impayés n’a pas pu être confirmé. Le suivi des versements peut être incomplet.'
+    payoutRecoveryUnconfirmed: 'Le recouvrement des trajets impayés n’a pas pu être confirmé. Le suivi des versements peut être incomplet.',
     payoutTruthIntro: 'Votre part représente 99 % du tarif du trajet. La fin du trajet ne confirme pas un dépôt bancaire.',
     payoutTruthTransfer: 'Après un trajet terminé, American Rider tente de transférer votre part vers Stripe. Les vérifications du paiement ou du compte peuvent retarder le transfert.',
     payoutTruthBank: 'Un transfert Stripe confirmé n’est pas un dépôt bancaire. Stripe détermine quand les fonds disponibles arrivent à votre banque.',
