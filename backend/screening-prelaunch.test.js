@@ -22,8 +22,8 @@ assert.match(server, /req\.screeningPolicy = gate\.policy/,
   'the server binds the verified screening policy to the request');
 assert.doesNotMatch(server, /region\.jurisdiction\?\.stateCode !== 'FL'/,
   'the route no longer hard-codes one state');
-assert.match(server, /app\.post\('\/operator\/qualification\/submit', requireAuth, LIMITS\.qualification, requireOperatorPreparationMarket/,
-  'qualification review is allowed before market opening, while duty and payments remain separately gated');
+assert.match(server, /app\.post\('\/operator\/qualification\/submit', requireAuth, LIMITS\.qualification, requireActiveOperatingMarket/,
+  'final qualification remains closed until the market is active');
 assert.match(server, /app\.post\('\/operator\/online', requireAuth, requireFreshAuth, requireOperationalReadiness/,
   'duty requires launch readiness');
 assert.match(server, /filed\?\.stored \|\| !filed\?\.caseNo/,
@@ -46,8 +46,8 @@ assert.match(ui, /if \(!area\?\.market\)/,
   'the Operator must select a county before source-verified preparatory checks');
 assert.match(server, /app\.post\('\/operator\/document', requireAuth, LIMITS\.document, requireFreshAuth, requireOperatorPreparationMarket/,
   'documents and screening are both preparatory; neither approves paid Travel');
-assert.match(ui, /disabled=\{submitting \|\| !area\?\.market\}/,
-  'Operator must choose an area; the server checks real documents without granting paid duty');
+assert.match(ui, /disabled=\{submitting \|\| !areaAuthorized\}/,
+  'paperwork may be prepared early, while final submission requires a supported commercial county');
 assert.match(connect, /waitlist: Market\[\]/, 'API client carries waitlist options');
 assert.match(bg, /mode: requestMode/, 'existing/new screening requests are both supported');
 assert.match(bg, /disabled=\{busy \|\| !releaseAuthorized\}/, 'request requires Operator authorization');
