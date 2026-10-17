@@ -40,6 +40,19 @@ for (let pass = 1; pass <= 2; pass++) {
   assert.match(lostRule, /request\.resource\.data\.candidateTripNos\.size\(\) <= 20/);
   assert.match(lostRule, /request\.resource\.data\.notifiedOperatorIds\.size\(\) <= 20/);
 
+  // False Operator IDs from a modified phone cannot be used for notices,
+  // private photo access or return claims. Validate actual Travel ownership.
+  const lostBackend = read('backend/lostitem.js');
+  assert.match(lostBackend, /async function verifiedLostItemOperators\(item, d\)/);
+  assert.match(lostBackend, /\.where\('tripNo', 'in', trips\)\.get\(\)/,
+    'at most 20 ride records are verified using one bounded query');
+  assert.match(lostBackend, /r\.travelerUid !== item\.travelerUid/,
+    'a Travel owned by another account cannot authorize recovery');
+  assert.match(lostBackend, /notifiedOperatorIds: ids/,
+    'verified Operator IDs replace client-nominated IDs on the report');
+  assert.match(lostBackend, /verified\.some\(x => x\.uid === String\(operatorUid\)\)/,
+    'a named Operator must also prove real assignment for reading or responding');
+
   // The old function downloaded an account's lifetime of reports and
   // converted a network failure into a counterfeit empty list.
   assert.match(lost, /export async function fetchMyLostItemsPage\(/);
