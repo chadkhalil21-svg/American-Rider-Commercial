@@ -1,3 +1,16 @@
+## Operator Lost Item screen error recovery
+
+**Verified UI dead end:** `app/operator/lost-item.tsx` displayed a failed
+`fetchOperatorLostItem` result but gave no Retry action. If the phone was
+temporarily offline, an Operator could not reliably reopen the same recovery
+task. A late network response could also update state after navigation.
+Now the screen shows a truthful loading state, offers an explicit Retry
+after a failed read, and ignores stale responses after unmount or route
+change. It reuses the existing visual hierarchy (44-unit secondary control),
+rather than enlarging every control. Added all five Operator-language
+translations and source-level acceptance checks. Real signed-device
+permission/navigation testing remains outstanding.
+
 ## Continued cross-system audit: Lost Item concurrent recovery (17 October)
 
 **Verified race in two original server functions:** `backend/lostitem.js`
