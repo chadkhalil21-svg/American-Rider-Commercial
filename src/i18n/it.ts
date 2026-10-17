@@ -1218,6 +1218,8 @@ export default {
     familySendMessage: 'Invia Messaggio',
     familyMessageFailed: 'Il messaggio non è stato inviato.',
 
+    lostNoVerifiedTravelThread: "Nessun viaggio registrato è collegato a questo oggetto. L’assistenza può aiutarti senza coinvolgere un Operatore estraneo.",
+    msgTravelUnavailable: "Non è disponibile alcun viaggio verificato per questa conversazione. Seleziona un viaggio registrato o contatta l’assistenza.",
     msgNotSent: "Messaggio non inviato. Controlli la connessione e riprovi.",
     lostOperatorInboxDelivered: "Consegnato a %{names} nella casella dell’Operatore.",
     notifSaveFailed: "La preferenza di notifica non è stata salvata. Riprovi.",
