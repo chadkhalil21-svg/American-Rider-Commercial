@@ -242,8 +242,6 @@ export default {
     openAllParts: 'Abra las %{n} partes para continuar',
 
     lostOpenFailed: "No se pudo abrir este informe.",
-    lostHistoryCouldNotLoad: "No se pudieron cargar los informes de objetos perdidos. Los informes ya mostrados podrían estar desactualizados.",
-    lostHistoryMore: "Mostrar más informes de objetos perdidos",
     lostUnavailable: "Este informe de objeto perdido no está disponible.",
     lostSelectTravel: "Seleccione el Viaje en el que encontró el objeto.",
     lostUpdateFailed: "No se pudo registrar esta actualización.",
@@ -764,6 +762,8 @@ export default {
     selectAnotherTravel: 'Seleccionar otro viaje ›',
     selectTravelForCase: 'Seleccione el viaje al que se refiere ›',
     yourCases: 'Sus casos',
+    lostHistoryCouldNotLoad: "No se pudieron cargar los informes de objetos perdidos. Los informes ya mostrados podrían estar desactualizados.",
+    lostHistoryMore: "Mostrar más informes de objetos perdidos",
     casesCouldNotLoad: 'No pudimos cargar el historial de casos. Los casos mostrados anteriormente pueden estar desactualizados.',
     caseHistoryPartial: 'Solo se pudo mostrar parte del historial de casos. Para un caso anterior, escriba a support@americanrider.app.',
     retryCases: 'Volver a cargar los casos',
