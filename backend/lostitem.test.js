@@ -227,11 +227,18 @@ const fakeDb = {
     repeatLocated.ok && repeatLocated.reused === true && testNotifications.length === beforeRepeat);
   lost.li3.status = 'returned';
   const afterReturned = await respondLostItem({
-    itemId:'li3', operatorUid:'op1', outcome:'not-found',
+    // Once found on AR-B, only AR-B's actual Operator remains authorized.
+    itemId:'li3', operatorUid:'op2', outcome:'not-found',
   }, { database: recoveryDb, postMessage: async m => { testNotifications.push(m); return {ok:true}; } });
   check('a returned item cannot be downgraded or re-opened by an Operator',
     !afterReturned.ok && afterReturned.status === 409 && lost.li3.status === 'returned' &&
     testNotifications.length === beforeRepeat);
+  const unrelatedAfterBinding = await respondLostItem({
+    itemId:'li3', operatorUid:'op1', outcome:'not-found',
+  }, { database: recoveryDb, postMessage: async m => { testNotifications.push(m); return {ok:true}; } });
+  check('after the actual Travel is identified, another candidate Operator is no longer authorized',
+    !unrelatedAfterBinding.ok && unrelatedAfterBinding.status === 403 &&
+    lost.li3.status === 'returned');
 
   // A push/inbox message is already durable before the notification sender
   // stamps the report. An especially quick Operator may open it and respond.
