@@ -134,6 +134,8 @@ export default {
     econIntro: "Understand how the Travel Fare is divided before purchasing coverage. These examples are not income forecasts.",
     econShare: "of every Travel Fare is yours.",
     econFee: "American Rider retains the remaining 1%. The separate Traveler Platform Fee does not reduce your share of the Travel Fare.",
+    econPlatformFeeTitle: "Platform Fee · %{amount} minimum per Travel",
+    econPlatformFeeDetail: "Travelers pay this Fee separately from the Travel Fare, within their quoted Total. It helps fund payment processing, payouts, platform technology, support and operating reserves. The Fee may be higher when costs require. Your 99% Fare share does not change.",
     econExamples: "Per-Travel examples",
     econExampleFare: "Travel Fare: %{amount}",
     econOperatorRetains: "Travel Fare retained",
