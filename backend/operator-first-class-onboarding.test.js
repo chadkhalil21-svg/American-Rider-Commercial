@@ -32,12 +32,13 @@ for(let round=1;round<=2;round++){
    'do not privilege an unverified broker or show old contact details');
  assert.match(insurance,/liveStatus\?\.documentApproved === true/,
    'receipt of a PDF does not itself approve insurance');
- assert.match(qualify,/d.key === 'basics' \? t\('traveler.complete'\) : t\('operator.verified'\)/,
-   'self-completed profile details cannot say Verified');
- assert.match(qualify,/d.key === 'basics'\) router.navigate\('\/operator\/vehicle'\)/,
-   'Basics opens an actual information form instead of accepting a tap');
- assert.match(vehicle,/op.setVehicle\(car, plate\);[\s\S]*op.verifyDoc\('basics'\)/,
-   'Basics is completed only after real name/car/plate save');
+ assert.match(qualify,/accessibilityRole="button" onPress=\{\(\) => router.navigate\('\/operator\/vehicle'\)\}/,
+   'Vehicle details remain one obvious action in the qualification checklist');
+ assert.match(qualify,/op.vehicle\?\.car \|\| t\('traveler.noVehicleOnFile'\)/,
+   'show existing vehicle details without a false verified badge');
+ assert.doesNotMatch(qualify,/d.key === 'basics'/,'no obsolete Basics badge can certify an account');
+ assert.match(vehicle,/op.setVehicle\(car, plate\)/,'vehicle form saves real account details');
+ assert.doesNotMatch(vehicle,/op.verifyDoc\('basics'\)/,'saving a car does not grant verification');
  assert.match(vehicle,/t\('operator.makeModelColor'\)/,
    'year, make, model, color are requested for quote eligibility');
  assert.match(qualify,/const areaAuthorized = areaActive;/,
