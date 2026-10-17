@@ -84,7 +84,7 @@ for (let pass = 1; pass <= 2; pass++) {
 
   for (const lang of ['en', 'es', 'fr', 'it', 'de']) {
     const d = read('src/i18n/' + lang + '.ts');
-    const traveler = d.match(/^  traveler:\\s*\\{([\\s\\S]*?)^  \\},/m)?.[1];
+    const traveler = d.match(/^  traveler:\s*\{([\s\S]*?)^  \},/m)?.[1];
     assert.ok(traveler, lang + ': Traveler translations must exist');
     for (const key of ['removeDefaultCardNotice', 'removeCardNotice', 'mobileReadUnavailable',
       'lostHistoryCouldNotLoad', 'lostHistoryMore']) {
