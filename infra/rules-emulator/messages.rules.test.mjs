@@ -240,6 +240,43 @@ await check('Operator progression calls /travel/progress — no direct ride upda
   if (/updateDoc\(doc\(db, 'rides'/.test(inbox)) throw new Error('operatorInbox.ts still writes ride state directly');
 });
 
+// ——— lost item intake: the client may report, never forge recovery ————————
+{
+  const filed = (over = {}) => ({
+    travelerUid: 'travA',
+    tripNo: 'AR-1001-MIA',
+    candidateTripNos: ['AR-1001-MIA'],
+    notifiedOperatorIds: ['opA'],
+    notifiedOperatorNames: ['Operator A'],
+    description: 'Black bag in back seat',
+    photoUrl: null,
+    status: 'reported',
+    createdAt: Date.now(),
+    statusAt: Date.now(),
+    return: null,
+    ...over,
+  });
+  const file = (uid, data) => addDoc(collection(as(uid), 'lost_items'), data);
+  await check('lost items: legitimate Traveler report can be filed', () =>
+    assertSucceeds(file('travA', filed())));
+  await check('lost items: cannot file a report already marked returned', () =>
+    assertFails(file('travA', filed({ status: 'returned' }))));
+  await check('lost items: cannot file a report claiming Operator notified', () =>
+    assertFails(file('travA', filed({ status: 'operator-notified' }))));
+  await check('lost items: cannot forge a return arrangement on creation', () =>
+    assertFails(file('travA', filed({ return: { path: 'original-operator', arrangedAt: 1 } }))));
+  await check('lost items: cannot claim a published photo URL', () =>
+    assertFails(file('travA', filed({ photoUrl: 'https://public.example/x' }))));
+  await check('lost items: empty or giant descriptions are refused', async () => {
+    await assertFails(file('travA', filed({ description: '' })));
+    await assertFails(file('travA', filed({ description: 'X'.repeat(2001) })));
+  });
+  await check('lost items: extra attributes cannot be smuggled in', () =>
+    assertFails(file('travA', filed({ operatorDeliveryCount: 1000 }))));
+  await check('lost items: cannot use a different Traveler UID', () =>
+    assertFails(file('travB', filed())));
+}
+
 await env.cleanup();
 let bad = 0;
 for (const r of R) {
