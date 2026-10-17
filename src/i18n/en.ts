@@ -1068,7 +1068,7 @@ export default {
     communicate: 'Communicate',
     // ---- schedule, notifications, invite, recruiting -----------------------------------
     planAhead: 'Plan ahead',
-    day: 'Day',
+
     pickupTime: 'Pickup Time',
     enterATime: 'Enter a time, for example 6:45.',
     schedSaveReview: 'Reservation not confirmed. The price or service may have changed. Return to Travel Confirmation for a fresh quote, then try again.',
