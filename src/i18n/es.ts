@@ -149,7 +149,7 @@ export default {
     econMonth: 'Por mes (52 semanas ÷ 12)',
     econYear: 'Por año (52 semanas)',
     econDisclaimer: "Estos ejemplos no garantizan Viajes ni ingresos. El Total para el Traveler se cotiza antes de cada Viaje.",
-    econProjectionNote: "Supone el mismo total de Tarifas de Viaje durante las 52 semanas del año. No es ingreso neto; no se descuentan gastos.",
+    econProjectionNote: "La estimación aplica el 1 % al total semanal. La comisión real se redondea hacia abajo en cada Viaje, por lo que el importe que conserve puede variar ligeramente. Los cálculos mensuales y anuales suponen 52 semanas iguales. No se descuentan gastos.",
     econCostsHeading: "Costos de cuenta y otros gastos",
     econAccountCostNote: "En los meses con pagos, puede aplicarse un costo de cuenta de $2 más los costos de cobro. Consulte las condiciones actuales abajo. El seguro, el combustible y los gastos del vehículo son por su cuenta.",
     econShowAccountTerms: "Ver condiciones actuales de la cuenta",
