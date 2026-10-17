@@ -1073,7 +1073,7 @@ export default {
     schedPickDay: 'Elegir un día',
     schedBookingNotice: 'Se puede asignar un operador antes de la recogida y cobrar la tarjeta guardada entonces. La asignación aparecerá en Inicio.',
     schedTimeChosen: '%{time} seleccionado.',
-    schedPickupZone: 'Zona horaria de recogida: %{zone}',
+    schedPickupZone: "Horario local de recogida · %{zone}",
     schedZoneUnavailable: 'La zona horaria de recogida no está disponible. No se puede programar por ahora; inténtalo de nuevo.',
     schedTimeInvalid: 'Esa hora de recogida no existe, se repite o ya no está seleccionada. Elige otra hora.',
     schedPickupDateLabel: "Fecha de recogida",
