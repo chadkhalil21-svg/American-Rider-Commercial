@@ -284,6 +284,12 @@ for (let pass = 1; pass <= 2; pass++) {
     'late presence renewal must not revive matchability without a tracked withdrawal');
   assert.match(opContext, /if \(r\.ok\) void confirmOffline\(\)/,
     'late initial commence response is followed by acknowledged off-duty withdrawal');
+  assert.match(opContext, /const dutyAttemptRef = useRef\(0\)/,
+    'Duty requests have one shared sequence counter');
+  assert.match(opContext, /const cancelOp = useCallback\(\(\) => \{[\s\S]*?\+\+dutyAttemptRef\.current;[\s\S]*?setOnlineState\(false\)/,
+    'Cancelling an operation invalidates every in-flight Commence attempt');
+  assert.match(opContext, /if \(attempt !== dutyAttemptRef\.current\)/,
+    'A late Commence response cannot locally restore service after cancellation');
 
   const found = indexes.indexes.some(x => x.collectionGroup === 'lost_items' &&
     x.queryScope === 'COLLECTION' &&
