@@ -80,8 +80,10 @@ export default function Schedule() {
     });
     return () => { clearInterval(ticker); onResume.remove(); };
   }, []);
-  const lat = ride.departure.lat;
-  const lng = ride.departure.lng;
+  // The pickup market is determined by the actual chosen pickup pin when present,
+  // not an old named departure (important when crossing time-zone boundaries).
+  const lat = ride.pickupPin?.lat ?? ride.tripCoords?.pickup?.lat ?? ride.departure.lat;
+  const lng = ride.pickupPin?.lng ?? ride.tripCoords?.pickup?.lng ?? ride.departure.lng;
   useEffect(() => {
     let current = true;
     setPickupZone(null);
