@@ -144,7 +144,26 @@ service cloud.firestore {
     match /lost_items/{itemId} {
       allow read: if ownsExisting();
       allow create: if ownsIncoming()
-                    && request.resource.data.keys().hasOnly(['travelerUid', 'tripNo', 'candidateTripNos', 'notifiedOperatorIds', 'notifiedOperatorNames', 'description', 'photoUrl', 'photoObjectKey', 'status', 'createdAt', 'statusAt', 'return']);
+                    && request.resource.data.keys().hasOnly(['travelerUid', 'tripNo', 'candidateTripNos', 'notifiedOperatorIds', 'notifiedOperatorNames', 'description', 'photoUrl', 'photoObjectKey', 'status', 'createdAt', 'statusAt', 'return'])
+                    // A phone may FILE a report. Only the authenticated server and
+                    // Operator recovery may establish notification, location, or
+                    // return. Previously any first write could forge 'returned'.
+                    && request.resource.data.status == 'reported'
+                    && request.resource.data.get('return', 'missing') == null
+                    && request.resource.data.get('photoUrl', 'missing') == null
+                    && request.resource.data.description is string
+                    && request.resource.data.description.size() > 0
+                    && request.resource.data.description.size() <= 2000
+                    && request.resource.data.candidateTripNos is list
+                    && request.resource.data.candidateTripNos.size() <= 20
+                    && request.resource.data.notifiedOperatorIds is list
+                    && request.resource.data.notifiedOperatorIds.size() <= 20
+                    && request.resource.data.notifiedOperatorNames is list
+                    && request.resource.data.notifiedOperatorNames.size() <= 20
+                    && request.resource.data.createdAt is int
+                    && request.resource.data.statusAt is int
+                    && (request.resource.data.get('photoObjectKey', null) == null
+                        || request.resource.data.photoObjectKey is string);
       // Once filed, lifecycle state is server-authoritative. The Traveler may correct the
       // description, but cannot self-assert that an Operator was notified or that a return was
       // arranged. Those are operational facts and require server evidence.
