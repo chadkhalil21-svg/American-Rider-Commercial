@@ -1,0 +1,15 @@
+'use strict';
+const assert=require('node:assert/strict');
+const fs=require('node:fs');
+const path=require('node:path');
+const root=path.resolve(__dirname,'..');
+const src=(p)=>fs.readFileSync(path.join(root,p),'utf8');
+const hb=src('src/backend/heartbeat.ts'),context=src('src/state/OperatorContext.tsx'),server=src('backend/server.js');
+assert.doesNotMatch(context,/startHeartbeat\(/,'Operator app must not send redundant sweep wakeups');
+assert.doesNotMatch(hb,/fetch\(/,'Legacy sweep bridge must be a no-op');
+assert.match(server,/const tick = setInterval\(/,'Server must maintain its own scheduled sweep');
+assert.match(server,/runLeasedSweeps\(\)/,'Server must run guarded sweeps');
+assert.match(server,/60 \* 1000/,'Server scheduled sweep cadence stays one minute');
+assert.match(server,/const want = readKey\('SCHEDULER_TOKEN'\)/,'External manual sweeps stay authenticated');
+assert.match(server,/if \(!want \|\| got !== want\)/,'Unauthorized external wakeups stay rejected');
+console.log('PASS: scheduled and safety checks remain on server; phones make zero unauthorized sweep polls');

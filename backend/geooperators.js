@@ -45,23 +45,62 @@ function prefixes(point,tier){
   return [...set].filter(Boolean);
 }
 async function queryTier(db,point,tier,{excludeIds=new Set(),limitPerPrefix=PER_PREFIX_LIMIT,saturationLimit=SATURATION_LIMIT}={}){
+  let saturated=false;
   const out=new Map();
   await Promise.all(prefixes(point,tier).map(async prefix=>{
-    let snap=await db.collection('operators').where('available','==',true)
-      .orderBy('geohash').startAt(prefix).endAt(prefix+'\uf8ff').limit(limitPerPrefix).get();
-    // A full prefix page is ambiguous: there may be more Operators hidden behind the
-    // lexicographic cutoff. Escalate only that saturated cell, still to a hard ceiling.
-    if(snap.docs.length===limitPerPrefix && saturationLimit>limitPerPrefix){
-      snap=await db.collection('operators').where('available','==',true)
-        .orderBy('geohash').startAt(prefix).endAt(prefix+'\uf8ff').limit(saturationLimit).get();
+    const base=db.collection('operators').where('available','==',true)
+      .orderBy('geohash').startAt(prefix).endAt(prefix+'\uf8ff');
+    const first=await base.limit(limitPerPrefix).get();
+    // A saturated cell must retain the first page and fetch only the NEXT records.
+    // Re-running a larger overlapping query billed the first 40 documents twice.
+    // Snapshot cursors preserve ties when many Operators share the same geohash.
+    const docs=[...first.docs];
+    if(first.docs.length===limitPerPrefix && saturationLimit>limitPerPrefix){
+      const last=first.docs[first.docs.length-1];
+      const next=await base.startAfter(last).limit(saturationLimit-limitPerPrefix).get();
+      docs.push(...next.docs);
     }
-    for(const d of snap.docs){
+    if(docs.length>=saturationLimit)saturated=true;
+    for(const d of docs){
       if(excludeIds.has(String(d.id)))continue;
       const x={id:d.id,...d.data()};
       if(Number.isFinite(Number(x.lat))&&Number.isFinite(Number(x.lng)))out.set(String(d.id),x);
     }
   }));
-  return [...out.values()];
+  return {rows:[...out.values()],saturated};
+}
+
+/**
+ * A safe geographic lower bound for all areas OUTSIDE the fully queried
+ * 3x3 fine-geohash neighborhood. We only use this in mid-latitude, non-wrapping
+ * 9-cell rectangles and with *complete* (unsaturated) fine-cell query results.
+ * Any closer vehicle outside that box would violate the spherical distance
+ * lower bound, so broad queries cannot change the nearest eligible choice.
+ */
+function fineCoverageRadiusMiles(point,tier){
+  const lat=Number(point?.lat),lng=Number(point?.lng);
+  if(!Number.isFinite(lat)||!Number.isFinite(lng)||Math.abs(lat)>70||Math.abs(lng)>170)return 0;
+  const cells=prefixes(point,tier);
+  if(cells.length!==9)return 0;
+  const rectangles=cells.map(decodeBounds);
+  if(rectangles.some(x=>!x))return 0;
+  const latLo=Math.min(...rectangles.map(x=>x.lat[0])),latHi=Math.max(...rectangles.map(x=>x.lat[1]));
+  const lngLo=Math.min(...rectangles.map(x=>x.lng[0])),lngHi=Math.max(...rectangles.map(x=>x.lng[1]));
+  const center=decodeBounds(encodeGeohash(lat,lng,tier.precision));
+  if(!center)return 0;
+  const latSpan=center.lat[1]-center.lat[0],lngSpan=center.lng[1]-center.lng[0];
+  // Nine distinct adjoining cells must form a complete rectangle; otherwise
+  // the bound is invalid (and a normal full search is required).
+  if(Math.abs((latHi-latLo)/latSpan-3)>1e-6 ||
+     Math.abs((lngHi-lngLo)/lngSpan-3)>1e-6 ||
+     lat<=latLo||lat>=latHi||lng<=lngLo||lng>=lngHi)return 0;
+  const toRad=Math.PI/180,R=3958.8;
+  const north=R*(latHi-lat)*toRad,south=R*(lat-latLo)*toRad;
+  // Spherical angular distance to a *meridian*, minimized over ALL
+  // latitudes, is asin(|cos(latitude)sin(delta longitude)|).
+  const meridian=dlon=>R*Math.asin(Math.min(1,Math.abs(Math.cos(lat*toRad)*Math.sin(dlon*toRad))));
+  const radius=Math.min(north,south,meridian(lng-lngLo),meridian(lngHi-lng));
+  return Number.isFinite(radius)?Math.max(0,radius*0.95-0.05):0;
 }
 // Return the union of bounded tiers. Do not stop merely because an inner tier contains records:
 // those records can all fail screening, insurance, presence, class or commissioning gates. The
@@ -69,7 +108,27 @@ async function queryTier(db,point,tier,{excludeIds=new Set(),limitPerPrefix=PER_
 async function nearbyOperatorCandidates(db,point,opts={}){
   if(!encodeGeohash(point?.lat,point?.lng,1))return [];
   const all=new Map();
-  for(const tier of TIERS)for(const row of await queryTier(db,point,tier,opts))all.set(String(row.id),row);
+  for(let i=0;i<TIERS.length;i++){
+    const tier=TIERS[i];
+    const page=await queryTier(db,point,tier,opts);
+    for(const row of page.rows)all.set(String(row.id),row);
+    const matching=opts.safeMatching;
+    // Opt-in from the server's authoritative dispatch path only. If no close,
+    // VERIFIED eligible free Operator exists, or any page is saturated, widen
+    // normally. Occupied Operators might be legitimately queue-eligible after
+    // separate Travel checks, so never shortcut when any are present.
+    if(i===0&&matching&&!page.saturated&&!page.rows.some(x=>x.currentRideId)){
+      const {matchOperator,distanceMiles}=require('./matching');
+      const nearest=matchOperator(page.rows,point,matching.travelClass||'Standard',{
+        requireScreening:matching.requireScreening===true,allowQueued:false,
+        travelMinutes:matching.travelMinutes??null,
+        now:matching.now||Date.now(),
+      });
+      const safeRadius=fineCoverageRadiusMiles(point,tier);
+      if(nearest&&safeRadius>0&&distanceMiles(point,nearest.operator)<safeRadius)
+        break;
+    }
+  }
   return [...all.values()];
 }
-module.exports={encodeGeohash,decodeBounds,nearbyOperatorCandidates,prefixes,TIERS,PER_PREFIX_LIMIT,SATURATION_LIMIT};
+module.exports={encodeGeohash,decodeBounds,nearbyOperatorCandidates,prefixes,fineCoverageRadiusMiles,TIERS,PER_PREFIX_LIMIT,SATURATION_LIMIT};

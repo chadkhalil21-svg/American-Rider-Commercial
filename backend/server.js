@@ -1433,7 +1433,19 @@ app.get('/operator/me', requireAuth, async (req, res) => {
     const fleetDoc = await db.collection('operators').doc(uid).get();
     const fleet = fleetDoc.exists ? fleetDoc.data() : null;
     // Travels dispatched TO this operator, newest first, statuses only.
-    const rides = await db.collection('rides').where('operatorId', '==', uid).get();
+    // This is a diagnostic, not historical accounting. Never download a
+    // lifetime's worth of paid Travels just to render five recent statuses.
+    // Beyond the ceiling return an honest incomplete result rather than
+    // accidentally misreporting financial or dispatch history as exhaustive.
+    const MAX_OPERATOR_DIAGNOSTIC_RIDES = 200;
+    const rides = await db.collection('rides').where('operatorId', '==', uid)
+      .limit(MAX_OPERATOR_DIAGNOSTIC_RIDES + 1).get();
+    if (rides.size > MAX_OPERATOR_DIAGNOSTIC_RIDES) {
+      return res.status(409).json({
+        code: 'operator_history_too_large_for_diagnostic',
+        error: 'This diagnostic cannot summarize complete Travel history. Please use verified records.',
+      });
+    }
     const byStatus = {};
     const recent = [];
     rides.forEach((d) => {
@@ -3561,8 +3573,8 @@ app.post('/scheduled/sweep', runSweep);
 // class and distance. Keeping those rules in one gate prevents query optimization from becoming
 // a second qualification system.
 const QUEUE_APPROACH_MI = 3;
-async function availableOperatorCandidates(db, pickup, excludeIds = new Set()) {
-  const fleet = await nearbyOperatorCandidates(db, pickup, { excludeIds });
+async function availableOperatorCandidates(db, pickup, excludeIds = new Set(), safeMatching = null) {
+  const fleet = await nearbyOperatorCandidates(db, pickup, { excludeIds, safeMatching });
   // An Operator may line up exactly one next Travel only while carrying the current Traveler
   // and already approaching that Travel's destination. Discovery marks the possibility; the
   // assignment transaction independently re-reads both Travels before reserving the slot.
@@ -3669,7 +3681,10 @@ app.post('/travel/prepare', requireAuth, LIMITS.dispatch, requireFreshAuth, requ
     };
     // Availability is a pre-charge hint, not a reservation. The post-payment transaction is
     // authoritative and can still find the fleet gone; then the paid Travel is refund-owed.
-    const fleet = await availableOperatorCandidates(db, pickup);
+    const fleet = await availableOperatorCandidates(db, pickup, new Set(), {
+      travelClass: String(b.cls || 'Standard'), requireScreening: operationalMode,
+      travelMinutes: priced.minutes,
+    });
     if (!matchOperator(fleet, pickup, String(b.cls || 'Standard'), { requireScreening: operationalMode, allowQueued: true, travelMinutes: priced.minutes })) {
       return res.status(409).json({ error: 'No eligible Operator is available; nothing was charged', code: 'no_operator' });
     }
@@ -3731,7 +3746,9 @@ app.post('/travel/dispatch', requireAuth, LIMITS.dispatch, requireFreshAuth, req
     if (!servesPoint(pickup)) return res.status(409).json({ error: outsideMarketMessage('pickup'), code: 'outside_market' });
     let candidate = null;
     if (ride.status !== 'assigned') {
-      const fleet = await availableOperatorCandidates(db, pickup);
+      const fleet = await availableOperatorCandidates(db, pickup, new Set(), {
+        travelClass: ride.travelClass, requireScreening: operationalMode,
+      });
       candidate = matchOperator(fleet, pickup, ride.travelClass, { requireScreening: operationalMode, allowQueued: true });
     }
     const outcome = await assignPaidTravel({
