@@ -1,6 +1,9 @@
 name: Build and submit certified iOS candidate to TestFlight
 
+# Build on exact approved release commits only. Regular pushes never upload.
 on:
+  push:
+    branches: [release/current]
   workflow_dispatch:
     inputs:
       certified_sha:
@@ -13,6 +16,7 @@ permissions:
 
 jobs:
   build-submit-certified-ios:
+    if: ${{ github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[testflight]') }}
     runs-on: ubuntu-latest
     timeout-minutes: 90
     env:
@@ -20,7 +24,7 @@ jobs:
       ASC_API_KEY_BASE64: ${{ secrets.ASC_API_KEY_BASE64 }}
       ASC_KEY_ID: LS74L322NV
       ASC_ISSUER_ID: 2fa282d5-2b2c-4820-8fe9-6928ac1e8d33
-      CERTIFIED_SHA: ${{ inputs.certified_sha }}
+      CERTIFIED_SHA: ${{ github.event_name == 'workflow_dispatch' && inputs.certified_sha || github.sha }}
 
     steps:
       - name: Check out certified candidate
