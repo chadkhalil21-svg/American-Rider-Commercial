@@ -240,6 +240,8 @@ export default {
     openAllParts: 'Open all %{n} parts to continue',
 
     lostOpenFailed: "This report could not be opened.",
+    lostHistoryCouldNotLoad: "We could not load your lost-item reports. Reports already shown may be out of date.",
+    lostHistoryMore: "Show more lost-item reports",
     lostUnavailable: "This lost-item report is unavailable.",
     lostSelectTravel: "Select the Travel in which you found the item.",
     lostUpdateFailed: "This update could not be recorded.",
