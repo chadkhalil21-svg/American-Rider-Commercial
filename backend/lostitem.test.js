@@ -101,6 +101,10 @@ const fakeDb = {
       travelerUid: 'traveler1', tripNo: null, candidateTripNos: ['AR-A','AR-B'],
       notifiedOperatorIds: ['op1','op2'], description: 'Keys', status: 'reported', operatorResponses: {},
     },
+    li3: {
+      travelerUid: 'traveler1', tripNo: null, candidateTripNos: ['AR-A','AR-B'],
+      notifiedOperatorIds: ['op1','op2'], description: 'Phone', status: 'operator-notified', operatorResponses: {},
+    },
   };
   const rides = {
     'AR-2117-MIA': { tripNo: 'AR-2117-MIA', travelerUid: 'traveler1', operatorId: 'op1', operatorName: 'Operator 1' },
@@ -108,7 +112,19 @@ const fakeDb = {
     'AR-B': { tripNo: 'AR-B', travelerUid: 'traveler1', operatorId: 'op2', operatorName: 'Operator 2' },
     'AR-C': { tripNo: 'AR-C', travelerUid: 'traveler2', operatorId: 'op3', operatorName: 'Operator 3' },
   };
+  // Simulate Firestore transaction serialization for simultaneous requests.
+  // Production Firestore retries on document changes; the fake tests the
+  // finished business rule without sending real notifications or writes.
+  let txQueue = Promise.resolve();
   const recoveryDb = {
+    runTransaction: (work) => {
+      const result = txQueue.then(() => work({
+        get: (ref) => ref.get(),
+        set: (ref, patch) => ref.set(patch),
+      }));
+      txQueue = result.catch(() => {});
+      return result;
+    },
     collection: (name) => ({
       doc: (id) => ({
         get: async () => ({ exists: name === 'lost_items' && !!lost[id], data: () => lost[id] }),
@@ -181,6 +197,37 @@ const fakeDb = {
   check('one not-found response does not close a multi-Operator search', firstNo.ok && firstNo.status === 'operator-notified');
   const secondNo = await respondLostItem({ itemId: 'li2', operatorUid: 'op2', outcome: 'not-found' }, { database: recoveryDb });
   check('not-found becomes final only after every candidate Operator answers', secondNo.ok && secondNo.status === 'not-found');
+
+  // A slow 'not found' reply must never erase another Operator's confirmed
+  // location, even when both requests race and Firestore retries the loser.
+  const testNotifications = [];
+  const [locatedReply, notFoundReply] = await Promise.all([
+    respondLostItem({ itemId:'li3', operatorUid:'op2', outcome:'located', tripNo:'AR-B' }, {
+      database: recoveryDb, postMessage: async m => { testNotifications.push(m); return {ok:true}; },
+    }),
+    respondLostItem({ itemId:'li3', operatorUid:'op1', outcome:'not-found' }, {
+      database: recoveryDb, postMessage: async m => { testNotifications.push(m); return {ok:true}; },
+    }),
+  ]);
+  check('concurrent operator replies do not lose the found-item status',
+    locatedReply.ok && notFoundReply.ok && lost.li3.status === 'located' &&
+    lost.li3.tripNo === 'AR-B' && lost.li3.locatedByOperatorId === 'op2');
+  check('concurrent replies persist both operator responses',
+    lost.li3.operatorResponses.op1?.outcome === 'not-found' &&
+    lost.li3.operatorResponses.op2?.outcome === 'located');
+  const beforeRepeat = testNotifications.length;
+  const repeatLocated = await respondLostItem({
+    itemId:'li3', operatorUid:'op2', outcome:'located', tripNo:'AR-B',
+  }, { database: recoveryDb, postMessage: async m => { testNotifications.push(m); return {ok:true}; } });
+  check('repeating a found report is idempotent and does not send duplicate notices',
+    repeatLocated.ok && repeatLocated.reused === true && testNotifications.length === beforeRepeat);
+  lost.li3.status = 'returned';
+  const afterReturned = await respondLostItem({
+    itemId:'li3', operatorUid:'op1', outcome:'not-found',
+  }, { database: recoveryDb, postMessage: async m => { testNotifications.push(m); return {ok:true}; } });
+  check('a returned item cannot be downgraded or re-opened by an Operator',
+    !afterReturned.ok && afterReturned.status === 409 && lost.li3.status === 'returned' &&
+    testNotifications.length === beforeRepeat);
 
   for (const r of results) console.log(`${r.ok ? 'PASS' : 'FAIL'}  ${r.label}${r.detail ? ` — ${r.detail}` : ''}`);
   const failed = results.filter((r) => !r.ok);
