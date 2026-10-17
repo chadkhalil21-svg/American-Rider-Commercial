@@ -136,8 +136,8 @@ export default function OperatorInsurance() {
     coverageDaysLeft != null && coverageDaysLeft >= 0;
   const national = config ? INSURERS.filter((x) => !x.states) : [];
   // Neutral order: a multi-carrier marketplace, a broker-matching service,
-  // then an individual specialist insurer. They are NOT priced or approved offers.
-  const featured = ['Insureon', 'Limousine Insurance HQ', 'Progressive Commercial']
+  // Additional direct insurers are optional. These are NOT priced or approved offers.
+  const featured = ['Insureon', 'Limousine Insurance HQ']
     .flatMap((name) => national.filter((x) => x.name === name));
   const additional = national.filter((x) => !featured.some((item) => item.name === x.name));
   const regional = config ? INSURERS.filter((x) => x.states?.includes(config.state)) : [];
