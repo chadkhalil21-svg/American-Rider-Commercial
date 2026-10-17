@@ -70,6 +70,7 @@ export default function Schedule() {
   const [saveError, setSaveError] = useState(false);
   const [pickupZone, setPickupZone] = useState<string | null>(null);
   const [zoneChecking, setZoneChecking] = useState(true);
+  const [zoneRetry, setZoneRetry] = useState(0);
   // Clock-only refresh. No new database reads or network traffic; corrects time
   // validity across midnight and when a Traveler returns after locking the phone.
   const [clockMs, setClockMs] = useState(Date.now());
@@ -103,7 +104,7 @@ export default function Schedule() {
       if (current) { setPickupZone(null); setZoneChecking(false); }
     });
     return () => { current = false; };
-  },[lat,lng]);
+  },[lat,lng,zoneRetry]);
 
   const now = new Date(clockMs);
   const marketToday = pickupZone ? pickupDate(now.getTime(),pickupZone) : null;
@@ -582,9 +583,18 @@ export default function Schedule() {
         </Text>
       )}
       {!pickupZone && hasDestination && hasQuote && (
-        <Text style={zoneChecking ? styles.zoneCheckingText : styles.customPast}>
-          {t(zoneChecking ? 'traveler.schedCheckingZone' : 'traveler.schedZoneUnavailable')}
-        </Text>
+        <View>
+          <Text style={zoneChecking ? styles.zoneCheckingText : styles.customPast}>
+            {t(zoneChecking ? 'traveler.schedCheckingZone' : 'traveler.schedZoneUnavailable')}
+          </Text>
+          {!zoneChecking && (
+            <Pressable accessibilityRole="button"
+              style={styles.zoneRetryButton}
+              onPress={() => setZoneRetry((n) => n + 1)}>
+              <Text style={styles.zoneRetryText}>{t('traveler.tryAgain')} ›</Text>
+            </Pressable>
+          )}
+        </View>
       )}
 
       <Card style={styles.summaryCard}>
@@ -691,6 +701,8 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   zoneCheckingText: { fontSize: 13.5, color: colors.ink2, marginTop: 6 },
+  zoneRetryButton: { minHeight: 44, alignSelf: 'flex-start', justifyContent: 'center' },
+  zoneRetryText: { fontSize: 14, fontWeight: '600', color: colors.ink, textDecorationLine: 'underline' },
   journeyCard: { marginTop: 18, paddingHorizontal: 18, paddingVertical: 0 },
   journeyRow: { minHeight: 68, flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 12 },
   journeyDot: { width: 9, height: 9, borderRadius: 5 },
