@@ -31,6 +31,7 @@ export type SchedStatus =
   | 'dispatched' // an operator has been sent
   | 'unmatched' // nobody was available, and the hour has passed
   | 'payment_failed' // the card on file was declined
+  | 'price_changed' // the price is no longer the agreed Total; no charge made
   | 'needs_attention' // charged, but the travel could not be created — for us, not them
   | 'cancelled'; // cancelled before dispatch, including revoked Family authorization
 
