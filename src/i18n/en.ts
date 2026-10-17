@@ -821,7 +821,7 @@ export default {
     travelWhileWaiting: 'Travel as a Traveler while you wait',
     reviewNotApproved: 'Not Approved',
     reviewStatusHere: 'Your qualification has been submitted. Your status appears here.',
-    waitlistJoin: 'Tell me when American Rider operates here',
+    waitlistJoin: 'Register interest',
     marketServiceStatus: 'Service at this pickup',
     marketChecking: 'Checking whether new Travel is available here.',
     marketStatusUnavailable: 'Service status cannot be confirmed. New bookings are paused; check again.',
