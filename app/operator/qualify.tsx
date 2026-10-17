@@ -103,11 +103,11 @@ export default function OperatorQualification() {
                   ? area.market!.name
                   : area.market
                     ? t('operator.marketNotActive', { name: area.market.name })
-                    : t('operator.chooseOperatingArea')}
+                    : t('operator.marketUnknownSoon')}
               </Text>
               {!areaAuthorized && (
                 <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginTop: 8 }}>
-                  {[...area.active, ...area.onboarding, ...area.waitlist].map((m) => (
+                  {area.active.map((m) => (
                     <Pressable
                       key={m.id}
                       hitSlop={6}
