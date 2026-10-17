@@ -244,7 +244,7 @@ type OperatorState = {
   setOnline: (b: boolean) => void;
   /** A real travel dispatched to this operator and not yet answered. */
   incoming: SimRequest | null;
-  declineRequest: (r: SimRequest) => void;
+  declineRequest: (r: SimRequest) => Promise<boolean>;
   /** The countdown ran out. Leaves the travel assigned; does NOT record a refusal. */
   lapseRequest: (r: SimRequest) => void;
   /** The traveler has boarded — reported so their screen can follow. */
@@ -872,11 +872,13 @@ export function OperatorProvider({ children }: { children: React.ReactNode }) {
     return sent;
   }, []);
 
-  const declineRequest = useCallback((r: SimRequest) => {
-    setIncoming(null);
-    // A declined travel is released rather than quietly dropped: the record says so, which is
-    // what lets it be offered to somebody else instead of stalling on a phone that said no.
-    if (r.rideId) declineTravel(r.rideId);
+  const declineRequest = useCallback(async (r: SimRequest): Promise<boolean> => {
+    // An explicit Decline is different from an unanswered offer. Only remove it from the
+    // phone after the server acknowledges the rejection; otherwise the Operator may retry.
+    if (!r.rideId) return false;
+    const accepted = await declineTravel(r.rideId);
+    if (accepted) setIncoming(null);
+    return accepted;
   }, []);
 
   /**
