@@ -93,16 +93,27 @@ export default function AccountEmail() {
   };
 
   const change = async () => {
-    if (!user || provider !== 'password' || !emailOk(nextEmail) || !password || busy) return;
+    if (!user || !canSubmit || requestLock.current) return;
+    requestLock.current = true;
     setError('');
     setNotice('');
-    const ok = await requestEmailChange(nextEmail, () => reauthenticateWithPassword(user, password));
-    if (ok) {
-      setNotice(t('traveler.emailChangeSent', { email: nextEmail.trim() }));
-      setNextEmail('');
+    Keyboard.dismiss();
+    const requested = requestedEmail;
+    try {
+      const ok = await requestEmailChange(requested, () => reauthenticateWithPassword(user, password));
+      // Never retain the credential after the request, successful or not.
       setPassword('');
-    } else {
-      setError(t('traveler.emailChangeFailed'));
+      setShowPassword(false);
+      if (ok) {
+        setPendingEmail(requested);
+        setNextEmail('');
+        setEmailTouched(false);
+        setConfirmedEmail('');
+      } else {
+        setError(t('traveler.emailChangeFailed'));
+      }
+    } finally {
+      requestLock.current = false;
     }
   };
 
