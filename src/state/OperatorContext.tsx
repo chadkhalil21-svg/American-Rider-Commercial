@@ -1222,6 +1222,71 @@ tr('traveler.blockCoverage'),
     return out;
   }, [user?.displayName, vehicle, insuranceExpiry, coverageDaysLeft]);
 
+  // The phone must not confuse a local OFF toggle with a server-confirmed
+  // end of duty. Persist a tiny, UID-scoped retry flag, never a location,
+  // identity credential, or an Operator's insurance record.
+  const confirmOffline = useCallback(async () => {
+    const uid = userUidRef.current;
+    if (!uid || offlineInFlightRef.current) return;
+    offlineInFlightRef.current = true;
+    offlinePendingRef.current = true;
+    setOfflinePendingState(true);
+    setOfflineBusy(true);
+    const key = `ar:operator-offline-pending:${uid}`;
+    try {
+      await AsyncStorage.setItem(key, '1').catch(() => {});
+      const confirmed = await goOffline();
+      if (userUidRef.current !== uid) return;
+      if (confirmed) {
+        await AsyncStorage.removeItem(key).catch(() => {});
+        offlinePendingRef.current = false;
+        setOfflinePendingState(false);
+        setOnlineError(null);
+        setOnlineErrorCode(null);
+      } else {
+        setOnlineError(tr('operator.offlineUnconfirmed'));
+        setOnlineErrorCode('offline_unconfirmed');
+      }
+    } finally {
+      offlineInFlightRef.current = false;
+      if (userUidRef.current === uid) setOfflineBusy(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    const uid = user?.uid;
+    offlinePendingRef.current = false;
+    setOfflinePendingState(false);
+    setDutyRestoreReady(false);
+    if (!uid) {
+      setDutyRestoreReady(true);
+      return () => { active = false; };
+    }
+    const key = `ar:operator-offline-pending:${uid}`;
+    void AsyncStorage.getItem(key).then(pending => {
+      if (!active || userUidRef.current !== uid) return;
+      if (pending === '1') {
+        offlinePendingRef.current = true;
+        setOfflinePendingState(true);
+        void confirmOffline();
+      }
+    }).catch(() => {
+      if (!active || userUidRef.current !== uid) return;
+      offlinePendingRef.current = true;
+      setOfflinePendingState(true);
+      setOnlineError(tr('operator.offlineUnconfirmed'));
+      setOnlineErrorCode('offline_unconfirmed');
+    }).finally(() => {
+      if (active && userUidRef.current === uid) setDutyRestoreReady(true);
+    });
+    const subscription = AppState.addEventListener('change', state => {
+      if (state === 'active' && offlinePendingRef.current && !onlineRef.current)
+        void confirmOffline();
+    });
+    return () => { active = false; subscription.remove(); };
+  }, [user?.uid, confirmOffline]);
+
   const dutyAttemptRef = useRef(0);
   const setOnline = useCallback(
     (want: boolean) => {
@@ -1229,8 +1294,16 @@ tr('traveler.blockCoverage'),
       setOnlineError(null);
       setOnlineErrorCode(null);
       if (!want) {
+        // Locally stop receiving offers immediately, then withdraw the
+        // server's dispatchable presence. Failure is visible and retryable.
         setOnlineState(false);
-        goOffline();
+        void confirmOffline();
+        return;
+      }
+      if (!dutyRestoreReady || offlinePendingRef.current) {
+        setOnlineState(false);
+        setOnlineError(tr('operator.offlineUnconfirmed'));
+        setOnlineErrorCode('offline_unconfirmed');
         return;
       }
       // A TRAVELER MUST BE ABLE TO FIND THE CAR. Same posture as the payout check above: we
@@ -1332,7 +1405,7 @@ tr('traveler.gateLocation'),
           .catch(() => setBackgroundPresence(false));
       })();
     },
-    [user?.displayName],
+    [user?.displayName, confirmOffline, dutyRestoreReady],
   );
 
   const value: OperatorState = {
