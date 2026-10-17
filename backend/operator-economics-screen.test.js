@@ -8,6 +8,7 @@ const { commissionCents } = require('./economics');
 
 const source = (name) => fs.readFileSync(path.join(__dirname, '..', name), 'utf8');
 const screen = source('app/operator/economics.tsx');
+const clientMath = source('src/data.ts');
 
 const requiredKeys = [
   'econTitle', 'econIntro', 'econShare', 'econFee', 'econExamples',
@@ -49,6 +50,21 @@ for (let pass = 0; pass < 2; pass++) {
   assert.doesNotMatch(screen, /fetch\(|axios\(|getDocs\(/,
     'an informational calculator must not create unnecessary database requests');
 
+  assert.match(clientMath, /const fareCents = Math\.max\(0, Math\.round\(cost \* 100\)\);/,
+    'app commission converts input Fare to integer cents');
+  assert.match(clientMath, /return Math\.floor\(fareCents \/ 100\) \/ 100;/,
+    'app commission uses whole-cent 1% flooring to match the server');
+  for (const fareCents of [2900, 5800, 11600, 20500, 20700, 23200, 41000, 43900]) {
+    const fareDollars = fareCents / 100;
+    const clientFeeCents = Math.floor(Math.max(0, Math.round(fareDollars * 100)) / 100);
+    assert.equal(clientFeeCents, commissionCents(fareCents),
+      'round-number fare must never misstate the Operator share by a cent');
+  }
+  for (let fareCents = 1; fareCents <= 200000; fareCents++) {
+    const clientFeeCents = Math.floor(Math.round((fareCents / 100) * 100) / 100);
+    assert.equal(clientFeeCents, commissionCents(fareCents),
+      'every Fare cent through $2,000 must display the canonical Operator share');
+  }
   for (const fareCents of [1, 99, 100, 2000, 5000, 100000, 100000000]) {
     const feeCents = commissionCents(fareCents);
     assert.equal(feeCents, Math.floor(fareCents * 0.01));
@@ -65,4 +81,4 @@ for (let pass = 0; pass < 2; pass++) {
       language + ': $2 separate account cost must be visible');
   }
 }
-console.log('PASS twice: Operator Economics screen, 99% arithmetic, real-sized examples, accessible disclosure and five locales; no network or billing change.');
+console.log('PASS twice: Operator Economics screen, 99% arithmetic, real-sized examples, accessible disclosure and five locales and cent-precise app/server display parity; no network or billing change.');
