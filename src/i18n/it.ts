@@ -1062,6 +1062,7 @@ export default {
     schedChooseDestination: "Scegli destinazione",
     schedReturnToPickup: "Ritiro programmato",
     schedContinue: "Continua",
+    schedContinueScheduling: "Continua la programmazione",
     schedDestinationNeeded: "Scegli una destinazione per vedere il costo totale del viaggio.",
     schedQuoteNeeded: "Il costo del viaggio non è confermato. Controlla il percorso per conoscere il prezzo aggiornato.",
     schedReviewFare: "Controlla costo del viaggio",
