@@ -263,10 +263,10 @@ export default function OperatorInsurance() {
         <Text style={styles.cardTitle}>{t('operator.referredBroker')}</Text>
         <Text style={styles.providerTitle}>{BROKER.name}</Text>
         <Text style={styles.body}>{t(BROKER.note)}</Text>
-        <Pressable accessibilityRole="link" onPress={() => { void Linking.openURL(`tel:${BROKER!.phone.replace(/[^0-9+]/g, '')}`); }} style={styles.tap}>
+        <Pressable accessibilityRole="link" onPress={() => { void Linking.openURL(`tel:${BROKER!.phone.replace(/[^0-9+]/g, '')}`).catch(() => Alert.alert(t('traveler.notChecked'), t('traveler.deviceCouldNotOpen'))); }} style={styles.tap}>
           <Text style={styles.link}>{BROKER.phone}</Text>
         </Pressable>
-        {!!BROKER.email && <Pressable accessibilityRole="link" onPress={() => { void Linking.openURL(`mailto:${BROKER!.email}`); }} style={styles.tap}>
+        {!!BROKER.email && <Pressable accessibilityRole="link" onPress={() => { void Linking.openURL(`mailto:${BROKER!.email}`).catch(() => Alert.alert(t('traveler.notChecked'), t('traveler.deviceCouldNotOpen'))); }} style={styles.tap}>
           <Text style={styles.link}>{BROKER.email}</Text>
         </Pressable>}
         {!!BROKER.hours && <Text style={styles.body}>{t(BROKER.hours)}</Text>}
