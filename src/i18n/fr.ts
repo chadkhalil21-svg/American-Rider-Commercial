@@ -232,6 +232,8 @@ export default {
     partRead: 'Lu',
     openAllParts: 'Ouvrez les %{n} parties pour continuer',
 
+    lostLoading: "Chargement du rapport…",
+
     lostRetry: "Réessayer",
 
     lostOpenFailed: "Ce signalement n’a pas pu être ouvert.",
