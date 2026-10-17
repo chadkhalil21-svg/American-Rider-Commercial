@@ -227,6 +227,19 @@ for (let pass = 1; pass <= 2; pass++) {
     'a module-level translated constant becomes stale after language change');
   assert.match(supportService, /return unreachable\(\);/);
 
+  // Operator start-of-duty and coverage summary must agree exactly with the
+  // server's UTC policy end. Device-local midnight is not a safety gate.
+  const opContext = read('src/state/OperatorContext.tsx');
+  const insuranceHorizon = read('backend/insurance-horizon.js');
+  assert.match(opContext, /Date\.parse\(\`\$\{coverageRef\.current\}T23:59:59\.999Z\`\)/,
+    'commence-operations uses UTC cutoff with the final 999ms');
+  assert.match(opContext, /Date\.parse\(\`\$\{insuranceExpiry\}T23:59:59\.999Z\`\)/,
+    'coverage summary and duty decision use one UTC cutoff');
+  assert.match(insuranceHorizon, /Date\.parse\(expiry \+ 'T23:59:59\.999Z'\)/,
+    'server eligibility derives the same absolute cutoff');
+  assert.doesNotMatch(opContext, /Date\.parse\(\`\$\{coverageRef\.current\}T23:59:59\`\)/,
+    'no local-time date parse permitted at duty decision');
+
   const found = indexes.indexes.some(x => x.collectionGroup === 'lost_items' &&
     x.queryScope === 'COLLECTION' &&
     x.fields?.[0]?.fieldPath === 'travelerUid' &&
