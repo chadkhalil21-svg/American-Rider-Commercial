@@ -70,6 +70,11 @@ Review American Rider as a complete service, not an isolated screen. Read the cu
 
 **Draft fix:** Both the Operator duty dashboard and Insurance view now apply precisely the server's `23:59:59.999Z` rule. No change to the independent, authenticated backend eligibility or statutory policy requirement. The mobile UI is informational; server eligibility remains mandatory for commencing operations and accepting Travel. Cross-layer regression checks the exact expression across all three modules. Physical timezone/DST, midnight, phone-backgrounding and server rejection remain real-device acceptance cases.
 
+### 8. Safety assistance could attach an unrelated past Travel
+**Evidence:** On the general `app/safety.tsx` screen, the Patron Support action always called `ride.openHelp(ride.lastTrip.no)` even when no Travel was underway. The helper only rejects the demonstration Travel Number, so a *real* earlier Travel could silently be associated with an unrelated, current safety concern. The Travel status screen also passed the same remembered value rather than delegating to the central active-state guard.
+
+**Draft fix:** Both screens call `ride.openHelp()`. `RideContext` then supplies the active Travel Number only while an actual Travel is underway; otherwise the support case has no Travel attached. This is intentionally permitted for personal-safety or account concerns. Regression enforces the shared gate across the Safety screen, Travel screen, and support store. This does not modify emergency escalation, payments, or location processing.
+
 ## Related existing draft fixes, not duplicated here
 - Commercial PR #52: Scheduled Travel final review, vehicle/person selection, multi-reservation list, cancellation consent, Firestore deletion boundary, and an independently required scheduled-rides composite index.
 - Commercial PR #53: Email change, pending verification and one consistent account entry point.
