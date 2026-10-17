@@ -1283,11 +1283,11 @@ tr('traveler.blockCoverage'),
     }).finally(() => {
       if (active && userUidRef.current === uid) setDutyRestoreReady(true);
     });
-    const subscription = AppState.addEventListener('change', state => {
+    const subscription = Platform.OS === 'web' ? null : AppState.addEventListener('change', state => {
       if (state === 'active' && offlinePendingRef.current && !onlineRef.current)
         void confirmOffline();
     });
-    return () => { active = false; subscription.remove(); };
+    return () => { active = false; subscription?.remove(); };
   }, [user?.uid, confirmOffline]);
 
   const dutyAttemptRef = useRef(0);
