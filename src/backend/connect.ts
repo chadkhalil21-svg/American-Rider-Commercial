@@ -250,27 +250,52 @@ export async function goOffline(): Promise<boolean> {
 }
 
 /**
- * Collect anything this operator is still owed.
- *
- * A travel settles once, when it completes. That attempt fails for ordinary reasons — money
- * still clearing, onboarding not finished at the time, a dropped connection — and nothing
- * used to try again, so the fare sat in the platform balance and the operator was simply not
- * paid. Asked for on the operator's behalf whenever their app comes up.
- *
- * Never throws, and safe to call as often as we like: each transfer is still guarded by the
- * travel's own transferId, so nothing can be paid twice.
+ * A recovery attempt has three distinct results: a verified response from the server,
+ * a confirmed list of still-unpaid Travels, or an unconfirmed request. Neither an HTTP
+ * failure nor a Stripe refusal is proof that the Operator has no outstanding fares.
  */
-export async function settlePendingPayouts(): Promise<{ settled: number; centsPaid: number }> {
+export type PayoutRecoveryResult =
+  | { ok: true; settled: number; centsPaid: number; stillOwed: { tripNo: string | null; reason: string }[] }
+  | { ok: false; code: string; error: string };
+
+/** Ask the authenticated server to retry recorded unpaid Travel, without inventing success. */
+export async function settlePendingPayouts(): Promise<PayoutRecoveryResult> {
   try {
     const res = await fetch(`${PAYMENT_SERVER_URL}/operator/settle-pending`, {
       method: 'POST',
       headers: await authHeaders(),
       body: '{}',
     });
-    const d = await res.json().catch(() => ({}));
-    return { settled: Number(d?.settled ?? 0), centsPaid: Number(d?.centsPaid ?? 0) };
+    const d = await res.json().catch(() => null);
+    if (!res.ok || d?.ok !== true) {
+      return {
+        ok: false,
+        code: typeof d?.code === 'string' ? d.code : 'recovery_unconfirmed',
+        error: typeof d?.error === 'string' ? d.error :
+          typeof d?.reason === 'string' ? d.reason : t('traveler.errReachAR'),
+      };
+    }
+    // A malformed server response is not a successful reconciliation either.
+    const settled = Number(d.settled);
+    const centsPaid = Number(d.centsPaid);
+    if (!Number.isSafeInteger(settled) || settled < 0 ||
+        !Number.isSafeInteger(centsPaid) || centsPaid < 0 ||
+        !Array.isArray(d.stillOwed)) {
+      return { ok: false, code: 'recovery_incomplete', error: t('traveler.errReachAR') };
+    }
+    return {
+      ok: true,
+      settled,
+      centsPaid,
+      stillOwed: d.stillOwed
+        .filter((entry: unknown) => !!entry && typeof entry === 'object')
+        .map((entry: any) => ({
+          tripNo: typeof entry.tripNo === 'string' ? entry.tripNo : null,
+          reason: typeof entry.reason === 'string' ? entry.reason : 'pending',
+        })),
+    };
   } catch {
-    return { settled: 0, centsPaid: 0 };
+    return { ok: false, code: 'recovery_unreachable', error: t('traveler.errReachAR') };
   }
 }
 

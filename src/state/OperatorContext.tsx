@@ -289,7 +289,9 @@ type OperatorState = {
   lastCompleted: CompletedOp | null;
   msgs: OpMsg[];
   sendMsg: (text: string) => void;
-  // revenue (derived from completed simulated operations — starts at zero, earned)
+  /** Whether the last authenticated attempt to check unpaid Travel was confirmed. */
+  payoutRecoveryStatus: 'not_checked' | 'checking' | 'checked' | 'unconfirmed';
+  // Local operational estimates, not authoritative Stripe transfer or bank figures.
   ops: CompletedOp[];
   todayTotal: number;
   todayOps: number;
@@ -380,6 +382,9 @@ export function OperatorProvider({ children }: { children: React.ReactNode }) {
   const [lastCompleted, setLastCompleted] = useState<CompletedOp | null>(null);
   const [msgs, setMsgs] = useState<OpMsg[]>([]);
   const [revenue, setRevenue] = useState<RevenueBlob>(EMPTY_REVENUE);
+  const [revenueOwnerUid, setRevenueOwnerUid] = useState<string | null>(null);
+  const [payoutRecoveryStatus, setPayoutRecoveryStatus] = useState<OperatorState['payoutRecoveryStatus']>('not_checked');
+  const payoutRecoveryRequestRef = useRef(0);
 
   // Mirror of the revenue blob so mutations never nest setState inside an updater
   // (React updaters must stay pure — StrictMode runs them twice).
@@ -388,7 +393,7 @@ export function OperatorProvider({ children }: { children: React.ReactNode }) {
   // ---- load persisted state once ----
   useEffect(() => {
     AsyncStorage.multiGet([
-      K_ROLE, K_VERIFICATION, K_COMMISSIONED, K_DOCS, K_BGCHECK, K_REVENUE, K_VEHICLE, K_COVERAGE,
+      K_ROLE, K_VERIFICATION, K_COMMISSIONED, K_DOCS, K_BGCHECK, K_VEHICLE, K_COVERAGE,
     ])
       .then((pairs) => {
         const get = (k: string) => pairs.find(([key]) => key === k)?.[1] ?? null;
@@ -420,23 +425,41 @@ export function OperatorProvider({ children }: { children: React.ReactNode }) {
         }
         const bg = get(K_BGCHECK);
         if (bg) setBgCheckedAt(bg);
-        const rev = get(K_REVENUE);
-        if (rev) {
-          try {
-            const parsed = JSON.parse(rev) as RevenueBlob;
-            if (parsed && Array.isArray(parsed.ops)) {
-              const blob = { ...EMPTY_REVENUE, ...parsed };
-              revRef.current = blob;
-              setRevenue(blob);
-            }
-          } catch {
-            /* keep defaults */
-          }
-        }
+
       })
       .catch(() => {})
       .finally(() => setReady(true));
   }, []);
+
+  // The retired shared-device revenue key is preserved as legacy data but never assigned
+  // to a different sign-in. Local estimates are stored per authenticated Operator UID.
+  // A backend-owned earnings ledger will eventually replace this display entirely.
+  useEffect(() => {
+    let active = true;
+    const uid = user?.uid ?? null;
+    revRef.current = EMPTY_REVENUE;
+    setRevenue(EMPTY_REVENUE);
+    setRevenueOwnerUid(null);
+    if (uid) {
+      AsyncStorage.getItem(`${K_REVENUE}:${uid}`).then((saved) => {
+        if (!active || userUidRef.current !== uid) return;
+        let blob = EMPTY_REVENUE;
+        try {
+          const parsed = saved ? JSON.parse(saved) as RevenueBlob : null;
+          if (parsed && Array.isArray(parsed.ops)) blob = { ...EMPTY_REVENUE, ...parsed };
+        } catch {
+          // Unknown local data never becomes certified revenue.
+        }
+        revRef.current = blob;
+        setRevenue(blob);
+        setRevenueOwnerUid(uid);
+      }).catch(() => {
+        // Failure reading existing local records must not overwrite them with zero.
+        if (active && userUidRef.current === uid) setRevenueOwnerUid(null);
+      });
+    }
+    return () => { active = false; };
+  }, [user?.uid]);
 
   const setRole = useCallback((r: Role) => {
     setRoleState(r);
@@ -580,10 +603,12 @@ export function OperatorProvider({ children }: { children: React.ReactNode }) {
 
   // Every revenue write goes through here: ref + state + storage stay one thing.
   const commitRevenue = useCallback((next: RevenueBlob) => {
+    const uid = userUidRef.current;
+    if (!uid || revenueOwnerUid !== uid) return;
     revRef.current = next;
     setRevenue(next);
-    AsyncStorage.setItem(K_REVENUE, JSON.stringify(next)).catch(() => {});
-  }, []);
+    AsyncStorage.setItem(`${K_REVENUE}:${uid}`, JSON.stringify(next)).catch(() => {});
+  }, [revenueOwnerUid]);
 
   /**
    * Put a travel in front of the operator, from whichever path noticed it: the live
@@ -738,6 +763,8 @@ export function OperatorProvider({ children }: { children: React.ReactNode }) {
     // this attached with no user and reported "Not signed in." for the rest of the session.
     // The uid in the dependency list is what makes it attach again once there is one.
     if (verification !== 'commissioned' || !user?.uid) {
+      payoutRecoveryRequestRef.current += 1;
+      setPayoutRecoveryStatus('not_checked');
       // SAY WHICH, because "not attached" and "nothing yet" are different answers.
       //
       // This set inboxError to NULL on the way out, so an inbox that never attached rendered
@@ -759,12 +786,17 @@ export function OperatorProvider({ children }: { children: React.ReactNode }) {
       return;
     }
     setInboxError(null);
-    // Ask for anything still owed. A travel settles once, at completion, and that attempt
-    // fails for ordinary reasons — money still clearing, onboarding unfinished at the time, a
-    // dropped connection. Nothing retried, so the fare stayed with the platform and the
-    // operator was not paid. Silent by design: it either moves money or it does not, and an
-    // operator opening the app should not be shown plumbing.
-    settlePendingPayouts();
+    // A request to recover a past unpaid fare is not evidence of successful settlement.
+    // Keep failures distinct from a genuine server response and scope late replies to the
+    // account that made the request, so switching accounts cannot present stale results.
+    const recoveryUid = user.uid;
+    const recoveryRequest = ++payoutRecoveryRequestRef.current;
+    setPayoutRecoveryStatus('checking');
+    void settlePendingPayouts().then((result) => {
+      if (userUidRef.current === recoveryUid && payoutRecoveryRequestRef.current === recoveryRequest) {
+        setPayoutRecoveryStatus(result.ok ? 'checked' : 'unconfirmed');
+      }
+    });
     return watchAssignedTravel((list) => {
       // A TRAVEL UNDERWAY SURVIVES THE APP CLOSING.
       //
@@ -1020,7 +1052,9 @@ export function OperatorProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
-  // ---- revenue, derived from the operations this operator actually completed ----
+  // Never show another account's device records, including the first render after a switch.
+  const localRevenueForAccount = user?.uid && revenueOwnerUid === user.uid ? revenue : EMPTY_REVENUE;
+  // ---- Local device estimates; never mistaken for actual transfers to a bank ----
   const totals = useMemo(() => {
     const now = new Date();
     const weekAgo = Date.now() - 7 * 24 * 3600 * 1000;
@@ -1030,7 +1064,7 @@ export function OperatorProvider({ children }: { children: React.ReactNode }) {
     let month = 0;
     let year = 0;
     let all = 0;
-    for (const o of revenue.ops) {
+    for (const o of localRevenueForAccount.ops) {
       const d = new Date(o.at);
       all += o.earn;
       if (sameDay(d, now)) {
@@ -1049,9 +1083,9 @@ export function OperatorProvider({ children }: { children: React.ReactNode }) {
       week: round2(week),
       month: round2(month),
       year: round2(year),
-      balance: round2(Math.max(0, all - revenue.withdrawn)),
+      balance: round2(Math.max(0, all - localRevenueForAccount.withdrawn)),
     };
-  }, [revenue]);
+  }, [localRevenueForAccount]);
 
   // withdraw() REMOVED. It subtracted a fee, set `withdrawn` to everything earned so the
   // balance read zero, and moved no money — a recorded withdrawal that had never happened.
@@ -1415,6 +1449,7 @@ tr('traveler.gateLocation'),
 
   const value: OperatorState = {
     ready,
+    payoutRecoveryStatus,
     opName,
     opInitials,
     role,
@@ -1462,7 +1497,7 @@ tr('traveler.gateLocation'),
     lastCompleted,
     msgs,
     sendMsg,
-    ops: revenue.ops,
+    ops: localRevenueForAccount.ops,
     todayTotal: totals.today,
     todayOps: totals.todayN,
     weekTotal: totals.week,
