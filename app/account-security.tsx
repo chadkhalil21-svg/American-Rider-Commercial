@@ -173,10 +173,14 @@ export default function AccountSecurity() {
           <SectionLabel style={{ marginTop: 24 }}>{t('traveler.signInMethod')}</SectionLabel>
           <Card style={styles.managedCard}>
             <Text style={styles.managedTitle}>
-              {provider === 'apple' ? t('auth.continueWithApple') : t('auth.continueWithGoogle')}
+              {provider === 'apple' ? t('auth.continueWithApple')
+                : provider === 'google' ? t('auth.continueWithGoogle')
+                : t('traveler.signInMethod')}
             </Text>
             <Text style={styles.managedBody}>
-              {provider === 'apple' ? t('traveler.emailManagedApple') : t('traveler.emailManagedGoogle')}
+              {t(provider === 'apple' ? 'traveler.emailManagedApple'
+                : provider === 'google' ? 'traveler.emailManagedGoogle'
+                : 'traveler.emailManagedUnsupported')}
             </Text>
           </Card>
         </>
