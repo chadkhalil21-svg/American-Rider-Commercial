@@ -305,6 +305,11 @@ for (let pass = 1; pass <= 2; pass++) {
         language + ' must state current class and cancellation terms in its own language');
   }
 
+  assert.match(finalReview, /traveler\.paymentMethods/,
+    'scheduled Travel review includes access to existing payment methods');
+  assert.match(finalReview, /router\.navigate\('\/wallet'\)/,
+    'payment method link opens the existing secure payment page, not new card collection');
+
   const confirmation = read('app/reserve.tsx');
   assert.match(confirmation, /params\.scheduling === '1'/,
     'confirmation offers a direct return to the selected scheduled pickup');
