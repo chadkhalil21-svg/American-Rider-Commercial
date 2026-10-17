@@ -159,7 +159,7 @@ export async function submitForReview(): Promise<{ ok: boolean; error?: string }
 // The county an operator will work in. The server unlocks document reading, screening and
 // prelaunch intake needs separate evidence; full activation alone permits paid duty.
 export type Market = { id: string; name: string; status: 'active' | 'onboarding' | 'waitlist' };
-export type MarketState = { market: Market | null; active: Market[]; onboarding: Market[]; waitlist: Market[] };
+export type MarketState = { market: Market | null; active: Market[]; onboarding: Market[]; waitlist: Market[]; error?: string };
 
 const EMPTY_MARKETS: MarketState = { market: null, active: [], onboarding: [], waitlist: [] };
 
@@ -167,13 +167,13 @@ const EMPTY_MARKETS: MarketState = { market: null, active: [], onboarding: [], w
 export async function getOperatingMarket(): Promise<MarketState> {
   try {
     const res = await fetch(`${PAYMENT_SERVER_URL}/operator/market`, { headers: await authHeaders() });
-    if (!res.ok) return EMPTY_MARKETS;
-    const d = await res.json();
+    const d = await res.json().catch(() => ({}));
+    if (!res.ok) return { ...EMPTY_MARKETS, error: typeof d?.error === 'string' ? d.error : t('traveler.couldNotSaveConn') };
     return { market: d?.market ?? null, active: Array.isArray(d?.active) ? d.active : [],
       onboarding: Array.isArray(d?.onboarding) ? d.onboarding : [],
       waitlist: Array.isArray(d?.waitlist) ? d.waitlist : [] };
   } catch {
-    return EMPTY_MARKETS;
+    return { ...EMPTY_MARKETS, error: t('traveler.couldNotSaveConn') };
   }
 }
 
@@ -187,13 +187,13 @@ export async function setOperatingMarket(
       headers: await authHeaders(),
       body: JSON.stringify(arg),
     });
-    if (!res.ok) return EMPTY_MARKETS;
-    const d = await res.json();
+    const d = await res.json().catch(() => ({}));
+    if (!res.ok) return { ...EMPTY_MARKETS, error: typeof d?.error === 'string' ? d.error : t('traveler.couldNotSaveConn') };
     return { market: d?.market ?? null, active: Array.isArray(d?.active) ? d.active : [],
       onboarding: Array.isArray(d?.onboarding) ? d.onboarding : [],
       waitlist: Array.isArray(d?.waitlist) ? d.waitlist : [] };
   } catch {
-    return EMPTY_MARKETS;
+    return { ...EMPTY_MARKETS, error: t('traveler.couldNotSaveConn') };
   }
 }
 
