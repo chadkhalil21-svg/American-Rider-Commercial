@@ -102,6 +102,7 @@ export default {
     activeAccountCost: "Costo de cuenta activa",
     activeAccountCostBody: "Stripe cobra un costo de cuenta de $2 en un mes cuando se envía un pago a su cuenta bancaria o tarjeta de débito. American Rider exime ese costo cuando completa al menos 20 Viajes en el mismo mes. Por debajo de 20, el costo de $2 y el costo inevitable de procesamiento de tarjeta para cobrarlo se cobran por separado; su 99% de cada Tarifa de Viaje no se reduce.",
     operatingArea: 'Zona de Operación',
+    changeOperatingArea: 'Cambiar zona de operaciones',
     chooseOperatingArea: 'Elija el condado en el que operará.',
     marketNotActive: 'Los viajes de pago aún no están disponibles en %{name}. Puede preparar documentos y solicitar la revisión de antecedentes ahora.',
     marketPrelaunch: 'Las verificaciones previas al lanzamiento están autorizadas en %{name}. Puede revisar documentos, pero aún no se permiten viajes de pago ni ponerse de servicio.',
