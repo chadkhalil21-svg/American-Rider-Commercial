@@ -103,11 +103,17 @@ export default function AccountEmail() {
   }, []));
 
   const resend = async () => {
+    if (busy || requestLock.current) return;
+    requestLock.current = true;
     setError('');
     setNotice('');
-    const ok = await resendEmailVerification();
-    setNotice(ok ? t('traveler.emailVerificationSent') : '');
-    if (!ok) setError(t('traveler.emailVerificationFailed'));
+    try {
+      const ok = await resendEmailVerification();
+      setNotice(ok ? t('traveler.emailVerificationSent') : '');
+      if (!ok) setError(t('traveler.emailVerificationFailed'));
+    } finally {
+      requestLock.current = false;
+    }
   };
 
   const change = async () => {
