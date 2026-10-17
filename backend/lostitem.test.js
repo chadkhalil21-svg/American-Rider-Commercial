@@ -105,6 +105,10 @@ const fakeDb = {
       travelerUid: 'traveler1', tripNo: null, candidateTripNos: ['AR-A','AR-B'],
       notifiedOperatorIds: ['op1','op2'], description: 'Phone', status: 'operator-notified', operatorResponses: {},
     },
+    li4: {
+      travelerUid: 'traveler1', tripNo: 'AR-A', candidateTripNos: ['AR-A'],
+      notifiedOperatorIds: ['op1'], description: 'Wallet', status: 'reported', operatorResponses: {},
+    },
   };
   const rides = {
     'AR-2117-MIA': { tripNo: 'AR-2117-MIA', travelerUid: 'traveler1', operatorId: 'op1', operatorName: 'Operator 1' },
@@ -228,6 +232,29 @@ const fakeDb = {
   check('a returned item cannot be downgraded or re-opened by an Operator',
     !afterReturned.ok && afterReturned.status === 409 && lost.li3.status === 'returned' &&
     testNotifications.length === beforeRepeat);
+
+  // A push/inbox message is already durable before the notification sender
+  // stamps the report. An especially quick Operator may open it and respond.
+  // The late notification bookkeeping must preserve the positive finding.
+  const fastReply = await notifyLostItemOperators(
+    { itemId: 'li4', uid: 'traveler1' },
+    { database: recoveryDb, postMessage: async () => {
+      const located = await respondLostItem({
+        itemId:'li4', operatorUid:'op1', outcome:'located', tripNo:'AR-A',
+      }, { database: recoveryDb, postMessage: async () => ({ ok: true }) });
+      return { ok: located.ok };
+    } },
+  );
+  check('late notification records delivery but cannot downgrade an item already located',
+    fastReply.ok && lost.li4.status === 'located' &&
+    lost.li4.operatorDeliveryCount === 1 && lost.li4.locatedByOperatorId === 'op1');
+  lost.li4.status = 'returned';
+  const repeatDelivery = await notifyLostItemOperators(
+    { itemId: 'li4', uid: 'traveler1' },
+    { database: recoveryDb, postMessage: async () => ({ ok: true }) },
+  );
+  check('a late notification cannot move a returned item back to operator-notified',
+    repeatDelivery.ok && lost.li4.status === 'returned');
 
   for (const r of results) console.log(`${r.ok ? 'PASS' : 'FAIL'}  ${r.label}${r.detail ? ` — ${r.detail}` : ''}`);
   const failed = results.filter((r) => !r.ok);
