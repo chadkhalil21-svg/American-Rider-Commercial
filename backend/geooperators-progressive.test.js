@@ -73,8 +73,12 @@ function count(steps,precision){return steps.filter(x=>x.length===precision).len
    assert(result.some(x=>x.id==='large-119'));
  }
  {
-   const edge=good('near-fine-cell-edge',c.lat[1]-0.00005,c.lng[1]-0.00005);
-   const {db,searches}=fakeDb({[center5]:[edge],[center4]:[far]});
+   const edge=good('near-fine-cell-edge',
+     c.lat[1]+0.95*(c.lat[1]-c.lat[0]),
+     c.lng[1]+0.95*(c.lng[1]-c.lng[0]));
+   const edgePrefix=G.encodeGeohash(edge.lat,edge.lng,5);
+   assert.notEqual(edgePrefix,center5,'edge vehicle belongs to an adjoining fine cell');
+   const {db,searches}=fakeDb({[edgePrefix]:[edge],[center4]:[far]});
    await G.nearbyOperatorCandidates(db,pickup,{safeMatching:matchOptions});
    assert(count(searches,4)>0,'nearby match too far to prove optimal requires outer search');
  }
