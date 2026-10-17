@@ -119,7 +119,7 @@ export function watchAssignedTravel(
       (snap) => {
         if (snap.docs.length > MAX_ACTIVE_INBOX) {
           onChange([]);
-          onError?.('Too many active Travel records. Contact Patron Support for reconciliation.');
+          onError?.(t('traveler.errReadTravel'));
           return;
         }
         const open = snap.docs
