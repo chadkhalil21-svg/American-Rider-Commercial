@@ -100,6 +100,7 @@ export default {
     activeAccountCostBody: "Stripe charges a $2 account cost in a month when a payout is sent to your bank account or debit card. American Rider waives that cost when you complete at least 20 Travels in the same month. Below 20, the $2 cost and the unavoidable card-processing cost of collecting it are charged separately; your 99% share of each Travel Fare is not reduced.",
     operatingArea: 'Operating Area',
     chooseOperatingArea: 'Choose the county you will operate in.',
+    marketUnknownSoon: "Coming soon to more areas. Operator registration is available only where American Rider is open. Select an open county to continue.",
     marketNotActive: 'Coming soon to %{name}. Operator registration begins when service opens here.',
     marketAdmissionRequired: 'Choose an active operating county before starting registration or checks. Unopened areas may join the interest list.',
     ready: 'Ready to Operate',
