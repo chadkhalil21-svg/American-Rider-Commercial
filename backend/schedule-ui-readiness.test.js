@@ -206,7 +206,13 @@ for (let pass = 1; pass <= 2; pass++) {
     'starting a genuinely new journey clears the prior date selection');
   assert.match(screen, /if \(state === 'active'\) setClockMs\(Date\.now\(\)\)/,
     'foreground return updates local clock immediately');
-  assert.match(screen, /clearInterval\(ticker\); onResume\.remove\(\)/,
+  assert.match(screen, /const \[zoneChecking, setZoneChecking\] = useState\(true\)/,
+    'pickup market lookup begins in a neutral loading state');
+  assert.match(screen, /setZoneChecking\(false\)/,
+    'successful or failed lookup settles without extra polling');
+  assert.match(screen, /zoneChecking \? 'traveler\.schedCheckingZone' : 'traveler\.schedZoneUnavailable'/,
+    'do not display a false unavailable warning while the pickup zone is loading');
+    assert.match(screen, /clearInterval\(ticker\); onResume\.remove\(\)/,
     'clean up clock-only timer and listener');
   assert.doesNotMatch(screen, /fetchQuote\(|getDocs\(|onSnapshot\(/,
     'no new network prices, listeners or reads from date controls');
@@ -220,7 +226,7 @@ for (let pass = 1; pass <= 2; pass++) {
       'schedPreviousMonth','schedNextMonth',
       'schedNotQuoted','schedConfirmTimeHint',
       'schedContinueScheduling','schedChooseDestination','schedDestinationNeeded','schedQuoteNeeded',
-      'schedReviewFare','schedTimeUnconfirmed','schedTimesPassed','schedReturnToPickup','schedContinue']) {
+      'schedCheckingZone','schedReviewFare','schedTimeUnconfirmed','schedTimesPassed','schedReturnToPickup','schedContinue']) {
       assert.match(src,new RegExp('^\\s*'+key+':','m'),l+': '+key);
     }
     assert.doesNotMatch(src,/^\s*schedAltLater:/m,
