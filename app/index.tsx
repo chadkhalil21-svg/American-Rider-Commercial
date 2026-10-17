@@ -185,6 +185,7 @@ export default function Home() {
   const [mapExploring, setMapExploring] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [cancellingScheduled, setCancellingScheduled] = useState(false);
+  const [confirmCancelScheduled, setConfirmCancelScheduled] = useState(false);
   const [scheduledCancelError, setScheduledCancelError] = useState<string | null>(null);
   const { note, showNote } = useNote();
 
@@ -357,7 +358,7 @@ export default function Home() {
         // itinerary belongs in the menu). Each opens the screen that shows it.
         ...(ride.rideActive ? [{ label: t('traveler.travelInProgress'), onPress: () => go('/ride') }] : []),
         ...(ride.scheduled && !ride.rideActive
-          ? [{ label: t('traveler.scheduledTravel'), onPress: () => go('/schedule') }]
+          ? [{ label: t('traveler.scheduledTravel'), onPress: () => setMenuOpen(false) }]
           : []),
         { label: t('traveler.travelLog'), onPress: () => go({ pathname: '/history', params: { from: 'home' } }) },
       ],
@@ -501,30 +502,57 @@ export default function Home() {
               <Pressable onPress={() => router.navigate('/ride')} hitSlop={8}>
                 <Text style={styles.upcomingOpen}>{t('traveler.view')} ›</Text>
               </Pressable>
-            ) : (
+            ) : ride.schedState?.status === 'reserved' && !confirmCancelScheduled ? (
               <Pressable
                 accessibilityRole="button"
                 disabled={cancellingScheduled}
-                onPress={async () => {
-                  if (cancellingScheduled) return;
-                  setCancellingScheduled(true);
-                  setScheduledCancelError(null);
-                  try {
-                    if (!await ride.cancelScheduled()) setScheduledCancelError(t('traveler.cancelFailed'));
-                  } catch {
-                    setScheduledCancelError(t('traveler.cancelFailed'));
-                  } finally {
-                    setCancellingScheduled(false);
-                  }
-                }}
+                onPress={() => setConfirmCancelScheduled(true)}
                 hitSlop={8}
               >
-                <Text style={styles.upcomingCancel}>
-                  {cancellingScheduled ? t('traveler.familyWorking') : t('traveler.cancel2')}
-                </Text>
+                <Text style={styles.upcomingCancel}>{t('traveler.cancel2')}</Text>
               </Pressable>
-            )}
+            ) : null}
           </View>
+
+          {confirmCancelScheduled && ride.schedState?.status === 'reserved' && (
+            <View style={styles.scheduledCancelReview}>
+              <Text style={styles.scheduledCancelTitle}>{t('traveler.schedCancelConfirmTitle')}</Text>
+              <Text style={styles.upcomingWhen}>{t('traveler.schedCancelConfirmBody')}</Text>
+              <View style={styles.scheduledCancelActions}>
+                <Pressable
+                  accessibilityRole="button"
+                  disabled={cancellingScheduled}
+                  style={styles.scheduledKeepAction}
+                  onPress={() => { setConfirmCancelScheduled(false); setScheduledCancelError(null); }}
+                >
+                  <Text style={styles.upcomingOpen}>{t('traveler.schedKeepTravel')}</Text>
+                </Pressable>
+                <Pressable
+                  accessibilityRole="button"
+                  disabled={cancellingScheduled}
+                  style={styles.scheduledKeepAction}
+                  onPress={async () => {
+                    if (cancellingScheduled || ride.schedState?.status !== 'reserved') return;
+                    setCancellingScheduled(true);
+                    setScheduledCancelError(null);
+                    try {
+                      const cancelled = await ride.cancelScheduled();
+                      if (cancelled) setConfirmCancelScheduled(false);
+                      else setScheduledCancelError(t('traveler.cancelFailed'));
+                    } catch {
+                      setScheduledCancelError(t('traveler.cancelFailed'));
+                    } finally {
+                      setCancellingScheduled(false);
+                    }
+                  }}
+                >
+                  <Text style={styles.upcomingCancel}>
+                    {cancellingScheduled ? t('traveler.familyWorking') : t('traveler.schedCancelConfirmAction')}
+                  </Text>
+                </Pressable>
+              </View>
+            </View>
+          )}
 
           {ride.schedState?.status === 'unmatched' && (
             <Text style={styles.upcomingFail}>
@@ -857,6 +885,10 @@ const styles = StyleSheet.create({
   upcomingLabel: { color: colors.blue },
   upcomingDest: { fontSize: 15.5, fontWeight: '600', color: colors.ink, marginTop: 7 },
   upcomingWhen: { fontSize: 13, color: colors.ink2, marginTop: 3 },
+  scheduledCancelReview: { marginTop: 12, borderTopWidth: 1, borderTopColor: colors.blueBorder, paddingTop: 12 },
+  scheduledCancelTitle: { fontSize: 14, fontWeight: '600', color: colors.ink },
+  scheduledCancelActions: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12, marginTop: 10 },
+  scheduledKeepAction: { minHeight: 44, justifyContent: 'center', paddingVertical: 7 },
   // INK (Chad, 19 Sept 2026). Cancelling a reservation that has not been dispatched is an
   // ordinary correction, not a destructive act, and it sits on the home screen.
   upcomingCancel: { fontSize: 13, fontWeight: '600', color: colors.ink },
