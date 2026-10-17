@@ -199,9 +199,9 @@ for (let pass = 1; pass <= 2; pass++) {
     const d = read('src/i18n/' + lang + '.ts');
     const traveler = d.match(/^  traveler:\s*\{([\s\S]*?)^  \},/m)?.[1];
     assert.ok(traveler, lang + ': Traveler translations must exist');
-    const operator = d.match(/^  operator:\\s*\\{([\\s\\S]*?)^  \\},/m)?.[1];
+    const operator = d.match(/^  operator:\s*\{([\s\S]*?)^  \},/m)?.[1];
     assert.ok(operator, lang + ': Operator translations must exist');
-    assert.match(operator, /^\\s{4}platformCommunicationsUnavailable:/m,
+    assert.match(operator, /^\s{4}platformCommunicationsUnavailable:/m,
       lang + ': Operator also receives an understandable read error');
     for (const key of ['removeDefaultCardNotice', 'removeCardNotice', 'mobileReadUnavailable',
       'lostHistoryCouldNotLoad', 'lostHistoryMore', 'lostNoVerifiedTravelThread', 'msgTravelUnavailable', 'platformCommunications', 'platformCommunicationsBody', 'noPlatformCommunications', 'newPlatformCommunication', 'platformCommunicationReadFailed', 'platformCommunicationsUnavailable']) {
