@@ -125,6 +125,10 @@ export default function PaymentAndSettlement() {
         {state === 'unreadable' && (
           <View style={styles.row}>
             <Text style={styles.muted}>{t('traveler.methodsUnreadable')}</Text>
+            <Pressable accessibilityRole="button" disabled={adding || !!busyId}
+              onPress={() => void load()} hitSlop={8}>
+              <Text style={styles.action}>{t('traveler.tryAgain')} ›</Text>
+            </Pressable>
           </View>
         )}
         {state === 'ready' && methods.length === 0 && (
@@ -144,18 +148,19 @@ export default function PaymentAndSettlement() {
                   <Text style={styles.rowTitle}>{methodTitle(m)}</Text>
                   {sub ? <Text style={styles.rowSub}>{sub}</Text> : null}
                 </View>
-                {m.isDefault ? (
-                  <Text style={styles.defaultTag}>{t('traveler.defaultMethod')}</Text>
-                ) : (
-                  <View style={styles.actions}>
-                    <Pressable accessibilityRole="button" disabled={busy} onPress={() => makeDefault(m.id)} hitSlop={8}>
+                <View style={styles.actions}>
+                  {m.isDefault && <Text style={styles.defaultTag}>{t('traveler.defaultMethod')}</Text>}
+                  {!m.isDefault && (
+                    <Pressable accessibilityRole="button" disabled={!!busyId || adding}
+                      onPress={() => makeDefault(m.id)} hitSlop={8}>
                       <Text style={styles.action}>{t('traveler.setAsDefault')}</Text>
                     </Pressable>
-                    <Pressable accessibilityRole="button" disabled={busy} onPress={() => setPendingRemove(m)} hitSlop={8}>
-                      <Text style={styles.removeAction}>{t('traveler.remove')}</Text>
-                    </Pressable>
-                  </View>
-                )}
+                  )}
+                  <Pressable accessibilityRole="button" disabled={!!busyId || adding}
+                    onPress={() => setPendingRemove(m)} hitSlop={8}>
+                    <Text style={styles.removeAction}>{t('traveler.remove')}</Text>
+                  </Pressable>
+                </View>
               </View>
             );
           })}
@@ -185,9 +190,14 @@ export default function PaymentAndSettlement() {
 
       <Modal visible={!!pendingRemove} animationType="fade" transparent onRequestClose={() => setPendingRemove(null)}>
         <Pressable style={styles.confirmScrim} onPress={() => setPendingRemove(null)}>
-          <Pressable style={styles.confirmCard} onPress={() => {}}>
+          <Pressable style={styles.confirmCard} onPress={(event) => event.stopPropagation()}>
             <Text style={styles.confirmTitle}>{t('traveler.paymentMethod')}</Text>
             {pendingRemove ? <Text style={styles.confirmBody}>{methodTitle(pendingRemove)}</Text> : null}
+            {pendingRemove?.isDefault && (
+              <Text style={styles.confirmBody}>
+                {t(methods.length === 1 ? 'traveler.removeLastSavedMethodNote' : 'traveler.removeDefaultSavedMethodNote')}
+              </Text>
+            )}
             <View style={styles.confirmActions}>
               <Pressable onPress={() => setPendingRemove(null)} style={styles.confirmButton} accessibilityRole="button">
                 <Text style={styles.confirmButtonText}>{t('traveler.cancel2')}</Text>
