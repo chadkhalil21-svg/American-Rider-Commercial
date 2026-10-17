@@ -1,4 +1,4 @@
-import { useFocusEffect, useRouter } from 'expo-router';
+import { useFocusEffect, usePathname, useRouter } from 'expo-router';
 import React, { useCallback, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { Text } from '../../src/components/AppText';
@@ -9,6 +9,7 @@ import { t } from '../../src/i18n';
 
 export default function OperatorInbox() {
   const router = useRouter();
+  const travelerView = usePathname() === '/inbox';
   const [items, setItems] = useState<PlatformMessage[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [opening, setOpening] = useState<string | null>(null);
@@ -24,7 +25,7 @@ export default function OperatorInbox() {
       if (!m.readAt) {
         const recorded = await markOperatorMessageRead(m.id);
         if (!recorded) {
-          setError(t('operator.inboxReadFailed'));
+          setError(t(travelerView ? 'traveler.platformCommunicationReadFailed' : 'operator.inboxReadFailed'));
           return;
         }
         setItems((xs) => xs.map((x) => x.id === m.id ? { ...x, readAt: Date.now() } : x));
@@ -39,16 +40,16 @@ export default function OperatorInbox() {
     <Screen>
       <LetterheadBar onBack={() => router.back()} />
       <Title>American Rider</Title>
-      <Text style={styles.sub}>{t('operator.inboxBody')}</Text>
-      <SectionLabel style={styles.label}>{t('operator.communications')}</SectionLabel>
+      <Text style={styles.sub}>{t(travelerView ? 'traveler.platformCommunicationsBody' : 'operator.inboxBody')}</Text>
+      <SectionLabel style={styles.label}>{t(travelerView ? 'traveler.platformCommunications' : 'operator.communications')}</SectionLabel>
       {error ? <Text style={styles.error}>{error}</Text> : null}
-      {!error && items.length === 0 ? <Text style={styles.empty}>{t('operator.noCommunications')}</Text> : null}
+      {!error && items.length === 0 ? <Text style={styles.empty}>{t(travelerView ? 'traveler.noPlatformCommunications' : 'operator.noCommunications')}</Text> : null}
       {items.map((m) => (
         <Pressable key={m.id} onPress={() => open(m)} disabled={opening === m.id}>
           <Card style={styles.card}>
             <View style={styles.head}>
               <Text style={[styles.title, !m.readAt && styles.unread]}>{m.title}</Text>
-              {!m.readAt ? <Text style={styles.new}>{t('operator.newCommunication')}</Text> : null}
+              {!m.readAt ? <Text style={styles.new}>{t(travelerView ? 'traveler.newPlatformCommunication' : 'operator.newCommunication')}</Text> : null}
             </View>
             <Text style={styles.body}>{m.body}</Text>
             <Text style={styles.date}>{new Date(m.createdAt).toLocaleString()}</Text>
