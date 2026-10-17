@@ -1063,6 +1063,7 @@ export default {
     schedChooseDestination: "Ziel auswählen",
     schedReturnToPickup: "Geplante Abholung",
     schedContinue: "Weiter",
+    schedContinueScheduling: "Terminplanung fortsetzen",
     schedDestinationNeeded: "Wählen Sie ein Ziel, um den vollständigen Fahrtpreis zu sehen.",
     schedQuoteNeeded: "Der Fahrtpreis ist noch nicht bestätigt. Prüfen Sie die Fahrt, um den aktuellen Preis zu erhalten.",
     schedReviewFare: "Fahrtpreis prüfen",
