@@ -1,3 +1,23 @@
+## Operator-only Travel choices for uncertain lost-item reports
+
+**Verified UX/security mismatch:** A report marked "not sure which Travel"
+can list several recorded trips from different Operators.
+`operatorLostItem()` previously passed the entire candidate list into
+every Operator's screen. The server later rejected attempts to claim a
+trip belonging to a different Operator, but the UI still displayed that
+incorrect choice. Its authoritative ride lookup also collapsed multiple
+trips served by the **same** Operator into a single option.
+
+**Correction:** The authoritative server owner lookup now retains each
+actual trip served by each distinct Operator. The Operator detail endpoint
+returns only that Operator's own candidate trip numbers, never someone
+else's options. The existing screen naturally offers a single trip directly
+or presents a selector when the same Operator served several possible
+trips. The server continues to re-check real ride ownership before any
+"located" result. A deterministic regression covers one Operator serving
+two candidates and another serving one. No database schema or new vendor
+is introduced. Real logged-in Operator/Traveler acceptance remains open.
+
 ## Operator Lost Item screen error recovery
 
 **Verified UI dead end:** `app/operator/lost-item.tsx` displayed a failed
