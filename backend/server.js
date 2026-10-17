@@ -2763,7 +2763,7 @@ app.get('/operator/insurance/config', requireAuth, LIMITS.qualification, async (
   }
 });
 
-app.post('/operator/insurance/authorize-status', requireAuth, LIMITS.qualification, async (req, res) => {
+app.post('/operator/insurance/authorize-status', requireAuth, LIMITS.qualification, requireActiveOperatingMarket, async (req, res) => {
   const db = adminDb();
   if (!db) return res.status(503).json({ error: adminStatus().reason, code: 'no_admin_db' });
   try {
@@ -2800,7 +2800,7 @@ app.get('/operator/insurance/status', requireAuth, LIMITS.qualification, async (
   }
 });
 
-app.post('/operator/insurance/attest', requireAuth, LIMITS.qualification, async (req, res) => {
+app.post('/operator/insurance/attest', requireAuth, LIMITS.qualification, requireActiveOperatingMarket, async (req, res) => {
   const db = adminDb();
   if (!db) return res.status(503).json({ error: adminStatus().reason, code: 'no_admin_db' });
   try {
@@ -2843,7 +2843,7 @@ app.post('/operator/insurance/attest', requireAuth, LIMITS.qualification, async 
   }
 });
 
-app.post('/operator/insurance/request-confirmation', requireAuth, LIMITS.document, async (req, res) => {
+app.post('/operator/insurance/request-confirmation', requireAuth, LIMITS.document, requireActiveOperatingMarket, async (req, res) => {
   const db = adminDb();
   if (!db) return res.status(503).json({ error: adminStatus().reason, code: 'no_admin_db' });
   const email = String(req.body?.email || '').trim().toLowerCase();
