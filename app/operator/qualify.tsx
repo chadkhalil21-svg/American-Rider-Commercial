@@ -178,7 +178,6 @@ export default function OperatorQualification() {
               onPress={() => {
                 // Jurisdiction is needed for documents and screening, but
                 // the county need not yet be open for paid Travel.
-                if (d.key === 'basics') { op.verifyDoc(d.key); return; }
                 if (!area?.market) {
                   setAreaError(t('operator.chooseOperatingArea'));
                   return;
@@ -191,7 +190,7 @@ export default function OperatorQualification() {
                 else if (d.key === 'background') router.navigate('/operator/background');
                 else if (d.key === 'license' || d.key === 'registration' || d.key === 'inspection')
                   router.navigate('/operator/documents');
-                else op.verifyDoc(d.key);
+                // All visible steps require actual documentation or agency evidence.
               }}
             >
               <View style={[styles.row, i > 0 && styles.hair]}>
@@ -200,7 +199,7 @@ export default function OperatorQualification() {
                   {d.sub ? <Text style={styles.rowSub}>{t(d.sub)}</Text> : null}
                 </View>
                 {st === 'ok' ? (
-                  <BadgeOk label={d.key === 'basics' ? t('operator.basicsCompleted') : t('operator.verified')} />
+                  <BadgeOk label={t('operator.verified')} />
                 ) : st === 'checking' ? (
                   <Text style={styles.pillChecking}>{t('operator.checking')}</Text>
                 ) : (
