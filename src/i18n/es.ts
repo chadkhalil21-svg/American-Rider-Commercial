@@ -1077,6 +1077,8 @@ export default {
     schedZoneUnavailable: 'La zona horaria de recogida no está disponible. No se puede programar por ahora; inténtalo de nuevo.',
     schedTimeInvalid: 'Esa hora de recogida no existe, se repite o ya no está seleccionada. Elige otra hora.',
     schedChooseDestination: "Elegir destino",
+    schedReturnToPickup: "Recogida programada",
+    schedContinue: "Continuar",
     schedDestinationNeeded: "Elija un destino para consultar el costo total del viaje.",
     schedQuoteNeeded: "El costo del viaje aún no se ha confirmado. Revise el trayecto para obtener un precio actualizado.",
     schedReviewFare: "Revisar costo del viaje",
