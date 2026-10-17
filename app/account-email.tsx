@@ -1,5 +1,6 @@
-import React, { useMemo, useState } from 'react';
-import { Platform, Pressable, StyleSheet, TextInput, View } from 'react-native';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useFocusEffect, useRouter } from 'expo-router';
+import { AppState, Keyboard, Platform, Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { Text } from '../src/components/AppText';
 import { Card, LetterheadBar, PrimaryButton, Screen, SectionLabel, Sub, Title } from '../src/components/UI';
 import { useGoBack } from '../src/components/nav';
@@ -13,12 +14,23 @@ const emailOk = (e: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e.trim());
 
 export default function AccountEmail() {
   const goBack = useGoBack();
+  const router = useRouter();
   const { t } = useLanguage();
-  const { user, busy, resendEmailVerification, requestEmailChange } = useAuth();
+  const { user, busy, resendEmailVerification, requestEmailChange, refreshEmailStatus } = useAuth();
   const [nextEmail, setNextEmail] = useState('');
   const [password, setPassword] = useState('');
   const [notice, setNotice] = useState('');
   const [error, setError] = useState('');
+  const [pendingEmail, setPendingEmail] = useState('');
+  const [confirmedEmail, setConfirmedEmail] = useState('');
+  const [checkingStatus, setCheckingStatus] = useState(false);
+  const [emailTouched, setEmailTouched] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const requestLock = useRef(false);
+  const refreshLock = useRef(false);
+  const lastRefresh = useRef(0);
+  const refreshFn = useRef(refreshEmailStatus);
+  refreshFn.current = refreshEmailStatus;
 
   const provider = useMemo(
     () =>
