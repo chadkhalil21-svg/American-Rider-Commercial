@@ -69,6 +69,7 @@ export default function Schedule() {
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState(false);
   const [pickupZone, setPickupZone] = useState<string | null>(null);
+  const [zoneChecking, setZoneChecking] = useState(true);
   // Clock-only refresh. No new database reads or network traffic; corrects time
   // validity across midnight and when a Traveler returns after locking the phone.
   const [clockMs, setClockMs] = useState(Date.now());
@@ -88,10 +89,19 @@ export default function Schedule() {
   useEffect(() => {
     let current = true;
     setPickupZone(null);
-    if (typeof lat !== 'number' || typeof lng !== 'number') return () => { current = false; };
+    setZoneChecking(true);
+    if (typeof lat !== 'number' || typeof lng !== 'number') {
+      setZoneChecking(false);
+      return () => { current = false; };
+    }
     publicPickupMarket(lat,lng).then((market) => {
-      if (current) setPickupZone(market.status==='active' ? market.timeZone || null : null);
-    }).catch(() => { if (current) setPickupZone(null); });
+      if (current) {
+        setPickupZone(market.status==='active' ? market.timeZone || null : null);
+        setZoneChecking(false);
+      }
+    }).catch(() => {
+      if (current) { setPickupZone(null); setZoneChecking(false); }
+    });
     return () => { current = false; };
   },[lat,lng]);
 
@@ -572,7 +582,9 @@ export default function Schedule() {
         </Text>
       )}
       {!pickupZone && hasDestination && hasQuote && (
-        <Text style={styles.customPast}>{t('traveler.schedZoneUnavailable')}</Text>
+        <Text style={zoneChecking ? styles.zoneCheckingText : styles.customPast}>
+          {t(zoneChecking ? 'traveler.schedCheckingZone' : 'traveler.schedZoneUnavailable')}
+        </Text>
       )}
 
       <Card style={styles.summaryCard}>
@@ -678,6 +690,7 @@ const styles = StyleSheet.create({
     lineHeight: 21.75,
     textAlign: 'center',
   },
+  zoneCheckingText: { fontSize: 13.5, color: colors.ink2, marginTop: 6 },
   journeyCard: { marginTop: 18, paddingHorizontal: 18, paddingVertical: 0 },
   journeyRow: { minHeight: 68, flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 12 },
   journeyDot: { width: 9, height: 9, borderRadius: 5 },
