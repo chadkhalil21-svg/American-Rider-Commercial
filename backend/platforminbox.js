@@ -6,17 +6,32 @@
 // channels, never the source of truth.
 
 const { adminDb, adminStatus } = require('./firebase-admin');
+const { createHash } = require('node:crypto');
 const { notify } = require('./push');
 
 const ALLOWED = new Set(['qualification','insurance','screening','payout','policy','support','operations']);
 
-async function postPlatformMessage({ uid, category, title, body, action = null, required = true, now = Date.now() }) {
-  const db = adminDb();
+async function postPlatformMessage({
+  uid, category, title, body, action = null, required = true, now = Date.now(),
+  idempotencyKey = null,
+}, { database, sendPush } = {}) {
+  const db = database || adminDb();
+  const push = sendPush || notify;
   if (!db) return { ok: false, reason: adminStatus().reason };
   if (!uid || !ALLOWED.has(String(category)) || !String(title || '').trim() || !String(body || '').trim()) {
     return { ok: false, reason: 'invalid platform message' };
   }
-  const ref = db.collection('users').doc(String(uid)).collection('platform_messages').doc();
+  // Stable, account-scoped identity for consequential replayed notices.
+  // Ordinary messages still use unique auto IDs. The hashed key exposes no
+  // report identifiers or other identifiers in Firestore document paths.
+  if (idempotencyKey !== null && (typeof idempotencyKey !== 'string' ||
+      !idempotencyKey.trim() || idempotencyKey.length > 240))
+    return { ok: false, reason: 'invalid idempotency key' };
+  const normalizedKey = typeof idempotencyKey === 'string' ? idempotencyKey.trim() : null;
+  const inbox = db.collection('users').doc(String(uid)).collection('platform_messages');
+  const id = normalizedKey ? 'once_' +
+    createHash('sha256').update(JSON.stringify([String(uid), String(category), normalizedKey])).digest('hex') : null;
+  const ref = id ? inbox.doc(id) : inbox.doc();
   const message = {
     category: String(category),
     title: String(title).trim().slice(0, 120),
@@ -26,9 +41,17 @@ async function postPlatformMessage({ uid, category, title, body, action = null, 
     createdAt: now,
     readAt: null,
   };
-  await ref.create(message);
-  // Best effort. The inbox already exists even if push delivery fails.
-  await notify({
+  try {
+    await ref.create(message);
+  } catch (e) {
+    // Concurrent retries race at Firestore create(): one succeeds, the other
+    // receives ALREADY_EXISTS and must not send a duplicate push.
+    if (id && (e?.code === 6 || e?.code === 'already-exists' ||
+        e?.code === 'ALREADY_EXISTS')) return { ok: true, reused: true, id: ref.id };
+    throw e;
+  }
+  // Best effort. The durable inbox record is the authority; push is a channel.
+  await push({
     uid, kind: 'platform_message', title: message.title, body: message.body.slice(0, 180),
     // Older Operator builds know /operator/inbox, not the newer shared
     // /inbox alias. When a trusted platform event names its actual report,
