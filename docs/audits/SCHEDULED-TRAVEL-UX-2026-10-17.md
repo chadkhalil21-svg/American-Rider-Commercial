@@ -38,7 +38,7 @@ The Council is a **reference framework**, not evidence of personal consultation:
 
 ## Further negative-state finding
 
-During pickup-area lookup, the screen could briefly mistake an in-progress request for a confirmed unavailable zone. The revised UI distinguishes **Checking pickup area…** from actual unavailability. The request count remains unchanged; the view updates only when the same existing lookup resolves. The five language bundles and source regression cover this transition.
+During pickup-area lookup, the screen could briefly mistake an in-progress request for a confirmed unavailable zone. The revised UI distinguishes **Checking pickup area…** from actual unavailability. Normal request count is unchanged; after a completed failure, the Traveler now has an explicit **Try again** action to repeat the existing lookup, rather than navigating away or waiting for background polling. The five language bundles and source regression cover this transition.
 
 ## Verification boundaries
 
