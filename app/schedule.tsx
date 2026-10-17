@@ -173,7 +173,8 @@ export default function Schedule() {
     pick: pickedDate ? ride.schedDay : t('traveler.schedPickDay'),
   };
   const hasDestination = !!ride.arrival.short.trim();
-  const hasQuote = hasDestination && ride.quotedFareCents != null && ride.quotedFareCents > 0 &&
+  const hasQuote = hasDestination && !!ride.tripCoords && !ride.repricing &&
+    ride.quotedFareCents != null && ride.quotedFareCents > 0 &&
     ride.quotedTotalCents != null && ride.quotedTotalCents > 0 &&
     ride.quotedForClass === ride.travelClass;
   // Missing destination or authoritative price must not masquerade as a past time.
