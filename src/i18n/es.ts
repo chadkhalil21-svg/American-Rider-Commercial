@@ -1235,6 +1235,8 @@ export default {
     familySendMessage: 'Enviar Mensaje',
     familyMessageFailed: 'El mensaje no se envió.',
 
+    lostNoVerifiedTravelThread: "Este objeto no está vinculado a ningún viaje registrado. Atención al Cliente puede ayudar sin asignar un Operador ajeno.",
+    msgTravelUnavailable: "No hay un viaje verificado disponible para esta conversación. Seleccione un viaje registrado o contacte con Atención al Cliente.",
     msgNotSent: "Mensaje no enviado. Revise su conexión e inténtelo de nuevo.",
     lostOperatorInboxDelivered: "Entregado a %{names} en la bandeja del Operador.",
     notifSaveFailed: "La preferencia de notificaciones no se guardó. Inténtelo de nuevo.",
