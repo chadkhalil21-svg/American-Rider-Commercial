@@ -225,6 +225,20 @@
           "order": "ASCENDING"
         }
       ]
+    },
+    {
+      "collectionGroup": "scheduled_rides",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "travelerUid",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "atMs",
+          "order": "ASCENDING"
+        }
+      ]
     }
   ],
   "fieldOverrides": [
