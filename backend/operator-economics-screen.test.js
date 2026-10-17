@@ -40,6 +40,8 @@ for (let pass = 0; pass < 2; pass++) {
     'make 52-week assumptions and missing expenses explicit');
   assert.match(screen, /t\('operator\.econDisclaimer'\)/,
     'do not promise Travel volume or profit');
+  assert.ok(screen.indexOf('operator.fareResearchLink') > screen.indexOf('operator.econDisclaimer'),
+    'optional market research must not interrupt the principal economics and expenses');
   assert.doesNotMatch(screen, /fetch\(|axios\(|getDocs\(/,
     'an informational calculator must not create unnecessary database requests');
 
