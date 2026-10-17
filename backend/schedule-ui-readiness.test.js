@@ -81,6 +81,17 @@ for (let pass = 1; pass <= 2; pass++) {
     'display and acceptance require a genuine server Total');
   assert.match(screen, /ride\.quotedForClass === ride\.travelClass/,
     'quote must match the selected Travel class');
+  assert.match(screen, /hasDestination && !!ride\.tripCoords && !ride\.repricing/,
+    'schedule cannot present a valid Fare without route coordinates or while the map pin reprices');
+  const rideContext = read('src/state/RideContext.tsx');
+  assert.match(rideContext, /pickupLat: pickupPin\?\.lat \?\? tripCoords\?\.pickup\?\.lat \?\? departure\.lat/,
+    'scheduled pickup latitude uses the selected map pin first');
+  assert.match(rideContext, /pickupLng: pickupPin\?\.lng \?\? tripCoords\?\.pickup\?\.lng \?\? departure\.lng/,
+    'scheduled pickup longitude uses the selected map pin first');
+  assert.match(rideContext, /\[arrival, departure, pickupPin, travelClass, tripCoords, travelParty\]/,
+    'the scheduled-submit callback sees the latest pickup pin');
+  assert.match(screen, /resolved\.atMs <= Date\.now\(\)/,
+    'submit repeats time validity at tap, not only on the last 30-second screen refresh');
   assert.match(screen, /hasQuote \? fmt\(ride\.travelerTotal\) : '—'/,
     'unknown Fare is not a false $0.00 quote');
   assert.match(screen, /scheduleStatus === 'time_past' && customState !== 'past'/,
