@@ -226,6 +226,8 @@ export default {
     openAllParts: 'Apra le %{n} parti per continuare',
 
     lostOpenFailed: "Non è stato possibile aprire questa segnalazione.",
+    lostHistoryCouldNotLoad: "Impossibile caricare le segnalazioni di oggetti smarriti. Quelle già visualizzate potrebbero non essere aggiornate.",
+    lostHistoryMore: "Mostra altre segnalazioni di oggetti smarriti",
     lostUnavailable: "Questa segnalazione di oggetto smarrito non è disponibile.",
     lostSelectTravel: "Selezioni il Viaggio in cui ha trovato l’oggetto.",
     lostUpdateFailed: "Non è stato possibile registrare questo aggiornamento.",
