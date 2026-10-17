@@ -36,6 +36,13 @@ Review American Rider as a complete service, not an isolated screen. Read the cu
 
 **Commissioning dependency:** Added a `lost_items(travelerUid ASC, createdAt DESC)` composite index declaration. **It is not known to be commissioned/READY in production**; do not deploy query changes or imply production readiness without verified index evidence.
 
+### 4. Account Mobile silently treated a failed read as an empty number
+**Evidence:** `app/account-mobile.tsx` fetched the `users/{uid}` record and swallowed any error. A network failure showed an empty field, inviting overwriting of an unknown existing contact number.
+
+**Draft fix:** Explicit loading/unavailable/readable states, on-demand Retry and no editing or saving until the authoritative record was loaded. Guard late asynchronous results after navigation; no new continuous polling. Keep standard primary-button dimensions and explain failures in all five languages.
+
+**Separate investigation, not a proven defect:** The number is described as **contact information only**, not a verified sign-in or recovery credential. Trace safety/SMS/notification consumers before imposing or claiming phone verification.
+
 ## Related existing draft fixes, not duplicated here
 - Commercial PR #52: Scheduled Travel final review, vehicle/person selection, multi-reservation list, cancellation consent, Firestore deletion boundary, and an independently required scheduled-rides composite index.
 - Commercial PR #53: Email change, pending verification and one consistent account entry point.
