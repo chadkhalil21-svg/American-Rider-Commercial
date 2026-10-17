@@ -51,6 +51,18 @@ for (let pass = 1; pass <= 2; pass++) {
   assert.doesNotMatch(lost, /export async function fetchMyLostItems\(\): Promise<LostItem\[\]> \{[^]*?catch \{\s*return \[\];/,
     'failed reads cannot masquerade as zero filed reports');
 
+  // The visible Support screen must honor the new pagination contract. The
+  // repository is correct only if the caller is correct, not just the helper.
+  const support = read('app/issues.tsx');
+  assert.match(support, /fetchMyLostItemsPage\(after\)/);
+  assert.match(support, /setLostUnavailable\(true\)/);
+  assert.match(support, /traveler\.lostHistoryCouldNotLoad/);
+  assert.match(support, /traveler\.lostHistoryMore/);
+  assert.match(support, /previous\.some\(old => old\.id === item\.id\)/,
+    'paged records deduplicate their document IDs');
+  assert.doesNotMatch(support, /fetchMyLostItems\(\)\.then/,
+    'old failure-as-empty history call was removed');
+
   const found = indexes.indexes.some(x => x.collectionGroup === 'lost_items' &&
     x.queryScope === 'COLLECTION' &&
     x.fields?.[0]?.fieldPath === 'travelerUid' &&
@@ -72,7 +84,7 @@ for (let pass = 1; pass <= 2; pass++) {
 
   for (const lang of ['en', 'es', 'fr', 'it', 'de']) {
     const d = read('src/i18n/' + lang + '.ts');
-    for (const key of ['removeDefaultCardNotice', 'removeCardNotice', 'mobileReadUnavailable'])
+    for (const key of ['removeDefaultCardNotice', 'removeCardNotice', 'mobileReadUnavailable', 'lostHistoryCouldNotLoad', 'lostHistoryMore'])
       assert.match(d, new RegExp('^\\s*' + key + ':', 'm'),
         lang + ': missing payment-method removal explanation');
   }
