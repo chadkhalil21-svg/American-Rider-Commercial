@@ -122,6 +122,8 @@ export default {
     econIntro: "Sehen Sie vor Abschluss einer Versicherung, wie sich der Travel-Fahrpreis aufteilt. Diese Beispiele sind keine Einkommensprognosen.",
     econShare: "jedes Travel-Fahrpreises behalten Sie.",
     econFee: "American Rider behält das verbleibende 1 %. Die separate Plattformgebühr des Traveler verringert Ihren Anteil am Travel-Fahrpreis nicht.",
+    econPlatformFeeTitle: "Plattformgebühr · mindestens %{amount} je Travel",
+    econPlatformFeeDetail: "Der Traveler zahlt diese Gebühr zusätzlich zum Travel-Fahrpreis als Teil des angegebenen Gesamtpreises. Sie trägt zu Zahlungsabwicklung, Auszahlungen, Technik, Support und Betriebsrücklagen bei. Bei höheren Kosten kann sie steigen. Ihr 99-%-Fahrpreisanteil bleibt unverändert.",
     econExamples: "Beispiele je Travel",
     econExampleFare: "Travel-Fahrpreis: %{amount}",
     econOperatorRetains: "Einbehaltener Travel-Fahrpreis",
