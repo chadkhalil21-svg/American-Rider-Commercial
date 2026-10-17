@@ -127,6 +127,8 @@ export default {
     econIntro: "Comprenez comment le tarif Travel est réparti avant de souscrire une assurance. Ces exemples ne sont pas des prévisions de revenus.",
     econShare: "de chaque tarif Travel vous revient.",
     econFee: "American Rider conserve les 1 % restants. Les frais de plateforme facturés séparément au Traveler ne réduisent pas votre part du tarif Travel.",
+    econPlatformFeeTitle: "Frais de plateforme · %{amount} minimum par Travel",
+    econPlatformFeeDetail: "Le Traveler paie ces frais en plus du tarif Travel, dans son montant total annoncé. Ils contribuent aux coûts de paiement, de versement, de technologie, d’assistance et de réserve opérationnelle. Ils peuvent augmenter selon les coûts. Votre part de 99 % du tarif reste inchangée.",
     econExamples: "Exemples par Travel",
     econExampleFare: "Tarif Travel : %{amount}",
     econOperatorRetains: "Tarif Travel conservé",
