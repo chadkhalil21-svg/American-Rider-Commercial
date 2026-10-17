@@ -330,7 +330,7 @@ export default {
     insNotLicenceChecked: 'Licence not checked by American Rider. Ask them to confirm they are licensed in Florida.',
     insVerifyLicence: 'American Rider receives no compensation for any referral on this screen, and makes no representation as to final pricing, which remains a matter between the Operator and the insurer. Any agency’s licence can be verified at the Florida Department of Financial Services.',
     brokerGarzorNote: 'Commercial for-hire livery, written in Florida',
-    brokerGarzorHours: 'Monday to Friday, 8am to 8pm · Saturday, 9am to 4pm',
+    brokerGarzorHours: 'Monday–Friday, 9am–6pm Eastern · Weekends by appointment',
     placeHome: 'Home',
     placeWork: 'Work',
     placeCurrent: 'Current location',
