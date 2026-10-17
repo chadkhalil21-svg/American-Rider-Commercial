@@ -275,13 +275,16 @@ async function respondLostItem({ itemId, operatorUid, outcome, tripNo }, { datab
         ok: true,
         status: patch.status,
         tripNo: patch.tripNo || current.tripNo || null,
+        // A negative check by another Operator cannot change the proven
+        // location, so it is not a new Traveler notification.
+        silent: current.status === 'located' && outcome === 'not-found',
         notifyTravelerUid: current.travelerUid,
       };
     });
   } catch {
     return { ok: false, status: 503, error: 'Unable to save report update' };
   }
-  if (!result.ok || result.reused) return result;
+  if (!result.ok || result.reused || result.silent) return result;
 
   // Notify once after committed state, not from a transaction callback which
   // Firestore can run more than once during a race.
