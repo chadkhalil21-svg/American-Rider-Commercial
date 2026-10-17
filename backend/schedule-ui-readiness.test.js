@@ -79,8 +79,10 @@ for (let pass = 1; pass <= 2; pass++) {
 
   assert.match(screen, /const schedInvalid = scheduleStatus !== 'ready'/,
     'Schedule control uses reason-specific readiness');
-  assert.match(screen, /disabled=\{schedInvalid \|\| saving\}/,
-    'unknown Fare and invalid times never allow scheduling');
+  assert.match(screen, /disabled=\{saving \|\| \(schedInvalid &&/,
+    'invalid times block final Schedule Travel but missing itinerary allows completion');
+  assert.match(screen, /scheduleStatus !== 'destination_required' && scheduleStatus !== 'quote_required'/,
+    'missing destination and quote must not disable the route-completion action');
   assert.match(screen, /scheduleStatus !== 'ready' \|\| !resolved\.ok/,
     'onPress repeats the fail-closed readiness guard');
   assert.match(screen, /ride\.quotedTotalCents != null && ride\.quotedTotalCents > 0/,
@@ -102,21 +104,57 @@ for (let pass = 1; pass <= 2; pass++) {
     'the scheduled-submit callback sees the latest pickup pin');
   assert.match(screen, /resolved\.atMs <= Date\.now\(\)/,
     'submit repeats time validity at tap, not only on the last 30-second screen refresh');
-  assert.match(screen, /hasQuote \? fmt\(ride\.travelerTotal\) : '—'/,
-    'unknown Fare is not a false $0.00 quote');
+  assert.match(screen, /hasQuote \? \(/,
+    'only a verified quote renders a currency amount');
+  assert.match(screen, /t\('traveler\.schedNotQuoted'\)/,
+    'unknown Fare has an explicit, truthful state, not $0.00');
   assert.match(screen, /scheduleStatus === 'time_past' && customState !== 'past'/,
     'time-passed banner only for actual expired times');
   assert.doesNotMatch(screen, /\{schedInvalid && \(/,
     'missing Fare does not produce general false expired-time banner');
-  assert.match(screen, /scheduleStatus === 'destination_required' \|\| scheduleStatus === 'quote_required'/,
-    'a destination and quote both offer a relevant recovery action');
+  assert.match(screen, /label=\{t\(scheduleStatus === 'destination_required'/,
+    'one primary action becomes Choose destination, Review Travel Cost, or Schedule Travel');
   assert.match(screen, /pathname: '\/reserve'/,
     'reuse existing quote and destination entry, no second pricing engine');
   assert.match(screen, /params: hasDestination \? \{ scheduling: '1' \} : \{ search: '1', scheduling: '1' \}/,
     'missing destination opens address search and preserves scheduling intent');
+  // Holistic UX contracts: single itinerary and progressive time selection.
+  assert.ok(screen.indexOf('styles.journeyCard') > screen.indexOf('traveler.planAhead'),
+    'location card belongs directly under Plan ahead');
+  assert.ok(screen.indexOf("t('traveler.schedPickupPlace')") <
+    screen.indexOf("t('traveler.schedDestination')"),
+    'pickup is followed by destination in the same itinerary');
+  assert.ok(screen.indexOf("t('traveler.schedDestination')") <
+    screen.indexOf("t('traveler.schedPickupDateLabel')"),
+    'journey locations precede date and time');
+  assert.ok(screen.indexOf("t('traveler.schedPickupDateLabel')") <
+    screen.indexOf("t('traveler.pickupTime')"),
+    'pickup date comes before time');
+  assert.match(screen, /accessibilityState=\{\{ expanded: timeEditing \}\}/,
+    'time choices remain optional and screen readers know when expanded');
+  assert.match(screen, /timeEditing && \(/,
+    'four quick times and custom time are progressively disclosed, not always visible');
+  assert.match(screen, /onPress=\{\(\) => setTimeEditing\(\(wasOpen\) => !wasOpen\)\}/,
+    'tapping pickup time expands or collapses the options');
+  assert.match(screen, /ride\.setSchedTime\(t\);\s*ride\.setCustomTime\(''\);\s*setTimeEditing\(false\);/,
+    'tapping a valid quick time returns to the composed compact view');
+  assert.match(screen, /params: \{ scheduling: '1', pickup: '1' \}/,
+    'pickup can be edited directly from the itinerary');
+  assert.match(screen, /params: \{ search: '1', scheduling: '1' \}/,
+    'destination can be selected directly from the itinerary');
+  assert.match(screen, /hasDestination \? ride\.arrival\.short : t\('traveler\.schedChooseDestination'\)/,
+    'missing destination has a direct, clear place-selection label');
+  assert.match(screen, /t\('traveler\.schedDestinationNeeded'\)/,
+    'missing destination provides a brief explanation, not an alarming red error');
+
   const confirmation = read('app/reserve.tsx');
   assert.match(confirmation, /params\.scheduling === '1'/,
     'confirmation offers a direct return to the selected scheduled pickup');
+  assert.match(confirmation, /params\.pickup === '1'/,
+    'editing pickup opens existing pickup search, not an unrelated booking');
+  assert.match(confirmation, /setSearchingDep\(true\)/,
+    'pickup search activates when requested');
+
   assert.match(confirmation, /const selectingScheduledTravel = params\.scheduling === '1'/,
     'scheduled destination/price flow cannot silently become an immediate Travel');
   assert.match(screen, /params: \{ scheduling: '1', pickup: '1' \}/,
@@ -157,7 +195,10 @@ for (let pass = 1; pass <= 2; pass++) {
 
   for(const l of ['en','es','fr','it','de']) {
     const src=read('src/i18n/'+l+'.ts');
-    for(const key of ['schedContinueScheduling','schedChooseDestination','schedDestinationNeeded','schedQuoteNeeded',
+    for(const key of ['schedPickupDateLabel','schedPickupPlace','schedEditPickup',
+      'schedDestination','schedChangeDestination','schedChangeTime','schedTimeOptions',
+      'schedNotQuoted','schedConfirmTimeHint',
+      'schedContinueScheduling','schedChooseDestination','schedDestinationNeeded','schedQuoteNeeded',
       'schedReviewFare','schedTimeUnconfirmed','schedTimesPassed','schedReturnToPickup','schedContinue']) {
       assert.match(src,new RegExp('^\\s*'+key+':','m'),l+': '+key);
     }
