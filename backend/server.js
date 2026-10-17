@@ -2319,10 +2319,9 @@ function listedMarket(market, listed) {
 async function operatorMarketOptions() { return listMarkets(); }
 
 /** Express middleware: the signed-in operator's declared operating market must be ACTIVE. */
-// A screening report-transfer request is preparation, not permission for paid Travel.
-// The national policy registry (not an 'FL' literal or a client-provided state)
-// decides which region can prepare. Full qualification, payments, duty and dispatch
-// remain bound to independent market/admission checks.
+// Screening begins only after the Operator's selected market is active.
+// The jurisdiction registry adds a separate legal-policy check, never an override.
+// Do not revive a separate administrative county admission step.
 async function requireScreeningRequestMarket(req, res, next) {
   const db = adminDb();
   if (!db) return res.status(503).json({ code: 'no_admin_db', error: 'Operator records unavailable.' });
@@ -2478,8 +2477,8 @@ app.post('/ops/markets/:id/activate', requireOps, requireOpsMutation, (req,res) 
 app.post('/ops/markets/:id/pause', requireOps, requireOpsMutation, (req,res) =>
   res.status(410).json({code:'use_geographic_service_configuration'}));
 
-// The operator names the county they will operate in — or sends a position and it is derived.
-// A WAITLIST county is recorded (and joins the waitlist) and unlocks nothing costly.
+// Selecting a county never begins onboarding or enrolls anybody in notifications.
+// Unopened areas are informational. Opt-in interest uses the separate /waitlist route.
 app.post('/operator/market', requireAuth, LIMITS.market, async (req, res) => {
   const db = adminDb();
   if (!db) return res.status(503).json({ error: adminStatus().reason, code: 'no_admin_db' });
@@ -2503,12 +2502,6 @@ app.post('/operator/market', requireAuth, LIMITS.market, async (req, res) => {
     }
     const available = await operatorMarketOptions();
     const selected = listedMarket(m, available);
-    if (!selected || selected.status === 'waitlist') {
-      await db.collection('waitlist').doc(String(req.uid)).set(
-        { role: 'operator', marketId: m?.id || null, at: now },
-        { merge: true },
-      );
-    }
     res.json({ market: selected, active: available.filter((x) => x.status === 'active'),
       onboarding: available.filter((x) => x.status === 'onboarding'),
       waitlist: available.filter((x) => x.status === 'waitlist') });
