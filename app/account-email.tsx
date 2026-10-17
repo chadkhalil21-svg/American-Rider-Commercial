@@ -139,7 +139,16 @@ export default function AccountEmail() {
         </Pressable>
       ) : null}
 
-      {provider === 'password' ? (
+      {provider === 'password' && pendingEmail ? (
+        <Card style={styles.managedCard}>
+          <Text style={styles.managedTitle}>{t('traveler.emailPendingTitle')}</Text>
+          <Text selectable style={styles.pendingAddress}>{pendingEmail}</Text>
+          <Text style={styles.managedBody}>{t('traveler.emailPendingDescription')}</Text>
+          <Pressable accessibilityRole="button" style={styles.secondaryAction} onPress={() => void checkStatus(true)}>
+            <Text style={styles.link}>{checkingStatus ? t('traveler.busyChecking') : t('traveler.emailCheckStatus')}</Text>
+          </Pressable>
+        </Card>
+      ) : provider === 'password' ? (
         <>
           <SectionLabel style={{ marginTop: 24 }}>{t('traveler.changeEmail')}</SectionLabel>
           <Card style={styles.fieldCard}>
