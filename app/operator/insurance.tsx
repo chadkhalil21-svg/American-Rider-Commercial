@@ -288,7 +288,7 @@ export default function OperatorInsurance() {
         </> : <Text style={styles.attention}>{t('traveler.insJurisdictionUnavailable')}</Text>}
       </>}
 
-      {configResolved && !liveStatus && <PrimaryButton label={t('traveler.tryAgain')} onPress={() => { void refresh(); }} style={styles.action} />}
+      {configResolved && !!config && !liveStatus && <PrimaryButton label={t('traveler.tryAgain')} onPress={() => { void refresh(); }} style={styles.action} />}
       <SectionLabel style={styles.label}>{t('traveler.insStatusTitle')}</SectionLabel>
       <Card style={styles.card}>
         <Text style={styles.body}>{t('operator.insMonitoringIntro')}</Text>
