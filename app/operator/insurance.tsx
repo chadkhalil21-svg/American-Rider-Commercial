@@ -13,7 +13,7 @@ import {
 import { useGoBack } from '../../src/components/nav';
 import { BadgeOk } from '../../src/components/operator';
 import { BackLink, Card, PrimaryButton, Screen, SectionLabel, Title } from '../../src/components/UI';
-import { BROKER, INSURERS } from '../../src/data';
+import { INSURERS } from '../../src/data';
 import { useOperator } from '../../src/state/OperatorContext';
 import { useLanguage } from '../../src/state/LanguageContext';
 import { colors } from '../../src/theme';
@@ -29,7 +29,7 @@ export default function OperatorInsurance() {
   const [showMonitoring, setShowMonitoring] = useState(false);
   const [showRiskOptions, setShowRiskOptions] = useState(false);
   const [showScript, setShowScript] = useState(false);
-  const [showSources, setShowSources] = useState(false);
+  const [showLegalDetails, setShowLegalDetails] = useState(false);
   const [showMore, setShowMore] = useState(false);
   const [brokerEmail, setBrokerEmail] = useState('');
   const [contactType, setContactType] = useState<'agent' | 'broker' | 'carrier' | null>(null);
@@ -135,6 +135,11 @@ export default function OperatorInsurance() {
   const current = policyApproved && liveStatus?.ok === true &&
     coverageDaysLeft != null && coverageDaysLeft >= 0;
   const national = config ? INSURERS.filter((x) => !x.states) : [];
+  // Neutral order: a multi-carrier marketplace, a broker-matching service,
+  // then an individual specialist insurer. They are NOT priced or approved offers.
+  const featured = ['Insureon', 'Limousine Insurance HQ', 'Progressive Commercial']
+    .flatMap((name) => national.filter((x) => x.name === name));
+  const additional = national.filter((x) => !featured.some((item) => item.name === x.name));
   const regional = config ? INSURERS.filter((x) => x.states?.includes(config.state)) : [];
   const sourceRow = (x: typeof INSURERS[number], i: number) => (
     <Pressable key={x.name} accessibilityRole="link" onPress={() => {
@@ -157,9 +162,33 @@ export default function OperatorInsurance() {
       <BackLink label={t('common.back')} onPress={goBack} />
       <Title>{t('operator.commercialInsurance')}</Title>
       <Text style={styles.lead}>{t('operator.insFirstStep')}</Text>
-      <Pressable accessibilityRole="link" onPress={() => router.navigate('/operator/economics' as never)} style={styles.tap}>
-        <Text style={styles.link}>{t('operator.econTitle')} ›</Text>
-      </Pressable>
+      <Card style={styles.card}>
+        <Text style={styles.cardTitle}>{t('operator.insRequirementsHeadline')}</Text>
+        <Text style={styles.body}>{t('traveler.insRequirementsStatement')}</Text>
+        {config?.state === 'FL' && (
+          <Text style={styles.body}>{t('operator.insFloridaRequirementsShort')}</Text>
+        )}
+        {!config && configResolved && <Text accessibilityRole="alert" style={styles.attention}>
+          {t('traveler.insJurisdictionUnavailable')}
+        </Text>}
+        <Text style={styles.note}>{t('operator.insQuoteCoverageCaution')}</Text>
+        {config && <Pressable accessibilityRole="button" style={styles.tap}
+          onPress={() => { void Share.share({ message: config.script }).catch(() =>
+            Alert.alert(t('traveler.notSent'), t('traveler.errReachAR'))); }}>
+          <Text style={styles.link}>{t('operator.insShareScript')} ›</Text>
+        </Pressable>}
+        <Pressable accessibilityRole="button" accessibilityState={{ expanded: showScript }}
+          onPress={() => setShowScript(!showScript)} style={styles.tap}>
+          <Text style={styles.link}>{t('operator.insBrokerInstructions')} {showScript ? '−' : '+'}</Text>
+        </Pressable>
+        {showScript && <>
+          {config ? <Text selectable style={styles.script}>{config.script}</Text> :
+            <Text style={styles.attention}>{t('traveler.insJurisdictionUnavailable')}</Text>}
+          <Pressable accessibilityRole="link" onPress={() => router.navigate('/operator/guidelines')} style={styles.tap}>
+            <Text style={styles.link}>{t('operator.coverageGuidelinesLink')} ›</Text>
+          </Pressable>
+        </>}
+      </Card>
 
       <SectionLabel style={styles.label}>{t('operator.coverageOnFile')}</SectionLabel>
       <Card style={styles.card}>
@@ -221,8 +250,27 @@ export default function OperatorInsurance() {
         </Pressable>
       </Card>
 
-      <SectionLabel style={styles.label}>{t('operator.insWhoDecides')}</SectionLabel>
+      <SectionLabel style={styles.label}>{t('operator.insCompareHeadline')}</SectionLabel>
       <Card style={styles.card}>
+        <Text style={styles.body}>{t('operator.insCompareIntro')}</Text>
+        <Text style={styles.cardTitle}>{t('operator.insOwnBroker')}</Text>
+        <Text style={styles.body}>{t('operator.insOwnBrokerBody')}</Text>
+        {config ? featured.map(sourceRow) :
+          <Text style={styles.attention}>{t('traveler.insJurisdictionUnavailable')}</Text>}
+        {config && <Pressable accessibilityRole="button" accessibilityState={{ expanded: showMore }}
+          onPress={() => setShowMore(!showMore)} style={styles.tap}>
+          <Text style={styles.link}>{t('operator.compareMoreOptions')} {showMore ? '−' : '+'}</Text>
+        </Pressable>}
+        {showMore && config && [...additional, ...regional].map(sourceRow)}
+        <Text style={styles.note}>{t('operator.insOlderVehicleNote')}</Text>
+        <Text style={styles.note}>{t('operator.insCompareDisclosure')}</Text>
+        <Text style={styles.note}>{t('traveler.insVerifyLicence')}</Text>
+      </Card>
+      <Pressable accessibilityRole="button" accessibilityState={{ expanded: showLegalDetails }}
+        onPress={() => setShowLegalDetails(!showLegalDetails)} style={styles.tap}>
+        <Text style={styles.link}>{t('operator.insWhoDecides')} {showLegalDetails ? '−' : '+'}</Text>
+      </Pressable>
+      {showLegalDetails && <Card style={styles.card}>
         <Text style={styles.cardTitle}>{t(config?.state === 'FL' ? 'operator.insFloridaLaw' : 'operator.insLocalLaw')}</Text>
         <Text style={styles.body}>{t(config?.state === 'FL' ? 'operator.insFloridaLawBody' : 'operator.insLocalLawBody')}</Text>
         <Text style={styles.cardTitle}>{t('operator.insARPolicy')}</Text>
@@ -231,62 +279,10 @@ export default function OperatorInsurance() {
         <Text style={styles.body}>{t('operator.insBrokerDecisionBody')}</Text>
         <Text style={styles.cardTitle}>{t('operator.insARVerification')}</Text>
         <Text style={styles.body}>{t('operator.insARVerificationBody')}</Text>
-      </Card>
-
-      <SectionLabel style={styles.label}>{t('operator.insGetCovered')}</SectionLabel>
-      <Card style={styles.card}>
-        <Text style={styles.cardTitle}>{t('operator.insOwnBroker')}</Text>
-        <Text style={styles.body}>{t('operator.insOwnBrokerBody')}</Text>
-        <Pressable accessibilityRole="button" accessibilityState={{ expanded: showScript }} onPress={() => setShowScript(!showScript)} style={styles.tap}>
-          <Text style={styles.link}>{t('operator.insBrokerInstructions')} {showScript ? '−' : '+'}</Text>
-        </Pressable>
-        {showScript && <View>
-          <Text style={styles.body}>{t('traveler.insRequirementsStatement')}</Text>
-          <Text style={styles.body}>{t('traveler.insFixedInstruction')}</Text>
-          {config ? <Text selectable style={styles.script}>{config.script}</Text>
-            : <Text style={styles.attention}>{t('traveler.insJurisdictionUnavailable')}</Text>}
-          <Text style={styles.note}>{t('traveler.insCallScriptNote')}</Text>
-          {config && <Pressable accessibilityRole="button" onPress={() => {
-            void Share.share({ message: config.script }).catch(() => Alert.alert(t('traveler.notSent'), t('traveler.errReachAR')));
-          }} style={styles.tap}>
-            <Text style={styles.link}>{t('operator.insShareScript')} ›</Text>
-          </Pressable>}
-          <Pressable accessibilityRole="link" onPress={() => router.navigate('/operator/guidelines')} style={styles.tap}>
-            <Text style={styles.link}>{t('operator.coverageGuidelinesLink')}</Text>
-          </Pressable>
-        </View>}
-      </Card>
-      {config?.state === 'FL' && BROKER && <Card style={styles.card}>
-        <Text style={styles.cardTitle}>{t('operator.referredBroker')}</Text>
-        <Text style={styles.providerTitle}>{BROKER.name}</Text>
-        <Text style={styles.body}>{t(BROKER.note)}</Text>
-        <Pressable accessibilityRole="link" onPress={() => { void Linking.openURL(`tel:${BROKER!.phone.replace(/[^0-9+]/g, '')}`); }} style={styles.tap}>
-          <Text style={styles.link}>{BROKER.phone}</Text>
-        </Pressable>
-        {!!BROKER.email && <Pressable accessibilityRole="link" onPress={() => { void Linking.openURL(`mailto:${BROKER!.email}`); }} style={styles.tap}>
-          <Text style={styles.link}>{BROKER.email}</Text>
-        </Pressable>}
-        {!!BROKER.hours && <Text style={styles.body}>{t(BROKER.hours)}</Text>}
-        {!!BROKER.license && <Text style={styles.body}>{t('traveler.floridaLicenceNo', { no: BROKER.license })}</Text>}
-        <Text style={styles.note}>{t('traveler.noCommissionOnPremium')}</Text>
       </Card>}
-      <Pressable accessibilityRole="button" accessibilityState={{ expanded: showSources }} onPress={() => setShowSources(!showSources)} style={styles.tap}>
-        <Text style={styles.link}>{t('operator.compareProviders')} {showSources ? '−' : '+'}</Text>
-      </Pressable>
-      {showSources && <>
-        <Text style={styles.body}>{t('traveler.insNoAdvice')}</Text>
-        <Text style={styles.note}>{t('traveler.insVerifyLicence')}</Text>
-        {config ? <>
-          <Card style={styles.card}>{national.filter((x) => !x.secondary || showMore).map(sourceRow)}</Card>
-          {regional.length > 0 && <Card style={styles.card}>{regional.filter((x) => !x.secondary || showMore).map(sourceRow)}</Card>}
-          {!showMore && <Pressable accessibilityRole="button" onPress={() => setShowMore(true)} style={styles.tap}>
-            <Text style={styles.link}>{t('operator.compareMoreOptions')} ›</Text>
-          </Pressable>}
-        </> : <Text style={styles.attention}>{t('traveler.insJurisdictionUnavailable')}</Text>}
-      </>}
 
-      <SectionLabel style={styles.label}>{t('traveler.insStatusTitle')}</SectionLabel>
-      <Card style={styles.card}>
+      {policyApproved && <SectionLabel style={styles.label}>{t('traveler.insStatusTitle')}</SectionLabel>}
+      {policyApproved && <Card style={styles.card}>
         <Text style={styles.body}>{t('operator.insMonitoringIntro')}</Text>
         {policyApproved && <>
           <Text style={styles.cardTitle}>{t('traveler.insAuthorizeTitle')}</Text>
@@ -319,7 +315,7 @@ export default function OperatorInsurance() {
           <Text style={styles.body}>{t('traveler.insEvidenceEmail')}</Text>
           <Text style={styles.body}>{t('traveler.certificateHolder')}</Text>
         </>}
-      </Card>
+      </Card>}
       <Pressable accessibilityRole="link" onPress={() => router.navigate('/operator/disclosure')} style={styles.tap}>
         <Text style={styles.link}>{t('traveler.whatWeInsure')}</Text>
       </Pressable>
