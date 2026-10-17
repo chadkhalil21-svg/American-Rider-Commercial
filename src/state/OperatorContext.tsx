@@ -47,7 +47,7 @@ export type DocState = 'todo' | 'checking' | 'ok';
 export type Verification = 'none' | 'pending' | 'commissioned';
 export type Role = 'traveler' | 'operator';
 
-// The web demo shell's 6-item checklist, plus the founders' Background Check step
+// Genuine qualification checklist, including provider-reviewed background screening.
 // (10 Aug spec: operator-paid, pass/fail, three-year Florida re-check).
 // KEYS, NOT SENTENCES — this array is built once at import time, before the stored
 // language is read, so translated strings here would pin the checklist to the default
@@ -487,15 +487,14 @@ export function OperatorProvider({ children }: { children: React.ReactNode }) {
   /**
    * Mark a step done without a document.
    *
-   * ONLY FOR STEPS WITH NO DOCUMENT TO READ — basics, identity, and the background check, whose
-   * verdict comes from a licensed screening company through the server. The four document steps
-   * go through reviewDoc and cannot reach 'ok' any other way.
+   * Retained for legacy local Basics state only. It is no longer a qualification
+   * step, and can NEVER mark a document or background screening approved.
+   * Real evidence comes from the server or independent providers.
    */
   const verifyDoc = useCallback(
     (k: DocKey) => {
       if (k !== 'basics') {
-        // Refused rather than silently ignored: a caller reaching for this on a document step is
-        // reaching for the 900ms timer, and it should stop being there to find.
+        // All evidence-driven steps require their actual server path.
         if (__DEV__) console.warn(`verifyDoc('${k}') is not a document path — use reviewDoc().`);
         return;
       }
