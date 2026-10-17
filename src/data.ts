@@ -179,7 +179,7 @@ export const VENUE_NOTES: Record<string, string> = {
 
 // Fare model (ONE all-in price for the traveler): the operator keeps 99% of the fare
 // (1% coordination commission, no cap). American Rider adds the smallest whole-cent
-// per-Travel Platform Fee that satisfies the current cost model, with a $2.00 minimum.
+// per-Travel Platform Fee that satisfies the current cost model, with a $2.50 minimum.
 // platformFee() mirrors backend/economics.js; the server remains authoritative. The fee
 // absorbs payment-processing cost, so the traveler is never shown a separate "processing"
 // line. Total charged = fare + platformFee(fare).
