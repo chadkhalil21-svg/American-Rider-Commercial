@@ -232,6 +232,8 @@ export default {
     partRead: 'Lu',
     openAllParts: 'Ouvrez les %{n} parties pour continuer',
 
+    lostRetry: "Réessayer",
+
     lostOpenFailed: "Ce signalement n’a pas pu être ouvert.",
     lostUnavailable: "Ce signalement d’objet perdu est indisponible.",
     lostSelectTravel: "Sélectionnez le Voyage dans lequel vous avez trouvé l’objet.",
