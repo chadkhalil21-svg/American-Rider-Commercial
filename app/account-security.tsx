@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react';
+import { useRouter } from 'expo-router';
 import { Platform, Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { updatePassword } from 'firebase/auth';
 import { Text } from '../src/components/AppText';
@@ -11,7 +12,6 @@ import { googleSignInConfigured } from '../src/state/googleSignIn';
 import { colors } from '../src/theme';
 
 const MIN_PASSWORD = 15;
-const emailOk = (e: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e.trim());
 
 function SecretField({
   label,
@@ -54,8 +54,9 @@ function SecretField({
 
 export default function AccountSecurity() {
   const goBack = useGoBack();
+  const router = useRouter();
   const { t } = useLanguage();
-  const { user, busy, resendEmailVerification, requestEmailChange, resetPassword } = useAuth();
+  const { user, busy, resendEmailVerification, resetPassword } = useAuth();
 
   const provider = useMemo(
     () =>
@@ -66,8 +67,7 @@ export default function AccountSecurity() {
     [user?.providerData],
   );
 
-  const [mode, setMode] = useState<'idle' | 'email' | 'password'>('idle');
-  const [nextEmail, setNextEmail] = useState('');
+  const [mode, setMode] = useState<'idle' | 'password'>('idle');
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
