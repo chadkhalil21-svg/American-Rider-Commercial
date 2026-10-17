@@ -192,8 +192,17 @@ export default function OperatorHome() {
   useEffect(() => {
     const sub = AppState.addEventListener('change', (state) => {
       if (state === 'active') {
-        if (requestRef.current) {
+        if (requestRef.current && !acceptingRef.current && !decliningRef.current) {
           setCountdown(RESPOND_SECONDS);
+          // Restore both the numeral and the visual bar after returning from another app.
+          // A frozen bar beside a fresh 15-second countdown is misleading.
+          cbar.setValue(1);
+          Animated.timing(cbar, {
+            toValue: 0,
+            duration: RESPOND_SECONDS * 1000,
+            easing: (value) => value,
+            useNativeDriver: false,
+          }).start();
           if (!tickTimer.current) {
             tickTimer.current = setInterval(() => setCountdown((c) => c - 1), 1000);
           }
@@ -443,7 +452,7 @@ export default function OperatorHome() {
                         and telling somebody how far a pickup is when nobody measured it is
                         the same defect as a fare nobody charged. */}
                     <Text style={styles.routeMeta}>
-                      {request.pickupMin != null ? t('traveler.opPickupMinAway', { n: request.pickupMin }) : 'Pickup'}
+                      {request.pickupMin != null ? t('traveler.opPickupMinAway', { n: request.pickupMin }) : t('traveler.pickup')}
                     </Text>
                     <Text style={styles.routePlace}>{request.pickup}</Text>
                   </View>
@@ -454,7 +463,7 @@ export default function OperatorHome() {
                     <Text style={styles.routeMeta}>
                       {request.tripMin != null && request.dist != null
                         ? t('traveler.opDestinationMeta', { min: request.tripMin, mi: request.dist })
-                        : 'Destination'}
+                        : t('traveler.destination')}
                     </Text>
                     <Text style={styles.routePlace}>{request.dest}</Text>
                   </View>
@@ -620,7 +629,7 @@ const styles = StyleSheet.create({
   cbarFill: { height: '100%', backgroundColor: colors.ink },
   cbarText: {
     fontSize: 12,
-    color: colors.muted,
+    color: colors.ink2,
     marginTop: 8,
     textAlign: 'center',
     letterSpacing: 0.24,
@@ -629,7 +638,7 @@ const styles = StyleSheet.create({
   travelerRow: { flexDirection: 'row', alignItems: 'center', marginTop: 14 },
   travelerName: { fontSize: 16, fontWeight: '600', color: colors.ink },
   travelerRating: { fontSize: 13, color: colors.muted, marginTop: 2 },
-  estLabel: { fontSize: 9.5, fontWeight: '600', letterSpacing: 1.43, color: colors.muted },
+  estLabel: { fontSize: 11, fontWeight: '600', letterSpacing: 1.1, color: colors.ink2 },
   routeCard: {
     marginTop: 16,
     backgroundColor: colors.blueTint, // the demo's neutral --fill
@@ -642,7 +651,7 @@ const styles = StyleSheet.create({
   routeRow: { flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 16 },
   hair: { borderTopWidth: 1, borderTopColor: colors.hairline },
   dot: { width: 9, height: 9, borderRadius: 5, backgroundColor: colors.ink },
-  routeMeta: { fontSize: 12, color: colors.muted },
+  routeMeta: { fontSize: 12, color: colors.ink2 },
   routePlace: { fontSize: 15, color: colors.ink, marginTop: 2 },
   requestButtons: { flexDirection: 'row', gap: 10, marginTop: 18 },
 });
