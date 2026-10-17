@@ -188,7 +188,7 @@ export default function OperatorQualification() {
                 else if (d.key === 'background') router.navigate('/operator/background');
                 else if (d.key === 'license' || d.key === 'registration' || d.key === 'inspection')
                   router.navigate('/operator/documents');
-                else op.verifyDoc(d.key);
+                else if (d.key === 'basics') router.navigate('/operator/vehicle');
               }}
             >
               <View style={[styles.row, i > 0 && styles.hair]}>
