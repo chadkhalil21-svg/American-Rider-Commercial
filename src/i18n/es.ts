@@ -259,6 +259,11 @@ export default {
   },
 
   traveler: {
+    platformCommunications: "Mensajes de American Rider",
+    platformCommunicationsBody: "Mensajes de American Rider sobre su cuenta, seguridad y viajes.",
+    noPlatformCommunications: "Aún no hay comunicaciones.",
+    newPlatformCommunication: "Nuevo",
+    platformCommunicationReadFailed: "No se pudo marcar esta comunicación como leída. Inténtelo de nuevo.",
     updateRequiredTitle: 'Actualización necesaria',
     updateRequiredBody: 'Actualice American Rider para revisar y confirmar el total actual del viaje. No se hizo ninguna reserva ni ningún cobro.',
     priceChangedTitle: 'El costo total cambió',
