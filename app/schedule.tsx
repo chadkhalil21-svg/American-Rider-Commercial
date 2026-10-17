@@ -14,7 +14,7 @@ import {
   Sub,
   Title,
 } from '../src/components/UI';
-import { platformFee } from '../src/data';
+import { classNameKey } from '../src/data';
 import { publicPickupMarket } from '../src/backend/markets';
 import { pickupDate, pickupMinutes, nextDate, resolvePickupWall, scheduleReadiness } from '../backend/scheduleclock';
 import { SchedInfo, useRide } from '../src/state/RideContext';
@@ -654,6 +654,27 @@ export default function Schedule() {
             <Text style={styles.summaryValue} numberOfLines={2}>{ride.arrival.short}</Text>
           </View>
         )}
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={`${t('traveler.vehicleClassLabel')}: ${t(classNameKey(ride.travelClass))}. ${t('traveler.schedChangeVehicle')}`}
+          onPress={() => router.navigate({ pathname: '/reserve', params: { scheduling: '1' } })}
+          style={[styles.summaryRow, { marginTop: 10, minHeight: 44, alignItems: 'center' }]}
+        >
+          <Text style={styles.summaryLabel}>{t('traveler.vehicleClassLabel')}</Text>
+          <Text style={styles.summaryValue}>{t(classNameKey(ride.travelClass))}  ›</Text>
+        </Pressable>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={`${t('traveler.whoIsTraveling')}. ${t('traveler.schedChangeTraveler')}`}
+          onPress={() => router.navigate({ pathname: '/reserve', params: { scheduling: '1' } })}
+          style={[styles.summaryRow, { marginTop: 10, minHeight: 44, alignItems: 'center' }]}
+        >
+          <Text style={styles.summaryLabel}>{t('traveler.whoIsTraveling')}</Text>
+          <Text style={styles.summaryValue}>
+            {ride.travelParty.mode === 'self' ? t('traveler.me') :
+              ride.travelParty.travelerName || t('traveler.anotherAdult')}  ›
+          </Text>
+        </Pressable>
         <View style={[styles.summaryRow, { marginTop: 10 }]}>
           <Text style={styles.summaryLabel}>{t('traveler.pickupTime')}</Text>
           <Text style={styles.summaryValue}>
@@ -691,7 +712,10 @@ export default function Schedule() {
         <Text style={styles.customPast}>{t('traveler.schedConfirmTimeHint')}</Text>
       )}
       {scheduleStatus === 'ready' && (
-        <Text style={styles.bookingNotice}>{t('traveler.schedBookingNotice')}</Text>
+        <>
+          <Text style={styles.bookingNotice}>{t('traveler.schedBookingNotice')}</Text>
+          <Text style={styles.bookingNotice}>{t('traveler.schedManageNotice')}</Text>
+        </>
       )}
       {saveError ? <Text style={styles.splashWarn}>{t('traveler.schedSaveReview')}</Text> : null}
       <PrimaryButton
@@ -780,7 +804,7 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     paddingVertical: 11,
-    minHeight: 48,
+    minHeight: 44,
     justifyContent: 'center',
     borderRadius: 11,
     borderWidth: 1,
@@ -793,8 +817,8 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   calNav: {
-    width: 48,
-    height: 48,
+    width: 44,
+    height: 44,
     borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
@@ -811,7 +835,7 @@ const styles = StyleSheet.create({
   },
   calCell: {
     width: `${100 / 7}%`,
-    minHeight: 48,
+    minHeight: 44,
     justifyContent: 'center',
     paddingVertical: 9,
     borderRadius: 10,
@@ -827,7 +851,7 @@ const styles = StyleSheet.create({
   selectedTimeText: { fontSize: 17, fontWeight: '600', color: colors.ink, flexShrink: 1 },
   selectedTimeAction: { fontSize: 13, color: colors.ink2, fontWeight: '600' },
   timeOptionsHint: { color: colors.ink2, fontSize: 12, fontWeight: '500' },
-  customDone: { minHeight: 48, alignSelf: 'flex-start', justifyContent: 'center', paddingTop: 5 },
+  customDone: { minHeight: 44, alignSelf: 'flex-start', justifyContent: 'center', paddingTop: 5 },
   timeHead: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -836,7 +860,7 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   periodBtn: {
-    minHeight: 48,
+    minHeight: 44,
     justifyContent: 'center',
     paddingVertical: 7,
     paddingHorizontal: 14,
@@ -848,7 +872,7 @@ const styles = StyleSheet.create({
     width: '48%',
     alignItems: 'center',
     justifyContent: 'center',
-    minHeight: 48,
+    minHeight: 44,
     paddingVertical: 11,
     borderWidth: 1,
     borderRadius: 11,
@@ -869,7 +893,7 @@ const styles = StyleSheet.create({
   // and red on a suggestion tells a traveler something has gone wrong when nothing has.
   suggestText: { flex: 1, fontSize: 13.5, color: colors.ink, lineHeight: 19.5 },
   useItBtn: {
-    minHeight: 48,
+    minHeight: 44,
     justifyContent: 'center',
     backgroundColor: colors.ink,
     borderRadius: 999,
