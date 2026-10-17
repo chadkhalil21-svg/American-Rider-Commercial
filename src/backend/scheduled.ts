@@ -165,31 +165,28 @@ export async function fetchScheduledRidesPage(
  * saying.
  */
 export async function fetchScheduledRide(): Promise<ScheduledRide | null> {
-  const uid = auth.currentUser?.uid;
-  if (!uid) return null;
-  try {
-    const snap = await getDocs(
-      query(collection(db, 'scheduled_rides'), where('travelerUid', '==', uid)),
-    );
-    const rows = snap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<ScheduledRide, 'id'>) }));
-    const live = rows
-      .filter((r) => typeof r.atMs === 'number')
-      .filter((r) => {
-        const s = r.status ?? 'reserved';
-        if (s === 'dispatched') return r.atMs > Date.now() - 90 * 60 * 1000;
-        // A reservation that failed is kept in view for an hour, because the traveler has to
-        // be told. Silently dropping it is how a 6:30 AM pickup that never came became
-        // indistinguishable from one that was never made.
-        if (s === 'unmatched' || s === 'payment_failed' || s === 'needs_attention' || s === 'cancelled') {
-          return r.atMs > Date.now() - 60 * 60 * 1000;
-        }
-        return r.atMs > Date.now();
-      })
-      .sort((a, b) => a.atMs - b.atMs);
-    return live[0] ?? null;
-  } catch {
-    return null;
+  // Home is a compact summary; the dedicated Upcoming Travel screen can show
+  // every reservation. This lookup uses bounded, indexed pages, never a
+  // lifetime-wide query as the account's booking history grows.
+  let after: ScheduledPage['nextCursor'] = null;
+  for (let pageNo = 0; pageNo < 5; pageNo++) {
+    const page = await fetchScheduledRidesPage(after);
+    if (!page) return null; // network/index errors cannot become invented bookings
+    const next = page.rides.find((r) => {
+      if (!Number.isFinite(r.atMs)) return false;
+      const status = r.status ?? 'reserved';
+      if (status === 'dispatched') return r.atMs > Date.now() - 90 * 60 * 1000;
+      if (['unmatched', 'payment_failed', 'needs_attention', 'cancelled', 'price_changed'].includes(status))
+        return r.atMs > Date.now() - 60 * 60 * 1000;
+      return r.atMs > Date.now();
+    });
+    if (next) return next;
+    if (!page.hasMore || !page.nextCursor) return null;
+    after = page.nextCursor;
   }
+  // The menu's full paginated Upcoming Travel screen remains available;
+  // the small Home card does not expand into an unbounded historical scan.
+  return null;
 }
 
 /**
