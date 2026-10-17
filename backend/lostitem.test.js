@@ -101,18 +101,50 @@ const fakeDb = {
       travelerUid: 'traveler1', tripNo: null, candidateTripNos: ['AR-A','AR-B'],
       notifiedOperatorIds: ['op1','op2'], description: 'Keys', status: 'reported', operatorResponses: {},
     },
+    li3: {
+      travelerUid: 'traveler1', tripNo: null, candidateTripNos: ['AR-A','AR-B'],
+      notifiedOperatorIds: ['op1','op2'], description: 'Phone', status: 'operator-notified', operatorResponses: {},
+    },
+    li4: {
+      travelerUid: 'traveler1', tripNo: 'AR-A', candidateTripNos: ['AR-A'],
+      notifiedOperatorIds: ['op1'], description: 'Wallet', status: 'reported', operatorResponses: {},
+    },
+    liMulti: {
+      travelerUid: 'traveler1', tripNo: null, candidateTripNos: ['AR-A','AR-B','AR-D'],
+      notifiedOperatorIds: ['op1','op2'], description: 'Coat', status: 'operator-notified', operatorResponses: {},
+    },
   };
   const rides = {
-    'AR-A': { operatorId: 'op1' },
-    'AR-B': { operatorId: 'op2' },
+    'AR-2117-MIA': { tripNo: 'AR-2117-MIA', travelerUid: 'traveler1', operatorId: 'op1', operatorName: 'Operator 1' },
+    'AR-A': { tripNo: 'AR-A', travelerUid: 'traveler1', operatorId: 'op1', operatorName: 'Operator 1' },
+    'AR-B': { tripNo: 'AR-B', travelerUid: 'traveler1', operatorId: 'op2', operatorName: 'Operator 2' },
+    'AR-D': { tripNo: 'AR-D', travelerUid: 'traveler1', operatorId: 'op1', operatorName: 'Operator 1' },
+    'AR-C': { tripNo: 'AR-C', travelerUid: 'traveler2', operatorId: 'op3', operatorName: 'Operator 3' },
   };
+  // Simulate Firestore transaction serialization for simultaneous requests.
+  // Production Firestore retries on document changes; the fake tests the
+  // finished business rule without sending real notifications or writes.
+  let txQueue = Promise.resolve();
   const recoveryDb = {
+    runTransaction: (work) => {
+      const result = txQueue.then(() => work({
+        get: (ref) => ref.get(),
+        set: (ref, patch) => ref.set(patch),
+      }));
+      txQueue = result.catch(() => {});
+      return result;
+    },
     collection: (name) => ({
       doc: (id) => ({
         get: async () => ({ exists: name === 'lost_items' && !!lost[id], data: () => lost[id] }),
         set: async (patch) => { if (name === 'lost_items') Object.assign(lost[id], patch); },
       }),
       where: (field, op, value) => ({
+        get: async () => ({
+          docs: name === 'rides' && field === 'tripNo' && op === 'in' && Array.isArray(value)
+            ? value.filter(v => rides[v]).map(v => ({ data: () => rides[v] }))
+            : [],
+        }),
         limit: () => ({
           get: async () => ({
             docs: name === 'rides' && rides[value]
@@ -130,10 +162,49 @@ const fakeDb = {
   );
   check('operator-notified is earned by a durable inbox delivery', delivery.ok && delivery.delivered === 1 && lost.li1.status === 'operator-notified');
   check('the Operator message opens the exact report', /itemId=li1/.test(sent[0]?.action?.screen || ''));
+  // A modified Traveler phone may nominate any Operator ID. That never
+  // constitutes proof the Operator served a Travel or should be notified.
+  lost.liForged = {
+    travelerUid: 'traveler1', tripNo: 'AR-A', candidateTripNos: ['AR-A'],
+    notifiedOperatorIds: ['op3'], description: 'Notebook', status: 'reported',
+  };
+  const stolenNotifications = [];
+  const corrected = await notifyLostItemOperators(
+    { itemId: 'liForged', uid: 'traveler1' },
+    { database: recoveryDb, postMessage: async msg => { stolenNotifications.push(msg); return { ok: true }; } },
+  );
+  check('forged Operator nomination is replaced by the real Travel Operator',
+    corrected.ok && corrected.delivered === 1 &&
+    lost.liForged.notifiedOperatorIds.join(',') === 'op1' &&
+    stolenNotifications.every(x => x.uid === 'op1'));
+  const evilRead = await operatorLostItem({ itemId: 'liForged', operatorUid: 'op3' }, { database: recoveryDb });
+  check('a forged Operator never receives private lost-item details', !evilRead.ok && evilRead.status === 403);
+  const evilResponse = await respondLostItem(
+    { itemId: 'liForged', operatorUid: 'op3', outcome: 'located' }, { database: recoveryDb });
+  check('a forged Operator cannot claim the item was found', !evilResponse.ok && evilResponse.status === 403);
+
+  lost.liForeign = {
+    travelerUid: 'traveler1', tripNo: 'AR-C', candidateTripNos: ['AR-C'],
+    notifiedOperatorIds: ['op3'], description: 'Bag', status: 'reported',
+  };
+  const wrongTravelerDelivery = [];
+  const foreign = await notifyLostItemOperators(
+    { itemId: 'liForeign', uid: 'traveler1' },
+    { database: recoveryDb, postMessage: async msg => { wrongTravelerDelivery.push(msg); return { ok: true }; } },
+  );
+  check('another Traveler’s real Travel never authorizes a false lost-item notification',
+    !foreign.ok && foreign.delivered === 0 && wrongTravelerDelivery.length === 0 &&
+    lost.liForeign.notifiedOperatorIds.length === 0);
   const denied = await operatorLostItem({ itemId: 'li1', operatorUid: 'op2' }, { database: recoveryDb });
   check('an unrelated Operator cannot read the report', !denied.ok && denied.status === 403);
   const ownReport = await operatorLostItem({ itemId: 'li1', operatorUid: 'op1' }, { database: recoveryDb });
   check('a named Operator can read the minimum recovery record', ownReport.ok && ownReport.item.description === 'Black bag');
+
+  const op1Candidates = await operatorLostItem({ itemId:'liMulti', operatorUid:'op1' }, { database: recoveryDb });
+  const op2Candidates = await operatorLostItem({ itemId:'liMulti', operatorUid:'op2' }, { database: recoveryDb });
+  check('an Operator sees each of their own possible Travels and no other Operator trips',
+    op1Candidates.ok && op1Candidates.item.candidateTripNos.join(',') === 'AR-A,AR-D' &&
+    op2Candidates.ok && op2Candidates.item.candidateTripNos.join(',') === 'AR-B');
 
   const wrongTrip = await respondLostItem({ itemId: 'li2', operatorUid: 'op1', outcome: 'located', tripNo: 'AR-B' }, { database: recoveryDb });
   check('an Operator cannot claim another candidate Operator’s Travel', !wrongTrip.ok && wrongTrip.status === 403);
@@ -141,6 +212,67 @@ const fakeDb = {
   check('one not-found response does not close a multi-Operator search', firstNo.ok && firstNo.status === 'operator-notified');
   const secondNo = await respondLostItem({ itemId: 'li2', operatorUid: 'op2', outcome: 'not-found' }, { database: recoveryDb });
   check('not-found becomes final only after every candidate Operator answers', secondNo.ok && secondNo.status === 'not-found');
+
+  // A slow 'not found' reply must never erase another Operator's confirmed
+  // location, even when both requests race and Firestore retries the loser.
+  const testNotifications = [];
+  const [locatedReply, notFoundReply] = await Promise.all([
+    respondLostItem({ itemId:'li3', operatorUid:'op2', outcome:'located', tripNo:'AR-B' }, {
+      database: recoveryDb, postMessage: async m => { testNotifications.push(m); return {ok:true}; },
+    }),
+    respondLostItem({ itemId:'li3', operatorUid:'op1', outcome:'not-found' }, {
+      database: recoveryDb, postMessage: async m => { testNotifications.push(m); return {ok:true}; },
+    }),
+  ]);
+  check('concurrent operator replies do not lose the found-item status',
+    locatedReply.ok && notFoundReply.ok && lost.li3.status === 'located' &&
+    lost.li3.tripNo === 'AR-B' && lost.li3.locatedByOperatorId === 'op2');
+  check('concurrent replies persist both operator responses',
+    lost.li3.operatorResponses.op1?.outcome === 'not-found' &&
+    lost.li3.operatorResponses.op2?.outcome === 'located');
+  const beforeRepeat = testNotifications.length;
+  const repeatLocated = await respondLostItem({
+    itemId:'li3', operatorUid:'op2', outcome:'located', tripNo:'AR-B',
+  }, { database: recoveryDb, postMessage: async m => { testNotifications.push(m); return {ok:true}; } });
+  check('repeating a found report is idempotent and does not send duplicate notices',
+    repeatLocated.ok && repeatLocated.reused === true && testNotifications.length === beforeRepeat);
+  lost.li3.status = 'returned';
+  const afterReturned = await respondLostItem({
+    // Once found on AR-B, only AR-B's actual Operator remains authorized.
+    itemId:'li3', operatorUid:'op2', outcome:'not-found',
+  }, { database: recoveryDb, postMessage: async m => { testNotifications.push(m); return {ok:true}; } });
+  check('a returned item cannot be downgraded or re-opened by an Operator',
+    !afterReturned.ok && afterReturned.status === 409 && lost.li3.status === 'returned' &&
+    testNotifications.length === beforeRepeat);
+  const unrelatedAfterBinding = await respondLostItem({
+    itemId:'li3', operatorUid:'op1', outcome:'not-found',
+  }, { database: recoveryDb, postMessage: async m => { testNotifications.push(m); return {ok:true}; } });
+  check('after the actual Travel is identified, another candidate Operator is no longer authorized',
+    !unrelatedAfterBinding.ok && unrelatedAfterBinding.status === 403 &&
+    lost.li3.status === 'returned');
+
+  // A push/inbox message is already durable before the notification sender
+  // stamps the report. An especially quick Operator may open it and respond.
+  // The late notification bookkeeping must preserve the positive finding.
+  const fastReply = await notifyLostItemOperators(
+    { itemId: 'li4', uid: 'traveler1' },
+    { database: recoveryDb, postMessage: async () => {
+      const located = await respondLostItem({
+        itemId:'li4', operatorUid:'op1', outcome:'located', tripNo:'AR-A',
+      }, { database: recoveryDb, postMessage: async () => ({ ok: true }) });
+      return { ok: located.ok };
+    } },
+  );
+  check('late notification records delivery but cannot downgrade an item already located',
+    fastReply.ok && lost.li4.status === 'located' &&
+    lost.li4.operatorDeliveryCount === 1 && lost.li4.locatedByOperatorId === 'op1');
+  lost.li4.status = 'returned';
+  const repeatDelivery = await notifyLostItemOperators(
+    { itemId: 'li4', uid: 'traveler1' },
+    { database: recoveryDb, postMessage: async () => ({ ok: true }) },
+  );
+  check('a late notification cannot move a returned item back to operator-notified',
+    repeatDelivery.ok && lost.li4.status === 'returned');
 
   for (const r of results) console.log(`${r.ok ? 'PASS' : 'FAIL'}  ${r.label}${r.detail ? ` — ${r.detail}` : ''}`);
   const failed = results.filter((r) => !r.ok);

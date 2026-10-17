@@ -345,6 +345,7 @@ export default function Home() {
       label: t('traveler.account'),
       rows: [
         { label: t('traveler.paymentMethods'), onPress: () => go('/wallet') },
+        { label: t('traveler.platformCommunications'), onPress: () => go('/inbox') },
         { label: t('traveler.settings'), onPress: () => go('/settings') },
         { label: t('traveler.inviteFriends'), onPress: () => go('/invite') },
         ...(operatorRow ? [operatorRow] : []),

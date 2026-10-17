@@ -46,23 +46,14 @@ export default function OperatorPayouts() {
       <BackLink label={t('common.back')} onPress={goBack} />
       <Text style={styles.title}>{t('operator.yourPayouts')}</Text>
       <Text style={styles.sub}>
-        {t('traveler.reachesYouWithoutAsking')}
+        {t('operator.payoutTruthIntro')}
       </Text>
 
       <SectionLabel style={styles.lbl}>{t('operator.howItReachesYou')}</SectionLabel>
       <Card style={styles.card}>
-        <Text style={styles.step}>
-          <Text style={styles.stepStrong}>{t('operator.asEachTravelCompletes')}</Text>, your 99% transfers to
-          your Stripe account.
-        </Text>
-        <Text style={[styles.step, styles.hair]}>
-          <Text style={styles.stepStrong}>{t('traveler.onStripesSchedule')}</Text>, it moves from there to
-          your bank. American Rider never holds it.
-        </Text>
-        <Text style={[styles.step, styles.hair]}>
-          <Text style={styles.stepStrong}>{t('operator.soonerIfYouWant')}</Text>, you can take an instant
-          payout in your Stripe account. Stripe charges its own fee for that.
-        </Text>
+        <Text style={styles.step}>{t('operator.payoutTruthTransfer')}</Text>
+        <Text style={[styles.step, styles.hair]}>{t('operator.payoutTruthBank')}</Text>
+        <Text style={[styles.step, styles.hair]}>{t('operator.payoutTruthInstant')}</Text>
       </Card>
 
       {error && <Text style={styles.error}>{error}</Text>}

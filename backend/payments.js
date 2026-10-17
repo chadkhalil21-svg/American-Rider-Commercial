@@ -380,7 +380,33 @@ async function detachPaymentMethod({ uid, email, paymentMethodId }) {
   const customer = await customerForTraveler({ uid, email });
   const owned = await ownedPaymentMethod(customer, paymentMethodId);
   if (owned.error) return { ok: false, code: owned.error };
-  await stripe.paymentMethods.detach(owned.pm.id);
+
+  // Stripe's default is a separate Customer pointer, not a reason to lock
+  // a Traveler into keeping a card. Advance it to another already-saved card
+  // (or clear it) before detaching so an off-session payment cannot reference
+  // a method no longer attached to this Customer.
+  const wasDefault = defaultMethodId(customer) === owned.pm.id;
+  if (wasDefault) {
+    const saved = await stripe.paymentMethods.list({ customer: customer.id, type: 'card', limit: 20 });
+    const replacement = saved.data.find(m => m.id !== owned.pm.id);
+    await stripe.customers.update(customer.id, {
+      invoice_settings: { default_payment_method: replacement ? replacement.id : '' },
+    });
+  }
+  try {
+    await stripe.paymentMethods.detach(owned.pm.id);
+  } catch (err) {
+    // Best-effort compensation if Stripe refused detachment. Retain the
+    // original error: the actual method may still be usable.
+    if (wasDefault) {
+      try {
+        await stripe.customers.update(customer.id, {
+          invoice_settings: { default_payment_method: owned.pm.id },
+        });
+      } catch { /* recovery failure is handled as an operational incident */ }
+    }
+    throw err;
+  }
   return { ok: true };
 }
 
