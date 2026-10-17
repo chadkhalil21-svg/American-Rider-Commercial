@@ -240,6 +240,9 @@ export default {
     month: 'Mes',
     year: 'Año',
     yourPayouts: 'Sus Pagos',
+    deviceEarningsLabel: 'Ingresos registrados en este dispositivo',
+    deviceEarningsNotice: 'Estas cifras proceden de operaciones guardadas en este dispositivo, no de transferencias de Stripe ni pagos bancarios confirmados.',
+    payoutRecoveryUnconfirmed: 'No se pudo confirmar la recuperación de viajes pendientes de pago. Es posible que falten datos de los pagos.'
     recentOperations: 'Operaciones Recientes',
     insuranceDisclosure: 'Divulgación Legal de Seguros',
     partRead: 'Leído',
