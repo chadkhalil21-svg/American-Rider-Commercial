@@ -975,6 +975,8 @@ export default {
     noPaymentMethodSaved: 'Keine Zahlungsmethode gespeichert.',
     methodsUnreadable: 'Die gespeicherten Zahlungsmethoden konnten nicht gelesen werden.',
     addPaymentMethod: 'Zahlungsmethode hinzufügen',
+    removeDefaultCardNotice: "Das Entfernen der Standardkarte kann geplante Fahrten beeinträchtigen. Eine andere gespeicherte Karte wird gegebenenfalls zur Standardkarte; andernfalls fügen Sie vor der nächsten Fahrt eine Zahlungsmethode hinzu.",
+    removeCardNotice: "Diese gespeicherte Zahlungsmethode entfernen? Sie steht für künftige Fahrten nicht mehr zur Verfügung.",
     defaultMethod: 'Standard',
     setAsDefault: 'Als Standard festlegen',
     expires: 'Läuft ab %{date}',
