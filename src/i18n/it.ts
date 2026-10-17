@@ -1028,6 +1028,7 @@ export default {
     emailChangedTitle: "Indirizzo email aggiornato",
     emailSameAddress: "Questo è già il tuo indirizzo attuale.",
     emailChangeFailed: 'Non è stato possibile avviare il cambio e-mail. Controlli la password e riprovi.',
+    emailManagedUnsupported: "Non è possibile cambiare qui l’indirizzo con questo accesso. Contatta l’Assistenza.",
     emailManagedTitle: 'Gestito dal provider di accesso',
     emailManagedApple: 'Questo account accede con Apple. Gestisca l’indirizzo associato ad Accedi con Apple dal suo account Apple.',
     emailManagedGoogle: 'Questo account accede con Google. Gestisca l’indirizzo associato a questo accesso dal suo account Google.',
