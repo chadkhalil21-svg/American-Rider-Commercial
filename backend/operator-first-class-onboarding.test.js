@@ -32,6 +32,10 @@ for(let round=1;round<=2;round++){
    'do not privilege an unverified broker or show old contact details');
  assert.match(insurance,/liveStatus\?\.documentApproved === true/,
    'receipt of a PDF does not itself approve insurance');
+ assert.match(insurance,/liveStatus\?\.status === 'cancelled' \|\| liveStatus\?\.status === 'pending_cancellation'/,
+   'cancelled or pending-cancelled policy may always be replaced');
+ assert.match(insurance,/canUpload = !policyApproved \|\| expiring \|\| coverageUnsafe/,
+   'printed future expiry cannot trap the Operator with a cancelled policy');
  assert.match(qualify,/accessibilityRole="button" onPress=\{\(\) => router.navigate\('\/operator\/vehicle'\)\}/,
    'Vehicle details remain one obvious action in the qualification checklist');
  assert.match(qualify,/op.vehicle\?\.car \|\| t\('traveler.noVehicleOnFile'\)/,
