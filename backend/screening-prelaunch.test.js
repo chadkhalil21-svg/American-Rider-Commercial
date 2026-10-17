@@ -46,8 +46,10 @@ assert.match(ui, /if \(!area\?\.market\)/,
   'the Operator must select a county before source-verified preparatory checks');
 assert.match(server, /app\.post\('\/operator\/document', requireAuth, LIMITS\.document, requireFreshAuth, requireOperatorPreparationMarket/,
   'documents and screening are both preparatory; neither approves paid Travel');
-assert.match(ui, /disabled=\{submitting \|\| !areaAuthorized\}/,
-  'paperwork may be prepared early, while final submission requires a supported commercial county');
+assert.match(ui, /disabled=\{submitting \|\| !area\?\.market\}/,
+  'Operator may request jurisdiction-authorized review, not commercial permission');
+assert.match(server, /app\.post\('\/operator\/qualification\/submit', requireAuth, LIMITS\.qualification, requireOperatorPreparationMarket/,
+  'review is jurisdiction-gated while paid duty and payout setup remain separate');
 assert.match(connect, /waitlist: Market\[\]/, 'API client carries waitlist options');
 assert.match(bg, /mode: requestMode/, 'existing/new screening requests are both supported');
 assert.match(bg, /disabled=\{busy \|\| !releaseAuthorized\}/, 'request requires Operator authorization');
