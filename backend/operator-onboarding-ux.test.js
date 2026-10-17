@@ -23,7 +23,7 @@ for(let pass=0;pass<2;pass++){
  assert.match(insurance,/insFloridaRequirementsShort/,'Florida limits visible without revealing a hidden panel');
  assert.match(insurance,/Share.share\(\{ message: config.script \}\)/,'broker instructions can be shared');
  assert.match(insurance,/insCompareHeadline/,'comparison sources visible by default');
- for(const provider of ['Insureon','Limousine Insurance HQ','Progressive Commercial'])
+ for(const provider of ['Insureon','Limousine Insurance HQ'])
   assert.ok(insurance.includes("'"+provider+"'"),provider+' featured, not hidden');
  assert.doesNotMatch(insurance,/referredBroker|BROKER\.name/,'no prominent single-broker steering');
  assert.match(insurance,/insOlderVehicleNote/,'older-car options explained');
@@ -43,6 +43,8 @@ for(let pass=0;pass<2;pass++){
   for(const k of ['insRequirementsHeadline','insFloridaRequirementsShort','insCompareHeadline','insOlderVehicleNote','insCompareDisclosure'])
    assert.ok(loc.includes(k+': '),'missing '+lang+'/'+k);
  }
+ assert.match(insurance,/showMore/,'specialist carrier options remain available on request');
+ assert.match(options,/name: 'Progressive Commercial'/,'specialist carrier remains available');
  assert.match(options,/name: 'Insureon'/,'comparison service exists');
  assert.match(options,/name: 'Limousine Insurance HQ'/,'three-broker quote service exists');
 }
