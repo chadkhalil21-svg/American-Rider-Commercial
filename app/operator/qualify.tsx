@@ -161,9 +161,10 @@ export default function OperatorQualification() {
           <PrimaryButton label={interest === 'saving' ? t('operator.checking') : t('traveler.waitlistJoin')}
             disabled={interest === 'saving'}
             onPress={async () => {
-              if (!area.market || interest === 'saving') return;
+              const marketId = area?.market?.id;
+              if (!marketId || interest === 'saving') return;
               setInterest('saving');
-              const ok = await joinOperatorAreaWaitlist(area.market.id);
+              const ok = await joinOperatorAreaWaitlist(marketId);
               setInterest(ok ? 'recorded' : 'failed');
             }} style={{ marginTop: 12 }} />
           {interest === 'failed' && <Text accessibilityRole="alert" style={styles.footnote}>{t('traveler.waitlistFailed')}</Text>}
