@@ -113,6 +113,34 @@ for (let pass = 1; pass <= 2; pass++) {
   assert.doesNotMatch(lostServer, /action: \{ screen: `\/lost\?itemId=/,
     'no mismatched Traveler lost-item deep-link parameter remains');
 
+  // Platform notices belong to the authenticated account, not one role.
+  // A legitimate report action deep-links directly, while older Operator apps
+  // still know the /operator/inbox route. Server reads have a hard cap.
+  const platform = read('backend/platforminbox.js');
+  const accountRoutes = read('backend/server.js');
+  const accountClient = read('src/backend/platformInbox.ts');
+  const sharedScreen = read('app/operator/inbox.tsx');
+  const travelerScreen = read('app/inbox.tsx');
+  const homeScreen = read('app/index.tsx');
+  assert.match(platform, /typeof action\?\.screen === 'string' && action\.screen\.startsWith\('\/'\)/,
+    'trusted report destination must take precedence over generic inbox');
+  assert.match(platform, /\? action\.screen : '\/operator\/inbox'/,
+    'old Operator clients keep their legacy inbox route');
+  assert.match(platform, /\.orderBy\('createdAt', 'desc'\)\.limit\(pageSize\)\.get\(\)/,
+    'platform inbox reads at most requested recent records');
+  assert.doesNotMatch(platform, /\.collection\('platform_messages'\)\.get\(\)/,
+    'avoid loading and slicing whole lifetime platform inbox');
+  assert.match(accountRoutes, /app\.get\('\/account\/inbox', requireAuth, accountInboxList\)/);
+  assert.match(accountRoutes, /app\.post\('\/account\/inbox\/:id\/read', requireAuth, accountInboxRead\)/);
+  assert.match(accountRoutes, /app\.get\('\/operator\/inbox', requireAuth, accountInboxList\)/);
+  assert.match(accountClient, /\$\{PAYMENT_SERVER_URL\}\/account\/inbox/);
+  assert.match(travelerScreen, /export \{ default \} from '\.\/operator\/inbox'/,
+    'Traveler and Operator share a single inbox implementation');
+  assert.match(sharedScreen, /travelerView = usePathname\(\) === '\/inbox'/,
+    'shared inbox uses role-appropriate headings');
+  assert.match(homeScreen, /traveler\.platformCommunications'\), onPress: \(\) => go\('\/inbox'\)/,
+    'Traveler can reopen durable notices without relying on push delivery');
+
   const found = indexes.indexes.some(x => x.collectionGroup === 'lost_items' &&
     x.queryScope === 'COLLECTION' &&
     x.fields?.[0]?.fieldPath === 'travelerUid' &&
@@ -137,7 +165,7 @@ for (let pass = 1; pass <= 2; pass++) {
     const traveler = d.match(/^  traveler:\s*\{([\s\S]*?)^  \},/m)?.[1];
     assert.ok(traveler, lang + ': Traveler translations must exist');
     for (const key of ['removeDefaultCardNotice', 'removeCardNotice', 'mobileReadUnavailable',
-      'lostHistoryCouldNotLoad', 'lostHistoryMore', 'lostNoVerifiedTravelThread', 'msgTravelUnavailable']) {
+      'lostHistoryCouldNotLoad', 'lostHistoryMore', 'lostNoVerifiedTravelThread', 'msgTravelUnavailable', 'platformCommunications', 'platformCommunicationsBody', 'noPlatformCommunications', 'newPlatformCommunication', 'platformCommunicationReadFailed']) {
       assert.match(traveler, new RegExp('^\\s{4}' + key + ':', 'm'),
         lang + ': missing Traveler copy or placed under the wrong role: ' + key);
     }
