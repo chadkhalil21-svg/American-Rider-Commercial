@@ -1513,7 +1513,13 @@ export function RideProvider({ children }: { children: React.ReactNode }) {
       // journey, where "Miguel" is a script. It must never fire on a lost item thread: an
       // invented "Got it — see you soon." over a bag nobody has looked for is precisely the
       // outcome-without-mechanism defect this build is removing.
-      const isLiveDemoRide = rideActiveRef.current && tripNo === lastTripRef.current.no;
+      // Only a declared demonstration Operator without a persisted Travel
+      // receives scripted replies. Real assigned Operators must answer for
+      // themselves. A Lost Item thread is always a genuine communication.
+      const isLiveDemoRide = rideActiveRef.current &&
+        tripNo === lastTripRef.current.no &&
+        matchedOpRef.current?.demo === true &&
+        !onTravel?.id && !lostItemId;
       if (!isLiveDemoRide) return true;
       if (msgTimer.current) clearTimeout(msgTimer.current);
       msgTimer.current = setTimeout(() => {
