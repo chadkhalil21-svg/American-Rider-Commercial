@@ -241,6 +241,10 @@ export default {
     deviceEarningsLabel: 'Earnings recorded on this device',
     deviceEarningsNotice: 'Amounts here come from operations saved on this device, not confirmed Stripe transfers or bank payments.',
     payoutRecoveryUnconfirmed: 'Recovery of earlier unpaid Travel could not be confirmed. Payout records may be incomplete.'
+    payoutTruthIntro: 'Your share is 99% of the Travel Fare. Completing a Travel does not itself confirm a bank deposit.',
+    payoutTruthTransfer: 'After a Travel is completed, American Rider attempts to transfer your share to Stripe. Payment or account checks can delay the transfer.',
+    payoutTruthBank: 'A confirmed Stripe transfer is not a bank deposit. Stripe controls when available funds reach your bank.',
+    payoutTruthInstant: 'If your Stripe account is eligible, you may request an instant payout. Stripe may charge a fee.',
     recentOperations: 'Recent Operations',
     insuranceDisclosure: 'Statutory Insurance Disclosure',
     partRead: 'Read',
