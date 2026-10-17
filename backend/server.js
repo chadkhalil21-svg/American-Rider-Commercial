@@ -2170,11 +2170,8 @@ app.post('/operator/document', requireAuth, LIMITS.document, requireFreshAuth, r
     if (!imageUrl) return res.status(503).json({ error: 'Private storage is not configured.' });
     // WHAT WE ALREADY BELIEVE, for cross-checking — all of it first-party, all of it something
     // the operator told us themselves.
-    const [userSnap, opSnap] = await Promise.all([
-      db.collection('users').doc(String(req.uid)).get(),
-      db.collection('operators').doc(String(req.uid)).get(),
-    ]);
-    const u = userSnap.exists ? userSnap.data() : {};
+    const opSnap = await db.collection('operators').doc(String(req.uid)).get();
+    const u = req.preparationUser || {};
     const o = opSnap.exists ? opSnap.data() : {};
 
     // Document preparation is permitted in configured jurisdictions regardless
@@ -2325,8 +2322,10 @@ async function requireOperatorPreparationMarket(req, res, next) {
   if (!db) return res.status(503).json({ error: adminStatus().reason, code: 'no_admin_db' });
   try {
     const snap = await db.collection('users').doc(String(req.uid)).get();
-    const gate = operatorPreparationGate(snap.exists ? snap.data() : null);
+    const u = snap.exists ? snap.data() : null;
+    const gate = operatorPreparationGate(u);
     if (gate) return res.status(409).json(gate);
+    req.preparationUser = u || {};
     next();
   } catch {
     res.status(503).json({ error: 'Operator preparation could not be verified. Try again.', code: 'operator_preparation_unavailable' });
@@ -3234,7 +3233,7 @@ app.get('/operator/commission', requireAuth, LIMITS.qualification, async (req, r
 
 // The operator says they are done. Kept as the app's explicit moment, but it decides nothing a
 // document reading has not already decided: it assesses and reports.
-app.post('/operator/qualification/submit', requireAuth, LIMITS.qualification, requireActiveOperatingMarket, async (req, res) => {
+app.post('/operator/qualification/submit', requireAuth, LIMITS.qualification, requireOperatorPreparationMarket, async (req, res) => {
   const db = adminDb();
   if (!db) return res.status(503).json({ error: adminStatus().reason, code: 'no_admin_db' });
   try {
