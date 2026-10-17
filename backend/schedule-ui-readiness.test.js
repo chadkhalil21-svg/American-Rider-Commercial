@@ -189,8 +189,8 @@ for (let pass = 1; pass <= 2; pass++) {
     'time choices wrap to two rows on narrow phones');
   assert.match(screen, /timeBtn: \{\s*width: '48%'/,
     'time controls are large enough to read without four cramped columns');
-  assert.match(screen, /calCell: \{\s*width: `\$\{100 \/ 7\}%`,\s*minHeight: 48/,
-    'calendar uses 48-point day targets for Android and iOS');
+  assert.match(screen, /calCell: \{\s*width: `\$\{100 \/ 7\}%`,\s*minHeight: 44/,
+    'calendar uses the existing application control height, not an arbitrary larger variant');
   assert.match(screen, /keyboardType="numbers-and-punctuation"/,
     'custom time offers an appropriate time-entry keyboard');
   assert.match(screen, /accessibilityLabel=\{`\$\{t\('traveler\.useIt'\)\} \$\{suggestLabel\} \$\{suggestPeriod\}`\}/,
@@ -261,6 +261,45 @@ for (let pass = 1; pass <= 2; pass++) {
   assert.ok(finalReview.indexOf("traveler.totalTravelCost") <
     finalReview.indexOf("<PrimaryButton"),
     'final Total appears before the Schedule Travel action');
+
+  // Vehicle selection is a necessary part of a scheduled booking, not a
+  // separate immediate-only mode. Reuse the class picker and server quote.
+  assert.match(screen, /classNameKey\(ride\.travelClass\)/,
+    'current vehicle class is visible at the final scheduled review');
+  assert.match(finalReview, /traveler\.vehicleClassLabel/,
+    'Travel Confirmation class is exposed in scheduled review');
+  assert.match(finalReview, /params: \{ scheduling: '1' \}/,
+    'vehicle and traveler editors return to existing scheduled quote flow');
+  assert.match(finalReview, /traveler\.whoIsTraveling/,
+    'the person taking Travel is visible before scheduling');
+  assert.match(finalReview, /traveler\.schedManageNotice/,
+    'cancellation and assignment management are explained before scheduling');
+
+  const home = read('app/index.tsx');
+  assert.match(home, /\[confirmCancelScheduled, setConfirmCancelScheduled\]/,
+    'cancel needs explicit confirmation state');
+  assert.match(home, /onPress=\{\(\) => setConfirmCancelScheduled\(true\)\}/,
+    'one tap opens cancel review but never deletes an accepted booking');
+  assert.match(home, /ride\.schedState\?\.status === 'reserved' && \(/,
+    'only unassigned reservations use the reservation-only cancellation');
+  assert.match(home, /traveler\.schedCancelConfirmTitle/,
+    'confirmation title makes the consequential action clear');
+  assert.match(home, /traveler\.schedKeepTravel/,
+    'cancel review has a preserve-booking option');
+  assert.match(home, /traveler\.schedCancelConfirmAction/,
+    'cancel review has an explicit final destructive action');
+  assert.match(home, /await ride\.cancelScheduled\(\)/,
+    'final cancel still uses server-verified transactional cancellation');
+  assert.doesNotMatch(home, /label: t\('traveler\.scheduledTravel'\), onPress: \(\) => go\('\/schedule'\)/,
+    'existing reservation in menu must not open an unrelated new booking');
+
+  for (const language of ['en','es','fr','it','de']) {
+    const dict = read('src/i18n/' + language + '.ts');
+    for (const key of ['schedChangeVehicle','schedChangeTraveler','schedManageNotice',
+      'schedCancelConfirmTitle','schedCancelConfirmBody','schedKeepTravel','schedCancelConfirmAction'])
+      assert.match(dict,new RegExp('^\\s*' + key + ':','m'),
+        language + ' must state current class and cancellation terms in its own language');
+  }
 
   const confirmation = read('app/reserve.tsx');
   assert.match(confirmation, /params\.scheduling === '1'/,
