@@ -105,7 +105,8 @@ const accept = (db, extra = {}) => acceptOffer({ db, uid: 'op', rideId: 'r1', ex
   check('screening blocked by the three-year sweep → refused', has(E({}, { screeningBlocked: true }), 'screening_expired'));
   check('live money and no screening → refused', has(E({ screening: null }, {}, { liveMoney: true }), 'screening_required'));
   check('live money and a lapsed screening → refused', has(E({ screening: { decision: 'pass', recheckDue: NOW - 1 } }, {}, { liveMoney: true }), 'screening_expired'));
-  check('test money and no screening → allowed, as /operator/online allows it', E({ screening: null }, {}).eligible);
+  check('test money and no screening → refused, even without live payments',
+    has(E({ screening: null }, {}), 'screening_required'));
   check('Stripe restricted payouts (webhook) → refused', has(E({}, { payoutsEnabled: false }), 'payouts_not_ready'));
   check('Stripe says payouts are not enabled → refused', has(E({}, {}, { payouts: { enabled: false } }), 'payouts_not_ready'));
   check('account disabled → refused', has(E({}, {}, { account: { disabled: true } }), 'account_disabled'));
