@@ -96,6 +96,15 @@ for (let pass = 1; pass <= 2; pass++) {
   const confirmation = read('app/reserve.tsx');
   assert.match(confirmation, /params\.scheduling === '1'/,
     'confirmation offers a direct return to the selected scheduled pickup');
+  assert.match(confirmation, /const selectingScheduledTravel = params\.scheduling === '1'/,
+    'scheduled destination/price flow cannot silently become an immediate Travel');
+  assert.match(confirmation, /disabled=\{selectingScheduledTravel \? !canContinueScheduling : !canReserve\}/,
+    'the scheduled return button requires server quote and route, not live payment acceptance');
+  assert.match(confirmation, /selectingScheduledTravel\s*\? \(\) => \{ if \(canContinueScheduling\) router\.navigate\('\/schedule'\); \}/,
+    'schedule-first button returns to selected pickup, never confirms now');
+  assert.match(confirmation, /!selectingScheduledTravel && \(/,
+    'immediate departure cancellation terms do not mislead future reservation');
+
   assert.match(screen, /pick: pickedDate \? ride\.schedDay : t\('traveler\.schedPickDay'\)/,
     'no prior stale calendar day displays when no date is selected');
   assert.match(screen, /if \(state === 'active'\) setClockMs\(Date\.now\(\)\)/,
@@ -109,7 +118,7 @@ for (let pass = 1; pass <= 2; pass++) {
 
   for(const l of ['en','es','fr','it','de']) {
     const src=read('src/i18n/'+l+'.ts');
-    for(const key of ['schedChooseDestination','schedDestinationNeeded','schedQuoteNeeded',
+    for(const key of ['schedContinueScheduling','schedChooseDestination','schedDestinationNeeded','schedQuoteNeeded',
       'schedReviewFare','schedTimeUnconfirmed','schedTimesPassed','schedReturnToPickup','schedContinue']) {
       assert.match(src,new RegExp('^\\s*'+key+':','m'),l+': '+key);
     }
