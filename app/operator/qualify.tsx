@@ -172,8 +172,6 @@ export default function OperatorQualification() {
               accessibilityRole="button"
               key={d.key}
               onPress={() => {
-                // Basics is a self-completed form step, not a verified credential.
-                if (d.key === 'basics') { op.verifyDoc(d.key); return; }
                 // Jurisdiction is needed for documents and screening, but
                 // the county need not yet be open for paid Travel.
                 if (!area?.market) {
@@ -197,7 +195,7 @@ export default function OperatorQualification() {
                   {d.sub ? <Text style={styles.rowSub}>{t(d.sub)}</Text> : null}
                 </View>
                 {st === 'ok' ? (
-                  <BadgeOk label={d.key === 'basics' ? t('traveler.complete') : t('operator.verified')} />
+                  <BadgeOk label={t('operator.verified')} />
                 ) : st === 'checking' ? (
                   <Text style={styles.pillChecking}>{t('operator.checking')}</Text>
                 ) : (
