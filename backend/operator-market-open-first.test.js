@@ -52,7 +52,7 @@ for(let i=0;i<2;i++){
   'app checklist never unlocks for waitlist');
  assert.doesNotMatch(form,/d.key === 'background' && area\?\.market\?\.status === 'waitlist'/,
   'background screen is not available in waitlist');
- assert.match(form,/joinOperatorAreaWaitlist\\(marketId\\)/,
+ assert.match(form, /joinOperatorAreaWaitlist\(marketId\)/,
   'joining an interest list is a separate user action');
  assert.match(form,/\{areaActive && <Card style=\{styles.listCard\}>/,
   'checklist hidden before opening');
