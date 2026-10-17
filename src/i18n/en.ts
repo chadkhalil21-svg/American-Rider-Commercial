@@ -240,6 +240,8 @@ export default {
     partRead: 'Read',
     openAllParts: 'Open all %{n} parts to continue',
 
+    lostRetry: "Try again",
+
     lostOpenFailed: "This report could not be opened.",
     lostUnavailable: "This lost-item report is unavailable.",
     lostSelectTravel: "Select the Travel in which you found the item.",
