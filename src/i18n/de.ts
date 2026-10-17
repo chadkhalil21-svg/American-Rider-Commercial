@@ -1029,6 +1029,7 @@ export default {
     emailChangedTitle: "E-Mail-Adresse aktualisiert",
     emailSameAddress: "Das ist bereits Ihre aktuelle E-Mail-Adresse.",
     emailChangeFailed: 'Die Änderung der E-Mail-Adresse konnte nicht gestartet werden. Prüfen Sie Ihr Passwort und versuchen Sie es erneut.',
+    emailManagedUnsupported: "Bitte kontaktieren Sie den Kundendienst, um die E-Mail-Adresse zu ändern.",
     emailManagedTitle: 'Von Ihrem Anmeldeanbieter verwaltet',
     emailManagedApple: 'Dieses Konto verwendet Apple zur Anmeldung. Verwalten Sie die mit „Mit Apple anmelden“ verknüpfte Adresse in Ihrem Apple Account.',
     emailManagedGoogle: 'Dieses Konto verwendet Google zur Anmeldung. Verwalten Sie die mit dieser Anmeldung verknüpfte Adresse in Ihrem Google-Konto.',
