@@ -146,6 +146,11 @@ for (let pass = 1; pass <= 2; pass++) {
     'missing destination has a direct, clear place-selection label');
   assert.match(screen, /t\('traveler\.schedDestinationNeeded'\)/,
     'missing destination provides a brief explanation, not an alarming red error');
+  assert.match(screen, /scheduleStatus === 'ready' && \(/,
+    'future payment/assignment terms are displayed only before a real confirmation');
+  assert.match(screen, /t\('traveler\.schedBookingNotice'\)/,
+    'warn that assignment and charging occur later, not at schedule selection');
+
   assert.match(screen, /accessibilityLabel=\{t\('traveler\.schedPreviousMonth'\)\}/,
     'month-back control announces its purpose');
   assert.match(screen, /accessibilityLabel=\{t\('traveler\.schedNextMonth'\)\}/,
