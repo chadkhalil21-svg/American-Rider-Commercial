@@ -76,6 +76,31 @@ async function stampLostItemCase({ itemId, uid, caseNo }, { database } = {}) {
   }
 }
 
+/** Resolve the Operators from the server's real Travel records, never from a
+ * phone-supplied list. One indexed query for up to 20 candidate travels.
+ * A selected exact Travel takes precedence over unsure candidate Travels.
+ */
+async function verifiedLostItemOperators(item, d) {
+  const nominated = item.tripNo
+    ? [String(item.tripNo)]
+    : Array.isArray(item.candidateTripNos) ? item.candidateTripNos : [];
+  const trips = Array.from(new Set(nominated.filter(x => typeof x === 'string' && x.length > 0))).slice(0, MAX_LISTED);
+  if (!trips.length || !item.travelerUid) return [];
+  const found = await d.collection('rides').where('tripNo', 'in', trips).get();
+  const valid = new Map();
+  for (const doc of found.docs || []) {
+    const r = doc.data() || {};
+    if (r.travelerUid !== item.travelerUid || !trips.includes(String(r.tripNo || '')) || !r.operatorId) continue;
+    const operatorUid = String(r.operatorId);
+    if (!valid.has(operatorUid)) valid.set(operatorUid, {
+      uid: operatorUid,
+      name: String(r.operatorName || '').slice(0, 120),
+      tripNo: String(r.tripNo),
+    });
+  }
+  return [...valid.values()];
+}
+
 async function notifyLostItemOperators({ itemId, uid }, { database, postMessage } = {}) {
   const d = database || adminDb();
   const send = postMessage || postPlatformMessage;
@@ -85,7 +110,12 @@ async function notifyLostItemOperators({ itemId, uid }, { database, postMessage 
   if (!snap.exists) return { ok: false, delivered: 0 };
   const item = snap.data() || {};
   if (item.travelerUid !== uid) return { ok: false, delivered: 0 };
-  const ids = Array.from(new Set(Array.isArray(item.notifiedOperatorIds) ? item.notifiedOperatorIds.map(String).filter(Boolean) : []));
+  // Ignore any Operator identifiers written by the phone. Recompute from
+  // completed Travel ownership before sending a mandatory platform notice.
+  let verified;
+  try { verified = await verifiedLostItemOperators(item, d); }
+  catch { return { ok: false, delivered: 0 }; }
+  const ids = verified.map(x => x.uid);
   let delivered = 0;
   for (const operatorUid of ids) {
     const out = await send({
@@ -101,6 +131,8 @@ async function notifyLostItemOperators({ itemId, uid }, { database, postMessage 
     if (out?.ok) delivered += 1;
   }
   const patch = {
+    notifiedOperatorIds: ids,
+    notifiedOperatorNames: verified.map(x => x.name).filter(Boolean),
     operatorDeliveryCount: delivered,
     operatorDeliveryAt: delivered > 0 ? Date.now() : null,
   };
@@ -119,7 +151,13 @@ async function operatorLostItem({ itemId, operatorUid }, { database } = {}) {
   if (!snap.exists) return { ok: false, status: 404, error: 'Report not found' };
   const item = snap.data() || {};
   const ids = Array.isArray(item.notifiedOperatorIds) ? item.notifiedOperatorIds.map(String) : [];
-  if (!ids.includes(String(operatorUid))) return { ok: false, status: 403, error: 'Not authorized for this report' };
+  // A phone can nominate an Operator ID at creation. Never grant that person
+  // access to private details or photos without verifying real ride ownership.
+  let verified;
+  try { verified = await verifiedLostItemOperators(item, d); }
+  catch { return { ok: false, status: 503, error: 'Travel verification unavailable' }; }
+  if (!ids.includes(String(operatorUid)) || !verified.some(x => x.uid === String(operatorUid)))
+    return { ok: false, status: 403, error: 'Not authorized for this report' };
   const candidateTripNos = Array.isArray(item.candidateTripNos) ? item.candidateTripNos.map(String) : [];
   return {
     ok: true,
@@ -145,7 +183,13 @@ async function respondLostItem({ itemId, operatorUid, outcome, tripNo }, { datab
   if (!snap.exists) return { ok: false, status: 404, error: 'Report not found' };
   const item = snap.data() || {};
   const ids = Array.isArray(item.notifiedOperatorIds) ? item.notifiedOperatorIds.map(String) : [];
-  if (!ids.includes(String(operatorUid))) return { ok: false, status: 403, error: 'Not authorized for this report' };
+  // A phone can nominate an Operator ID at creation. Never grant that person
+  // access to private details or photos without verifying real ride ownership.
+  let verified;
+  try { verified = await verifiedLostItemOperators(item, d); }
+  catch { return { ok: false, status: 503, error: 'Travel verification unavailable' }; }
+  if (!ids.includes(String(operatorUid)) || !verified.some(x => x.uid === String(operatorUid)))
+    return { ok: false, status: 403, error: 'Not authorized for this report' };
   const candidates = Array.isArray(item.candidateTripNos) ? item.candidateTripNos.map(String) : [];
   let boundTrip = item.tripNo || null;
   if (outcome === 'located') {
