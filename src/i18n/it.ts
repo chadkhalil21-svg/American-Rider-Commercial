@@ -226,6 +226,8 @@ export default {
     partRead: 'Letto',
     openAllParts: 'Apra le %{n} parti per continuare',
 
+    lostLoading: "Caricamento segnalazione…",
+
     lostRetry: "Riprova",
 
     lostOpenFailed: "Non è stato possibile aprire questa segnalazione.",
