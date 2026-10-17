@@ -228,6 +228,10 @@ export default {
     deviceEarningsLabel: 'Auf diesem Gerät erfasste Einnahmen',
     deviceEarningsNotice: 'Diese Beträge stammen aus auf diesem Gerät gespeicherten Fahrten. Sie sind keine bestätigten Stripe-Überweisungen oder Bankzahlungen.',
     payoutRecoveryUnconfirmed: 'Die Nachzahlung älterer unbezahlter Fahrten konnte nicht bestätigt werden. Die Auszahlungsdaten können unvollständig sein.'
+    payoutTruthIntro: 'Ihr Anteil beträgt 99 % des Fahrpreises. Der Abschluss einer Fahrt bestätigt noch keinen Geldeingang auf Ihrem Bankkonto.',
+    payoutTruthTransfer: 'Nach Abschluss einer Fahrt versucht American Rider, Ihren Anteil an Stripe zu übertragen. Zahlungs- oder Kontoprüfungen können die Übertragung verzögern.',
+    payoutTruthBank: 'Eine bestätigte Stripe-Übertragung ist noch kein Bankeingang. Stripe bestimmt, wann verfügbares Guthaben bei Ihrer Bank eingeht.',
+    payoutTruthInstant: 'Wenn Ihr Stripe-Konto berechtigt ist, können Sie eine Sofortauszahlung anfordern. Stripe kann dafür eine Gebühr erheben.',
     recentOperations: 'Letzte Fahrten',
     insuranceDisclosure: 'Gesetzliche Versicherungsauskunft',
     partRead: 'Gelesen',
