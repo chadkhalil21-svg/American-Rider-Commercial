@@ -214,6 +214,21 @@ export async function joinWaitlist(at: { lat: number; lng: number }, role: 'trav
   }
 }
 
+/** Optional, inexpensive interest record. County selection alone is not consent. */
+export async function joinOperatorAreaWaitlist(marketId: string): Promise<boolean> {
+  if (!marketId) return false;
+  try {
+    const res = await fetch(`${PAYMENT_SERVER_URL}/waitlist`, {
+      method: 'POST',
+      headers: await authHeaders(),
+      body: JSON.stringify({ marketId, role: 'operator' }),
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
 /** Stop being matchable. Never throws — going off duty must always be possible. */
 export async function goOffline(): Promise<void> {
   try {
