@@ -759,9 +759,9 @@ const styles = StyleSheet.create({
   calDow: {
     width: `${100 / 7}%`,
     textAlign: 'center',
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: '600',
-    color: colors.faint,
+    color: colors.ink2,
     marginBottom: 4,
   },
   calCell: {
