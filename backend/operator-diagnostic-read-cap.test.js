@@ -1,0 +1,12 @@
+'use strict';
+const assert=require('node:assert/strict');
+const fs=require('node:fs');
+const source=fs.readFileSync(__dirname+'/server.js','utf8');
+const segment=source.split("app.get('/operator/me'")[1]?.split("// --- SETTLEMENT:")[0]||'';
+assert(segment,'operator diagnostic route exists');
+assert.match(segment,/MAX_OPERATOR_DIAGNOSTIC_RIDES = 200/);
+assert.match(segment,/\.limit\(MAX_OPERATOR_DIAGNOSTIC_RIDES \+ 1\)\.get\(\)/);
+assert.match(segment,/if \(rides\.size > MAX_OPERATOR_DIAGNOSTIC_RIDES\)/);
+assert.match(segment,/status\(409\)/);
+assert.doesNotMatch(segment,/\.where\('operatorId', '==', uid\)\.get\(\)/);
+console.log('PASS historical diagnostic caps database reads and never claims partial counts are exhaustive');
