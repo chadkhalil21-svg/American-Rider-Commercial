@@ -270,8 +270,8 @@ function documentFinding(kind, d, now, ctx = {}) {
  * @param user      users/{uid} — authoritative; the app can write only its profile fields there
  * @param fleet     operators/{uid}, or null — server-written, no client writes at all
  * @param context   'qualify' (qualification gates only) | 'online' | 'accept' (both kinds)
- * @param liveMoney Stripe key is live. Background screening is required from then on, the same
- *                  line /operator/online has always drawn.
+ * @param liveMoney Whether financial processing is live. Screening and independent
+ *                  insurance are required for Operator qualification in BOTH modes.
  * @param account   { disabled: true | false | null } — from Firebase Auth. null = cannot tell.
  * @param payouts   { enabled: boolean } — from Stripe. Required for 'online' and 'accept'.
  *
@@ -346,7 +346,9 @@ function assessOperator({ user, fleet = null, context = 'qualify', liveMoney = f
       ? finding('qualification', 'incomplete', 'screening_expired', 'screening', fleet.screeningReason || 'The background screening must be repeated.')
       : finding('qualification', 'refused', 'screening_blocked', 'screening', fleet.screeningReason || 'Background screening does not permit travel.'));
   }
-  if (liveMoney && !blockers.some((b) => b.item === 'screening')) {
+  // Screening is necessary for the Operator to be labelled qualified even in
+  // sandbox/prelaunch. A test payment key never certifies a real background check.
+  if (!blockers.some((b) => b.item === 'screening')) {
     if (!s) add(finding('qualification', 'incomplete', 'screening_required', 'screening', 'A background screening is required.'));
     else if (!screeningCurrent(s, now)) {
       add(finding('qualification', 'incomplete', 'screening_expired', 'screening', 'The background screening is more than three years old and must be repeated.'));
