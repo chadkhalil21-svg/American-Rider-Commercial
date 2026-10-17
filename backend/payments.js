@@ -380,6 +380,22 @@ async function detachPaymentMethod({ uid, email, paymentMethodId }) {
   const customer = await customerForTraveler({ uid, email });
   const owned = await ownedPaymentMethod(customer, paymentMethodId);
   if (owned.error) return { ok: false, code: owned.error };
+
+  // Removing a default instrument is a real customer choice, not a forbidden
+  // case. First prevent an invoice default from pointing to a detached card.
+  // Stripe rejects unsafe updates rather than silently removing a usable card.
+  // If there are more cards, preserve future off-session booking continuity by
+  // selecting another already-attached instrument. Otherwise clear the default.
+  const wasDefault = defaultMethodId(customer) === owned.pm.id;
+  if (wasDefault) {
+    const methods = await stripe.paymentMethods.list({
+      customer: customer.id, type: 'card', limit: 100,
+    });
+    const replacement = methods.data.find((m) => m.id !== owned.pm.id && m.customer === customer.id);
+    await stripe.customers.update(customer.id, {
+      invoice_settings: { default_payment_method: replacement?.id || '' },
+    });
+  }
   await stripe.paymentMethods.detach(owned.pm.id);
   return { ok: true };
 }
