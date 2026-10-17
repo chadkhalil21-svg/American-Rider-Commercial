@@ -212,6 +212,13 @@ for (let pass = 1; pass <= 2; pass++) {
     'successful or failed lookup settles without extra polling');
   assert.match(screen, /zoneChecking \? 'traveler\.schedCheckingZone' : 'traveler\.schedZoneUnavailable'/,
     'do not display a false unavailable warning while the pickup zone is loading');
+  assert.match(screen, /onPress=\{\(\) => setZoneRetry\(\(n\) => n \+ 1\)\}/,
+    'after actual pickup market failure Traveler has a working one-tap retry');
+  assert.match(screen, /\},\[lat,lng,zoneRetry\]\);/,
+    'market lookup retries only after route changes or direct user request');
+  assert.match(screen, /!zoneChecking && \(/,
+    'recovery action is not offered while the market check is already in progress');
+
     assert.match(screen, /clearInterval\(ticker\); onResume\.remove\(\)/,
     'clean up clock-only timer and listener');
   assert.doesNotMatch(screen, /fetchQuote\(|getDocs\(|onSnapshot\(/,
