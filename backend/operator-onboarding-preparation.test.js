@@ -43,7 +43,7 @@ for(let pass=0;pass<2;pass++){
  assert.match(server,/if \(!r2Owns\(objectKey, req\.uid, 'operator-document'\)\)/,
    'document review remains confined to the authenticated owner');
  assert.match(server,/app\.post\('\/connect\/onboard', requireAuth, LIMITS\.connect, requireActiveOperatingMarket/);
- assert.match(server,/app\.post\('\/operator\/qualification\/submit', requireAuth, LIMITS\.qualification, requireActiveOperatingMarket/);
+ assert.match(server,/app\.post\('\/operator\/qualification\/submit', requireAuth, LIMITS\.qualification, requireOperatorPreparationMarket/);
  assert.match(server,/app\.post\('\/operator\/screening\/existing', requireAuth, LIMITS\.screening, requireScreeningRequestMarket/);
  const screen=src('app/operator/qualify.tsx');
  const context=src('src/state/OperatorContext.tsx');
@@ -52,7 +52,7 @@ for(let pass=0;pass<2;pass++){
  assert.match(screen,/d\.key === 'insurance'\) router\.navigate/);
  assert.match(screen,/label=\{t\('traveler\.tryAgain'\)\}/,'explicit operating-market retry');
  assert.match(screen,/if \(!area\?\.market\)/,'selected market precedes jurisdictional preparation');
- assert.match(screen,/disabled=\{submitting \|\| !areaAuthorized\}/,'final submit remains market-gated');
+ assert.match(screen,/disabled=\{submitting \|\| !area\?\.market\}/,'qualification submission requires the Operator to choose an operating county');
  const connect=src('src/backend/connect.ts');
  assert.match(connect,/error\?: string/);
  assert.match(connect,/getOperatingMarket\(\): Promise<MarketState>/);
