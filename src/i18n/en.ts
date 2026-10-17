@@ -240,8 +240,6 @@ export default {
     openAllParts: 'Open all %{n} parts to continue',
 
     lostOpenFailed: "This report could not be opened.",
-    lostHistoryCouldNotLoad: "We could not load your lost-item reports. Reports already shown may be out of date.",
-    lostHistoryMore: "Show more lost-item reports",
     lostUnavailable: "This lost-item report is unavailable.",
     lostSelectTravel: "Select the Travel in which you found the item.",
     lostUpdateFailed: "This update could not be recorded.",
@@ -768,6 +766,8 @@ export default {
     selectAnotherTravel: 'Select another travel ›',
     selectTravelForCase: 'Select the travel this concerns ›',
     yourCases: 'Your cases',
+    lostHistoryCouldNotLoad: "We could not load your lost-item reports. Reports already shown may be out of date.",
+    lostHistoryMore: "Show more lost-item reports",
     casesCouldNotLoad: 'We could not load your case history. Previously displayed cases may be out of date.',
     caseHistoryPartial: 'Only part of your case history could be shown. For an older case, contact support@americanrider.app.',
     retryCases: 'Retry case history',
