@@ -2298,7 +2298,7 @@ function operatingMarketGate(user) {
   return {
     code: 'market_waitlist',
     error: m
-      ? `American Rider does not operate in ${m.name} yet. Your interest is recorded.`
+      ? `Coming soon to ${m.name}. Operator registration begins when service opens. You can register interest if you choose.`
       : 'Choose the county you will operate in before continuing.',
     market: m ? { id: m.id, name: m.name, status: m.status } : null,
   };
