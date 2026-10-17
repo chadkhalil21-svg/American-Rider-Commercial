@@ -37,7 +37,14 @@ const communicate = read('app/operator/communicate.tsx');
 assert.match(communicate, /if \(!text \|\| !tripNo \|\| sendingRef\.current\) return/);
 assert.match(communicate, /disabled=\{sending \|\| !draft\.trim\(\) \|\| !tripNo\}/);
 const home = read('app/index.tsx');
-assert.match(home, /if \(!await ride\.cancelScheduled\(\)\) setScheduledCancelError/);
+assert.match(home, /const cancelled = await ride\.cancelScheduled\(\)/,
+  'a reserved booking is cancelled only after an explicit second confirmation');
+assert.match(home, /setConfirmCancelScheduled\(true\)/,
+  'cancel touch first opens a confirmation, not a direct server delete');
+assert.match(home, /ride\.schedState\?\.status === 'reserved'/,
+  'no cancellation is offered once an Operator may be assigned');
+assert.match(home, /if \(cancelled\) setConfirmCancelScheduled\(false\)/,
+  'only a real server success closes the cancellation confirmation');
 assert.match(home, /disabled=\{cancellingScheduled\}/);
 const operatorHome = read('app/operator/index.tsx');
 assert.match(operatorHome, /if \(await op\.acceptRequest\(request\)\) \{\s*dismissAccepted\(\)/,
