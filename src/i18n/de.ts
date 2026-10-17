@@ -801,7 +801,7 @@ export default {
     travelWhileWaiting: 'Fahren Sie währenddessen als Reisender',
     reviewNotApproved: 'Nicht Genehmigt',
     reviewStatusHere: 'Ihre Qualifikation wurde eingereicht. Ihr Status erscheint hier.',
-    waitlistJoin: 'Benachrichtigen, wenn American Rider hier tätig ist',
+    waitlistJoin: 'Interesse anmelden',
     marketServiceStatus: 'Service an diesem Abholort',
     marketChecking: 'Wir prüfen, ob hier neue Fahrten verfügbar sind.',
     marketStatusUnavailable: 'Der Servicestatus ist nicht bestätigt. Neue Buchungen sind ausgesetzt; bitte erneut prüfen.',
