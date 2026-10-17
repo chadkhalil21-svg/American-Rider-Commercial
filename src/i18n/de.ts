@@ -1008,6 +1008,7 @@ export default {
     passwordResetFailed: 'Die E-Mail zum Zurücksetzen des Passworts konnte nicht gesendet werden. Versuchen Sie es erneut.',
     saveNewPassword: 'Neues Passwort speichern',
     mobileContactSub: 'Hinterlegen Sie die Nummer, unter der American Rider Sie zu Reisen oder Kontofragen erreichen kann.',
+    mobileReadUnavailable: "Ihre gespeicherte Mobilnummer konnte nicht geladen werden. Prüfen Sie die Verbindung und versuchen Sie es erneut. Es wurden keine Änderungen vorgenommen.",
     mobileContactNote: 'Ihre Mobilnummer ist eine Kontaktangabe. Sie wird weder zur Anmeldung noch zur Kontowiederherstellung verwendet.',
     mobileInvalid: 'Geben Sie eine gültige Mobilnummer ein.',
     emailAddressTitle: 'E-Mail-Adresse',
