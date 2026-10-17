@@ -877,7 +877,7 @@ export function OperatorProvider({ children }: { children: React.ReactNode }) {
     // phone after the server acknowledges the rejection; otherwise the Operator may retry.
     if (!r.rideId) return false;
     const accepted = await declineTravel(r.rideId);
-    if (accepted) setIncoming(null);
+    if (accepted) setIncoming((current) => current?.rideId === r.rideId ? null : current);
     return accepted;
   }, []);
 
