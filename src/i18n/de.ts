@@ -243,6 +243,11 @@ export default {
     lostNotFound: "Gegenstand nicht gefunden",
   },
   traveler: {
+    platformCommunications: "Nachrichten von American Rider",
+    platformCommunicationsBody: "Mitteilungen von American Rider zu Ihrem Konto, Ihrer Sicherheit und Ihren Fahrten.",
+    noPlatformCommunications: "Noch keine Mitteilungen.",
+    newPlatformCommunication: "Neu",
+    platformCommunicationReadFailed: "Diese Nachricht konnte nicht als gelesen markiert werden. Versuchen Sie es erneut.",
     updateRequiredTitle: 'Aktualisierung erforderlich',
     updateRequiredBody: 'Aktualisieren Sie American Rider, um den aktuellen Gesamtpreis zu prüfen und zu bestätigen. Es wurde weder eine Buchung noch eine Zahlung vorgenommen.',
     priceChangedTitle: 'Der Gesamtpreis hat sich geändert',
