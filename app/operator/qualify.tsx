@@ -62,6 +62,8 @@ export default function OperatorQualification() {
     return () => { live = false; };
   }, [loadArea]);
   const areaActive = area?.market?.status === 'active';
+  // Preparing paperwork never authorizes final commissioning in a closed county.
+  const areaAuthorized = areaActive || area?.market?.status === 'onboarding';
 
   return (
     <Screen>
@@ -224,7 +226,7 @@ export default function OperatorQualification() {
       {submitError && <Text accessibilityRole="alert" style={styles.footnote}>{submitError}</Text>}
       <PrimaryButton
         label={t('traveler.qualSubmitReview')}
-        disabled={submitting || !area?.market}
+        disabled={submitting || !areaAuthorized}
         onPress={async () => {
           setSubmitting(true);
           setSubmitError(null);
