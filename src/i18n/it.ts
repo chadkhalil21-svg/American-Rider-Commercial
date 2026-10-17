@@ -800,7 +800,7 @@ export default {
     travelWhileWaiting: 'Viaggi come viaggiatore mentre attende',
     reviewNotApproved: 'Non Approvato',
     reviewStatusHere: 'La sua qualificazione è stata inviata. Il suo stato compare qui.',
-    waitlistJoin: 'Avvisatemi quando American Rider opererà qui',
+    waitlistJoin: 'Registra interesse',
     marketServiceStatus: 'Servizio in questo punto di prelievo',
     marketChecking: 'Verifica della disponibilità di nuovi viaggi qui.',
     marketStatusUnavailable: 'Lo stato del servizio non può essere confermato. Le nuove prenotazioni sono sospese; riprova.',
