@@ -202,6 +202,21 @@ for (let pass = 1; pass <= 2; pass++) {
   assert.match(opLost, /setRetryCount\(n => n \+ 1\)/);
   assert.match(opLost, /t\('operator\.lostLoading'\)/);
 
+  // Genuine paid Travel must never be misclassified as a demonstration
+  // merely because it is currently active. Otherwise it hides actual
+  // Operator messages and displays a scripted reply.
+  const rideStore = read('src/state/RideContext.tsx');
+  assert.match(messageScreen, /ride\.matchedOp\?\.demo === true && !lostItemId/,
+    'the message UI only hides Firestore updates for an explicit demo Operator');
+  assert.match(messageScreen, /!ride\.myRides\.some\(\(record\) => record\.tripNo === tripNo && !!record\.id\)/,
+    'persisted customer bookings always watch real Operator replies');
+  assert.match(rideStore, /matchedOpRef\.current\?\.demo === true &&\s*!onTravel\?\.id && !lostItemId/,
+    'scripted response only for an unpersisted demo, never a real booked Travel or Lost Item');
+  assert.doesNotMatch(messageScreen, /const isLiveDemoRide = isCurrentTravel && ride\.rideActive\s*;/,
+    'active is not synonymous with demo');
+  assert.doesNotMatch(rideStore, /const isLiveDemoRide = rideActiveRef\.current && tripNo === lastTripRef\.current\.no\s*;/,
+    'store cannot synthesize an answer to an actual Operator');
+
   const found = indexes.indexes.some(x => x.collectionGroup === 'lost_items' &&
     x.queryScope === 'COLLECTION' &&
     x.fields?.[0]?.fieldPath === 'travelerUid' &&
