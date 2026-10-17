@@ -83,7 +83,7 @@ for (let pass = 1; pass <= 2; pass++) {
     'quote must match the selected Travel class');
   assert.match(screen, /hasQuote \? fmt\(ride\.travelerTotal\) : '—'/,
     'unknown Fare is not a false $0.00 quote');
-  assert.match(screen, /scheduleStatus === 'time_past'/,
+  assert.match(screen, /scheduleStatus === 'time_past' && customState !== 'past'/,
     'time-passed banner only for actual expired times');
   assert.doesNotMatch(screen, /\{schedInvalid && \(/,
     'missing Fare does not produce general false expired-time banner');
@@ -91,8 +91,13 @@ for (let pass = 1; pass <= 2; pass++) {
     'a destination and quote both offer a relevant recovery action');
   assert.match(screen, /pathname: '\/reserve'/,
     'reuse existing quote and destination entry, no second pricing engine');
-  assert.match(screen, /params: hasDestination \? \{\} : \{ search: '1' \}/,
-    'missing destination takes the Traveler directly into search');
+  assert.match(screen, /params: hasDestination \? \{ scheduling: '1' \} : \{ search: '1', scheduling: '1' \}/,
+    'missing destination opens address search and preserves scheduling intent');
+  const confirmation = read('app/reserve.tsx');
+  assert.match(confirmation, /params\.scheduling === '1'/,
+    'confirmation offers a direct return to the selected scheduled pickup');
+  assert.match(screen, /pick: pickedDate \? ride\.schedDay : t\('traveler\.schedPickDay'\)/,
+    'no prior stale calendar day displays when no date is selected');
   assert.match(screen, /if \(state === 'active'\) setClockMs\(Date\.now\(\)\)/,
     'foreground return updates local clock immediately');
   assert.match(screen, /clearInterval\(ticker\); onResume\.remove\(\)/,
@@ -105,7 +110,7 @@ for (let pass = 1; pass <= 2; pass++) {
   for(const l of ['en','es','fr','it','de']) {
     const src=read('src/i18n/'+l+'.ts');
     for(const key of ['schedChooseDestination','schedDestinationNeeded','schedQuoteNeeded',
-      'schedReviewFare','schedTimeUnconfirmed','schedTimesPassed']) {
+      'schedReviewFare','schedTimeUnconfirmed','schedTimesPassed','schedReturnToPickup','schedContinue']) {
       assert.match(src,new RegExp('^\\s*'+key+':','m'),l+': '+key);
     }
     assert.doesNotMatch(src,/^\s*schedAltLater:/m,
