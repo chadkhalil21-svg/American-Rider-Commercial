@@ -217,6 +217,16 @@ for (let pass = 1; pass <= 2; pass++) {
   assert.doesNotMatch(rideStore, /const isLiveDemoRide = rideActiveRef\.current && tripNo === lastTripRef\.current\.no\s*;/,
     'store cannot synthesize an answer to an actual Operator');
 
+  // Patron Support's error copy cannot be translated only once at module load;
+  // switching from English to Spanish before a failed request must use Spanish.
+  const supportService = read('src/backend/support.ts');
+  assert.match(supportService, /const unreachable = \(\): SupportOutcome => \(\{/,
+    'support failure message is computed at request time');
+  assert.match(supportService, /message: t\('traveler\.supportUnreachable'\)/);
+  assert.doesNotMatch(supportService, /const UNREACHABLE: SupportOutcome = \{/,
+    'a module-level translated constant becomes stale after language change');
+  assert.match(supportService, /return unreachable\(\);/);
+
   const found = indexes.indexes.some(x => x.collectionGroup === 'lost_items' &&
     x.queryScope === 'COLLECTION' &&
     x.fields?.[0]?.fieldPath === 'travelerUid' &&
