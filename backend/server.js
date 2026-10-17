@@ -3233,7 +3233,7 @@ app.get('/operator/commission', requireAuth, LIMITS.qualification, async (req, r
 
 // The operator says they are done. Kept as the app's explicit moment, but it decides nothing a
 // document reading has not already decided: it assesses and reports.
-app.post('/operator/qualification/submit', requireAuth, LIMITS.qualification, requireOperatorPreparationMarket, async (req, res) => {
+app.post('/operator/qualification/submit', requireAuth, LIMITS.qualification, requireActiveOperatingMarket, async (req, res) => {
   const db = adminDb();
   if (!db) return res.status(503).json({ error: adminStatus().reason, code: 'no_admin_db' });
   try {
