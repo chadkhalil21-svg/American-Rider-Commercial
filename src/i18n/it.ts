@@ -226,8 +226,6 @@ export default {
     openAllParts: 'Apra le %{n} parti per continuare',
 
     lostOpenFailed: "Non è stato possibile aprire questa segnalazione.",
-    lostHistoryCouldNotLoad: "Impossibile caricare le segnalazioni di oggetti smarriti. Quelle già visualizzate potrebbero non essere aggiornate.",
-    lostHistoryMore: "Mostra altre segnalazioni di oggetti smarriti",
     lostUnavailable: "Questa segnalazione di oggetto smarrito non è disponibile.",
     lostSelectTravel: "Selezioni il Viaggio in cui ha trovato l’oggetto.",
     lostUpdateFailed: "Non è stato possibile registrare questo aggiornamento.",
@@ -747,6 +745,8 @@ export default {
     selectAnotherTravel: 'Selezionare un altro viaggio ›',
     selectTravelForCase: 'Selezioni il viaggio a cui si riferisce ›',
     yourCases: 'I suoi casi',
+    lostHistoryCouldNotLoad: "Impossibile caricare le segnalazioni di oggetti smarriti. Quelle già visualizzate potrebbero non essere aggiornate.",
+    lostHistoryMore: "Mostra altre segnalazioni di oggetti smarriti",
     casesCouldNotLoad: 'Impossibile caricare lo storico dei casi. I casi già visualizzati potrebbero non essere aggiornati.',
     caseHistoryPartial: 'È visibile solo una parte dello storico dei casi. Per un caso precedente, scriva a support@americanrider.app.',
     retryCases: 'Ricarica i casi',
