@@ -15,12 +15,31 @@ export default function OperatorLostItemScreen() {
   const [selectedTrip, setSelectedTrip] = useState<string | null>(null);
   const [busy, setBusy] = useState<'located'|'not-found'|null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [retryCount, setRetryCount] = useState(0);
   useEffect(() => {
-    if (!id) { setError(t('operator.lostOpenFailed')); return; }
-    fetchOperatorLostItem(id).then((x) => {
-      setItem(x); setSelectedTrip(x.tripNo || (x.candidateTripNos.length === 1 ? x.candidateTripNos[0] : null));
-    }).catch(() => setError(t('operator.lostUnavailable')));
-  }, [id]);
+    let active = true;
+    setItem(null);
+    setError(null);
+    if (!id) {
+      setError(t('operator.lostOpenFailed'));
+      setLoading(false);
+      return () => { active = false; };
+    }
+    setLoading(true);
+    void fetchOperatorLostItem(id).then((x) => {
+      if (!active) return;
+      setItem(x);
+      setSelectedTrip(x.tripNo || (x.candidateTripNos.length === 1 ? x.candidateTripNos[0] : null));
+    }).catch(() => {
+      if (active) setError(t('operator.lostUnavailable'));
+    }).finally(() => {
+      if (active) setLoading(false);
+    });
+    // Never allow a response for a previous report to replace the screen's
+    // current report after the Operator navigates or changes its item ID.
+    return () => { active = false; };
+  }, [id, retryCount]);
   const needsTrip = useMemo(() => !!item && !item.tripNo && item.candidateTripNos.length > 1, [item]);
   const respond = async (outcome: 'located'|'not-found') => {
     if (!item || busy) return;
@@ -41,7 +60,14 @@ export default function OperatorLostItemScreen() {
     <LetterheadBar onBack={() => router.back()} />
     <Title>{t('operator.lostTitle')}</Title>
     <Text style={styles.sub}>{t('operator.lostInstruction')}</Text>
+    {loading ? <Text style={styles.sub}>{t('operator.busyChecking')}</Text> : null}
     {error ? <Text style={styles.error}>{error}</Text> : null}
+    {!loading && error && !!id && !item ? (
+      <Pressable accessibilityRole="button" style={styles.retry}
+        onPress={() => setRetryCount(n => n + 1)}>
+        <Text style={styles.notFoundText}>{t('operator.lostRetry')}</Text>
+      </Pressable>
+    ) : null}
     {item ? <>
       <SectionLabel style={styles.label}>{t('operator.lostItemLabel')}</SectionLabel>
       <Card style={styles.card}><Text style={styles.body}>{item.description}</Text>{item.photoUrl ? <Image source={{ uri: item.photoUrl }} style={styles.photo} /> : null}</Card>
@@ -75,6 +101,7 @@ const styles=StyleSheet.create({
   trip:{fontSize:13.5,color:colors.muted,marginTop:16},
   choice:{padding:16,marginBottom:8},
   selected:{borderColor:colors.ink},
+  retry:{minHeight:44,alignSelf:'flex-start',justifyContent:'center',marginTop:8},
   notFound:{minHeight:48,alignItems:'center',justifyContent:'center',marginTop:10},
   notFoundText:{fontSize:14,fontWeight:'600',color:colors.ink},
 });
