@@ -1225,6 +1225,8 @@ export default {
     familySendMessage: 'Envoyer le Message',
     familyMessageFailed: 'Le message n’a pas été envoyé.',
 
+    lostNoVerifiedTravelThread: "Aucun voyage enregistré n’est lié à cet objet. L’assistance peut vous aider sans désigner un Opérateur sans rapport.",
+    msgTravelUnavailable: "Aucun voyage vérifié n’est disponible pour cette conversation. Sélectionnez un voyage enregistré ou contactez l’assistance.",
     msgNotSent: "Message non envoyé. Vérifiez votre connexion et réessayez.",
     lostOperatorInboxDelivered: "Remis à %{names} dans la boîte de réception de l’Opérateur.",
     notifSaveFailed: "La préférence de notification n’a pas été enregistrée. Réessayez.",
