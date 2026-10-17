@@ -69,6 +69,7 @@ const LIMITS = {
   screening: perAccount({ name: 'screening', limit: 10, windowMs: 60 * 60 * 1000 }),
   payments: perAccount({ name: 'payments', limit: 60, windowMs: 60 * 60 * 1000 }),
   connect: perAccount({ name: 'connect', limit: 20, windowMs: 60 * 60 * 1000 }),
+  payoutRecovery: perAccount({ name: 'payout-recovery', limit: 12, windowMs: 60 * 60 * 1000 }),
   dispatch: perAccount({ name: 'dispatch', limit: 30, windowMs: 60 * 60 * 1000 }),
   announce: perAccount({ name: 'announce', limit: 60, windowMs: 60 * 60 * 1000 }),
   voice: perAccount({ name: 'voice', limit: 30, windowMs: 60 * 60 * 1000 }),
@@ -1293,69 +1294,33 @@ app.post('/operator/offline', requireAuth, async (req, res) => {
 // The operator asks for their own money, which is the right party to be driving this. Scoped
 // to travels dispatched to the caller; it can pay nobody else and can be called as often as
 // the app likes, because each transfer is still guarded by the travel's own transferId.
-app.post('/operator/settle-pending', requireAuth, async (req, res) => {
-  if (keyMode === 'no-key') return res.status(500).json({ error: 'No Stripe key configured' });
+// Read-only, bounded reconciliation inquiry. Legacy payout records MUST be
+// reconciled against Stripe before any new transfer; the periodic settlement
+// sweep separately handles newly completed, ledger-versioned Travels.
+// This endpoint must never trigger N transfers merely by opening an app.
+app.post('/operator/settle-pending', requireAuth, LIMITS.payoutRecovery, async (req, res) => {
   const db = adminDb();
-  if (!db) return res.status(503).json({ error: adminStatus().reason, code: 'no_admin_db' });
-
+  if (!db) return res.status(503).json({ ok: false, code: 'no_admin_db' });
   try {
     const uid = String(req.uid);
-    const { accountId } = await operatorPayoutAccount(db, uid);
-    if (!accountId) {
-      return res.json({ ok: false, code: 'not_payable', settled: 0, reason: 'no payout account' });
-    }
-
-    const snap = await db.collection('rides').where('operatorId', '==', uid).get();
-    const owed = [];
-    snap.forEach((d) => {
-      const x = d.data() || {};
-      if (x.status === 'completed' && !x.transferId && x.paymentIntentId) {
-        owed.push({ rideId: d.id, ...x });
-      }
+    const { censusOperatorPage } = require('./payout-recovery-census');
+    const page = await censusOperatorPage({ db, operatorId: uid, pageSize: 100 });
+    const unclear = page.hasMore || page.requiresStripeReconciliation;
+    return res.status(unclear ? 503 : 200).json({
+      ok: !unclear,
+      settled: 0, centsPaid: 0,
+      // Do not expose another Operator's identifiers or falsely state old debt
+      // has been paid. A page needing reconciliation is an unconfirmed state.
+      stillOwed: page.candidates.map(x => ({ rideId: x.rideId, reason: x.status })),
+      code: unclear ? 'payout_reconciliation_required' : 'payout_records_checked',
+      hasMore: page.hasMore,
+      readOnly: true,
     });
-
-    let settled = 0;
-    let centsPaid = 0;
-    const stillOwed = [];
-    for (const ride of owed) {
-      const out = await transferToOperator({
-        paymentIntentId: ride.paymentIntentId,
-        operatorStripeAccount: accountId,
-        // The payment belongs to the TRAVELER; that is whose uid is stamped on the intent.
-        expectedUid: String(ride.travelerUid),
-        expectedTripNo: ride.tripNo || null,
-        rideId: ride.rideId,
-      });
-      if (out.ok) {
-        settled += 1;
-        centsPaid += out.amountCents;
-        await db.collection('rides').doc(ride.rideId).set(
-          {
-            transferId: out.transferId,
-            operatorPaidCents: out.amountCents,
-            payoutPending: false,
-            payoutBlockedReason: null,
-            settledAt: Date.now(),
-            ...(out.paidWith ? { paidWith: out.paidWith } : {}),
-          },
-          { merge: true },
-        );
-      } else {
-        stillOwed.push({ tripNo: ride.tripNo || null, reason: out.error || out.code });
-        await db.collection('rides').doc(ride.rideId).set(
-          {
-            payoutPending: true,
-            payoutBlockedReason: out.error || out.code,
-            payoutCheckedAt: Date.now(),
-            ...(out.paidWith ? { paidWith: out.paidWith } : {}),
-          },
-          { merge: true },
-        );
-      }
-    }
-    res.json({ ok: true, settled, centsPaid, stillOwed });
-  } catch (e) {
-    res.status(502).json({ error: e.message });
+  } catch {
+    return res.status(503).json({
+      ok: false, code: 'payout_reconciliation_unavailable',
+      error: 'Operator payment records could not be verified.',
+    });
   }
 });
 
@@ -1433,7 +1398,19 @@ app.get('/operator/me', requireAuth, async (req, res) => {
     const fleetDoc = await db.collection('operators').doc(uid).get();
     const fleet = fleetDoc.exists ? fleetDoc.data() : null;
     // Travels dispatched TO this operator, newest first, statuses only.
-    const rides = await db.collection('rides').where('operatorId', '==', uid).get();
+    // This is a diagnostic, not historical accounting. Never download a
+    // lifetime's worth of paid Travels just to render five recent statuses.
+    // Beyond the ceiling return an honest incomplete result rather than
+    // accidentally misreporting financial or dispatch history as exhaustive.
+    const MAX_OPERATOR_DIAGNOSTIC_RIDES = 200;
+    const rides = await db.collection('rides').where('operatorId', '==', uid)
+      .limit(MAX_OPERATOR_DIAGNOSTIC_RIDES + 1).get();
+    if (rides.size > MAX_OPERATOR_DIAGNOSTIC_RIDES) {
+      return res.status(409).json({
+        code: 'operator_history_too_large_for_diagnostic',
+        error: 'This diagnostic cannot summarize complete Travel history. Please use verified records.',
+      });
+    }
     const byStatus = {};
     const recent = [];
     rides.forEach((d) => {
@@ -3561,8 +3538,8 @@ app.post('/scheduled/sweep', runSweep);
 // class and distance. Keeping those rules in one gate prevents query optimization from becoming
 // a second qualification system.
 const QUEUE_APPROACH_MI = 3;
-async function availableOperatorCandidates(db, pickup, excludeIds = new Set()) {
-  const fleet = await nearbyOperatorCandidates(db, pickup, { excludeIds });
+async function availableOperatorCandidates(db, pickup, excludeIds = new Set(), safeMatching = null) {
+  const fleet = await nearbyOperatorCandidates(db, pickup, { excludeIds, safeMatching });
   // An Operator may line up exactly one next Travel only while carrying the current Traveler
   // and already approaching that Travel's destination. Discovery marks the possibility; the
   // assignment transaction independently re-reads both Travels before reserving the slot.
@@ -3669,7 +3646,10 @@ app.post('/travel/prepare', requireAuth, LIMITS.dispatch, requireFreshAuth, requ
     };
     // Availability is a pre-charge hint, not a reservation. The post-payment transaction is
     // authoritative and can still find the fleet gone; then the paid Travel is refund-owed.
-    const fleet = await availableOperatorCandidates(db, pickup);
+    const fleet = await availableOperatorCandidates(db, pickup, new Set(), {
+      travelClass: String(b.cls || 'Standard'), requireScreening: operationalMode,
+      travelMinutes: priced.minutes,
+    });
     if (!matchOperator(fleet, pickup, String(b.cls || 'Standard'), { requireScreening: operationalMode, allowQueued: true, travelMinutes: priced.minutes })) {
       return res.status(409).json({ error: 'No eligible Operator is available; nothing was charged', code: 'no_operator' });
     }
@@ -3731,7 +3711,9 @@ app.post('/travel/dispatch', requireAuth, LIMITS.dispatch, requireFreshAuth, req
     if (!servesPoint(pickup)) return res.status(409).json({ error: outsideMarketMessage('pickup'), code: 'outside_market' });
     let candidate = null;
     if (ride.status !== 'assigned') {
-      const fleet = await availableOperatorCandidates(db, pickup);
+      const fleet = await availableOperatorCandidates(db, pickup, new Set(), {
+        travelClass: ride.travelClass, requireScreening: operationalMode,
+      });
       candidate = matchOperator(fleet, pickup, ride.travelClass, { requireScreening: operationalMode, allowQueued: true });
     }
     const outcome = await assignPaidTravel({
