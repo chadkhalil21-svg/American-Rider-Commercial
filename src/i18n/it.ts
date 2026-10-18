@@ -1163,6 +1163,8 @@ export default {
     signOut: 'Disconnettersi',
     pickup: 'Ritiro',
     setAsDestination: 'Imposta come destinazione',
+    searchGeoapifyCredit: 'Con tecnologia Geoapify · © collaboratori OpenStreetMap',
+    searchHereCredit: 'Con HERE',
     setPickupOnMap: 'Imposta il punto di ritiro sulla mappa',
     leavingNow: 'Orario di partenza: immediato',
     change: 'Modificare l’orario di partenza',
