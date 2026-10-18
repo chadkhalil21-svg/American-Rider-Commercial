@@ -7,7 +7,8 @@ const {privatePhotonEndpoint}=require('./place-search');
 const root=path.join(__dirname,'..');
 const source=fs.readFileSync(path.join(root,'infra/photon/gce-vm-startup.sh'),'utf8');
 const provision=fs.readFileSync(path.join(root,'infra/photon/provision-gcp.sh'),'utf8');
-for(const file of ['gce-vm-startup.sh','provision-gcp.sh']){
+const connect=fs.readFileSync(path.join(root,'infra/photon/connect-cloudrun.sh'),'utf8');
+for(const file of ['gce-vm-startup.sh','provision-gcp.sh','connect-cloudrun.sh']){
  const p=path.join(root,'infra/photon',file);
  const test=spawnSync('bash',['-n',p],{timeout:10000,encoding:'utf8'});
  assert.equal(test.status,0,file+' bash syntax: '+test.stderr);
@@ -24,6 +25,10 @@ assert.match(source,/photon-db-usa-1\.0-latest\.tar\.bz2/);
 assert.match(source,/md5sum -c/);
 assert.match(source,/photon_data/);
 assert.match(source,/useradd --system/);
+assert.match(connect,/AR_PHOTON_CONFIRM_SWITCH/);
+assert.match(connect,/--vpc-egress=private-ranges-only/);
+assert.match(connect,/AR_PLACE_SEARCH_PRIMARY=photon/);
+assert.match(connect,/--tunnel-through-iap/);
 const old=process.env.AR_PHOTON_PRIVATE_VPC;
 try{
  delete process.env.AR_PHOTON_PRIVATE_VPC;
