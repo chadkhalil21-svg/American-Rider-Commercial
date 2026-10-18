@@ -33,7 +33,7 @@ import * as TaskManager from 'expo-task-manager';
 import { PAYMENT_SERVER_URL } from '../config';
 import { authHeaders } from './payments';
 import { t } from '../i18n';
-import { validBackgroundFix, backgroundRenewalDue } from './backgroundPresencePolicy';
+import { validBackgroundFix, backgroundRenewalDue, backgroundMovementDue } from './backgroundPresencePolicy';
 
 export const PRESENCE_TASK = 'american-rider-operator-presence';
 
@@ -41,6 +41,7 @@ export const PRESENCE_TASK = 'american-rider-operator-presence';
 // acknowledged server renewal starts this 90-second upload interval.
 // This state is deliberately ephemeral: a fresh process can retry immediately.
 let lastBackgroundAcceptedAt = 0;
+let lastBackgroundAcceptedPosition: { latitude: number; longitude: number } | null = null;
 let backgroundRequestInFlight = false;
 
 /**
@@ -61,7 +62,14 @@ if (Platform.OS !== 'web') {
   if (!last || !validBackgroundFix(last)) return;
   // Avoid high-volume API and Firestore writes when iOS produces continuous
   // position callbacks. An error does not prolong availability or suppress a retry.
-  if (backgroundRequestInFlight || !backgroundRenewalDue(lastBackgroundAcceptedAt)) return;
+  if (backgroundRequestInFlight || (
+    !backgroundRenewalDue(lastBackgroundAcceptedAt) &&
+    !backgroundMovementDue(
+      lastBackgroundAcceptedAt,
+      lastBackgroundAcceptedPosition,
+      { latitude: last.coords.latitude, longitude: last.coords.longitude },
+    )
+  )) return;
   backgroundRequestInFlight = true;
 
   // POSTS THE SAME SHAPE THE FOREGROUND RENEWAL DOES, to /operator/online — which is not only
@@ -86,6 +94,7 @@ if (Platform.OS !== 'web') {
     const result = await response.json().catch(() => null);
     if (response.ok && result?.ok === true) {
       lastBackgroundAcceptedAt = Date.now();
+      lastBackgroundAcceptedPosition = { latitude: last.coords.latitude, longitude: last.coords.longitude };
     } else {
       const code = typeof result?.code === 'string' ? result.code.slice(0, 48) : 'no_code';
       console.warn('[operator-presence] renewal_refused', response.status, code);
@@ -213,6 +222,9 @@ export async function startBackgroundPresence(): Promise<boolean> {
  * and a tracking they did not consent to.
  */
 export async function stopBackgroundPresence(): Promise<void> {
+  // Never carry one Operator's upload throttle/position into another duty session.
+  lastBackgroundAcceptedAt = 0;
+  lastBackgroundAcceptedPosition = null;
   try {
     if (await TaskManager.isTaskRegisteredAsync(PRESENCE_TASK)) {
       await Location.stopLocationUpdatesAsync(PRESENCE_TASK);
