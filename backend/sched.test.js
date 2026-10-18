@@ -173,7 +173,18 @@ const check = (label, cond, detail) => { results.push({ label, ok: !!cond, detai
     const rep=await inject(h.db).sweepScheduled();
     check('due-time order finds due Travel beyond 100 future reservations',
       rep.dispatched.length===1 && rep.dispatched[0].id==='due', JSON.stringify(rep));
-    check('a full scheduled scan reports saturation',rep.overCapacity===true);
+    check('distant future reservations do not falsely report a saturated due queue',
+      rep.overCapacity!==true);
+  }
+  {
+    // Overload must still be reported if the due queue ITSELF contains 100
+    // entries. Never suppress warnings for truly competing near-term Travels.
+    const many={};
+    for(let i=0;i<100;i++)many['due'+i]=base(20);
+    const h=makeDb({scheduled_rides:many,operators:{},users:{}});
+    const rep=await inject(h.db).sweepScheduled();
+    check('100 genuinely due reservations still report saturation',
+      rep.overCapacity===true && rep.considered===100,JSON.stringify(rep));
   }
 
   // 3. 3 minutes out: dispatched, charged, travel created, operator recorded.

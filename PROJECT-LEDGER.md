@@ -1,5 +1,8 @@
 # AMERICAN RIDER — CANONICAL PROJECT LEDGER
 
+**2026-10-18 SCHEDULED DUE-WINDOW COST-SAVING SOURCE REVIEW:** Ported only PR #82's existing-index due-time query and five-minute deduplication of unchanged waiting notes onto current Commercial. Reservations still reevaluated each minute; changing status, safety, price, assignment, failure and payment events are not delayed. Existing `scheduled_rides(status,atMs)` compound index is declared; live commission and Query Explain remain separate rollout evidence. PR #82's five optional single-field index exemptions are deliberately NOT applied or represented as reducing billed document writes; they need field-usage and index-commissioning review. Exact-head GitHub synthetic and regression suites required before merge. No provider, Render, Firebase, Stripe, native build or live operations changed.
+
+
 **2026-10-18 DENSE DISPATCH CURRENT-SOURCE REVIEW:** Narrowly ported PR #81 onto current Commercial: nearest eligible Operator selected in one linear scan (original stable ties and safety rules), queue-related per-Operator database checks capped at eight concurrently without dropping candidates, and anonymous geographic-query work sampled one in 100 times only when explicitly enabled. No indexes, pricing, eligibility waivers or public capacity claims. Synthetic 12,000-candidate and 3,000-task tests added. Six exact-head CI workflows before source merge; genuine load, Firebase billed reads and device reliability are separate release evidence. This replaces only the bounded-dispatch section of old overlapping PR #62, not its distinct GPS / Operator diagnostic proposals. No production Render or mobile deployment.
 
 
