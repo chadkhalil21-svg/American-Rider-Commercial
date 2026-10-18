@@ -40,8 +40,10 @@ for(let repeat=0;repeat<2;repeat++){
 const native=fs.readFileSync(path.join(__dirname,'../src/backend/presence.ts'),'utf8');
 const ctx=fs.readFileSync(path.join(__dirname,'../src/state/OperatorContext.tsx'),'utf8');
 const app=JSON.parse(fs.readFileSync(path.join(__dirname,'../app.json'),'utf8'));
-assert.match(native,/distanceInterval: Platform\.OS === 'ios' \? 0 : 150/);
-assert.match(native,/TaskManager\.getTaskOptionsAsync/, 'reinspect persisted task on upgrades');
+assert.match(native,/distanceInterval: 0/, 'parked Operators must not have a movement gate on either OS');
+assert.doesNotMatch(native,/if \(Platform\.OS !== 'ios'\) return true/,
+  'existing Android registrations must also upgrade from the old 150 m filter');
+assert.match(native,/TaskManager\.getTaskOptionsAsync/, 'reinspect persisted tasks on upgrades on both operating systems');
 assert.match(native,/Number\(options\.distanceInterval\) === 0/, 'do not re-register task unnecessarily');
 assert.match(native,/Location\.getBackgroundPermissionsAsync\(\)/, 'do not restore revoked background permission');
 assert.match(native,/await Location\.startLocationUpdatesAsync\(PRESENCE_TASK/, 'updated options are passed to native task');
