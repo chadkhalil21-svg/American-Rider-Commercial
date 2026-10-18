@@ -14,7 +14,8 @@ const base = {
 };
 const book = {
   marketId: 'fl-southeast', approval: 'approved',
-  currency: 'USD', rateType: 'fixed-two-axle-sunpass',
+  currency: 'USD', rateType: 'fixed',
+  vehicleClass: 'two-axle', paymentMethod: 'sunpass',
   sourceUrl: 'https://floridasturnpike.com/tolls/toll-rates/',
   reviewedAt: '2026-10-18T12:00:00Z',
   validFrom: '2026-10-01T00:00:00Z',
@@ -48,6 +49,25 @@ assert.equal(officialTollPriceForRoute(base, 'fl-southeast', { ...opts, books: {
 assert.equal(officialTollPriceForRoute(base, 'fl-southeast', { ...opts, books: { 'fl-southeast': { ...book, sourceUrl: 'http://example.com' } } }), null);
 assert.equal(officialTollPriceForRoute(base, 'fl-southeast', { ...opts, books: { 'fl-southeast': { ...book, rates: { ...book.rates, 'GMX:gate-b': { name: 'variable express', cents: 300, variable: true } } } } }), null);
 assert.equal(officialTollPriceForRoute(base, 'other-market', opts), null);
+const national = {
+  ...base,
+  officialFacilityCrossings: ['TEST:us-gantry'],
+  tollPaymentMethod: 'ezpass',
+};
+const otherBook = {
+  ...book,
+  marketId: 'ny-new-york',
+  paymentMethod: 'ezpass',
+  rates: { 'TEST:us-gantry': { name: 'Synthetic Interstate Toll', cents: 340 } },
+};
+assert.equal(officialTollPriceForRoute(national, 'ny-new-york', {
+  now, books: { 'ny-new-york': otherBook }
+})?.tollCents,340,'new U.S. region requires its own verified tariff/profile');
+assert.equal(officialTollPriceForRoute(national, 'fl-southeast',opts),null,
+  'Florida tariff must never be applied to another state');
+assert.equal(officialTollPriceForRoute(national,'ny-new-york',{
+  now, books:{'ny-new-york':{...otherBook,paymentMethod:'sunpass'}}
+}),null,'never substitute a different transponder tariff');
 
 // The live resolver must consult verified local rates before paid HERE.
 const tolls = fs.readFileSync(path.join(__dirname, 'tolls.js'), 'utf8');
