@@ -143,6 +143,8 @@ const { verifyResendWebhook, sanitizeResendEvent, applyResendDeliveryEvent } = r
 const { acquireLease, renewLease, releaseLease, DEFAULT_LEASE_MS } = require('./schedulerlease');
 const { singleFlight } = require('./sweep-singleflight');
 const { createSweepCadence, createQuotaBackoff, quotaError } = require('./sweepcadence');
+const { durableMaintenance } = require('./durable-maintenance');
+const { externalSweepMode } = require('./cloudrun-sweep-mode');
 const { settleSweepJobs, createCriticalRecoveryGate } = require('./critical-sweep-recovery');
 const { createBackgroundReporter } = require('./workload-summary');
 const { sweepOperatorAccountFees } = require('./operatorfees');
@@ -2014,11 +2016,15 @@ app.post('/charge-ride', requireAuth, LIMITS.payments, requireOperationalReadine
 // AUTHENTICATED OPERATIONAL CONTROL. The endpoint takes no workload parameters and can only
 // invoke the same leased sweep the process clock invokes. SCHEDULER_TOKEN is mandatory; callers
 // without the configured token fail closed before any operational work begins.
+// Fail at startup if Cloud Run would depend on an unreliable process timer.
+const EXTERNAL_SWEEPS = externalSweepMode();
 let lastSweep = { at: 0, report: null };
 const maintenanceCadence = createSweepCadence();
 const quotaBackoff = createQuotaBackoff();
 const criticalRecoveryGate = createCriticalRecoveryGate({ intervalMs:60_000 });
-const maintenanceSweep = (name, work) => maintenanceCadence.run(name, work);
+const maintenanceSweep = (name, work) => EXTERNAL_SWEEPS
+  ? durableMaintenance({db:adminDb(),name,work})
+  : maintenanceCadence.run(name, work);
 const reportBackgroundWork = createBackgroundReporter();
 
 
@@ -4304,10 +4310,6 @@ app.use((req, res) => {
   );
 });
 
-const { externalSweepMode } = require('./cloudrun-sweep-mode');
-// Never accept traffic from an autoscaled service that relies on a sleeping timer.
-// In Cloud Run, the external minute-by-minute watchdog is mandatory.
-const EXTERNAL_SWEEPS = externalSweepMode();
 const PORT = process.env.PORT || 4242;
 app.listen(PORT, () => {
   console.log(`American Rider server listening on http://localhost:${PORT}  (Stripe: ${keyMode})`);
