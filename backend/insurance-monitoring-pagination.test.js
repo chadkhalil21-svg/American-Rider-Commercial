@@ -7,7 +7,7 @@ const operators = Array.from({length:620},(_,i)=>({
  id:'op'+String(i).padStart(4,'0'),
  data:{legalName:'Sample Operator',email:'sample@example.test',
    insuranceMonitoring:{
-     status:'verified_active',lastVerifiedAt:NOW-27*DAY,
+     status:'verified_active',lastVerifiedAt:NOW-57*DAY,
      nextVerificationDueAt:NOW+2*DAY,verificationRequestCount:0,
      contact:{email:'verified@example.test',type:'broker'},
      policyNumber:'POL'+i,
