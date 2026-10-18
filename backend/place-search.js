@@ -5,6 +5,16 @@
 const { readKey } = require('./env');
 const MAX_QUERY=160, CACHE_TTL_MS=10*60*1000, MAX_CACHE=500;
 const cache=new Map(),inflight=new Map();
+// Emergency HERE fallback is rate-capped per process, even if the primary
+// provider is in outage. For multi-instance production, also enforce a shared
+// provider-level quota before enabling fallback.
+const HERE_FALLBACK_PER_MINUTE=10;
+let hereWindowStart=0,hereCalls=0;
+function allowExceptionalHere(now=Date.now()){
+  if(now-hereWindowStart>=60000){hereWindowStart=now;hereCalls=0;}
+  if(hereCalls>=HERE_FALLBACK_PER_MINUTE)return false;
+  hereCalls++;return true;
+}
 const clamp=(n,lo,hi)=>Math.min(hi,Math.max(lo,n));
 const validCoord=(lat,lng)=>Number.isFinite(lat)&&Number.isFinite(lng)&&Math.abs(lat)<=90&&Math.abs(lng)<=180;
 const bucket=n=>Math.round(Number(n)*100)/100;
@@ -82,7 +92,7 @@ async function searchPlaces(query,near,limit=6){
   const work=(async()=>{
     const result=await geoapify(q,n,max,primaryKey);
     // An empty *successful* answer is legitimate, not an excuse for a second bill.
-    const items=result.ok?result.items:secondaryKey?(await here(q,n,max,secondaryKey)).items:[];
+    const items=result.ok?result.items:(secondaryKey&&allowExceptionalHere())?(await here(q,n,max,secondaryKey)).items:[];
     // Only cache an authoritative primary result. Never cache a provider outage
     // as zero results or a transient exceptional HERE fallback.
     if(result.ok){
