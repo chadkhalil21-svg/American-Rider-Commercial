@@ -157,9 +157,26 @@ export async function requestBackgroundPresence(): Promise<boolean> {
  */
 export async function startBackgroundPresence(): Promise<boolean> {
   try {
-    if (await TaskManager.isTaskRegisteredAsync(PRESENCE_TASK)) return true;
-    const granted = await requestBackgroundPresence();
-    if (!granted) return false;
+    const registered = await TaskManager.isTaskRegisteredAsync(PRESENCE_TASK);
+    if (registered) {
+      // Task registrations survive app upgrades. Previously registered iPhones
+      // retain the former 150 m filter unless we update its native options.
+      // Inspect the saved registration rather than assuming a code change
+      // automatically reconfigures the OS-owned task.
+      if (Platform.OS !== 'ios') return true;
+      const options = await TaskManager.getTaskOptionsAsync<{ distanceInterval?: number }>(PRESENCE_TASK);
+      if (options && Number(options.distanceInterval) === 0) return true;
+      // Reconfiguration must not silently recreate tracking after permission
+      // has been withdrawn; fail closed until Operator explicitly grants it.
+      const permission = await Location.getBackgroundPermissionsAsync();
+      if (!permission.granted) return false;
+    } else {
+      const granted = await requestBackgroundPresence();
+      if (!granted) return false;
+    }
+    // Expo can re-register the same task name with updated native options.
+    // Do not stop the old task first: if updating fails, the existing
+    // registration remains rather than creating an unnecessary tracking gap.
     await Location.startLocationUpdatesAsync(PRESENCE_TASK, {
       accuracy: Location.Accuracy.Balanced,
       // Expo SDK 57 timeInterval is Android-only. iOS Core Location may
