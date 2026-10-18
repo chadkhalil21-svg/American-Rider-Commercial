@@ -33,8 +33,15 @@ import * as TaskManager from 'expo-task-manager';
 import { PAYMENT_SERVER_URL } from '../config';
 import { authHeaders } from './payments';
 import { t } from '../i18n';
+import { validBackgroundFix, backgroundRenewalDue } from './backgroundPresencePolicy';
 
 export const PRESENCE_TASK = 'american-rider-operator-presence';
+
+// Cost control: native callbacks may be frequent, but only a successfully
+// acknowledged server renewal starts this 90-second upload interval.
+// This state is deliberately ephemeral: a fresh process can retry immediately.
+let lastBackgroundAcceptedAt = 0;
+let backgroundRequestInFlight = false;
 
 /**
  * Registered at module load, which is a requirement rather than a style choice: iOS may
@@ -51,7 +58,11 @@ if (Platform.OS !== 'web') {
   if (error || !data) return;
   const { locations } = data as { locations?: Location.LocationObject[] };
   const last = locations?.[locations.length - 1];
-  if (!last) return;
+  if (!last || !validBackgroundFix(last)) return;
+  // Avoid high-volume API and Firestore writes when iOS produces continuous
+  // position callbacks. An error does not prolong availability or suppress a retry.
+  if (backgroundRequestInFlight || !backgroundRenewalDue(lastBackgroundAcceptedAt)) return;
+  backgroundRequestInFlight = true;
 
   // POSTS THE SAME SHAPE THE FOREGROUND RENEWAL DOES, to /operator/online — which is not only
   // a presence write. It re-runs every gate: coverage, the disclosure, Stripe payouts. So a
@@ -69,18 +80,22 @@ if (Platform.OS !== 'web') {
         background: true,
       }),
     });
-    if (!response.ok) {
-      // A resolved fetch is not necessarily an accepted renewal. Do not log
-      // Operator identity, coordinates, tokens or provider evidence.
-      const result = await response.json().catch(() => null);
+    // A 200 from an intermediary is not enough. Only the actual server's
+    // affirmative receipt extends local throttling; the server alone decides
+    // availability and still applies all screening / insurance / payout gates.
+    const result = await response.json().catch(() => null);
+    if (response.ok && result?.ok === true) {
+      lastBackgroundAcceptedAt = Date.now();
+    } else {
       const code = typeof result?.code === 'string' ? result.code.slice(0, 48) : 'no_code';
       console.warn('[operator-presence] renewal_refused', response.status, code);
     }
   } catch {
-    // A failed renewal is a missed heartbeat, not an emergency. PRESENCE_STALE_MS tolerates
-    // two, and the next location delivery tries again. Throwing here would have iOS treat the
-    // task as faulty and back it off.
-    }
+    // Loss of internet must never become a fabricated acknowledgement. A later
+    // fresh location event retries; server dispatch expires after five minutes.
+  } finally {
+    backgroundRequestInFlight = false;
+  }
   });
 }
 
@@ -151,7 +166,13 @@ export async function startBackgroundPresence(): Promise<boolean> {
       // not deliver an update while the vehicle is stationary, even when
       // pausesUpdatesAutomatically is false; physical-device evidence is mandatory.
       timeInterval: 60_000,
-      distanceInterval: 150,
+      // On iOS a 150 m movement filter can starve a stationary Operator of
+      // callbacks entirely. Ask Core Location for unfiltered *opportunities*
+      // while in service; throttle actual network uploads to 90 seconds above.
+      // Apple may still suspend updates while stationary, and battery use may
+      // increase. Release ONLY after signed-device battery/stationary tests.
+      // Android retains 150 m with a visible foreground location service.
+      distanceInterval: Platform.OS === 'ios' ? 0 : 150,
       // WHAT THE OPERATOR SEES WHILE THIS RUNS. iOS requires a persistent indicator for
       // background location on Android and shows a status bar tint on iOS; saying plainly what
       // is happening is the institutional version of that, and it is also the honest one.
