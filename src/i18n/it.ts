@@ -1281,7 +1281,7 @@ export default {
     msgNotSent: "Messaggio non inviato. Controlli la connessione e riprovi.",
     lostOperatorInboxDelivered: "Consegnato a %{names} nella casella dell’Operatore.",
     notifSaveFailed: "La preferenza di notifica non è stata salvata. Riprovi.",
-    cancelFailed: "Il Viaggio non è stato annullato. Riprovi.",
+    cancelFailed: "Non è stato possibile confermare l’annullamento. Il Viaggio potrebbe essere ancora attivo. Verifichi lo stato prima di prenotarne un altro.",
     lostReturnHuman: "Patron Support coordina la restituzione dopo che l’Operatore ha localizzato l’oggetto. Nessun Viaggio di restituzione, addebito o assegnazione viene mostrato finché non esiste realmente.",
     familyRevokeUnable: "Non è stato possibile revocare l’autorizzazione Family. Riprovi.",
     inviteShareFailed: "Non è stato possibile aprire l’invito per la condivisione. Riprovi.",

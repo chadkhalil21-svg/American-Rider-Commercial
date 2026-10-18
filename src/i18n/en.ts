@@ -1306,7 +1306,7 @@ export default {
     msgNotSent: "Message not sent. Check your connection and try again.",
     lostOperatorInboxDelivered: "Delivered to %{names} in the Operator inbox.",
     notifSaveFailed: "Notification preference was not saved. Try again.",
-    cancelFailed: "Travel was not cancelled. Try again.",
+    cancelFailed: "Cancellation could not be confirmed. This Travel may still be active. Check its status before booking again.",
     lostReturnHuman: "Patron Support coordinates the return after the Operator locates the item. No return Travel, charge, or assignment is shown until it actually exists.",
     familyRevokeUnable: "Family authorization could not be revoked. Try again.",
     inviteShareFailed: "The invitation could not be opened for sharing. Try again.",

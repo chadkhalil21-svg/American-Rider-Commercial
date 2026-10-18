@@ -253,6 +253,10 @@ export default function RideScreen() {
                   <Text style={styles.retryLink}>{t('traveler.changeTravel')}</Text>
                 </Pressable>
               ) : null}
+              {/* Leaving the view never tells the server to cancel an existing booking. */}
+              <Pressable accessibilityRole="button" onPress={() => router.dismissTo('/')} hitSlop={8}>
+                <Text style={styles.retryLink}>{t('support.returnHome')}</Text>
+              </Pressable>
             </>
           )}
         </View>
@@ -301,7 +305,17 @@ export default function RideScreen() {
                 <Text style={styles.yesCancelText}>{cancelBusy ? t('traveler.familyWorking') : t('traveler.yesCancel')}</Text>
               </Pressable>
             </View>
-            {cancelFailed ? <Text style={styles.cancelNote}>{t('traveler.cancelFailed')}</Text> : null}
+            {cancelFailed ? (
+              <View>
+                <Text style={styles.cancelNote}>{t('traveler.cancelFailed')}</Text>
+                <Pressable accessibilityRole="button" onPress={() => router.dismissTo('/')} style={{ minHeight: 44, justifyContent: 'center' }}>
+                  <Text style={styles.retryLink}>{t('support.returnHome')}</Text>
+                </Pressable>
+                <Pressable accessibilityRole="button" onPress={() => router.navigate({ pathname: '/issues', params: { from: 'status' } })} style={{ minHeight: 44, justifyContent: 'center' }}>
+                  <Text style={styles.retryLink}>{t('traveler.contactSupport')}</Text>
+                </Pressable>
+              </View>
+            ) : null}
           </View>
         ) : (
           <Pressable onPress={() => setCancelAsk(true)} hitSlop={10}>
@@ -608,7 +622,17 @@ export default function RideScreen() {
               <Text style={styles.yesCancelText}>{cancelBusy ? t('traveler.familyWorking') : t('traveler.yesCancel')}</Text>
             </Pressable>
           </View>
-          {cancelFailed ? <Text style={styles.cancelNote}>{t('traveler.cancelFailed')}</Text> : null}
+          {cancelFailed ? (
+                <View>
+                  <Text style={styles.cancelNote}>{t('traveler.cancelFailed')}</Text>
+                  <Pressable accessibilityRole="button" onPress={() => router.dismissTo('/')} style={{ minHeight: 44, justifyContent: 'center' }}>
+                    <Text style={styles.retryLink}>{t('support.returnHome')}</Text>
+                  </Pressable>
+                  <Pressable accessibilityRole="button" onPress={() => router.navigate({ pathname: '/issues', params: { from: 'status' } })} style={{ minHeight: 44, justifyContent: 'center' }}>
+                    <Text style={styles.retryLink}>{t('traveler.contactSupport')}</Text>
+                  </Pressable>
+                </View>
+              ) : null}
         </View>
       ) : complete ? (
         <PrimaryButton
