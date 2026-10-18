@@ -678,9 +678,9 @@ export default function TravelConfirmation() {
               )}
               {liveMatched.some(p => p.source) && (
                 <Pressable accessibilityRole="link"
-                  onPress={() => { void Linking.openURL(liveMatched.some(p => p.source === 'geoapify') ? 'https://www.geoapify.com/' : 'https://www.here.com/'); }}>
+                  onPress={() => { void Linking.openURL(liveMatched.some(p => p.source === 'photon') ? 'https://www.openstreetmap.org/copyright' : liveMatched.some(p => p.source === 'geoapify') ? 'https://www.geoapify.com/' : 'https://www.here.com/'); }}>
                   <Text style={styles.searchAttribution}>
-                    {liveMatched.some(p => p.source === 'geoapify') ? t('traveler.searchGeoapifyCredit') : t('traveler.searchHereCredit')}
+                    {liveMatched.some(p => p.source === 'photon') ? t('traveler.mapAttribution') : liveMatched.some(p => p.source === 'geoapify') ? t('traveler.searchGeoapifyCredit') : t('traveler.searchHereCredit')}
                   </Text>
                 </Pressable>
               )}
@@ -745,9 +745,9 @@ export default function TravelConfirmation() {
               )}
               {depMatched.some(p => p.source) && (
                 <Pressable accessibilityRole="link"
-                  onPress={() => { void Linking.openURL(depMatched.some(p => p.source === 'geoapify') ? 'https://www.geoapify.com/' : 'https://www.here.com/'); }}>
+                  onPress={() => { void Linking.openURL(depMatched.some(p => p.source === 'photon') ? 'https://www.openstreetmap.org/copyright' : depMatched.some(p => p.source === 'geoapify') ? 'https://www.geoapify.com/' : 'https://www.here.com/'); }}>
                   <Text style={styles.searchAttribution}>
-                    {depMatched.some(p => p.source === 'geoapify') ? t('traveler.searchGeoapifyCredit') : t('traveler.searchHereCredit')}
+                    {depMatched.some(p => p.source === 'photon') ? t('traveler.mapAttribution') : depMatched.some(p => p.source === 'geoapify') ? t('traveler.searchGeoapifyCredit') : t('traveler.searchHereCredit')}
                   </Text>
                 </Pressable>
               )}
