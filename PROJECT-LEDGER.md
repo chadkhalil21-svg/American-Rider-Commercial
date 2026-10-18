@@ -1,5 +1,8 @@
 # AMERICAN RIDER — CANONICAL PROJECT LEDGER
 
+**2026-10-18 OPERATOR DIAGNOSTIC FULL-HISTORY READ CAP, ISSUE #95 (SOURCE ONLY):** Protected `/operator/me` could scan a particular authenticated Operator's entire historical `rides` collection just to show five recent statuses. Cap the response at 201 indexed records, and if more than 200 exist return a clear 409 incomplete-diagnostic response rather than an inaccurate complete total. Keeps own-account authentication, current eligibility and payouts unchanged; existing `rides(operatorId)` query requires no new composite index. Regression checks the hard limit and failure reporting. CI before source merge, no production deploy. Distinct GPS write cadence and inbox listener savings remain under issue #95 for later review.
+
+
 **2026-10-18 REGULAR TRAVEL OPERATOR-SEARCH CANCEL VISIBILITY:** The actual founder complaint concerns `/ride` while the app searches for an Operator, not just Plan Ahead `/schedule`. PR #72 already merged server-authoritative cancel and uncertain-refund safety but the search Cancel control sat below a secondary safety block and could require scrolling. This source-only change places the *same* Cancel and confirmation immediately under the search result, makes the control at least 44 points and screen-reader-labeled, and preserves the server-authoritative cancellation, Return Home and Patron Support fallback. Adds a focused regression. This does not alter payment/refunds or automatically update an installed TestFlight build. Six exact-head CI campaigns before merge, no production deployment.
 
 
