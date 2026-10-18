@@ -51,9 +51,12 @@ try{
   assert.equal(secondary[0]?.title,'South Florida');
   assert.equal(secondary[0]?.source,'here');
   assert.equal(calls.filter(u=>u.includes('hereapi.com')).length,1);
+  for(let i=0;i<24;i++)await searchPlaces('provider outage unique '+i,null);
+  assert.equal(calls.filter(u=>u.includes('hereapi.com')).length,10,
+    'even exceptional HERE fallback is capped at ten calls per minute per instance');
   process.env.AR_HERE_AUTOCOMPLETE_FALLBACK='0';
   assert.deepEqual(await searchPlaces('South FL outage disabled',null),[]);
-  assert.equal(calls.filter(u=>u.includes('hereapi.com')).length,1,
+  assert.equal(calls.filter(u=>u.includes('hereapi.com')).length,10,
     'HERE off means no hidden usage');
   const fs=require('node:fs'),path=require('node:path');
   const screen=fs.readFileSync(path.join(__dirname,'../app/reserve.tsx'),'utf8');
