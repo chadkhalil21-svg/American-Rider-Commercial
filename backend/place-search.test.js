@@ -2,7 +2,7 @@
 const assert=require('node:assert/strict');
 const { normalizeSuggestion,normalizePhoton,privatePhotonEndpoint,selectedPrimary,searchPlaces,annotateProximity }=require('./place-search');
 (async()=>{
-  const names=['HERE_API_KEY','AR_HERE_AUTOCOMPLETE_FALLBACK','AR_PLACE_SEARCH_PRIMARY','AR_PHOTON_SEARCH_URL','GEOAPIFY_API_KEY'];
+  const names=['HERE_API_KEY','AR_HERE_AUTOCOMPLETE_FALLBACK','AR_PLACE_SEARCH_PRIMARY','AR_PHOTON_SEARCH_URL','AR_PHOTON_PRIVATE_VPC','GEOAPIFY_API_KEY'];
   const prev=Object.fromEntries(names.map(n=>[n,process.env[n]]));
   const fetchBefore=global.fetch;
   let calls=[];
@@ -22,6 +22,16 @@ const { normalizeSuggestion,normalizePhoton,privatePhotonEndpoint,selectedPrimar
     assert.equal(privatePhotonEndpoint('https://user:pass@internal.example'),null,'no embedded secrets');
     assert.equal(privatePhotonEndpoint('file:///etc/passwd'),null,'no local files');
     assert.equal(privatePhotonEndpoint('https://search.american-rider.example')?.pathname,'/api');
+    assert.equal(privatePhotonEndpoint('http://10.84.0.10:2322'),null,
+      'plain HTTP requires explicit VPC authorization');
+    process.env.AR_PHOTON_PRIVATE_VPC='1';
+    const internal=privatePhotonEndpoint('http://10.84.0.10:2322');
+    assert.equal(internal?.pathname,'/api');
+    assert.equal(internal?.hostname,'10.84.0.10');
+    assert.equal(privatePhotonEndpoint('http://169.254.169.254:2322'),null);
+    assert.equal(privatePhotonEndpoint('http://127.0.0.1:2322'),null);
+    assert.equal(privatePhotonEndpoint('http://10.84.0.10:8080'),null);
+    delete process.env.AR_PHOTON_PRIVATE_VPC;
     global.fetch=async(u)=>{calls.push(String(u));throw Error('nothing configured');};
     assert.deepEqual(await searchPlaces('Dadeland',null),[]);
     assert.equal(calls.length,0,'no unconfigured paid search');
