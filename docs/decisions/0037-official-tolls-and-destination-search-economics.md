@@ -18,7 +18,7 @@ Keep MapLibre + OpenFreeMap visual maps, regional OSRM/OSM street routing and OT
 ## Toll order and safety
 1. Get **one** internal OSRM route, with fallback to regional OTP; preserve the exact fare-route geometry.
 2. Where independent full-area public-authority road/facility coverage **and complete OSRM toll-signal extraction** are both certified, an OSRM route with no toll class can count as clear. Current South Florida has NO such certification, so no blank `toll=no` inference.
-3. If an **approved, fresh** local authority rate book exactly matches **every** route crossing, the Operator's two-axle SunPass payment context, and the effective fixed tariff, return those official amounts and facility names. `backend/official-toll-pricing.js` now enforces these conditions. Its production catalogue is **deliberately empty**. Raw `charge=*` is a hint, never an independently billable value.
+3. If an **approved, fresh** local authority rate book exactly matches **every** route crossing, the Operator's **market-specific approved vehicle class and toll payment method**, and the effective fixed tariff, return those official amounts and facility names. `backend/official-toll-pricing.js` now enforces these conditions. Its production catalogue is **deliberately empty**. Raw `charge=*` is a hint, never an independently billable value.
 4. Otherwise request HERE toll information only if necessary; if unavailable, mark the toll UNKNOWN, not zero. Existing booking safety applies. Dynamic-priced managed lanes require reliable current official data or HERE; do not cache their prices for hours.
 5. Do not treat HERE's original routed geometry as identical to OSRM if routing differs. Already merged fare authority preserves one selected road route and guards unavailable routing.
 
@@ -40,3 +40,6 @@ The existing fare model budgets 25 cents infrastructure per completed Travel, 25
 
 ## Release status
 No live authority tariffs, station matching, provider keys, cloud billing, payment transactions, staging service, production deploy, Firestore index commissioning, H3 migration, or native release were made in this PR. Six exact-head CI and signed-device/provider acceptance still required. Keep Render authoritative until paid Cloud Run single-authority cutover under issue #98.
+
+### National extension, October 18
+The strict local fixed-rate book now includes a verified `vehicleClass` and `paymentMethod` for its own market, rather than treating Florida SunPass as a national standard. A non-Florida market requires a separately approved current rate book; the existing production catalogue is still empty, and no state was opened. Tests use SYNTHETIC interstate rates, not real prices. Dynamic express-lane prices remain unresolved/HERE-only when appropriate.
