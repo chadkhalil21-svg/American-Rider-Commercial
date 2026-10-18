@@ -260,20 +260,6 @@ export default function RideScreen() {
             </>
           )}
         </View>
-        <View style={{ flex: 1 }} />
-        {/* Safety is available from the moment a Travel is confirmed, not only after an
-            Operator has been found. A Traveler searching for an Operator may still need to
-            share their plans, contact a trusted person, or use Emergency Assistance. */}
-        <Pressable onPress={() => router.navigate('/safety')}>
-          <View style={[styles.safetyCard, { marginBottom: 18 }]}>
-            <Shield />
-            <View style={{ flex: 1 }}>
-              <Text style={styles.safetyTitle}>{t('traveler.safeTravels')}</Text>
-              <Text style={styles.safetySub}>{t('traveler.safetySearchRow')}</Text>
-            </View>
-            <Chev />
-          </View>
-        </Pressable>
         {cancelAsk ? (
           <View style={styles.cancelCard}>
             <Text style={styles.cancelTitle}>{t('traveler.cancelThisTravel')}</Text>
@@ -318,10 +304,31 @@ export default function RideScreen() {
             ) : null}
           </View>
         ) : (
-          <Pressable onPress={() => setCancelAsk(true)} hitSlop={10}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t('traveler.cancelTravel')}
+            onPress={() => setCancelAsk(true)}
+            style={{ minHeight: 44, justifyContent: 'center', marginTop: 12 }}
+            hitSlop={10}
+          >
             <Text style={styles.searchCancel}>{t('traveler.cancelTravel')}</Text>
           </Pressable>
         )}
+        <View style={{ flex: 1 }} />
+        {/* Safety is available from the moment a Travel is confirmed, not only after an
+            Operator has been found. A Traveler searching for an Operator may still need to
+            share their plans, contact a trusted person, or use Emergency Assistance. */}
+        <Pressable onPress={() => router.navigate('/safety')}>
+          <View style={[styles.safetyCard, { marginBottom: 18 }]}>
+            <Shield />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.safetyTitle}>{t('traveler.safeTravels')}</Text>
+              <Text style={styles.safetySub}>{t('traveler.safetySearchRow')}</Text>
+            </View>
+            <Chev />
+          </View>
+        </Pressable>
+
       </Screen>
     );
   }
