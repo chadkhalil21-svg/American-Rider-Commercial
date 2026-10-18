@@ -47,8 +47,14 @@ function normalizePhoton(feature){
 function privatePhotonEndpoint(value){
   try{
     const u=new URL(String(value||''));
-    // No public demo. Deploy an American Rider-controlled HTTPS endpoint.
-    if(u.protocol!=='https:'||!u.hostname||u.username||u.password||u.search||u.hash||
+    // HTTPS remains supported for any separately authenticated proxy.
+    // Plain HTTP is permitted ONLY for the dedicated RFC1918 Compute Engine VM
+    // after Cloud Run Direct VPC egress and explicit private-VPC opt-in.
+    const privateVPC = u.protocol==='http:' &&
+      process.env.AR_PHOTON_PRIVATE_VPC==='1' &&
+      /^10\\.(?:\\d{1,3}\\.){2}\\d{1,3}$/.test(u.hostname) &&
+      u.port==='2322';
+    if(!(u.protocol==='https:'||privateVPC)||!u.hostname||u.username||u.password||u.search||u.hash||
         u.hostname==='photon.komoot.io'||u.hostname==='nominatim.openstreetmap.org')return null;
     u.pathname='/api';
     return u;
