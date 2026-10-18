@@ -38,6 +38,9 @@ export type AssignedTravel = {
   dep: string;
   dest: string;
   travelClass: string;
+  /** Server-route estimates for the passenger journey only, not the Operator's approach. */
+  miles: number | null;
+  routedMinutes: number | null;
   cabinPreferences?: {
     climate: 'Cool' | 'Moderate' | 'Warm';
     music: 'None' | 'Traveler Choice';
@@ -48,6 +51,8 @@ export type AssignedTravel = {
   costCents: number;
   /** Authoritative Travel Fare before Platform Fee/pass-throughs. */
   travelCostCents: number;
+  /** Toll pass-through, reimbursed 100% to the Operator. */
+  tollCents: number;
   status: string;
   releasedAt?: number | null;
   createdAt: number;
@@ -124,6 +129,12 @@ export function watchAssignedTravel(
               dep: String(x.dep ?? ''),
               dest: String(x.dest ?? ''),
               travelClass: String(x.travelClass ?? 'Standard'),
+              // These were already stored by server pricing, but the request sheet never
+              // received them. Do not confuse journey length with pickup distance or ETA.
+              miles: Number.isFinite(Number(x.miles)) && Number(x.miles) > 0
+                ? Number(x.miles) : null,
+              routedMinutes: Number.isFinite(Number(x.routedMinutes)) && Number(x.routedMinutes) > 0
+                ? Math.round(Number(x.routedMinutes)) : null,
               cabinPreferences: x.cabinPreferences && typeof x.cabinPreferences === 'object'
                 ? {
                     climate: ['Cool', 'Moderate', 'Warm'].includes(String((x.cabinPreferences as any).climate))
@@ -139,6 +150,7 @@ export function watchAssignedTravel(
                 : undefined,
               costCents: Number(x.costCents ?? 0),
               travelCostCents: Number(x.travelCostCents ?? 0),
+              tollCents: Number(x.tollCents ?? 0),
               status: String(x.status ?? ''),
               releasedAt: Number(x.releasedAt) || null,
               createdAt: Number(x.createdAt ?? 0),

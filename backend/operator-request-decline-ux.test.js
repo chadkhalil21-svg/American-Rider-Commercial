@@ -29,16 +29,16 @@ for (let pass = 0; pass < 2; pass++) {
     'unknown pickup ETA must show a localized label, not invented minutes');
   assert.match(screen, /t\('traveler\.destination'\)/,
     'unknown route duration must show a localized label, not invented minutes');
-  assert.match(screen, /estLabel: \{ fontSize: 11, fontWeight: '600', letterSpacing: 1\.1, color: colors\.ink2 \}/,
-    'estimated revenue label must be legible');
-  assert.match(screen, /routeMeta: \{ fontSize: 12, color: colors\.ink2 \}/,
+  assert.match(screen, /offerAmountLabel: \{ fontSize: 10\.5, fontWeight: '600', letterSpacing: 0\.7, color: offerPalette\.secondary \}/,
+    'both price labels must be legible');
+  assert.match(screen, /routeMeta: \{ fontSize: 12, color: offerPalette\.secondary \}/,
     'route metadata must have readable contrast');
   assert.match(screen, /if \(open\) op\.lapseRequest\(open\)/,
     'an unanswered request lapses and remains eligible for reassignment');
-  assert.match(screen, /disabled=\{accepting \|\| declining\}/,
-    'accept cannot race a pending explicit decline');
-  assert.match(screen, /if \(acceptingRef\.current \|\| decliningRef\.current\) return/,
-    'duplicate acceptance does not race a pending decline');
+  assert.match(screen, /disabled=\{accepting \|\| declining \|\| !prices\}/,
+    'accept cannot race a pending decline or unverified price');
+  assert.match(screen, /if \(acceptingRef\.current \|\| decliningRef\.current \|\| !prices\) return/,
+    'duplicate acceptance does not race a pending decline or unverified price');
 
   assert.match(context, /declineRequest: \(r: SimRequest\) => Promise<boolean>/,
     'the client must receive authoritative success or failure');

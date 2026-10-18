@@ -14,6 +14,7 @@ import React, {
 } from 'react';
 import { accountInitials, accountName } from '../account';
 import { APP_FEE, coordinationFee, fareFromTotal } from '../data';
+import { operatorOfferAmounts } from '../operatorOfferMoney';
 import { goOffline, goOnline, settlePendingPayouts, submitForReview } from '../backend/connect';
 import { confirmOperatorBackgroundLocationUse, startBackgroundPresence, stopBackgroundPresence } from '../backend/presence';
 import { startHeartbeat } from '../backend/heartbeat';
@@ -115,6 +116,10 @@ export type SimRequest = {
   tripMin?: number;
   dist?: number;
   fare: number;
+  /** Exact offer figures from the server-priced Travel, in integer cents. */
+  travelerTotalCents?: number;
+  operatorReceivesCents?: number;
+  tollReimbursementCents?: number;
   /** Set when this is a real dispatched travel. Absent on the test-program script. */
   rideId?: string;
   /** The travel number, which is what the message thread is keyed by. */
@@ -618,7 +623,13 @@ export function OperatorProvider({ children }: { children: React.ReactNode }) {
    * it omitted the quiet-period check entirely. One builder, one set of rules.
    */
   const offerTravel = useCallback((t: AssignedTravel) => {
+    const prices = operatorOfferAmounts({
+      travelerTotalCents: t.costCents,
+      travelFareCents: t.travelCostCents,
+      tollCents: t.tollCents,
+    });
     setIncoming({
+      ...(prices || {}),
       rideId: t.rideId,
       tripNo: t.tripNo,
       travelerUid: t.travelerUid,
@@ -630,6 +641,10 @@ export function OperatorProvider({ children }: { children: React.ReactNode }) {
       tInit: initialsOf(t.travelerName),
       pickup: t.dep,
       dest: t.dest,
+      // Pricing already recorded these for the passenger leg. Never use them
+      // to imply the Operator's live pickup ETA.
+      dist: t.miles ?? undefined,
+      tripMin: t.routedMinutes ?? undefined,
       // THE FARE, NOT THE ALL-IN PRICE. costCents is what the TRAVELER paid — the fare plus
       // the platform fee — and earnOf takes 1% off whatever it is given.
       fare: t.travelCostCents > 0 ? t.travelCostCents / 100 : fareFromTotal(t.costCents / 100),
@@ -732,7 +747,7 @@ export function OperatorProvider({ children }: { children: React.ReactNode }) {
       // dispatched request (see SimRequest); rideId stays the fallback only for a record old
       // enough to predate it, and the scripted number for the test program.
       setIncoming(null);
-      const accepted = { ...r, no: r.tripNo || r.rideId!, earn: earnOf(r.fare) };
+      const accepted = { ...r, no: r.tripNo || r.rideId!, earn: r.operatorReceivesCents != null ? r.operatorReceivesCents / 100 : earnOf(r.fare) };
       if (opRef.current && opRef.current.rideId !== r.rideId) {
         // The server only permits this when the current passenger is onboard and the vehicle
         // is approaching that destination. Keep the current Travel on screen; B is merely lined up.
@@ -831,7 +846,13 @@ export function OperatorProvider({ children }: { children: React.ReactNode }) {
       );
       if (underway && !opRef.current) {
         const fare = underway.travelCostCents > 0 ? underway.travelCostCents / 100 : fareFromTotal(underway.costCents / 100);
+        const prices = operatorOfferAmounts({
+          travelerTotalCents: underway.costCents,
+          travelFareCents: underway.travelCostCents,
+          tollCents: underway.tollCents,
+        });
         setOp({
+          ...(prices || {}),
           rideId: underway.rideId,
           tripNo: underway.tripNo,
           travelerUid: underway.travelerUid,
@@ -843,9 +864,11 @@ export function OperatorProvider({ children }: { children: React.ReactNode }) {
           tInit: initialsOf(underway.travelerName),
           pickup: underway.dep,
           dest: underway.dest,
+          dist: underway.miles ?? undefined,
+          tripMin: underway.routedMinutes ?? undefined,
           fare,
           no: underway.tripNo || underway.rideId,
-          earn: earnOf(fare),
+          earn: prices ? prices.operatorReceivesCents / 100 : earnOf(fare),
         });
         setArrived(underway.status === 'arrived' || underway.status === 'onboard');
       }
