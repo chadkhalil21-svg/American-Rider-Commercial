@@ -1461,11 +1461,21 @@ export function RideProvider({ children }: { children: React.ReactNode }) {
 
   const cancelRide: () => Promise<boolean> = useCallback(async () => {
     const rideId = activeRideId.current;
-    if (!rideId) return false;
-    // Cancellation is authoritative and may include a refund. Do not dismantle the local
-    // journey until the server has accepted that state transition.
-    const result = await cancelTravel({ rideId });
-    if (!result.ok) return false;
+    if (!rideId) {
+      // The Traveler can leave an unsubmitted booking even if dispatch cannot be reached.
+      // Payment and Operator assignment are only attempted AFTER prepareRide returns an ID.
+      // Invalidate a late prepare response so it can never open PaymentSheet or dispatch
+      // after Cancel. An eventual server-only awaiting_payment record cannot charge anyone.
+      if (paymentRef.current.status !== 'idle' || preparedIdRef.current) return false;
+      dispatchGenerationRef.current++;
+      confirmInFlightRef.current = false;
+      setDispatchState('idle');
+    } else {
+      // An acknowledged server cancellation is required whenever a Travel exists.
+      // Do not misreport a lost network response as success or abandon a paid Travel.
+      const result = await cancelTravel({ rideId });
+      if (!result.ok) return false;
+    }
     if (smartJourneyRef.current) {
       smartJourneyRef.current = null;
       setSmartJourney(null);
@@ -1476,6 +1486,8 @@ export function RideProvider({ children }: { children: React.ReactNode }) {
     setRideActive(false);
     statusRef.current = 0;
     setStatus(0);
+    paymentRef.current = { status: 'idle' };
+    setPayment({ status: 'idle' });
     paidIntentRef.current = null;
     settleRideRef.current = null;
     preparedIdRef.current = null;

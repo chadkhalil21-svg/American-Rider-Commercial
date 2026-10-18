@@ -1282,7 +1282,7 @@ export default {
     msgNotSent: "Nachricht nicht gesendet. Prüfen Sie Ihre Verbindung und versuchen Sie es erneut.",
     lostOperatorInboxDelivered: "An %{names} im Operator-Postfach zugestellt.",
     notifSaveFailed: "Die Benachrichtigungseinstellung wurde nicht gespeichert. Versuchen Sie es erneut.",
-    cancelFailed: "Die Reise wurde nicht storniert. Versuchen Sie es erneut.",
+    cancelFailed: "Die Stornierung konnte nicht bestätigt werden. Die Reise könnte noch aktiv sein. Prüfen Sie den Status, bevor Sie erneut buchen.",
     lostReturnHuman: "Patron Support koordiniert die Rückgabe, nachdem der Operator den Gegenstand gefunden hat. Eine Rückfahrt, Belastung oder Zuweisung wird erst angezeigt, wenn sie tatsächlich besteht.",
     familyRevokeUnable: "Die Familienautorisierung konnte nicht widerrufen werden. Versuchen Sie es erneut.",
     inviteShareFailed: "Die Einladung konnte nicht zum Teilen geöffnet werden. Versuchen Sie es erneut.",

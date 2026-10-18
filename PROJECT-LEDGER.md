@@ -1,5 +1,8 @@
 # AMERICAN RIDER — CANONICAL PROJECT LEDGER
 
+**2026-10-18 PR #72 refreshed after PR #79 (REVIEW, NOT LIVE):** Code for confirmed local cancellation exit, truthful uncertain refund outcomes, five translations, and recovery/support actions has been preserved and rebased against the new Operator offer changes. Payment and refund behavior requires provider and signed-device evidence before live release. No real Stripe refund was initiated by this PR.
+
+
 **2026-10-18 PR #79 CURRENT-BASE REFRESH (REVIEW ONLY):** Existing Operator request transparency displays the actual server-stamped Traveler Total and 99% Travel Fare share plus toll reimbursement. Original #79 has been re-applied onto latest Commercial `release/current`, preserving merged PR #51 Accept/Decline and nearby Operator search. No server tariff, screening, payouts, booking, Render or live payments changed. Exact-head CI, real iPhone/Android UI verification, and a comparison to genuine quoted/charged/settled amounts remain required before describing a production Operator offer as certified.
 
 

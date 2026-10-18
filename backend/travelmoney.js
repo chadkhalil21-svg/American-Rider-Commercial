@@ -185,33 +185,43 @@ async function cancelTravel({ db, uid, rideId, deps, stripeConfigured = true, no
   // THE PAYMENT IS THE TRAVEL'S OWN. Never the request's: see the header.
   const paymentIntentId = String(currentRide.paymentIntentId || '');
   if (!paymentIntentId) return { status: 200, body: { ok: true, refunded: false, reason: 'no payment was taken' } };
-  if (!stripeConfigured) return fail(500, 'No Stripe key configured');
+  // The transaction above has ALREADY cancelled the Travel and retained refundPending.
+  // Provider outages and absent Stripe configuration cannot reverse that outcome.
+  const pendingRefund = async (cause) => {
+    try { await rideRef.set({ refundPending: true, refundBlockedReason: String(cause || 'Provider reconciliation required').slice(0, 250) }, { merge: true }); }
+    catch { /* refundPending was set atomically with cancelled; recovery will retry */ }
+    return { status: 202, body: { ok: true, cancelled: true, refundPending: true,
+      refunded: false, reason: 'Travel cancelled. Refund pending verification.' } };
+  };
+  if (!stripeConfigured) return pendingRefund('Stripe payment provider unavailable');
 
-  const { cents: refundable, reason } = await deps.refundableFor({ paymentIntentId, expectUid: String(uid) });
+  let refundable, reason;
+  try { ({ cents: refundable, reason } = await deps.refundableFor({ paymentIntentId, expectUid: String(uid) })); }
+  catch (e) { return pendingRefund(e?.message || e); }
   if (refundable <= 0) {
-    const canceled = deps.cancelUnpaidIntent
+    let canceled;
+    try { canceled = deps.cancelUnpaidIntent
       ? await deps.cancelUnpaidIntent({ paymentIntentId, uid: String(uid), rideId: id })
-      : { ok: false, reason: reason || 'Payment status requires reconciliation' };
+      : { ok: false, reason: reason || 'Payment status requires reconciliation' }; }
+    catch (e) { return pendingRefund(e?.message || e); }
     if (canceled.ok) {
       await rideRef.set({ refundPending: false, paymentIntentCancelledAt: now }, { merge: true });
       return { status: 200, body: { ok: true, refunded: false, reason: 'No payment was taken' } };
     }
-    await rideRef.set({ refundPending: true, refundBlockedReason: canceled.reason || reason }, { merge: true });
-    return { status: 202, body: { ok: true, pending: true, reason: canceled.reason || reason } };
+    return pendingRefund(canceled.reason || reason);
   }
 
   // The arrival fee is withheld from the refund, never charged separately.
   const withheld = Math.min(arrivalFee, refundable);
-  const out = await deps.refundTravel({
+  let out;
+  try { out = await deps.refundTravel({
     paymentIntentId,
     amountCents: refundable - withheld,
     expectUid: String(uid),
     idempotencyKey: `ar_cancel_refund_${id}`,
-  });
-  if (!out.ok) {
-    await rideRef.set({ refundPending: true, refundBlockedReason: out.error }, { merge: true });
-    return { status: 502, body: { ok: false, error: out.error } };
-  }
+  }); }
+  catch (e) { return pendingRefund(e?.message || e); }
+  if (!out.ok) return pendingRefund(out.error);
   await rideRef.set(
     { refundId: out.refundId, refundedCents: out.amountCents, arrivalFeeCents: withheld, refundPending: false, refundedAt: now },
     { merge: true },
