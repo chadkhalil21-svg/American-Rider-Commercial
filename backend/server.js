@@ -4304,9 +4304,17 @@ app.use((req, res) => {
   );
 });
 
+const { externalSweepMode } = require('./cloudrun-sweep-mode');
+// Never accept traffic from an autoscaled service that relies on a sleeping timer.
+// In Cloud Run, the external minute-by-minute watchdog is mandatory.
+const EXTERNAL_SWEEPS = externalSweepMode();
 const PORT = process.env.PORT || 4242;
 app.listen(PORT, () => {
   console.log(`American Rider server listening on http://localhost:${PORT}  (Stripe: ${keyMode})`);
+  if (EXTERNAL_SWEEPS) {
+    console.log('External authenticated scheduler selected; in-process sweep clock disabled');
+    return;
+  }
   // Started AFTER the port is open: a sweep that runs while the process is still booting can
   // take the whole thing down before it has ever answered /health.
   //
