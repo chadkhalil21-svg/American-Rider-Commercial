@@ -52,6 +52,7 @@ assert.equal(officialTollPriceForRoute(base, 'other-market', opts), null);
 // The live resolver must consult verified local rates before paid HERE.
 const tolls = fs.readFileSync(path.join(__dirname, 'tolls.js'), 'utf8');
 assert.match(tolls, /officialTollPriceForRoute\(route, region\?\.id\)/);
+assert.ok(tolls.includes('route.tollSignalComplete === true'), 'unverified OSM road classes can never become a free toll');
 assert.ok(tolls.indexOf("recordTollDecision('verified_official'") > 0 &&
   tolls.indexOf("recordTollDecision('verified_official'") < tolls.indexOf('const outcome = await resolveTolls(from, to, opts);'),
   'verified official price must return before any HERE request');
