@@ -1,5 +1,8 @@
 # AMERICAN RIDER — CANONICAL PROJECT LEDGER
 
+**2026-10-18 PR #89 ZERO-DISTANCE PERMISSION RECHECK, SYNTHETIC REVIEW ONLY:** After six exact-head GitHub workflows passed on `afb26cc`, review found that a previously registered zero-distance background task could report success even after the Operator revoked permission. The draft PR now checks permission *before accepting any already-registered task* on iOS and Android, and extends the synthetic 30-minute/offline lifecycle tests to cover revoked permissions with both old and upgraded registration options. Re-run CI on the new SHA. No signed/locked phone evidence, legal review, merge or production/mobile deploy has occurred.
+
+
 **2026-10-18 PARKED OPERATOR CROSS-PLATFORM PR #89 REVIEW UPDATE, NOT DEPLOYED:** Android's former 150 m location movement threshold also risks silence when an Operator is parked. PR #89 now proposes `distanceInterval:0` for BOTH iOS and Android, retains Android's visible foreground service and requested time interval, and extends the persisted-task migration and automated tests to both. Both operating systems can still delay background work. Server-accepted presence and five-minute dispatch cutoff remain authoritative. Preserve a legal distinction between temporarily ineligible for dispatch and actually signed off. Real-device, battery, carrier/legal/privacy, and release review remain pending. No production changes.
 
 
