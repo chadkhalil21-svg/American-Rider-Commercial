@@ -1251,6 +1251,8 @@ export default {
     familyTeenEmail: 'E-Mail des Jugendkontos',
     familyTeenDob: 'Geburtsdatum — JJJJ-MM-TT',
     familyInviteDelivery: 'American Rider sendet die Einladung an die E-Mail des Jugendkontos. Nur dieses verifizierte Konto kann den Einladungslink annehmen.',
+    familyAuthorizationSteps: 'Laden Sie einen Jugendlichen im Alter von 13 bis 17 Jahren ein. Nach Annahme über das verifizierte Konto ist Family Travel verfügbar. Sie können die Berechtigung für künftige Buchungen jederzeit widerrufen.',
+    familyInviteSendUnconfirmed: 'Die Zustellung der Familieneinladung konnte nicht bestätigt werden. Prüfen Sie die E-Mail des Jugendlichen, bevor Sie erneut einladen.',
     familyCreateInvite: 'Familieneinladung Senden',
     familyWorking: 'Wird verarbeitet…',
     familyInvitePrompt: 'Sie wurden zu einem American Rider Familienkonto eingeladen. Prüfen und bestätigen Sie die Einladung, um Jugend-Reisen zu aktivieren.',

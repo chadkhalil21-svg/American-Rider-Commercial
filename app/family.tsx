@@ -19,7 +19,7 @@ export default function FamilyScreen(){
  const refresh=async()=>{setLoading(true);setLoadFailed(false);try{const [l,r]=await Promise.all([fetchFamily(),fetchGuardianTravels()]);setLinks(l);setTravels(r);}catch{setLoadFailed(true);}finally{setLoading(false);}};
  useEffect(()=>{void refresh();},[]);
  const acceptInvitation=async()=>{if(!inviteId||!inviteToken||accepting||accepted)return;setAccepting(true);setAcceptFailed(false);try{await acceptFamilyInvite(inviteId,inviteToken);setAccepted(true);await refresh();}catch{setAcceptFailed(true);}finally{setAccepting(false);}};
- const invite=async()=>{if(busy)return;setBusy(true);try{await createFamilyInvite({guardianName:'',teenName,teenEmail,teenDob});setTeenName('');setTeenEmail('');setTeenDob('');await refresh();}catch{showNote(t('traveler.familyInviteUnable'));}finally{setBusy(false);}};
+ const invite=async()=>{if(busy)return;setBusy(true);try{await createFamilyInvite({guardianName:'',teenName,teenEmail,teenDob});setTeenName('');setTeenEmail('');setTeenDob('');await refresh();}catch{showNote(t('traveler.familyInviteSendUnconfirmed'));}finally{setBusy(false);}};
  return <Screen note={note}><LetterheadBar onBack={back}/><Title size={24}>{t('traveler.familyTitle')}</Title>
   {(inviteId&&inviteToken)?<Card style={styles.notice}><Text style={styles.name}>{accepting?t('traveler.familyAccepting'):accepted?t('traveler.familyAccepted'):acceptFailed?t('traveler.familyInviteUnable'):t('traveler.familyInvitePrompt')}</Text>{!accepted&&!accepting?<PrimaryButton label={t('traveler.familyAcceptInvitation')} onPress={acceptInvitation}/>:null}</Card>:null}
   {loadFailed?<Card style={styles.notice}><Text style={styles.meta}>{t('traveler.familyLoadUnable')}</Text><Pressable accessibilityRole="button" onPress={refresh}><Text style={styles.action}>{t('traveler.tryAgain')}</Text></Pressable></Card>:null}
@@ -30,6 +30,7 @@ export default function FamilyScreen(){
    <TextInput value={teenName} onChangeText={setTeenName} placeholder={t('traveler.familyTeenName')} style={styles.input}/>
    <TextInput value={teenEmail} onChangeText={setTeenEmail} placeholder={t('traveler.familyTeenEmail')} autoCapitalize="none" keyboardType="email-address" style={styles.input}/>
    <TextInput value={teenDob} onChangeText={setTeenDob} placeholder={t('traveler.familyTeenDob')} autoCapitalize="none" style={styles.input}/>
+   <Text style={styles.meta}>{t('traveler.familyAuthorizationSteps')}</Text>
    <Text style={styles.meta}>{t('traveler.familyInviteDelivery')}</Text>
    <PrimaryButton label={busy?t('traveler.familyWorking'):t('traveler.familyCreateInvite')} onPress={invite} disabled={busy||!teenName.trim()||!teenEmail.trim()||!teenDob.trim()}/>
   </Card>
