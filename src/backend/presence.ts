@@ -168,11 +168,9 @@ export async function startBackgroundPresence(): Promise<boolean> {
   try {
     const registered = await TaskManager.isTaskRegisteredAsync(PRESENCE_TASK);
     if (registered) {
-      // Task registrations survive app upgrades. Previously registered iPhones
-      // retain the former 150 m filter unless we update its native options.
-      // Inspect the saved registration rather than assuming a code change
-      // automatically reconfigures the OS-owned task.
-      if (Platform.OS !== 'ios') return true;
+      // Existing registered tasks survive upgrades on both operating systems.
+      // A 150 m filter can silence updates while parked, even on Android.
+      // Inspect persisted options and update only with retained permission.
       const options = await TaskManager.getTaskOptionsAsync<{ distanceInterval?: number }>(PRESENCE_TASK);
       if (options && Number(options.distanceInterval) === 0) return true;
       // Reconfiguration must not silently recreate tracking after permission
@@ -192,13 +190,14 @@ export async function startBackgroundPresence(): Promise<boolean> {
       // not deliver an update while the vehicle is stationary, even when
       // pausesUpdatesAutomatically is false; physical-device evidence is mandatory.
       timeInterval: 60_000,
-      // On iOS a 150 m movement filter can starve a stationary Operator of
-      // callbacks entirely. Ask Core Location for unfiltered *opportunities*
-      // while in service; throttle actual network uploads to 90 seconds above.
+      // A 150 m movement filter can starve a parked Operator on either OS.
+      // Request stationary location-event opportunities while In Service,
+      // then throttle actual server renewals to 90 seconds above.
       // Apple may still suspend updates while stationary, and battery use may
       // increase. Release ONLY after signed-device battery/stationary tests.
-      // Android retains 150 m with a visible foreground location service.
-      distanceInterval: Platform.OS === 'ios' ? 0 : 150,
+      // Android retains its visible foreground service and 60-second
+      // requested interval. The OS can still limit location delivery.
+      distanceInterval: 0,
       // WHAT THE OPERATOR SEES WHILE THIS RUNS. iOS requires a persistent indicator for
       // background location on Android and shows a status bar tint on iOS; saying plainly what
       // is happening is the institutional version of that, and it is also the honest one.
