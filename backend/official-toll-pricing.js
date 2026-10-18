@@ -23,7 +23,9 @@ function officialTollPriceForRoute(route, marketId, {
 
   const book = books?.[marketId];
   if (!book || book.marketId !== marketId || book.approval !== 'approved' ||
-      book.currency !== 'USD' || book.rateType !== 'fixed-two-axle-sunpass' ||
+      book.currency !== 'USD' || book.rateType !== 'fixed' ||
+      !/^[a-z0-9_-]{2,40}$/.test(String(book.vehicleClass || '')) ||
+      !/^[a-z0-9_-]{2,40}$/.test(String(book.paymentMethod || '')) ||
       !/^https:\/\//.test(String(book.sourceUrl || ''))) return null;
   const reviewed = Date.parse(book.reviewedAt);
   const validFrom = Date.parse(book.validFrom);
@@ -34,7 +36,8 @@ function officialTollPriceForRoute(route, marketId, {
   // Never substitute a SunPass price when the Operator's payment method or
   // vehicle class is not known. Variable-price express lanes require a live
   // official tariff feed, not this fixed-rate catalogue.
-  if (route.vehicleClass !== 'two-axle' || route.tollPaymentMethod !== 'sunpass') return null;
+  if (route.vehicleClass !== book.vehicleClass ||
+      route.tollPaymentMethod !== book.paymentMethod) return null;
 
   let tollCents = 0;
   const facilities = [];
