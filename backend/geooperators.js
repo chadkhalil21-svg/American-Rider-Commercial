@@ -44,23 +44,30 @@ function prefixes(point,tier){
   }
   return [...set].filter(Boolean);
 }
-async function queryTier(db,point,tier,{excludeIds=new Set(),limitPerPrefix=PER_PREFIX_LIMIT,saturationLimit=SATURATION_LIMIT}={}){
+async function queryTier(db,point,tier,{excludeIds=new Set(),limitPerPrefix=PER_PREFIX_LIMIT,saturationLimit=SATURATION_LIMIT,stats=null}={}){
   let saturated=false;
   const out=new Map();
   await Promise.all(prefixes(point,tier).map(async prefix=>{
     const base=db.collection('operators').where('available','==',true)
       .orderBy('geohash').startAt(prefix).endAt(prefix+'\uf8ff');
+    if(stats)stats.queries++;
     const first=await base.limit(limitPerPrefix).get();
+    if(stats)stats.documentsReturned+=first.docs.length;
     // A saturated cell must retain the first page and fetch only the NEXT records.
     // Re-running a larger overlapping query billed the first 40 documents twice.
     // Snapshot cursors preserve ties when many Operators share the same geohash.
     const docs=[...first.docs];
     if(first.docs.length===limitPerPrefix && saturationLimit>limitPerPrefix){
       const last=first.docs[first.docs.length-1];
+      if(stats)stats.queries++;
       const next=await base.startAfter(last).limit(saturationLimit-limitPerPrefix).get();
+      if(stats)stats.documentsReturned+=next.docs.length;
       docs.push(...next.docs);
     }
-    if(docs.length>=saturationLimit)saturated=true;
+    if(docs.length>=saturationLimit){
+      saturated=true;
+      if(stats)stats.saturatedPrefixes++;
+    }
     for(const d of docs){
       if(excludeIds.has(String(d.id)))continue;
       const x={id:d.id,...d.data()};
@@ -108,9 +115,17 @@ function fineCoverageRadiusMiles(point,tier){
 async function nearbyOperatorCandidates(db,point,opts={}){
   if(!encodeGeohash(point?.lat,point?.lng,1))return [];
   const all=new Map();
+  // Optional zero-extra-query instrumentation, strictly counts returned documents
+  // and executed query calls. Index-entry billing, retries and listener fanout
+  // remain unmeasured until reconciled against actual Firebase usage reports.
+  const stats=typeof opts.onStats==='function'
+    ? {queries:0,documentsReturned:0,tiersQueried:0,saturatedPrefixes:0,earlyStop:false,
+       uniqueCandidates:0,providerBilledReadsVerified:false}
+    : null;
   for(let i=0;i<TIERS.length;i++){
     const tier=TIERS[i];
-    const page=await queryTier(db,point,tier,opts);
+    if(stats)stats.tiersQueried++;
+    const page=await queryTier(db,point,tier,{...opts,stats});
     for(const row of page.rows)all.set(String(row.id),row);
     const matching=opts.safeMatching;
     // Opt-in from the server's authoritative dispatch path only. If no close,
@@ -125,9 +140,16 @@ async function nearbyOperatorCandidates(db,point,opts={}){
         now:matching.now||Date.now(),
       });
       const safeRadius=fineCoverageRadiusMiles(point,tier);
-      if(nearest&&safeRadius>0&&distanceMiles(point,nearest.operator)<safeRadius)
+      if(nearest&&safeRadius>0&&distanceMiles(point,nearest.operator)<safeRadius){
+        if(stats)stats.earlyStop=true;
         break;
+      }
     }
+  }
+  if(stats){
+    stats.uniqueCandidates=all.size;
+    // Instrumentation is advisory and must never block a paid dispatch.
+    try { opts.onStats(Object.freeze(stats)); } catch { /* telemetry is not dispatch authority */ }
   }
   return [...all.values()];
 }
