@@ -35,7 +35,7 @@ for(let pass=0;pass<2;pass++){
   assert.equal((await durableMaintenance({db,name:'marketReference',work,now:now+PERIOD_MS.marketReference+60_000})).runs,4);
   // A later instance must not get blocked forever when its wall clock moves back.
   assert.equal((await durableMaintenance({db,name:'screening',work,now:now-60_000})).runs,5);
-  assert.rejects(()=>durableMaintenance({db:null,name:'screening',work,now}),/Database unavailable/);
+  await assert.rejects(durableMaintenance({db:null,name:'screening',work,now}),/Database unavailable/);
   await assert.rejects(durableMaintenance({db,name:'unknown',work,now}),/Invalid/);
 }
 console.log('PASS twice: Cloud Run process replacement cannot reset shared maintenance timing, while unrelated work continues.');
