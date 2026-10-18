@@ -114,36 +114,31 @@ function presenceStale(o, now = Date.now()) {
 //     readiness checks block paid Travel until an approved screening process is commissioned.
 //     Only non-production demonstrations may explicitly opt out of this requirement.
 function matchOperator(operators, pickup, travelClass = 'Standard', { requireScreening = false, now = Date.now(), allowQueued = false, travelMinutes = null } = {}) {
-  const candidates = operators
-    .filter(o => o.available)
-    // A duty flag means the Operator is online, not free to serve two concurrent Travelers.
-    // The final reservation is still enforced transactionally by booking.js.
-    .filter(o => !o.currentRideId || (allowQueued && o.queueEligible === true && !o.nextRideId))
-    // 2. and still there. See PRESENCE_STALE_MS above — `available` alone is a flag nobody
-    //    ever clears, and it put a paying traveler in a car that did not exist.
-    .filter(o => !presenceStale(o, now))
-    .filter(o => !o.screeningBlocked)
-    .filter(o => !requireScreening || !!o.screeningCheckedAt)
-    // 4. lapsed commercial cover is not dispatchable — HERE, at the chokepoint, for exactly
-    //    the reason rule 2 is here. Both callers filtered for this themselves and one of them
-    //    was calling an undefined function to do it. A rule every caller must remember is a
-    //    rule that gets forgotten; this one now cannot be.
-    .filter(o => !coverageLapsed(o, now) && !coverageUnsafeForNewTravel(o.insuranceExpiry, now, travelMinutes))
-    // 5. and the disclosure they agreed to must be the one in force. Same reason as 2 and 4:
-    //    a rule every caller has to remember is a rule that gets forgotten.
-    .filter(o => !disclosureStale(o))
-    // 6. qualified at the last renewal, and no document since refused. `commissioned` is
-    //    stamped only by /operator/online after backend/qualification.js assessOperator
-    //    passes, and cleared by any assessment that finds a loss; absence is not approval.
-    //    Acceptance re-assesses from the records themselves.
-    .filter(o => o.commissioned === true && !o.documentBlocked)
-    .filter(o => travelClass === 'Standard' || (o.classes || []).includes(travelClass))
-    .map(o => ({ op: o, miles: distanceMiles(pickup, o) }))
-    .sort((a, b) => a.miles - b.miles);
-
-  if (!candidates.length) return null; // no one available for this request right now
-  const best = candidates[0];
-  return { operator: best.op, miles: +best.miles.toFixed(2), etaMin: etaMinutes(best.miles) };
+  // Nearest eligible candidate needs one pass, not sorting every Operator.
+  // In a dense market this avoids allocating filtered arrays and O(n log n)
+  // sorting. Keep the original eligibility order and stable tie-breaking:
+  // the first equally near eligible Operator retains first refusal.
+  let best = null;
+  let bestMiles = Infinity;
+  for (const o of operators) {
+    if (!o.available) continue;
+    if (o.currentRideId && !(allowQueued && o.queueEligible === true && !o.nextRideId)) continue;
+    if (presenceStale(o, now) || o.screeningBlocked) continue;
+    if (requireScreening && !o.screeningCheckedAt) continue;
+    if (coverageLapsed(o, now) || coverageUnsafeForNewTravel(o.insuranceExpiry, now, travelMinutes)) continue;
+    if (disclosureStale(o)) continue;
+    if (o.commissioned !== true || o.documentBlocked) continue;
+    if (travelClass !== 'Standard' && !(o.classes || []).includes(travelClass)) continue;
+    const miles = distanceMiles(pickup, o);
+    // Do not let an invalid coordinate displace a known eligible real position.
+    if (!Number.isFinite(miles)) continue;
+    if (miles < bestMiles) {
+      best = o;
+      bestMiles = miles;
+    }
+  }
+  if (!best) return null;
+  return { operator: best, miles: +bestMiles.toFixed(2), etaMin: etaMinutes(bestMiles) };
 }
 
 module.exports = {

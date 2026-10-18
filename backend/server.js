@@ -97,6 +97,7 @@ const { scheduledIdentity } = require('./scheduledidentity');
 const { REGIONS, defaultRegion } = require('./regions');
 const { presenceStale, coverageLapsed, matchOperator, etaMinutes, distanceMiles } = require('./matching');
 const { encodeGeohash, nearbyOperatorCandidates } = require('./geooperators');
+const { forEachBounded } = require('./bounded-tasks');
 // DISCLOSURE IS IMPORTED FOR .statute, and leaving it out is how the acknowledge route below
 // threw `DISCLOSURE is not defined` for a day — every operator who read the disclosure was
 // refused when they said so, and could not go on duty. The 25 disclosure tests all passed:
@@ -3536,12 +3537,21 @@ app.post('/scheduled/sweep', runSweep);
 // class and distance. Keeping those rules in one gate prevents query optimization from becoming
 // a second qualification system.
 const QUEUE_APPROACH_MI = 3;
+const QUEUE_VERIFY_CONCURRENCY = 8;
+let geoTraceCounter = 0;
 async function availableOperatorCandidates(db, pickup, excludeIds = new Set()) {
-  const fleet = await nearbyOperatorCandidates(db, pickup, { excludeIds });
+  // Sample one of every hundred dispatch searches if explicitly enabled.
+  // These are API calls and returned row counts, NOT billed Firestore reads.
+  const trace = process.env.AR_GEO_QUERY_METRICS === '1' && (++geoTraceCounter % 100 === 0);
+  const fleet = await nearbyOperatorCandidates(db, pickup, {
+    excludeIds,
+    ...(trace ? { onStats: stats => console.info('[dispatch-geo-query]', JSON.stringify(stats)) } : {}),
+  });
   // An Operator may line up exactly one next Travel only while carrying the current Traveler
   // and already approaching that Travel's destination. Discovery marks the possibility; the
   // assignment transaction independently re-reads both Travels before reserving the slot.
-  await Promise.all(fleet.map(async (op) => {
+  // Bound simultaneous database checks without omitting any candidate.
+  await forEachBounded(fleet, QUEUE_VERIFY_CONCURRENCY, async (op) => {
     op.queueEligible = false;
     if (!op.currentRideId || op.nextRideId) return;
     try {
@@ -3555,7 +3565,7 @@ async function availableOperatorCandidates(db, pickup, excludeIds = new Set()) {
         Number.isFinite(destination.lat) && Number.isFinite(destination.lng) &&
         distanceMiles(here, destination) <= QUEUE_APPROACH_MI;
     } catch { /* inability to verify capacity means no queued offer */ }
-  }));
+  });
   return fleet;
 }
 

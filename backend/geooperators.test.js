@@ -26,5 +26,21 @@ assert.ok(!mon.includes("collection('operators').get()"));
   const db2={collection:()=>({where:()=>({orderBy:()=>({startAt:()=>({endAt:()=>({limit:(n)=>({get:async()=>{limits.push(n);return {docs:n===40?full40:full40};}})})})})})})};
   await G.nearbyOperatorCandidates(db2,{lat:25.7617,lng:-80.1918});
   assert.ok(limits.includes(40)&&limits.includes(120),'a saturated prefix escalates once to the bounded saturation ceiling');
+  let observed=null;
+  const beforeCalls=limits.length;
+  const items=await G.nearbyOperatorCandidates(db2,{lat:25.7617,lng:-80.1918},{
+    onStats: stats => {observed=stats;},
+  });
+  assert.ok(items.length>0);
+  assert.equal(observed.uniqueCandidates,items.length);
+  assert.equal(observed.tiersQueried,2);
+  assert.equal(observed.queries,limits.length-beforeCalls,
+    'instrumentation counts the actual Firestore calls; makes no extra queries');
+  assert.ok(observed.documentsReturned>=items.length);
+  assert.equal(observed.providerBilledReadsVerified,false);
+  assert.ok(Object.isFrozen(observed));
+  assert.ok((await G.nearbyOperatorCandidates(db2,{lat:25.7617,lng:-80.1918},{
+    onStats:()=>{throw Error('collector unavailable');},
+  })).length>0,'unavailable optional collector does not fail dispatch');
   console.log('all bounded-geographic dispatch tests passed');
 })().catch(e=>{console.error(e);process.exit(1);});

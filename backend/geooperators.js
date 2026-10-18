@@ -44,17 +44,22 @@ function prefixes(point,tier){
   }
   return [...set].filter(Boolean);
 }
-async function queryTier(db,point,tier,{excludeIds=new Set(),limitPerPrefix=PER_PREFIX_LIMIT,saturationLimit=SATURATION_LIMIT}={}){
+async function queryTier(db,point,tier,{excludeIds=new Set(),limitPerPrefix=PER_PREFIX_LIMIT,saturationLimit=SATURATION_LIMIT,stats=null}={}){
   const out=new Map();
   await Promise.all(prefixes(point,tier).map(async prefix=>{
+    if(stats)stats.queries++;
     let snap=await db.collection('operators').where('available','==',true)
       .orderBy('geohash').startAt(prefix).endAt(prefix+'\uf8ff').limit(limitPerPrefix).get();
     // A full prefix page is ambiguous: there may be more Operators hidden behind the
     // lexicographic cutoff. Escalate only that saturated cell, still to a hard ceiling.
     if(snap.docs.length===limitPerPrefix && saturationLimit>limitPerPrefix){
+      if(stats)stats.documentsReturned+=snap.docs.length;
+      if(stats)stats.queries++;
       snap=await db.collection('operators').where('available','==',true)
         .orderBy('geohash').startAt(prefix).endAt(prefix+'\uf8ff').limit(saturationLimit).get();
     }
+    if(stats)stats.documentsReturned+=snap.docs.length;
+    if(stats&&snap.docs.length>=saturationLimit)stats.saturatedPrefixes++;
     for(const d of snap.docs){
       if(excludeIds.has(String(d.id)))continue;
       const x={id:d.id,...d.data()};
@@ -69,7 +74,20 @@ async function queryTier(db,point,tier,{excludeIds=new Set(),limitPerPrefix=PER_
 async function nearbyOperatorCandidates(db,point,opts={}){
   if(!encodeGeohash(point?.lat,point?.lng,1))return [];
   const all=new Map();
-  for(const tier of TIERS)for(const row of await queryTier(db,point,tier,opts))all.set(String(row.id),row);
+  // Optional no-write diagnostic. Row totals include duplicate pages and are not
+  // Firestore billed read units; index entries and listener fanout must be measured.
+  const stats=typeof opts.onStats==='function'
+    ? {queries:0,documentsReturned:0,tiersQueried:0,saturatedPrefixes:0,
+       uniqueCandidates:0,providerBilledReadsVerified:false}
+    : null;
+  for(const tier of TIERS){
+    if(stats)stats.tiersQueried++;
+    for(const row of await queryTier(db,point,tier,{...opts,stats}))all.set(String(row.id),row);
+  }
+  if(stats){
+    stats.uniqueCandidates=all.size;
+    try{ opts.onStats(Object.freeze(stats)); }catch{ /* metrics never blocks dispatch */ }
+  }
   return [...all.values()];
 }
 module.exports={encodeGeohash,decodeBounds,nearbyOperatorCandidates,prefixes,TIERS,PER_PREFIX_LIMIT,SATURATION_LIMIT};

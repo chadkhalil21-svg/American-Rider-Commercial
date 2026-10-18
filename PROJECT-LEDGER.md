@@ -1,5 +1,8 @@
 # AMERICAN RIDER — CANONICAL PROJECT LEDGER
 
+**2026-10-18 DENSE DISPATCH CURRENT-SOURCE REVIEW:** Narrowly ported PR #81 onto current Commercial: nearest eligible Operator selected in one linear scan (original stable ties and safety rules), queue-related per-Operator database checks capped at eight concurrently without dropping candidates, and anonymous geographic-query work sampled one in 100 times only when explicitly enabled. No indexes, pricing, eligibility waivers or public capacity claims. Synthetic 12,000-candidate and 3,000-task tests added. Six exact-head CI workflows before source merge; genuine load, Firebase billed reads and device reliability are separate release evidence. This replaces only the bounded-dispatch section of old overlapping PR #62, not its distinct GPS / Operator diagnostic proposals. No production Render or mobile deployment.
+
+
 **2026-10-18 PLAN AHEAD DRAFT CANCEL CURRENT-SOURCE REVIEW:** Ported only the independently source-verified draft Cancel exit and two static navigation tests from stale PR #69 onto the newest Commercial `release/current`; no old baseline files or claims are carried forward. Cancel dismisses an *unsubmitted* plan to Home and is disabled while saving. Finished reservations continue using Done and use separate cancellation logic. Exact-head CI required before GitHub merge. Real device and live payment/service evidence remain separate release considerations. No backend, tariff, Firebase, Render, Stripe, or native build changed.
 
 
