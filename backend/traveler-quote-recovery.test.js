@@ -13,7 +13,10 @@ assert.ok(fareClient.includes("args.onFailure?.('invalid_quote')"), 'malformed p
 assert.ok(reserve.includes("setPriceFailed(true)"), 'failed quotes are explicit');
 assert.ok(reserve.includes("!priceFailed && !unavailable"), 'booking cannot bypass rejected price');
 assert.ok(reserve.includes("!pickup || !dest"), 'name-only destinations do not become prices');
-assert.ok(reserve.includes("normalize(item.title) === normalize(place.name)"), 'location fallback must not silently change the destination');
+const placeClient = read('src/backend/placeSearch.ts');
+assert.ok(reserve.includes('uniqueNearbyExactPlace(place.name, options, anchor)'), 'location fallback requires unique nearby exact match');
+assert.ok(placeClient.includes('matches.length !== 1'), 'ambiguous same-name locations require manual selection');
+assert.ok(placeClient.includes('km <= 250 ? only : null'), 'out-of-area automatic location is prohibited');
 assert.ok(reserve.includes("onPress={() => { void chooseDestination(ride.arrival); }}"), 'Traveler can retry without choosing a destination again');
 assert.ok(auth.includes("getDoc(doc(db, 'users', u.uid))"), 'read saved account name when auth provider omitted it');
 assert.ok(auth.includes("version !== request"), 'late name reads cannot change another signed-in account');
