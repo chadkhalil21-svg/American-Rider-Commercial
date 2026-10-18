@@ -4,7 +4,7 @@
 // Benchmark compares candidate inclusion and regional density, NOT billed reads.
 let h3;
 try{h3=require('h3-js');}
-catch{console.error('Install h3-js in a throwaway local benchmark environment; never add it to the production backend just for this experiment.');process.exitCode=2;return;}
+catch{console.error('Install h3-js in a throwaway local benchmark environment; never add it to the production backend just for this experiment.');process.exit(2);}
 const {encodeGeohash,prefixes,TIERS}=require('../backend/geooperators');
 let seed=20261017;const rnd=()=>((seed=(Math.imul(seed,1664525)+1013904223)>>>0)/4294967296);
 const centers=[{lat:25.7617,lng:-80.1918},{lat:26.1224,lng:-80.1434},{lat:26.7153,lng:-80.0534}];
