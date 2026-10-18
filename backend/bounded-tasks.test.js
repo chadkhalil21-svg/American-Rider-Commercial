@@ -17,9 +17,9 @@ const {forEachBounded}=require('./bounded-tasks');
    let steps=0;
    await forEachBounded([],8,async()=>{steps++;});
    assert.equal(steps,0);
-   assert.throws(()=>forEachBounded(null,8,()=>{}));
-   assert.throws(()=>forEachBounded(expected,0,()=>{}));
-   assert.throws(()=>forEachBounded(expected,1,null));
+   await assert.rejects(forEachBounded(null,8,()=>{}));
+   await assert.rejects(forEachBounded(expected,0,()=>{}));
+   await assert.rejects(forEachBounded(expected,1,null));
    let completed=0;
    await assert.rejects(forEachBounded([1,2,3,4,5,6],2,async x=>{
      try{await new Promise(resolve=>setImmediate(resolve));}
