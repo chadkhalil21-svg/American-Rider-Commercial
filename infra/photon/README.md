@@ -1,8 +1,8 @@
 # American Rider Photon USA: Google Cloud installation
 
-**Status: INSTALLATION SCRIPT PREPARED. No Google Cloud VM, data disk, external payment, running Photon service or API switch was created in this GitHub change.**
+**Status: NOT commissioned. INSTALLATION SCRIPT PREPARED. No Google Cloud VM, data disk, external payment, running Photon service or API switch was created in this GitHub change.**
 
-Photon is free software that searches OpenStreetMap place, address, and business data. It is separate from MapLibre/OpenFreeMap (display) and OSRM/OTP (routing). It does not calculate toll prices. Geoapify has been removed. The iPhone application already calls the American Rider backend's `/place-search`, so it needs **no new mobile SDK**.
+Photon is free software that searches OpenStreetMap place, address, and business data. It requires a separate, private stateful server for persistent search indexes. It is separate from MapLibre/OpenFreeMap (display) and OSRM/OTP (routing). It does not calculate toll prices. Geoapify has been removed. The iPhone application already calls the American Rider backend's `/place-search`, so it needs **no new mobile SDK**.
 
 ## Verified free data, software and cost
 - Photon stable release **1.3.0** (Apache 2.0): https://github.com/komoot/photon/releases/tag/1.3.0 ; SHA-256 for photon-1.3.0.jar `a89707c0045e4807b2a1180e132e68e108d998709f48b6c94b98a6e281f571a5`.
