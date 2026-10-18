@@ -4,7 +4,7 @@ Status: SOURCE IMPLEMENTED; official facility mapping, tariffs, production provi
 Supersedes any assertion that map tiles calculate toll prices or that raw OSM charge tags are billable.
 
 ## Founder decision
-Keep MapLibre + OpenFreeMap visual maps, regional OSRM/OSM street routing and OTP contingency, and Geoapify primary address/POI autocomplete. Reserve HERE for unresolved real toll prices/route fallback and explicitly enabled autocomplete emergencies. Never deploy the new autocomplete without GEOAPIFY_API_KEY and tested address/business results.
+Keep MapLibre + OpenFreeMap visual maps, regional OSRM/OSM street routing and OTP contingency. **ADR 0038 supersedes the requirement for Geoapify as mandatory primary autocomplete**: self-hosted Photon/OSM, existing HERE as an explicitly acknowledged interim option, and optional Geoapify are now selectable. Preserve HERE for unresolved real toll prices/route fallback, separately from its optional temporary search role. Never deploy an uncommissioned search source.
 
 ## What the public evidence actually proves
 - OSM `toll=yes` indicates a tolled roadway; `charge=2.95 USD` MAY express a price; `charge:conditional` can express conditions. These are volunteer tags, not a time-specific official tariff or an assurance that all gantries are mapped: https://wiki.openstreetmap.org/wiki/Key:toll and https://wiki.openstreetmap.org/wiki/Key:charge
