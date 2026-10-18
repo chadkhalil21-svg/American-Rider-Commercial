@@ -286,6 +286,8 @@ export default {
   },
 
   traveler: {
+    searchProviderGeoapify: 'Con tecnología de Geoapify · © colaboradores de OpenStreetMap',
+    searchProviderHere: 'Con tecnología de HERE',
     updateRequiredTitle: 'Actualización necesaria',
     updateRequiredBody: 'Actualice American Rider para revisar y confirmar el total actual del viaje. No se hizo ninguna reserva ni ningún cobro.',
     priceChangedTitle: 'El costo total cambió',
