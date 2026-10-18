@@ -2134,7 +2134,11 @@ async function runSweep(req, res) {
   // hid the detailed response. That still exposed a public resource-amplification endpoint:
   // an attacker could force repeated Firestore/Stripe work every ten seconds. Fail closed.
   const want = readKey('SCHEDULER_TOKEN');
-  const got = String(req.query?.token || req.get('x-scheduler-token') || '');
+  // Never allow Cloud Run's scheduler secret in a URL; URLs are retained in
+  // HTTP access logs. Existing Render pingers retain the older compatibility path.
+  const got = process.env.K_SERVICE
+    ? String(req.get('x-scheduler-token') || '')
+    : String(req.get('x-scheduler-token') || req.query?.token || '');
   if (!want || got !== want) {
     return res.status(401).json({ error: 'scheduler authorization required' });
   }
