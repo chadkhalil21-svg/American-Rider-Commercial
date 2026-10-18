@@ -23,3 +23,27 @@ export async function searchPlaces(query: string, near: Coords | null, signal?: 
     return [];
   }
 }
+
+/**
+ * An automatic recovery for a previously selected named destination is safe
+ * only if there is ONE exact-name match inside the traveler's local area.
+ * Never silently choose an identically named place in a different US state.
+ * National results still appear normally in the interactive picker.
+ */
+export function uniqueNearbyExactPlace(
+  name: string, suggestions: PlaceSuggestion[], near: Coords | null,
+): PlaceSuggestion | null {
+  if (!near || !Number.isFinite(near.lat) || !Number.isFinite(near.lng)) return null;
+  const normalize = (s: string) => s.trim().toLocaleLowerCase().replace(/\s+/g, ' ');
+  const matches = suggestions.filter(p => normalize(p.title) === normalize(name) &&
+    Number.isFinite(p.lat) && Number.isFinite(p.lng));
+  if (matches.length !== 1) return null;
+  const only = matches[0];
+  const rad = (n: number) => n * Math.PI / 180;
+  const dlat = rad(only.lat - near.lat);
+  const dlon = rad(only.lng - near.lng);
+  const hav = Math.sin(dlat/2)**2 +
+    Math.cos(rad(near.lat)) * Math.cos(rad(only.lat)) * Math.sin(dlon/2)**2;
+  const km = 6371 * 2 * Math.atan2(Math.sqrt(hav), Math.sqrt(Math.max(0, 1-hav)));
+  return km <= 250 ? only : null;
+}
