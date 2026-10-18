@@ -46,6 +46,8 @@ assert.doesNotMatch(native,/if \(Platform\.OS !== 'ios'\) return true/,
 assert.match(native,/TaskManager\.getTaskOptionsAsync/, 'reinspect persisted tasks on upgrades on both operating systems');
 assert.match(native,/Number\(options\.distanceInterval\) === 0/, 'do not re-register task unnecessarily');
 assert.match(native,/Location\.getBackgroundPermissionsAsync\(\)/, 'do not restore revoked background permission');
+assert.match(native,/const permission = await Location\.getBackgroundPermissionsAsync\(\);[\s\S]*?if \(!permission\.granted\) return false;[\s\S]*?const options = await TaskManager\.getTaskOptionsAsync/,
+  'existing zero-distance registration must recheck permission before reporting it available');
 assert.match(native,/await Location\.startLocationUpdatesAsync\(PRESENCE_TASK/, 'updated options are passed to native task');
 
 assert.match(native,/if \(!last \|\| !validBackgroundFix\(last\)\) return/);
