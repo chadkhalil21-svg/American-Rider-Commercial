@@ -52,7 +52,9 @@ assert.equal(officialTollPriceForRoute(base, 'other-market', opts), null);
 // The live resolver must consult verified local rates before paid HERE.
 const tolls = fs.readFileSync(path.join(__dirname, 'tolls.js'), 'utf8');
 assert.match(tolls, /officialTollPriceForRoute\(route, region\?\.id\)/);
-assert.ok(tolls.indexOf('if (official) return official;') < tolls.indexOf('return resolveTolls(from, to, opts);'));
+assert.ok(tolls.indexOf("recordTollDecision('verified_official'") > 0 &&
+  tolls.indexOf("recordTollDecision('verified_official'") < tolls.indexOf('const outcome = await resolveTolls(from, to, opts);'),
+  'verified official price must return before any HERE request');
 const app = fs.readFileSync(path.join(__dirname, '../app/reserve.tsx'), 'utf8');
 assert.equal((app.match(/\}, 350\);/g) || []).length, 2, 'both independent typeahead inputs debounce paid autocomplete');
 console.log('PASS: official-only toll rate gate, expired/mismatched OSM refusal, and bounded Geoapify typing');
