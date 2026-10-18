@@ -3,7 +3,7 @@ import type { Coords } from './fares';
 
 export type PlaceSuggestion = {
   id: string; title: string; subtitle: string; category: 'place' | 'address' | 'locality'; lat: number; lng: number;
-  source?: 'geoapify' | 'here';
+  source?: 'geoapify' | 'here' | 'photon';
 };
 
 export async function searchPlaces(query: string, near: Coords | null, signal?: AbortSignal): Promise<PlaceSuggestion[]> {
