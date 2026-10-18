@@ -1,0 +1,29 @@
+name: Founder Ledger Continuity
+
+# A short read-only check. Material architecture/security/payment/cloud PRs must
+# update the canonical newest ledger AND the current-status table. It never
+# deploys, reads cloud secrets or records operational data.
+on:
+  pull_request:
+    branches: [release/current]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ledger-continuity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Offline governance regression
+        run: python3 -m unittest discover -s scripts -p 'test_ledger_continuity.py'
+      - name: Check newest ledger and current-status table on PR
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: python3 scripts/check-ledger-continuity.py "$BASE_SHA" "$HEAD_SHA"
