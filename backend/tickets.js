@@ -231,36 +231,55 @@ async function notifyLocationByEmail(ticket) {
 }
 
 /**
- * The cases a traveler has filed, newest first — their own record of what they have asked us.
+ * List the most recent Traveler-visible support cases, with a bounded Firestore
+ * read budget. Operator qualification/insurance cases share the collection but
+ * cannot be shown in Patron Support. Fetch progressively until we have enough
+ * eligible cases, the collection is exhausted, or at most 100 documents are read.
  *
- * Filtered by uid alone and sorted here: an orderBy beside a where needs a composite index,
- * and a support screen must not fail because one was not created. Each row is only what the
- * app prints — the case number, its kind, when it was filed, which travel it concerns and the
- * stored status. Never the description we were sent or the reason we recorded.
+ * Requires support_tickets(uid ASC, createdAt DESC) to be READY in Firebase BEFORE
+ * this query is deployed. Unindexed query must fail closed, never silently sort
+ * arbitrary older cases in lieu of the actual newest ones.
  */
 async function listTickets(uid, { limit = 20, database } = {}) {
   const d = database || db();
   if (!uid) return [];
   if (!d) throw new Error('Support case records are unavailable');
-  // This query needs no new index. Cap reads so case-history growth cannot
-  // create unlimited Firestore costs. If the cap is reached, the app explicitly
-  // warns that these are only SOME cases, not necessarily the newest.
-  const snap = await d.collection('support_tickets').where('uid', '==', String(uid))
-    .limit(100).get();
-  const cases = snap.docs
-    .map((doc) => (typeof doc.data === 'function' ? doc.data() : doc) || {})
-    .filter((x) => x && x.caseNo && !isOperatorCase(x))
-    .sort((a, b) => (Number(b.createdAt) || 0) - (Number(a.createdAt) || 0))
-    .slice(0, limit)
-    .map((x) => ({
-      caseNo: String(x.caseNo),
-      kind: x.kind === 'emergency' ? 'emergency' : 'support',
-      createdAt: Number(x.createdAt) || 0,
-      tripNo: x.trip && typeof x.trip === 'object' && x.trip.no ? String(x.trip.no) : null,
-      status: typeof x.status === 'string' && x.status ? x.status : 'open',
-      acknowledgedAt: Number(x.acknowledgedAt) || null,
-    }));
-  cases.possiblyIncomplete = snap.docs.length >= 100;
+  const requested = Number.isSafeInteger(limit) && limit > 0 ? Math.min(limit, 100) : 20;
+  const budget = 100;
+  const base = d.collection('support_tickets').where('uid', '==', String(uid))
+    .orderBy('createdAt', 'desc');
+  const eligible = [];
+  let scanned = 0;
+  let cursor = null;
+  let exhausted = false;
+
+  while (eligible.length < requested && scanned < budget) {
+    const size = Math.min(budget - scanned, Math.max(20, requested * 2));
+    const page = cursor ? base.startAfter(cursor) : base;
+    const snap = await page.limit(size).get();
+    const docs = snap.docs || [];
+    scanned += docs.length;
+    for (const doc of docs) {
+      const item = (typeof doc.data === 'function' ? doc.data() : doc) || {};
+      if (item.caseNo && !isOperatorCase(item)) eligible.push(item);
+      if (eligible.length >= requested) break;
+    }
+    if (docs.length < size) { exhausted = true; break; }
+    if (!docs.length) { exhausted = true; break; }
+    cursor = docs[docs.length - 1];
+  }
+
+  const cases = eligible.slice(0, requested).map((x) => ({
+    caseNo: String(x.caseNo),
+    kind: x.kind === 'emergency' ? 'emergency' : 'support',
+    createdAt: Number(x.createdAt) || 0,
+    tripNo: x.trip && typeof x.trip === 'object' && x.trip.no ? String(x.trip.no) : null,
+    status: typeof x.status === 'string' && x.status ? x.status : 'open',
+    acknowledgedAt: Number(x.acknowledgedAt) || null,
+  }));
+  // There may be older cases when the page fills. Never claim this is the entire
+  // history when the bounded server query cannot establish that fact.
+  cases.possiblyIncomplete = !exhausted;
   return cases;
 }
 
