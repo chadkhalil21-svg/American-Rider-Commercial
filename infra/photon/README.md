@@ -2,6 +2,8 @@
 
 **Status: NOT commissioned. INSTALLATION SCRIPT PREPARED. No Google Cloud VM, data disk, external payment, running Photon service or API switch was created in this GitHub change.**
 
+**Cost review before activation:** Photon software is free but proposed Google VM + disks cost about **$63.92/month before extras**, continuously while running. FIRST run `node scripts/photon-cost-comparison.cjs` and compare with the **actual HERE contract bill**; if HERE is permitted and cheaper, defer the VM. The installation script displays this estimate by default and makes NO purchase without `AR_PHOTON_CONFIRM_BILLABLE=INSTALL`. See [ADR 0041](../../docs/decisions/0041-photon-cost-before-hosting.md).
+
 Photon is free software that searches OpenStreetMap place, address, and business data. It requires a separate, private stateful server for persistent search indexes. It is separate from MapLibre/OpenFreeMap (display) and OSRM/OTP (routing). It does not calculate toll prices. Geoapify has been removed. The iPhone application already calls the American Rider backend's `/place-search`, so it needs **no new mobile SDK**.
 
 ## Verified free data, software and cost
