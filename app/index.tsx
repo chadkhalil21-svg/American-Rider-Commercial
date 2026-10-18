@@ -359,6 +359,7 @@ export default function Home() {
         // itinerary belongs in the menu). Each opens the screen that shows it.
         ...(ride.rideActive ? [{ label: t('traveler.travelInProgress'), onPress: () => go('/ride') }] : []),
         { label: t('traveler.scheduledTravel'), onPress: () => go('/upcoming') },
+        { label: t('traveler.familyTitle'), onPress: () => go('/family') },
         { label: t('traveler.travelLog'), onPress: () => go({ pathname: '/history', params: { from: 'home' } }) },
       ],
     },

@@ -101,6 +101,7 @@ export default function Menu() {
             title: t('traveler.travelLog'),
             onPress: () => router.navigate({ pathname: '/history', params: { from: 'menu' } }),
           },
+          { title: t('traveler.familyTitle'), onPress: () => router.navigate('/family') },
           { title: t('traveler.travelPreferences'), onPress: () => router.navigate('/prefs') },
         ]}
       />
