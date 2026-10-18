@@ -1,5 +1,8 @@
 # AMERICAN RIDER — CANONICAL PROJECT LEDGER
 
+**2026-10-18 REMOVE REDUNDANT MOBILE SWEEP CALLS (SOURCE ONLY):** Current signed-in Operator app invokes GET `/scheduled/sweep` on a timer without the server-only token. The current backend deliberately returns 401; the paid Render process already runs authorized sweeps every 60 seconds. New narrow PR removes on-duty client wake-ups and leaves the old shared heartbeat exports as harmless no-ops. This reduces requests and mobile work without changing the actual Operator location/presence renewal, dispatch, pricing, schedule, or login. Synthetic regression verifies no unauthorized phone poll and intact server schedule/auth; exact-head CI before source merge. No Render/mobile production deploy.
+
+
 **2026-10-18 PATRON SUPPORT HISTORY CURRENT-SOURCE PROPOSAL (NOT DEPLOYED):** New support history query orders cases newest first in Firestore, scans no more than 100 rows across pages, filters Operator-only cases, and conservatively warns about potentially incomplete history. Existing no-order query can omit the real newest cases. This change introduces composite `support_tickets(uid, createdAt DESC)` in the manifest; NOT VERIFIED READY in Firebase and MUST NOT be deployed until commissioned, with privacy tests and exact-head CI. Ported narrowly from old PR #78, which will be closed only after equivalent source is merged. No real cases, payment, deploy, credentials or production data altered.
 
 

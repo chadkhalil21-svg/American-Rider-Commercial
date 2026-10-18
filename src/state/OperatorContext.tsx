@@ -17,7 +17,6 @@ import { APP_FEE, coordinationFee, fareFromTotal } from '../data';
 import { operatorOfferAmounts } from '../operatorOfferMoney';
 import { goOffline, goOnline, settlePendingPayouts, submitForReview } from '../backend/connect';
 import { confirmOperatorBackgroundLocationUse, startBackgroundPresence, stopBackgroundPresence } from '../backend/presence';
-import { startHeartbeat } from '../backend/heartbeat';
 import {
   acceptTravel,
   declineTravel,
@@ -1146,14 +1145,8 @@ export function OperatorProvider({ children }: { children: React.ReactNode }) {
   // The last inbox snapshot, so going on duty can re-read it without re-subscribing.
   const inboxRef = useRef<AssignedTravel[]>([]);
 
-  // WHILE ON DUTY, THIS PHONE KEEPS THE SERVER AWAKE — see src/backend/heartbeat.ts. An
-  // operator waiting to be dispatched to is the one person guaranteed to be holding a phone
-  // when the clock matters, so their app runs it. Costs nothing, needs no account, and stops
-  // the moment they go off duty.
-  useEffect(() => {
-    if (!online) return;
-    return startHeartbeat();
-  }, [online]);
+  // Server-owned, authenticated scheduled sweeps run independently of Operator phones.
+  // Do not wake /scheduled/sweep from this app. On-duty GPS presence is separate.
 
   // BEING ON DUTY IS A CLAIM THAT HAS TO BE RENEWED, and until 29 Aug 2026 it never was.
   //
