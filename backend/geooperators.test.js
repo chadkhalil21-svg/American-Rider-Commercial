@@ -34,5 +34,20 @@ assert.ok(!mon.includes("collection('operators').get()"));
   assert.ok(!limits.includes(120),'overlapping second page would double-charge first 40');
   assert.ok(offsets.length>0&&offsets.every(id=>id==='s39'),'second page starts after first page');
   assert.equal(saturated.length,120,'preserves all 120 distinct candidate identities');
+  let statistics=null;
+  const measured=await G.nearbyOperatorCandidates(db2,{lat:25.7617,lng:-80.1918},{
+    onStats:x=>{statistics=x;},
+  });
+  assert.equal(measured.length,120);
+  assert.equal(statistics.uniqueCandidates,120);
+  assert.ok(statistics.queries>0&&statistics.documentsReturned>=statistics.uniqueCandidates);
+  assert.equal(statistics.tiersQueried,2);
+  assert.ok(statistics.saturatedPrefixes>0);
+  assert.equal(statistics.providerBilledReadsVerified,false,'never label rows as a Firebase bill');
+  assert.ok(Object.isFrozen(statistics));
+  // A logging/metrics collector outage cannot turn a paid Travel into a failed dispatch.
+  assert.equal((await G.nearbyOperatorCandidates(db2,{lat:25.7617,lng:-80.1918},{
+    onStats:()=>{throw Error('metrics unavailable');},
+  })).length,120);
   console.log('all bounded-geographic dispatch tests passed');
 })().catch(e=>{console.error(e);process.exit(1);});
