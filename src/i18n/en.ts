@@ -1192,6 +1192,7 @@ export default {
     pickup: 'Pickup',
     setAsDestination: 'Set as destination',
     searchHereCredit: 'Powered by HERE',
+    searchFartherAway: 'Farther away',
     setPickupOnMap: 'Set my pickup on the map',
     leavingNow: 'Departure time: Immediate',
     change: 'Modify departure time',
