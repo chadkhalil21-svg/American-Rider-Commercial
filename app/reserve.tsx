@@ -631,7 +631,7 @@ export default function TravelConfirmation() {
                     <View style={[styles.pin, { backgroundColor: colors.ink }]} />
                     <View style={{ flex: 1 }}>
                       <Text style={styles.resultName}>{p.title}</Text>
-                      {!!p.subtitle && <Text style={styles.resultMeta}>{p.subtitle}</Text>}
+                      {!!(p.subtitle || p.outsideLocalArea) && <Text style={styles.resultMeta}>{p.outsideLocalArea ? t('traveler.searchFartherAway') + ' · ' : ''}{p.subtitle}</Text>}
                     </View>
                     <Chev />
                   </View>
@@ -719,7 +719,7 @@ export default function TravelConfirmation() {
                     <View style={[styles.pin, { backgroundColor: colors.ink }]} />
                     <View style={{ flex: 1 }}>
                       <Text style={styles.resultName}>{p.title}</Text>
-                      {!!p.subtitle && <Text style={styles.resultMeta}>{p.subtitle}</Text>}
+                      {!!(p.subtitle || p.outsideLocalArea) && <Text style={styles.resultMeta}>{p.outsideLocalArea ? t('traveler.searchFartherAway') + ' · ' : ''}{p.subtitle}</Text>}
                     </View>
                   </View>
                 </Pressable>
