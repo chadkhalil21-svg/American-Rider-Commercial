@@ -32,6 +32,11 @@ const native=fs.readFileSync(path.join(__dirname,'../src/backend/presence.ts'),'
 const ctx=fs.readFileSync(path.join(__dirname,'../src/state/OperatorContext.tsx'),'utf8');
 const app=JSON.parse(fs.readFileSync(path.join(__dirname,'../app.json'),'utf8'));
 assert.match(native,/distanceInterval: Platform\.OS === 'ios' \? 0 : 150/);
+assert.match(native,/TaskManager\.getTaskOptionsAsync/, 'reinspect persisted task on upgrades');
+assert.match(native,/Number\(options\.distanceInterval\) === 0/, 'do not re-register task unnecessarily');
+assert.match(native,/Location\.getBackgroundPermissionsAsync\(\)/, 'do not restore revoked background permission');
+assert.match(native,/await Location\.startLocationUpdatesAsync\(PRESENCE_TASK/, 'updated options are passed to native task');
+
 assert.match(native,/if \(!last \|\| !validBackgroundFix\(last\)\) return/);
 assert.match(native,/backgroundRequestInFlight \|\| !backgroundRenewalDue\(lastBackgroundAcceptedAt\)/);
 assert.match(native,/response\.ok && result\?\.ok === true/,'HTTP success without server receipt must not mark accepted');
