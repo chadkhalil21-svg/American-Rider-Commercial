@@ -1174,6 +1174,7 @@ export default {
     pickup: 'Prise en charge',
     setAsDestination: 'Définir comme destination',
     searchHereCredit: 'Avec HERE',
+    searchFartherAway: 'Plus éloigné',
     setPickupOnMap: 'Définir mon point de prise en charge sur la carte',
     leavingNow: 'Heure de départ : immédiate',
     change: 'Modifier l’heure de départ',
