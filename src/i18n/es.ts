@@ -1183,7 +1183,6 @@ export default {
     signOut: 'Cerrar Sesión',
     pickup: 'Recogida',
     setAsDestination: 'Fijar como destino',
-    searchGeoapifyCredit: 'Con tecnología de Geoapify · © colaboradores de OpenStreetMap',
     searchHereCredit: 'Con tecnología de HERE',
     setPickupOnMap: 'Fijar mi punto de recogida en el mapa',
     leavingNow: 'Hora de salida: Inmediata',
