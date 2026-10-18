@@ -68,6 +68,19 @@ function initialMonitoringFromDocument(doc, now = Date.now()) {
   };
 }
 
+// Derive the review due date from the last independent confirmation. Older
+// Firestore records may still contain the prior 30-day due field; never use
+// that obsolete field to send a review at day 30 after this policy changes.
+function effectiveVerificationDueAt(m) {
+  const confirmedAt = Number(m?.lastVerifiedAt);
+  const storedDue = Number(m?.nextVerificationDueAt);
+  if (!Number.isSafeInteger(confirmedAt) || confirmedAt <= 0) {
+    return Number.isSafeInteger(storedDue) && storedDue > 0 ? storedDue : 0;
+  }
+  const requiredDue = confirmedAt + STATUS_DUE_MS;
+  return Number.isSafeInteger(storedDue) && storedDue > requiredDue ? storedDue : requiredDue;
+}
+
 function continuingStatus(user, now = Date.now()) {
   const m = user?.insuranceMonitoring || null;
   if (!m) {
@@ -322,7 +335,11 @@ async function sweepInsuranceMonitoring({ db, requestConfirmation, notify, now =
     const u = doc.data() || {};
     const m = u.insuranceMonitoring || {};
     if (!['verified_active', 'verification_due'].includes(cleanStatus(m.status))) continue;
-    const due = Number(m.nextVerificationDueAt) || 0;
+    const due = effectiveVerificationDueAt(m);
+    // A legacy stored review date at day 30 must not trigger new provider
+    // messages. Existing records can be migrated later, with audit logs,
+    // while indexed read-window behavior remains bounded.
+    if (due > requestWindow) continue;
     const lastRequest = Number(m.verificationRequestedAt) || 0;
     const contact = m.contact || null;
     const operatorName = String(u.legalName || u.name || 'the Operator').slice(0, 100);
@@ -401,6 +418,7 @@ module.exports = {
   STATUS_GRACE_DAYS,
   STATUS_DUE_MS,
   STATUS_MAX_AGE_MS,
+  effectiveVerificationDueAt,
   cleanStatus,
   policyIdentityFromDocument,
   initialMonitoringFromDocument,
