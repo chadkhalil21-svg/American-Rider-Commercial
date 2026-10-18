@@ -1173,7 +1173,6 @@ export default {
     signOut: 'Se Déconnecter',
     pickup: 'Prise en charge',
     setAsDestination: 'Définir comme destination',
-    searchGeoapifyCredit: 'Avec Geoapify · © contributeurs OpenStreetMap',
     searchHereCredit: 'Avec HERE',
     setPickupOnMap: 'Définir mon point de prise en charge sur la carte',
     leavingNow: 'Heure de départ : immédiate',
