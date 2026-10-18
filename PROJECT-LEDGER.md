@@ -1,5 +1,8 @@
 # AMERICAN RIDER — CANONICAL PROJECT LEDGER
 
+**2026-10-18 PR #89 MERGE GATE CLARIFIED (ENGINEERING CODE, NOT LIVE CERTIFICATION):** The founder expressly clarified that signed physical-device testing is NOT required merely to merge tested GitHub source before launch. Exact-head PR checks previously passed six of six, including synthetic parked-Operator and recovery simulations. Apple, Google and Expo documentation support this architecture subject to OS constraints; Google Firestore geohash and Uber H3 address spatial indexing, not handset delivery. Proceed with normal code review, exact-head CI and `[skip render]` source merge. Keep signed-device battery and locked-screen confirmation in the commercial-release evidence, and Florida insurance/accurate on-duty records independent. Do NOT equate merger with TestFlight binary delivery, Render backend deployment, uninterrupted iOS delivery, or legal clearance. No lawyer personally consulted.
+
+
 **2026-10-18 PR #89 ZERO-DISTANCE PERMISSION RECHECK, SYNTHETIC REVIEW ONLY:** After six exact-head GitHub workflows passed on `afb26cc`, review found that a previously registered zero-distance background task could report success even after the Operator revoked permission. The draft PR now checks permission *before accepting any already-registered task* on iOS and Android, and extends the synthetic 30-minute/offline lifecycle tests to cover revoked permissions with both old and upgraded registration options. Re-run CI on the new SHA. No signed/locked phone evidence, legal review, merge or production/mobile deploy has occurred.
 
 
