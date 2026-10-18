@@ -170,7 +170,8 @@ async function resolveTollsCostAware(from, to, opts = {}) {
   // been certified against the responsible public authorities. OSM can be incomplete; absence
   // of toll=yes must never become a nationwide $0 assumption.
   const region = require('./regions').regionForTrip(from, to);
-  if (route?.provider === 'osrm' && route.tollRelevant === false && region?.tollCoverage?.certified === true) {
+  if (route?.provider === 'osrm' && route.tollRelevant === false &&
+      route.tollSignalComplete === true && region?.tollCoverage?.certified === true) {
     const outcome = { status: 'clear', tollCents: 0, provider: 'osrm-osm-certified', reason: 'certified_market_route_has_no_toll_class' };
     recordTollDecision('verified_osm_clear', { route, outcome });
     return outcome;
