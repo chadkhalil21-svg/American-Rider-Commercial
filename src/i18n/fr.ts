@@ -1261,6 +1261,8 @@ export default {
     familyInviteSendUnconfirmed: 'La livraison de l’invitation familiale n’a pas pu être confirmée. Vérifiez l’e-mail de l’adolescent avant d’envoyer une autre invitation.',
     familyCreateInvite: 'Envoyer l’Invitation Familiale',
     familyWorking: 'Traitement…',
+    familyInvitePrompt: 'Vous avez été invité à rejoindre un compte Famille American Rider. Vérifiez l’invitation et acceptez-la pour activer le Voyage Adolescent.',
+    familyAcceptInvitation: 'Accepter l’Invitation Familiale',
     familyAccepting: 'Acceptation de l’invitation familiale…',
     familyAccepted: 'Autorisation familiale acceptée.',
     familyInviteUnable: 'Cette invitation n’a pas pu être acceptée.',

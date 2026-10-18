@@ -1255,6 +1255,8 @@ export default {
     familyInviteSendUnconfirmed: 'Die Zustellung der Familieneinladung konnte nicht bestätigt werden. Prüfen Sie die E-Mail des Jugendlichen, bevor Sie erneut einladen.',
     familyCreateInvite: 'Familieneinladung Senden',
     familyWorking: 'Wird verarbeitet…',
+    familyInvitePrompt: 'Sie wurden zu einem American Rider Familienkonto eingeladen. Prüfen und bestätigen Sie die Einladung, um Jugend-Reisen zu aktivieren.',
+    familyAcceptInvitation: 'Familieneinladung Annehmen',
     familyAccepting: 'Familieneinladung wird angenommen…',
     familyAccepted: 'Familienautorisierung angenommen.',
     familyInviteUnable: 'Diese Einladung konnte nicht angenommen werden.',
