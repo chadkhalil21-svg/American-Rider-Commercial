@@ -289,6 +289,31 @@
       "fieldPath": "expiresAt",
       "ttl": true,
       "indexes": []
+    },
+    {
+      "collectionGroup": "rides",
+      "fieldPath": "opLat",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "rides",
+      "fieldPath": "opLng",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "rides",
+      "fieldPath": "opAt",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "rides",
+      "fieldPath": "stillSince",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "rides",
+      "fieldPath": "monitorSeen",
+      "indexes": []
     }
   ]
 }
