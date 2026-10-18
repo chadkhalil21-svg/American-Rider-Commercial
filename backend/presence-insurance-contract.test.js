@@ -1,0 +1,32 @@
+'use strict';
+const assert=require('node:assert/strict');
+const fs=require('node:fs');
+const path=require('node:path');
+const {presenceStale,PRESENCE_STALE_MS}=require('./matching');
+const {STATUS_DUE_MS,STATUS_MAX_AGE_MS,initialMonitoringFromDocument,continuingStatus,applyOperatorAttestation,applyIndependentConfirmation}=require('./insurance-monitoring');
+const now=Date.UTC(2026,9,18,12);
+for(let pass=0;pass<2;pass++){
+  assert.equal(PRESENCE_STALE_MS,300000);
+  assert.equal(presenceStale({onlineAt:now-300000},now),false);
+  assert.equal(presenceStale({onlineAt:now-300001},now),true);
+  assert.equal(presenceStale({onlineAt:null},now),true);
+  const initial=initialMonitoringFromDocument({expiry:'2027-12-01',evidence:{insurance:{insurer:'Test Carrier',policyNumber:'TEST',effectiveDate:'2026-01-01',expirationDate:'2027-12-01'}}},now);
+  assert.equal(continuingStatus({insuranceMonitoring:initial},now).ok,false);
+  const verified=applyIndependentConfirmation(initial,{source:'carrier',status:'verified_active',now});
+  assert.equal(continuingStatus({insuranceMonitoring:verified},now+STATUS_DUE_MS).ok,true);
+  assert.equal(continuingStatus({insuranceMonitoring:verified},now+STATUS_DUE_MS+1).code,'insurance_attestation_due');
+  const attested=applyOperatorAttestation(verified,now+STATUS_DUE_MS+1);
+  assert.equal(continuingStatus({insuranceMonitoring:attested},now+STATUS_MAX_AGE_MS).ok,true);
+  assert.equal(continuingStatus({insuranceMonitoring:attested},now+STATUS_MAX_AGE_MS+1).ok,false);
+  assert.equal(attested.lastVerifiedAt,verified.lastVerifiedAt);
+  assert.equal(continuingStatus({insuranceMonitoring:{...verified,status:'cancelled'}},now).ok,false);
+}
+const home=fs.readFileSync(path.join(__dirname,'../app/operator/index.tsx'),'utf8');
+const start=home.indexOf("t('operator.inService')"),end=home.indexOf('<WalletCard',start);
+assert.ok(start!==-1&&end>start);
+const view=home.slice(start,end);
+assert.match(view,/!!op\.onlineError/);
+assert.match(view,/accessibilityRole="alert"/);
+assert.match(view,/\{op\.onlineError\}/);
+assert.match(view,/!op\.backgroundPresence/);
+console.log('PASS twice: synthetic presence expiry, carrier status, and Operator UI warning');
