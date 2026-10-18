@@ -1,0 +1,65 @@
+name: Cloud Run staging (manual, private)
+
+# NEVER a push/deploy-to-production job. This only deploys to a distinct
+# staging GCP project with test-mode payment keys, no public ingress.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: cloud-run-staging-only
+  cancel-in-progress: false
+
+jobs:
+  staging:
+    runs-on: ubuntu-latest
+    environment: cloud-run-staging
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Reject accidental production project or missing staging identity
+        env:
+          TARGET: ${{ vars.STAGING_GCP_PROJECT_ID }}
+          WIF: ${{ secrets.STAGING_GCP_WIF_PROVIDER }}
+          DEPLOYER: ${{ secrets.STAGING_GCP_DEPLOYER_SA }}
+          RUNTIME: ${{ vars.STAGING_GCP_RUNTIME_SA }}
+        run: |
+          test -n "$TARGET" && test -n "$WIF" && test -n "$DEPLOYER" && test -n "$RUNTIME"
+          test "$TARGET" != "american-rider-35688"
+          echo "Only isolated staging projects are permitted. The paid launch project cannot be deployed by this workflow."
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.STAGING_GCP_WIF_PROVIDER }}
+          service_account: ${{ secrets.STAGING_GCP_DEPLOYER_SA }}
+      - uses: google-github-actions/deploy-cloudrun@v2
+        id: deploy
+        with:
+          service: american-rider-api-staging
+          project_id: ${{ vars.STAGING_GCP_PROJECT_ID }}
+          region: us-east1
+          source: ./backend
+          flags: >-
+            --no-allow-unauthenticated
+            --min-instances=0
+            --max-instances=3
+            --cpu=1
+            --memory=1Gi
+            --concurrency=20
+            --service-account=${{ vars.STAGING_GCP_RUNTIME_SA }}
+          env_vars: |
+            NODE_ENV=production
+            DEPLOYMENT_MODE=test
+            AR_EXTERNAL_SCHEDULER=1
+          secrets: |
+            SCHEDULER_TOKEN=ar-staging-scheduler-token:latest
+      - name: Explain the private follow-up verification
+        env:
+          SERVICE_URL: ${{ steps.deploy.outputs.url }}
+        run: |
+          echo "Staging service deployed privately."
+          echo "It is not production. No Stripe webhook, public application or live market traffic was redirected."
+          echo "Set up an OIDC-authenticated minute Cloud Scheduler job to POST /scheduled/sweep, with the configured secret header."
+          echo "Verify authorized health, clock cadence and full test-mode payment lifecycle before any production work."
