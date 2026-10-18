@@ -9,7 +9,7 @@ const m = {exports:{}};
 vm.runInNewContext(ts.transpileModule(src,{compilerOptions:{
   module: ts.ModuleKind.CommonJS,target: ts.ScriptTarget.ES2022,
 }}).outputText,{exports:m.exports,module:m,Date,Number});
-const { validBackgroundFix,backgroundRenewalDue,BACKGROUND_RENEWAL_MIN_MS }=m.exports;
+const { validBackgroundFix,backgroundRenewalDue,backgroundMovementDue,BACKGROUND_RENEWAL_MIN_MS }=m.exports;
 assert.equal(BACKGROUND_RENEWAL_MIN_MS,90000);
 const NOW=Date.UTC(2026,9,18,12);
 const fix={ coords:{latitude:25.7,longitude:-80.3,accuracy:20},timestamp:NOW };
@@ -27,6 +27,15 @@ for(let repeat=0;repeat<2;repeat++){
   assert.equal(backgroundRenewalDue(NOW-89999,NOW),false,'fast GPS callbacks must not generate repeated backend reads');
   assert.equal(backgroundRenewalDue(NOW-90000,NOW),true);
   assert.equal(backgroundRenewalDue(NOW+5,NOW),true,'clock glitches cannot indefinitely suppress a retry');
+  const parked={latitude:25.7,longitude:-80.3};
+  const moved={latitude:25.705,longitude:-80.3};
+  const smallMove={latitude:25.7001,longitude:-80.3};
+  assert.equal(backgroundMovementDue(NOW-29999,parked,moved,NOW),false);
+  assert.equal(backgroundMovementDue(NOW-30000,parked,smallMove,NOW),false);
+  assert.equal(backgroundMovementDue(NOW-30000,parked,moved,NOW),true,
+    'moving car needs timely location while parked device conserves uploads');
+  assert.equal(backgroundMovementDue(NOW-60000,null,moved,NOW),false);
+
 }
 const native=fs.readFileSync(path.join(__dirname,'../src/backend/presence.ts'),'utf8');
 const ctx=fs.readFileSync(path.join(__dirname,'../src/state/OperatorContext.tsx'),'utf8');
@@ -38,7 +47,9 @@ assert.match(native,/Location\.getBackgroundPermissionsAsync\(\)/, 'do not resto
 assert.match(native,/await Location\.startLocationUpdatesAsync\(PRESENCE_TASK/, 'updated options are passed to native task');
 
 assert.match(native,/if \(!last \|\| !validBackgroundFix\(last\)\) return/);
-assert.match(native,/backgroundRequestInFlight \|\| !backgroundRenewalDue\(lastBackgroundAcceptedAt\)/);
+assert.match(native,/!backgroundRenewalDue\(lastBackgroundAcceptedAt\)/);
+assert.match(native,/!backgroundMovementDue\(/);
+assert.match(native,/lastBackgroundAcceptedPosition = \{ latitude: last\.coords\.latitude/);
 assert.match(native,/response\.ok && result\?\.ok === true/,'HTTP success without server receipt must not mark accepted');
 assert.match(native,/lastBackgroundAcceptedAt = Date\.now\(\)/);
 assert.match(native,/finally \{\s*backgroundRequestInFlight = false;/);
