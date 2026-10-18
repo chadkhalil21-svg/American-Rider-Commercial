@@ -53,15 +53,21 @@ function admin() {
       if (raw) {
         appMod.initializeApp({ credential: appMod.cert(JSON.parse(raw)) });
       } else if (path) {
-        // applicationDefault() reads GOOGLE_APPLICATION_CREDENTIALS itself.
+        // Local/Render file-backed application default credentials.
+        appMod.initializeApp({ credential: appMod.applicationDefault() });
+      } else if (process.env.K_SERVICE) {
+        // On Cloud Run use the bound workload service account, without uploading
+        // a long-lived private key. Cloud IAM must explicitly grant access to the
+        // intended Firestore/Firebase project; staging must use a staging project.
         appMod.initializeApp({ credential: appMod.applicationDefault() });
       } else {
         _state = {
           db: null,
           ok: false,
           reason:
-            'no service account — set FIREBASE_SERVICE_ACCOUNT (the JSON) or ' +
-            'GOOGLE_APPLICATION_CREDENTIALS (a path to it) in backend/.env and on Render',
+            'no service account — set FIREBASE_SERVICE_ACCOUNT or ' +
+            'GOOGLE_APPLICATION_CREDENTIALS on a local/Render server; Cloud Run ' +
+            'must use its assigned runtime service account',
         };
         return _state;
       }
