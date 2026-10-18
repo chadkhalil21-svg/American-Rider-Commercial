@@ -18,6 +18,8 @@ for(let pass=0;pass<2;pass++){
     'Cloud Run must not silently activate duplicate in-process timers');
   assert.match(server,/runLeasedSweeps\(\)/,'external trigger must retain the Firestore lease');
   assert.match(server,/const want = readKey\('SCHEDULER_TOKEN'\)/,'external trigger is authenticated');
+  assert.match(server,/const got = process\.env\.K_SERVICE[\s\S]{0,90}req\.get\('x-scheduler-token'\)/,
+    'Cloud Run accepts scheduler secret only in a protected header, never URL query');
   assert.match(admin,/else if \(process\.env\.K_SERVICE\)/,'Cloud Run uses instance identity');
   assert.match(admin,/credential: appMod\.applicationDefault\(\)/,'no exported private Firebase key required');
 }
