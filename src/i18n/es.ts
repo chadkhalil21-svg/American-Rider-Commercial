@@ -1184,6 +1184,7 @@ export default {
     pickup: 'Recogida',
     setAsDestination: 'Fijar como destino',
     searchHereCredit: 'Con tecnología de HERE',
+    searchFartherAway: 'Más lejos',
     setPickupOnMap: 'Fijar mi punto de recogida en el mapa',
     leavingNow: 'Hora de salida: Inmediata',
     change: 'Modificar la hora de salida',
