@@ -17,7 +17,9 @@ const db={collection(name){
  assert.equal(name,'support_tickets');
  return {where(field,op,uid){
  assert.equal(field,'uid'); assert.equal(op,'==');
- return {limit(n){assert.ok(n<=100);return {get:async()=>({docs:cases.filter(c=>c.uid===uid).slice(0,n).map(c=>({data:()=>c}))})};}};
+ return {orderBy(field,direction){assert.equal(field,'createdAt');assert.equal(direction,'desc');return this;},
+  limit(n){assert.ok(n<=100);return {get:async()=>({docs:cases.filter(c=>c.uid===uid)
+    .sort((a,b)=>b.createdAt-a.createdAt).slice(0,n).map(c=>({data:()=>c}))})};}};
  }};
 }};
 (async()=>{

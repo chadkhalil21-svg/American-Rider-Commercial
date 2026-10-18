@@ -39,9 +39,13 @@ const rows = [
 const fakeDb = {
   collection: (name) => ({
     where: (field, op, value) => ({
+      orderBy(field, direction) {
+        assert.strictEqual(field, 'createdAt'); assert.strictEqual(direction, 'desc'); return this;
+      },
       limit(n) { this.cap = n; return this; },
       get: async function () {
         return { docs: rows.filter((r) => name === 'support_tickets' && r[field] === value)
+          .sort((a,b) => b.createdAt-a.createdAt)
           .slice(0, this.cap).map((r) => ({ data: () => r })) };
       },
     }),
