@@ -111,6 +111,12 @@ const { normalizeSuggestion,normalizePhoton,privatePhotonEndpoint,selectedPrimar
     assert.match(screen,/www\.openstreetmap\.org\/copyright/);
     assert.match(screen,/traveler\.mapAttribution/);
     assert.match(client,/source\?: 'here' \| 'photon'/);
+    assert.match(client,/export function uniqueNearbyExactPlace/);
+    assert.match(client,/matches\.length !== 1/,'ambiguous business names cannot auto-select');
+    assert.match(client,/km <= 250 \? only : null/,'remote national business cannot auto-select');
+    assert.match(screen,/uniqueNearbyExactPlace\(place\.name, options, anchor\)/);
+    assert.doesNotMatch(screen,/options\.find\(\(item\) => normalize\(item\.title\)/);
+
     for(const lang of ['en','es','fr','it','de']){
       const locale=fs.readFileSync(path.join(__dirname,'../src/i18n/'+lang+'.ts'),'utf8');
       assert.doesNotMatch(locale,/searchGeoapifyCredit:/);
