@@ -1,0 +1,25 @@
+name: Offline Travel scale budget
+on:
+  pull_request:
+    paths:
+      - 'scripts/travel-load-budget*'
+      - 'docs/architecture/TRAVEL-SCALE-DECISION-2026-10-18.md'
+      - 'docs/decisions/0034-verified-scale-before-h3-cutover.md'
+      - '.github/workflows/travel-load-budget.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  offline-model:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify repeatable calculations and show scenarios
+        run: |
+          node --check scripts/travel-load-budget.cjs
+          node scripts/travel-load-budget.test.cjs
+          node scripts/travel-load-budget.cjs
