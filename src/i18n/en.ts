@@ -1277,6 +1277,8 @@ export default {
     familyInviteDelivery: 'American Rider sends the invitation to the Teen account email. The invitation link can be accepted only by that verified account.',
     familyCreateInvite: 'Send Family Invitation',
     familyWorking: 'Working…',
+    familyInvitePrompt: 'You have been invited to join an American Rider Family account. Review the invitation and accept to activate Teen Travel.',
+    familyAcceptInvitation: 'Accept Family Invitation',
     familyAccepting: 'Accepting Family invitation…',
     familyAccepted: 'Family authorization accepted.',
     familyInviteUnable: 'This invitation could not be accepted.',
