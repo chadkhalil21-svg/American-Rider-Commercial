@@ -1191,7 +1191,6 @@ export default {
     // ---- the booking flow, screen by screen ------------------------------------------
     pickup: 'Pickup',
     setAsDestination: 'Set as destination',
-    searchGeoapifyCredit: 'Powered by Geoapify · © OpenStreetMap contributors',
     searchHereCredit: 'Powered by HERE',
     setPickupOnMap: 'Set my pickup on the map',
     leavingNow: 'Departure time: Immediate',
