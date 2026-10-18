@@ -120,7 +120,8 @@ function selectedPrimary(){
   // HERE commercial account as interim until our own Photon host is available.
   if(photonUrl)return {name:'photon',credential:photonUrl};
   if(hereKey)return {name:'here',credential:hereKey};
-  if(geoKey)return {name:'geoapify',credential:geoKey};
+  // Founder did not approve Geoapify as an automatic provider. Its use
+  // requires an explicit primary selection (or separately enabled fallback).
   return null;
 }
 function invoke(primary,q,near,limit){
