@@ -176,10 +176,17 @@ function handset(platform) {
   }
   // A revoked background-location permission must not be bypassed when an
   // older saved task is upgraded.
-  const revoked = handset('ios');
-  revoked.state.backgroundPermission = false;
-  assert.equal(await revoked.presence.startBackgroundPresence(), false);
-  assert.equal(revoked.state.options.distanceInterval, 150);
+  for (const platform of ['ios', 'android']) {
+    for (const savedDistance of [0, 150]) {
+      const revoked = handset(platform);
+      revoked.state.options = { distanceInterval: savedDistance };
+      revoked.state.backgroundPermission = false;
+      assert.equal(await revoked.presence.startBackgroundPresence(), false,
+        platform + ': revoked permission cannot pass even for already upgraded tasks');
+      assert.equal(revoked.state.options.distanceInterval, savedDistance,
+        'do not reconfigure a task after permission is revoked');
+    }
+  }
 
   console.log('PASS parked duty: 30m iOS + Android, bounded renewals, server refusal, ' +
     'offline 6m, OS pause, stale GPS, auto recovery, permission revocation');
