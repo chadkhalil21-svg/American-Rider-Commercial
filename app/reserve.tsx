@@ -26,7 +26,7 @@ import {
 import { Text } from '../src/components/AppText';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 import { destinationsNear, type Destination } from '../src/backend/destinations';
-import { searchPlaces, type PlaceSuggestion } from '../src/backend/placeSearch';
+import { searchPlaces, uniqueNearbyExactPlace, type PlaceSuggestion } from '../src/backend/placeSearch';
 import { fetchQuote, geocodePlace, isUnavailable, recordVisibleStandardQuote, type QuoteFailureCode } from '../src/backend/fares';
 import { joinWaitlist } from '../src/backend/connect';
 import { fetchSmartQuote } from '../src/backend/smart';
@@ -178,8 +178,7 @@ export default function TravelConfirmation() {
       // Exact-name matching avoids silently choosing a different destination.
       if (!dest) {
         const options = await searchPlaces(place.name, anchor);
-        const normalize = (v: string) => v.trim().toLowerCase().replace(/\s+/g, ' ');
-        const exact = options.find((item) => normalize(item.title) === normalize(place.name));
+        const exact = uniqueNearbyExactPlace(place.name, options, anchor);
         if (exact) dest = { lat: exact.lat, lng: exact.lng };
       }
       // Pickup, most precise source first: a dropped pin is exact; a named place carries its
