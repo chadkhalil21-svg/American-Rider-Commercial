@@ -17,7 +17,7 @@ Keep MapLibre + OpenFreeMap visual maps, regional OSRM/OSM street routing and OT
 
 ## Toll order and safety
 1. Get **one** internal OSRM route, with fallback to regional OTP; preserve the exact fare-route geometry.
-2. Where independent full-area public-authority road/facility coverage is certified, an OSRM route with no toll class can count as clear. Current South Florida has NO such certification, so no blank `toll=no` inference.
+2. Where independent full-area public-authority road/facility coverage **and complete OSRM toll-signal extraction** are both certified, an OSRM route with no toll class can count as clear. Current South Florida has NO such certification, so no blank `toll=no` inference.
 3. If an **approved, fresh** local authority rate book exactly matches **every** route crossing, the Operator's two-axle SunPass payment context, and the effective fixed tariff, return those official amounts and facility names. `backend/official-toll-pricing.js` now enforces these conditions. Its production catalogue is **deliberately empty**. Raw `charge=*` is a hint, never an independently billable value.
 4. Otherwise request HERE toll information only if necessary; if unavailable, mark the toll UNKNOWN, not zero. Existing booking safety applies. Dynamic-priced managed lanes require reliable current official data or HERE; do not cache their prices for hours.
 5. Do not treat HERE's original routed geometry as identical to OSRM if routing differs. Already merged fare authority preserves one selected road route and guards unavailable routing.
