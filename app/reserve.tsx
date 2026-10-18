@@ -398,7 +398,7 @@ export default function TravelConfirmation() {
       searchPlaces(query, anchor, controller.signal).then((results) => {
         if (!controller.signal.aborted) { setPlaceSuggestions(results); setPlaceSearchBusy(false); }
       });
-    }, 180);
+    }, 350);
     return () => { clearTimeout(timer); controller.abort(); };
   }, [query, searching, depLat, depLng, ride.pickupPin]);
 
@@ -432,7 +432,7 @@ export default function TravelConfirmation() {
       searchPlaces(queryDep, anchor, controller.signal).then((results) => {
         if (!controller.signal.aborted) { setDepSuggestions(results); setDepSearchBusy(false); }
       });
-    }, 180);
+    }, 350);
     return () => { clearTimeout(timer); controller.abort(); };
   }, [queryDep, searchingDep, qd, depLat, depLng, ride.pickupPin]);
   const depMatched = depSuggestions.slice(0, 6);
