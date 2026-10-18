@@ -143,6 +143,8 @@ const { verifyResendWebhook, sanitizeResendEvent, applyResendDeliveryEvent } = r
 const { acquireLease, renewLease, releaseLease, DEFAULT_LEASE_MS } = require('./schedulerlease');
 const { singleFlight } = require('./sweep-singleflight');
 const { createSweepCadence, createQuotaBackoff, quotaError } = require('./sweepcadence');
+const { durableMaintenance } = require('./durable-maintenance');
+const { externalSweepMode } = require('./cloudrun-sweep-mode');
 const { settleSweepJobs, createCriticalRecoveryGate } = require('./critical-sweep-recovery');
 const { createBackgroundReporter } = require('./workload-summary');
 const { sweepOperatorAccountFees } = require('./operatorfees');
@@ -2014,11 +2016,16 @@ app.post('/charge-ride', requireAuth, LIMITS.payments, requireOperationalReadine
 // AUTHENTICATED OPERATIONAL CONTROL. The endpoint takes no workload parameters and can only
 // invoke the same leased sweep the process clock invokes. SCHEDULER_TOKEN is mandatory; callers
 // without the configured token fail closed before any operational work begins.
+// Cloud Run instances may stop while idle. A separate authenticated minute scheduler
+// must be commissioned before a Cloud Run service is permitted to start.
+const EXTERNAL_SWEEPS = externalSweepMode();
 let lastSweep = { at: 0, report: null };
 const maintenanceCadence = createSweepCadence();
 const quotaBackoff = createQuotaBackoff();
 const criticalRecoveryGate = createCriticalRecoveryGate({ intervalMs:60_000 });
-const maintenanceSweep = (name, work) => maintenanceCadence.run(name, work);
+const maintenanceSweep = (name, work) => EXTERNAL_SWEEPS
+  ? durableMaintenance({db:adminDb(),name,work})
+  : maintenanceCadence.run(name,work);
 const reportBackgroundWork = createBackgroundReporter();
 
 
@@ -2128,7 +2135,10 @@ async function runSweep(req, res) {
   // hid the detailed response. That still exposed a public resource-amplification endpoint:
   // an attacker could force repeated Firestore/Stripe work every ten seconds. Fail closed.
   const want = readKey('SCHEDULER_TOKEN');
-  const got = String(req.query?.token || req.get('x-scheduler-token') || '');
+  // On Cloud Run, reject tokens in URL query strings, which may be logged.
+  const got = process.env.K_SERVICE
+    ? String(req.get('x-scheduler-token') || '')
+    : String(req.get('x-scheduler-token') || req.query?.token || '');
   if (!want || got !== want) {
     return res.status(401).json({ error: 'scheduler authorization required' });
   }
@@ -4307,6 +4317,10 @@ app.use((req, res) => {
 const PORT = process.env.PORT || 4242;
 app.listen(PORT, () => {
   console.log(`American Rider server listening on http://localhost:${PORT}  (Stripe: ${keyMode})`);
+  if (EXTERNAL_SWEEPS) {
+    console.log('External authenticated scheduler selected; in-process sweep clock disabled');
+    return;
+  }
   // Started AFTER the port is open: a sweep that runs while the process is still booting can
   // take the whole thing down before it has ever answered /health.
   //

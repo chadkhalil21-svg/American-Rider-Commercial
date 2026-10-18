@@ -53,15 +53,20 @@ function admin() {
       if (raw) {
         appMod.initializeApp({ credential: appMod.cert(JSON.parse(raw)) });
       } else if (path) {
-        // applicationDefault() reads GOOGLE_APPLICATION_CREDENTIALS itself.
+        // Local/Render file-backed application default credentials.
+        appMod.initializeApp({ credential: appMod.applicationDefault() });
+      } else if (process.env.K_SERVICE) {
+        // On Cloud Run use a bound, least-privilege workload identity;
+        // no Firebase private key is exported to GitHub or copied to staging.
         appMod.initializeApp({ credential: appMod.applicationDefault() });
       } else {
         _state = {
           db: null,
           ok: false,
           reason:
-            'no service account — set FIREBASE_SERVICE_ACCOUNT (the JSON) or ' +
-            'GOOGLE_APPLICATION_CREDENTIALS (a path to it) in backend/.env and on Render',
+            'no service account — set FIREBASE_SERVICE_ACCOUNT or ' +
+            'GOOGLE_APPLICATION_CREDENTIALS locally/on Render; Cloud Run ' +
+            'must use its assigned runtime service account',
         };
         return _state;
       }
