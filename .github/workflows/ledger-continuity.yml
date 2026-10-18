@@ -20,7 +20,7 @@ jobs:
         with:
           fetch-depth: 0
       - name: Offline governance regression
-        run: python3 -m unittest discover -s scripts -p 'check-ledger-continuity.test.py'
+        run: python3 -m unittest discover -s scripts -p 'test_ledger_continuity.py'
       - name: Check newest ledger and current-status table on PR
         if: github.event_name == 'pull_request'
         env:
