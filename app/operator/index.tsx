@@ -405,6 +405,14 @@ export default function OperatorHome() {
               <Text style={styles.presenceWarnText}>{t('operator.foregroundOnly')}</Text>
             </Card>
           )}
+          {/* A failed duty renewal can leave the local UI showing In Service
+              while server dispatch is no longer fresh. Disclose the uncertainty
+              without asserting that the server has conclusively closed duty. */}
+          {!!op.onlineError && (
+            <Card style={styles.presenceWarn}>
+              <Text accessibilityRole="alert" style={styles.presenceWarnText}>{op.onlineError}</Text>
+            </Card>
+          )}
           <WalletCard todayOps={op.todayOps} onPress={() => router.navigate('/operator/revenue')} />
           <View style={{ marginTop: 'auto' }}>
             <OutlineButton
