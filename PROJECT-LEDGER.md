@@ -1,5 +1,8 @@
 # AMERICAN RIDER — CANONICAL PROJECT LEDGER
 
+**2026-10-18 PR #63: latest-release payout guard review only.** PR #79 (Operator offer) and PR #72 (cancel/refund) are merged, their changes preserved. This draft adds once-only payout claims and reconciliation; no live Stripe transfer was made, and provider/device verification remains a release gate. No feature is certified by a passing synthetic test alone.
+
+
 **2026-10-18 SOURCE MERGE STATUS (AUTHORITATIVE):** Commercial PR #79 (real Operator offer prices) merged at `f2c940322a44540e99eaff355af8759d6ff41834`; PR #72 (cancellation exits/refund truth) merged at `fc46a84266cf9c528121f49ffe98f4b458222fc7`. Both had six successful exact-head CI suites. Commits used `[skip render]` deliberately, so the live Render backend remains `5102ae7` and the current native/TestFlight app has NOT been confirmed updated. PR #63 payout protection is still DRAFT, updated independently to preserve both preceding changes. The status table below supersedes older draft-language paragraphs. No Stripe charge/refund/transfer was conducted by these merges, and neither a safe commercial pilot nor a provider-approved test has been certified.
 
 
