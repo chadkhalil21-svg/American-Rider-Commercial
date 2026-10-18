@@ -1,5 +1,5 @@
 import {useLocalSearchParams,useRouter} from 'expo-router';
-import React,{useEffect,useMemo,useRef,useState} from 'react';
+import React,{useEffect,useMemo,useState} from 'react';
 import {Pressable,StyleSheet,TextInput,View} from 'react-native';
 import {Text} from '../src/components/AppText';
 import {Card,LetterheadBar,PrimaryButton,Screen,SectionLabel,Title,useNote} from '../src/components/UI';
@@ -13,16 +13,15 @@ export default function FamilyScreen(){
  const params=useLocalSearchParams<{invite?:string;token?:string}>();
  const inviteId=useMemo(()=>typeof params.invite==='string'?params.invite:'',[params.invite]);
  const inviteToken=useMemo(()=>typeof params.token==='string'?params.token:'',[params.token]);
- const [links,setLinks]=useState<FamilyLink[]>([]),[travels,setTravels]=useState<GuardianTravel[]>([]),[busy,setBusy]=useState(false),[loading,setLoading]=useState(true),[loadFailed,setLoadFailed]=useState(false),[accepting,setAccepting]=useState(false),[accepted,setAccepted]=useState(false),[acceptFailed,setAcceptFailed]=useState(false),[acceptAttempt,setAcceptAttempt]=useState(0);
- const acceptRequest=useRef('');
+ const [links,setLinks]=useState<FamilyLink[]>([]),[travels,setTravels]=useState<GuardianTravel[]>([]),[busy,setBusy]=useState(false),[loading,setLoading]=useState(true),[loadFailed,setLoadFailed]=useState(false),[accepting,setAccepting]=useState(false),[accepted,setAccepted]=useState(false),[acceptFailed,setAcceptFailed]=useState(false);
  const [teenName,setTeenName]=useState(''),[teenEmail,setTeenEmail]=useState(''),[teenDob,setTeenDob]=useState('');
  const familyStatus=(status:FamilyLink['status'])=>status==='active'?t('traveler.familyStatusActive'):status==='invited'?t('traveler.familyStatusInvited'):status==='revoked'?t('traveler.familyStatusRevoked'):t('traveler.familyStatusAgedOut');
  const refresh=async()=>{setLoading(true);setLoadFailed(false);try{const [l,r]=await Promise.all([fetchFamily(),fetchGuardianTravels()]);setLinks(l);setTravels(r);}catch{setLoadFailed(true);}finally{setLoading(false);}};
  useEffect(()=>{void refresh();},[]);
- useEffect(()=>{const request=`${inviteId}:${inviteToken}:${acceptAttempt}`;if(!inviteId||!inviteToken||accepted||acceptRequest.current===request)return;acceptRequest.current=request;setAccepting(true);setAcceptFailed(false);acceptFamilyInvite(inviteId,inviteToken).then(async()=>{setAccepted(true);await refresh();}).catch(()=>setAcceptFailed(true)).finally(()=>setAccepting(false));},[inviteId,inviteToken,accepted,acceptAttempt]);
- const invite=async()=>{if(busy)return;setBusy(true);try{await createFamilyInvite({guardianName:'',teenName,teenEmail,teenDob});setTeenName('');setTeenEmail('');setTeenDob('');await refresh();}catch{showNote(t('traveler.familyInviteUnable'));}finally{setBusy(false);}};
+ const acceptInvitation=async()=>{if(!inviteId||!inviteToken||accepting||accepted)return;setAccepting(true);setAcceptFailed(false);try{await acceptFamilyInvite(inviteId,inviteToken);setAccepted(true);await refresh();}catch{setAcceptFailed(true);}finally{setAccepting(false);}};
+ const invite=async()=>{if(busy)return;setBusy(true);try{await createFamilyInvite({guardianName:'',teenName,teenEmail,teenDob});setTeenName('');setTeenEmail('');setTeenDob('');await refresh();}catch{showNote(t('traveler.familyInviteSendUnconfirmed'));}finally{setBusy(false);}};
  return <Screen note={note}><LetterheadBar onBack={back}/><Title size={24}>{t('traveler.familyTitle')}</Title>
-  {(inviteId&&inviteToken)?<Card style={styles.notice}><Text style={styles.name}>{accepting?t('traveler.familyAccepting'):accepted?t('traveler.familyAccepted'):t('traveler.familyInviteUnable')}</Text>{acceptFailed?<Pressable accessibilityRole="button" onPress={()=>setAcceptAttempt(v=>v+1)}><Text style={styles.action}>{t('traveler.tryAgain')}</Text></Pressable>:null}</Card>:null}
+  {(inviteId&&inviteToken)?<Card style={styles.notice}><Text style={styles.name}>{accepting?t('traveler.familyAccepting'):accepted?t('traveler.familyAccepted'):acceptFailed?t('traveler.familyInviteUnable'):t('traveler.familyInvitePrompt')}</Text>{!accepted&&!accepting?<PrimaryButton label={t('traveler.familyAcceptInvitation')} onPress={acceptInvitation}/>:null}</Card>:null}
   {loadFailed?<Card style={styles.notice}><Text style={styles.meta}>{t('traveler.familyLoadUnable')}</Text><Pressable accessibilityRole="button" onPress={refresh}><Text style={styles.action}>{t('traveler.tryAgain')}</Text></Pressable></Card>:null}
   {loading?<Text style={styles.meta}>{t('traveler.familyWorking')}</Text>:null}
   {!loading&&!loadFailed&&travels.length?<><SectionLabel style={{marginTop:20}}>{t('traveler.familyActiveTravel')}</SectionLabel><Card style={styles.card}>{travels.map(r=><Pressable accessibilityRole="button" key={r.id} onPress={()=>router.navigate({pathname:'/family-travel',params:{rideId:r.id,tripNo:r.tripNo,travelerName:r.travelerName,operatorName:r.operatorName,operatorId:r.operatorId,travelerUid:r.travelerUid,followUrl:r.followUrl||''}})}><View style={styles.row}><View style={{flex:1}}><Text style={styles.name}>{r.travelerName}</Text><Text style={styles.meta}>{r.dep} → {r.dest}</Text></View><Text style={styles.action}>{t('traveler.familyViewTravel')}</Text></View></Pressable>)}</Card></>:null}
@@ -31,6 +30,7 @@ export default function FamilyScreen(){
    <TextInput value={teenName} onChangeText={setTeenName} placeholder={t('traveler.familyTeenName')} style={styles.input}/>
    <TextInput value={teenEmail} onChangeText={setTeenEmail} placeholder={t('traveler.familyTeenEmail')} autoCapitalize="none" keyboardType="email-address" style={styles.input}/>
    <TextInput value={teenDob} onChangeText={setTeenDob} placeholder={t('traveler.familyTeenDob')} autoCapitalize="none" style={styles.input}/>
+   <Text style={styles.meta}>{t('traveler.familyAuthorizationSteps')}</Text>
    <Text style={styles.meta}>{t('traveler.familyInviteDelivery')}</Text>
    <PrimaryButton label={busy?t('traveler.familyWorking'):t('traveler.familyCreateInvite')} onPress={invite} disabled={busy||!teenName.trim()||!teenEmail.trim()||!teenDob.trim()}/>
   </Card>
