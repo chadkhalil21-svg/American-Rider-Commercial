@@ -1,17 +1,14 @@
 'use strict';
 const assert=require('node:assert/strict');
-const { normalizeSuggestion,normalizeGeoapify,normalizePhoton,privatePhotonEndpoint,selectedPrimary,searchPlaces }=require('./place-search');
+const { normalizeSuggestion,normalizePhoton,privatePhotonEndpoint,selectedPrimary,searchPlaces,annotateProximity }=require('./place-search');
 (async()=>{
-  const names=['GEOAPIFY_API_KEY','HERE_API_KEY','AR_HERE_AUTOCOMPLETE_FALLBACK',
-    'AR_GEOAPIFY_SEARCH_FALLBACK','AR_PLACE_SEARCH_PRIMARY','AR_PHOTON_SEARCH_URL'];
+  const names=['HERE_API_KEY','AR_HERE_AUTOCOMPLETE_FALLBACK','AR_PLACE_SEARCH_PRIMARY','AR_PHOTON_SEARCH_URL','GEOAPIFY_API_KEY'];
   const prev=Object.fromEntries(names.map(n=>[n,process.env[n]]));
   const fetchBefore=global.fetch;
   let calls=[];
   try{
     for(const n of names)delete process.env[n];
     assert.equal(normalizeSuggestion({title:'invalid'}),null);
-    assert.equal(normalizeGeoapify({name:'invalid',lat:200,lon:0}),null);
-    assert.equal(normalizeGeoapify({name:'Zoo Miami',lat:25.6,lon:-80.4}).source,'geoapify');
     const sample={type:'Feature',geometry:{type:'Point',coordinates:[-80.398,25.611]},
       properties:{osm_id:42,osm_type:'N',name:'Zoo Miami',city:'Miami',state:'Florida',
         countrycode:'US',osm_key:'tourism',osm_value:'zoo'}};
@@ -60,51 +57,32 @@ const { normalizeSuggestion,normalizeGeoapify,normalizePhoton,privatePhotonEndpo
     assert.equal(photonUrl.searchParams.get('lat'),'25.6');
     assert.equal(photonUrl.searchParams.get('lon'),'-80.4');
 
-    // Optional Geoapify mode remains available but is never a mandatory signup.
-    process.env.AR_PLACE_SEARCH_PRIMARY='geoapify';
-    assert.equal(selectedPrimary(),null,'no Geoapify key means fail closed in explicit mode');
+    // The founder rejected Geoapify, even a configured key cannot use it.
     process.env.GEOAPIFY_API_KEY='synthetic-geo';
-    assert.equal(selectedPrimary().name,'geoapify');
-    delete process.env.HERE_API_KEY;
-    delete process.env.AR_PHOTON_SEARCH_URL;
-    process.env.AR_PLACE_SEARCH_PRIMARY='auto';
-    assert.equal(selectedPrimary(),null,'auto mode never starts optional Geoapify merely because its key exists');
-    process.env.HERE_API_KEY='synthetic-here';
-    process.env.AR_PHOTON_SEARCH_URL='https://search.american-rider.example';
     process.env.AR_PLACE_SEARCH_PRIMARY='geoapify';
-    global.fetch=async(u)=>{calls.push(String(u));return {ok:true,json:async()=>({
-      results:[{place_id:'geo-1',name:'Cutler Bay',result_type:'city',
-        lat:25.58,lon:-80.35,address_line2:'Miami-Dade County'}],
-    })};};
-    results=await searchPlaces('Cutler Bay',{lat:25.6,lng:-80.33});
-    assert.equal(results[0].source,'geoapify');
-    const geoUrl=new URL(calls.at(-1));
-    assert.equal(geoUrl.hostname,'api.geoapify.com');
-    assert.equal(geoUrl.searchParams.get('filter'),'countrycode:us');
+    assert.equal(selectedPrimary(),null,'unapproved provider is rejected');
+    process.env.AR_PLACE_SEARCH_PRIMARY='auto';
+    assert.equal(selectedPrimary().name,'photon','private Photon remains primary');
+    // Both local and distant results remain searchable but distant labels
+    // must not masquerade as a nearby business.
+    const marked=annotateProximity([
+      {title:'Zoo Miami',subtitle:'Miami, Florida',lat:25.611,lng:-80.398},
+      {title:'Zoo Miami',subtitle:'San Francisco, California',lat:37.77,lng:-122.42},
+    ],{lat:25.61,lng:-80.40});
+    assert.equal(marked[0].outsideLocalArea,false);
+    assert.equal(marked[1].outsideLocalArea,true);
+    assert.equal(marked[1].subtitle,'San Francisco, California');
+    assert.ok(marked[1].distanceKm > 250,'distance is provided for localized remote labels');
+    assert.equal(marked.length,2,'national destinations remain discoverable');
 
     // No hidden second bill after a valid empty answer.
-    global.fetch=async(u)=>{calls.push(String(u));return {ok:true,json:async()=>({results:[]})};};
+    global.fetch=async(u)=>{calls.push(String(u));return {ok:true,json:async()=>({features:[]})};};
     const before=calls.length;
     assert.deepEqual(await searchPlaces('Unknown Venue Exact q32',null),[]);
     assert.equal(calls.length,before+1);
 
-    // Only a primary ERROR permits an opt-in backup.
-    process.env.AR_GEOAPIFY_SEARCH_FALLBACK='1';
-    process.env.AR_PLACE_SEARCH_PRIMARY='photon';
-    let emergency=0;
-    global.fetch=async(u)=>{
-      calls.push(String(u));
-      if(String(u).includes('search.american-rider.example'))return {ok:false,json:async()=>({})};
-      emergency++;
-      return {ok:true,json:async()=>({results:[{place_id:'backup',name:'South Florida',
-        result_type:'city',lat:25.8,lon:-80.1}]})};
-    };
-    results=await searchPlaces('Photon Down New q71',null);
-    assert.equal(results[0]?.source,'geoapify');
-    assert.equal(emergency,1);
-
+    // Only a real Photon outage can invoke explicitly enabled HERE.
     // An outage must not silently fall back to HERE unless explicitly enabled.
-    process.env.AR_GEOAPIFY_SEARCH_FALLBACK='0';
     process.env.AR_HERE_AUTOCOMPLETE_FALLBACK='0';
     global.fetch=async(u)=>{calls.push(String(u));return {ok:false,json:async()=>({})};};
     const now=calls.length;
@@ -127,19 +105,27 @@ const { normalizeSuggestion,normalizeGeoapify,normalizePhoton,privatePhotonEndpo
     const fs=require('node:fs'),path=require('node:path');
     const screen=fs.readFileSync(path.join(__dirname,'../app/reserve.tsx'),'utf8');
     const client=fs.readFileSync(path.join(__dirname,'../src/backend/placeSearch.ts'),'utf8');
-    assert.match(screen,/traveler\.searchGeoapifyCredit/);
+    assert.doesNotMatch(screen,/traveler\.searchGeoapifyCredit/);
+    assert.match(screen,/traveler\.searchFartherAway/);
     assert.match(screen,/traveler\.searchHereCredit/);
     assert.match(screen,/www\.openstreetmap\.org\/copyright/);
     assert.match(screen,/traveler\.mapAttribution/);
-    assert.match(client,/source\?: 'geoapify' \| 'here' \| 'photon'/);
+    assert.match(client,/source\?: 'here' \| 'photon'/);
+    assert.match(client,/export function uniqueNearbyExactPlace/);
+    assert.match(client,/matches\.length !== 1/,'ambiguous business names cannot auto-select');
+    assert.match(client,/km <= 250 \? only : null/,'remote national business cannot auto-select');
+    assert.match(screen,/uniqueNearbyExactPlace\(place\.name, options, anchor\)/);
+    assert.doesNotMatch(screen,/options\.find\(\(item\) => normalize\(item\.title\)/);
+
     for(const lang of ['en','es','fr','it','de']){
       const locale=fs.readFileSync(path.join(__dirname,'../src/i18n/'+lang+'.ts'),'utf8');
-      assert.match(locale,/searchGeoapifyCredit:.*OpenStreetMap/);
+      assert.doesNotMatch(locale,/searchGeoapifyCredit:/);
       assert.match(locale,/searchHereCredit:.*HERE/);
+      assert.match(locale,/searchFartherAway:/);
     }
     assert.deepEqual(await searchPlaces('',null),[]);
     assert.deepEqual(await searchPlaces('x',null),[]);
-    console.log('PASS: no mandatory Geoapify, existing HERE bridge, private Photon primary, accurate attribution, bounded opt-in fallback');
+    console.log('PASS: no Geoapify code path, existing HERE bridge, national Photon location labels, accurate attribution and bounded fallback');
   } finally {
     for(const n of names){if(prev[n]===undefined)delete process.env[n];else process.env[n]=prev[n];}
     global.fetch=fetchBefore;

@@ -26,7 +26,7 @@ import {
 import { Text } from '../src/components/AppText';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 import { destinationsNear, type Destination } from '../src/backend/destinations';
-import { searchPlaces, type PlaceSuggestion } from '../src/backend/placeSearch';
+import { searchPlaces, uniqueNearbyExactPlace, type PlaceSuggestion } from '../src/backend/placeSearch';
 import { fetchQuote, geocodePlace, isUnavailable, recordVisibleStandardQuote, type QuoteFailureCode } from '../src/backend/fares';
 import { joinWaitlist } from '../src/backend/connect';
 import { fetchSmartQuote } from '../src/backend/smart';
@@ -178,8 +178,7 @@ export default function TravelConfirmation() {
       // Exact-name matching avoids silently choosing a different destination.
       if (!dest) {
         const options = await searchPlaces(place.name, anchor);
-        const normalize = (v: string) => v.trim().toLowerCase().replace(/\s+/g, ' ');
-        const exact = options.find((item) => normalize(item.title) === normalize(place.name));
+        const exact = uniqueNearbyExactPlace(place.name, options, anchor);
         if (exact) dest = { lat: exact.lat, lng: exact.lng };
       }
       // Pickup, most precise source first: a dropped pin is exact; a named place carries its
@@ -631,7 +630,7 @@ export default function TravelConfirmation() {
                     <View style={[styles.pin, { backgroundColor: colors.ink }]} />
                     <View style={{ flex: 1 }}>
                       <Text style={styles.resultName}>{p.title}</Text>
-                      {!!p.subtitle && <Text style={styles.resultMeta}>{p.subtitle}</Text>}
+                      {!!(p.subtitle || p.outsideLocalArea) && <Text style={styles.resultMeta}>{p.outsideLocalArea ? t('traveler.searchFartherAway') + ' · ' : ''}{p.subtitle}</Text>}
                     </View>
                     <Chev />
                   </View>
@@ -678,9 +677,9 @@ export default function TravelConfirmation() {
               )}
               {liveMatched.some(p => p.source) && (
                 <Pressable accessibilityRole="link"
-                  onPress={() => { void Linking.openURL(liveMatched.some(p => p.source === 'photon') ? 'https://www.openstreetmap.org/copyright' : liveMatched.some(p => p.source === 'geoapify') ? 'https://www.geoapify.com/' : 'https://www.here.com/'); }}>
+                  onPress={() => { void Linking.openURL(liveMatched.some(p => p.source === 'photon') ? 'https://www.openstreetmap.org/copyright' : 'https://www.here.com/'); }}>
                   <Text style={styles.searchAttribution}>
-                    {liveMatched.some(p => p.source === 'photon') ? t('traveler.mapAttribution') : liveMatched.some(p => p.source === 'geoapify') ? t('traveler.searchGeoapifyCredit') : t('traveler.searchHereCredit')}
+                    {liveMatched.some(p => p.source === 'photon') ? t('traveler.mapAttribution') : t('traveler.searchHereCredit')}
                   </Text>
                 </Pressable>
               )}
@@ -719,7 +718,7 @@ export default function TravelConfirmation() {
                     <View style={[styles.pin, { backgroundColor: colors.ink }]} />
                     <View style={{ flex: 1 }}>
                       <Text style={styles.resultName}>{p.title}</Text>
-                      {!!p.subtitle && <Text style={styles.resultMeta}>{p.subtitle}</Text>}
+                      {!!(p.subtitle || p.outsideLocalArea) && <Text style={styles.resultMeta}>{p.outsideLocalArea ? t('traveler.searchFartherAway') + ' · ' : ''}{p.subtitle}</Text>}
                     </View>
                   </View>
                 </Pressable>
@@ -745,9 +744,9 @@ export default function TravelConfirmation() {
               )}
               {depMatched.some(p => p.source) && (
                 <Pressable accessibilityRole="link"
-                  onPress={() => { void Linking.openURL(depMatched.some(p => p.source === 'photon') ? 'https://www.openstreetmap.org/copyright' : depMatched.some(p => p.source === 'geoapify') ? 'https://www.geoapify.com/' : 'https://www.here.com/'); }}>
+                  onPress={() => { void Linking.openURL(depMatched.some(p => p.source === 'photon') ? 'https://www.openstreetmap.org/copyright' : 'https://www.here.com/'); }}>
                   <Text style={styles.searchAttribution}>
-                    {depMatched.some(p => p.source === 'photon') ? t('traveler.mapAttribution') : depMatched.some(p => p.source === 'geoapify') ? t('traveler.searchGeoapifyCredit') : t('traveler.searchHereCredit')}
+                    {depMatched.some(p => p.source === 'photon') ? t('traveler.mapAttribution') : t('traveler.searchHereCredit')}
                   </Text>
                 </Pressable>
               )}
