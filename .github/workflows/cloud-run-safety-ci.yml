@@ -1,0 +1,32 @@
+name: Cloud Run scheduling safety
+on:
+  pull_request:
+    paths:
+      - 'backend/server.js'
+      - 'backend/firebase-admin.js'
+      - 'backend/cloudrun-sweep-mode*'
+      - 'backend/durable-maintenance*'
+      - 'backend/Dockerfile'
+      - '.github/workflows/cloud-run-*'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  scheduler-regressions:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Check startup and syntax
+        run: |
+          node --check backend/server.js
+          node --check backend/firebase-admin.js
+          node --check backend/cloudrun-sweep-mode.js
+          node --check backend/durable-maintenance.js
+      - name: Verify scheduler fail-closed and durable cadence twice
+        run: |
+          node backend/cloudrun-sweep-mode.test.js
+          node backend/durable-maintenance.test.js
