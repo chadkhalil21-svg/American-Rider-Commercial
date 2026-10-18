@@ -1,15 +1,15 @@
-// National address, business and POI autocomplete. Discovery != booking authorization.
-// Commercial primary: Geoapify when commissioned. HERE is an EXPLICIT emergency
-// fallback only, never an invisible automatic cost for every keystroke.
-// Do not deploy without a Geoapify key, license/attribution and device checks.
+'use strict';
+// Cost-first, provider-neutral national address / business / POI search.
+// "auto" reuses an already-configured HERE key until American Rider commissions
+// its OWN Photon/OSM service. Geoapify is optional; never require a signup.
+// A hosted public Photon demo or public OSM Nominatim is NEVER used here.
 const { readKey } = require('./env');
 const MAX_QUERY=160, CACHE_TTL_MS=10*60*1000, MAX_CACHE=500;
 const cache=new Map(),inflight=new Map();
-// Emergency HERE fallback is rate-capped per process, even if the primary
-// provider is in outage. For multi-instance production, also enforce a shared
-// provider-level quota before enabling fallback.
+// Emergency HERE fallback is per process; configure a vendor-wide quota before
+// allowing autoscaling. Never call a second provider after a valid empty answer.
 const HERE_FALLBACK_PER_MINUTE=10;
-let hereWindowStart=0,hereCalls=0;
+let hereWindowStart=0, hereCalls=0;
 function allowExceptionalHere(now=Date.now()){
   if(now-hereWindowStart>=60000){hereWindowStart=now;hereCalls=0;}
   if(hereCalls>=HERE_FALLBACK_PER_MINUTE)return false;
@@ -19,14 +19,12 @@ const clamp=(n,lo,hi)=>Math.min(hi,Math.max(lo,n));
 const validCoord=(lat,lng)=>Number.isFinite(lat)&&Number.isFinite(lng)&&Math.abs(lat)<=90&&Math.abs(lng)<=180;
 const bucket=n=>Math.round(Number(n)*100)/100;
 const cacheKey=(q,near,limit,provider)=>provider+'|'+q.toLowerCase()+'|'+(near?bucket(near.lat)+','+bucket(near.lng):'us')+'|'+limit;
-
 function normalizeSuggestion(x){
   const pos=x?.position;
   if(!x||typeof x.title!=='string'||!validCoord(Number(pos?.lat),Number(pos?.lng)))return null;
   const k=String(x.resultType||'place').toLowerCase();
   return {id:String(x.id||pos.lat+','+pos.lng+','+x.title).slice(0,240),
-    title:x.title.slice(0,180),
-    subtitle:String(x.address?.label||x.address?.street||x.address?.city||'').slice(0,240),
+    title:x.title.slice(0,180),subtitle:String(x.address?.label||x.address?.street||x.address?.city||'').slice(0,240),
     category:['locality','city'].includes(k)?'locality':['street','housenumber','address'].includes(k)?'address':'place',
     lat:Number(pos.lat),lng:Number(pos.lng),source:'here'};
 }
@@ -36,16 +34,41 @@ function normalizeGeoapify(x){
   if(!name)return null;
   const kind=String(x.result_type||'').toLowerCase();
   return {id:String(x.place_id||x.formatted||x.lon+','+x.lat).slice(0,240),
-    title:name.slice(0,180),
-    subtitle:String(x.address_line2||x.formatted||'').slice(0,240),
+    title:name.slice(0,180),subtitle:String(x.address_line2||x.formatted||'').slice(0,240),
     category:['city','county','state','suburb','district','postcode'].includes(kind)?'locality':
       ['building','street'].includes(kind)?'address':'place',
     lat:Number(x.lat),lng:Number(x.lon),source:'geoapify'};
 }
+function normalizePhoton(feature){
+  const p=feature?.properties,coords=feature?.geometry?.coordinates;
+  if(!p || feature.geometry?.type!=='Point' || !Array.isArray(coords) ||
+      !validCoord(Number(coords[1]),Number(coords[0])))return null;
+  // Photon is configured for U.S. location search; never leak foreign results.
+  if(p.countrycode && String(p.countrycode).toUpperCase()!=='US')return null;
+  const street=[p.housenumber,p.street].filter(Boolean).join(' ').trim();
+  const title=String(p.name||street||p.city||p.district||'').trim();
+  if(!title)return null;
+  const label=[street&&street!==title?street:null,p.city,p.state].filter(Boolean).join(', ');
+  const osmKey=String(p.osm_key||'').toLowerCase();
+  const category=osmKey==='place'?'locality':street===title||osmKey==='highway'?'address':'place';
+  return {id:String('osm-'+(p.osm_type||'')+'-'+(p.osm_id||coords.join(','))).slice(0,240),
+    title:title.slice(0,180),subtitle:label.slice(0,240),category,
+    lat:Number(coords[1]),lng:Number(coords[0]),source:'photon'};
+}
+function privatePhotonEndpoint(value){
+  try{
+    const u=new URL(String(value||''));
+    // No public demo. Deploy an American Rider-controlled HTTPS endpoint.
+    if(u.protocol!=='https:'||!u.hostname||u.username||u.password||u.search||u.hash||
+        u.hostname==='photon.komoot.io'||u.hostname==='nominatim.openstreetmap.org')return null;
+    u.pathname='/api';
+    return u;
+  }catch{return null;}
+}
 async function requestJson(url,timeout=2500){
   const ctrl=new AbortController(),timer=setTimeout(()=>ctrl.abort(),timeout);
   try{
-    const res=await fetch(url,{signal:ctrl.signal,headers:{'User-Agent':'American-Rider/1.0'}});
+    const res=await fetch(url,{signal:ctrl.signal,redirect:'error',headers:{'User-Agent':'American-Rider/1.0'}});
     return res.ok?{ok:true,value:await res.json()}:{ok:false,value:null};
   }catch{return {ok:false,value:null};}finally{clearTimeout(timer);}
 }
@@ -66,6 +89,15 @@ async function geoapify(q,near,limit,key){
   if(!out.ok||!Array.isArray(out.value?.results))return {ok:false,items:[]};
   return {ok:true,items:unique(out.value.results.map(normalizeGeoapify),limit)};
 }
+async function photon(q,near,limit,endpoint){
+  const u=new URL(endpoint);
+  u.searchParams.set('q',q);u.searchParams.set('limit',String(limit));
+  u.searchParams.set('countrycode','US');
+  if(near){u.searchParams.set('lat',String(near.lat));u.searchParams.set('lon',String(near.lng));}
+  const out=await requestJson(u,3500);
+  if(!out.ok||!Array.isArray(out.value?.features))return {ok:false,items:[]};
+  return {ok:true,items:unique(out.value.features.map(normalizePhoton),limit)};
+}
 async function here(q,near,limit,key){
   const u=new URL('https://autosuggest.search.hereapi.com/v1/autosuggest');
   u.searchParams.set('q',q);u.searchParams.set('apiKey',key);
@@ -75,26 +107,51 @@ async function here(q,near,limit,key){
   if(!out.ok||!Array.isArray(out.value?.items))return {ok:false,items:[]};
   return {ok:true,items:unique(out.value.items.map(normalizeSuggestion),limit)};
 }
+function selectedPrimary(){
+  const mode=String(process.env.AR_PLACE_SEARCH_PRIMARY||'auto').trim().toLowerCase();
+  const photonUrl=privatePhotonEndpoint(process.env.AR_PHOTON_SEARCH_URL);
+  const hereKey=readKey('HERE_API_KEY');
+  const geoKey=readKey('GEOAPIFY_API_KEY');
+  if(mode==='photon')return photonUrl?{name:'photon',credential:photonUrl}:null;
+  if(mode==='here')return hereKey?{name:'here',credential:hereKey}:null;
+  if(mode==='geoapify')return geoKey?{name:'geoapify',credential:geoKey}:null;
+  if(mode!=='auto')return null;
+  // Free data first, no additional vendor signup, keep existing functioning
+  // HERE commercial account as interim until our own Photon host is available.
+  if(photonUrl)return {name:'photon',credential:photonUrl};
+  if(hereKey)return {name:'here',credential:hereKey};
+  // Founder did not approve Geoapify as an automatic provider. Its use
+  // requires an explicit primary selection (or separately enabled fallback).
+  return null;
+}
+function invoke(primary,q,near,limit){
+  if(primary.name==='photon')return photon(q,near,limit,primary.credential);
+  if(primary.name==='here')return here(q,near,limit,primary.credential);
+  return geoapify(q,near,limit,primary.credential);
+}
 async function searchPlaces(query,near,limit=6){
   const q=String(query||'').trim().slice(0,MAX_QUERY);
   if(q.length<2)return [];
-  const primaryKey=readKey('GEOAPIFY_API_KEY');
-  // Fail closed when no primary is configured; the *existing production backend*
-  // remains unchanged until primary API credentials and attribution are commissioned.
-  if(!primaryKey)return [];
-  const secondaryKey=process.env.AR_HERE_AUTOCOMPLETE_FALLBACK==='1'?readKey('HERE_API_KEY'):null;
+  const primary=selectedPrimary();
+  if(!primary)return [];
   const n=near&&validCoord(Number(near.lat),Number(near.lng))?{lat:Number(near.lat),lng:Number(near.lng)}:null;
   const max=clamp(Number(limit)||6,1,8);
-  const ck=cacheKey(q,n,max,'geoapify');
+  const ck=cacheKey(q,n,max,primary.name);
   const hit=cache.get(ck);
   if(hit&&Date.now()-hit.at<CACHE_TTL_MS)return hit.items;
   if(inflight.has(ck))return inflight.get(ck);
   const work=(async()=>{
-    const result=await geoapify(q,n,max,primaryKey);
-    // An empty *successful* answer is legitimate, not an excuse for a second bill.
-    const items=result.ok?result.items:(secondaryKey&&allowExceptionalHere())?(await here(q,n,max,secondaryKey)).items:[];
-    // Only cache an authoritative primary result. Never cache a provider outage
-    // as zero results or a transient exceptional HERE fallback.
+    const result=await invoke(primary,q,n,max);
+    // Successful empty results are authoritative. No speculative paid lookup.
+    let items=result.items;
+    if(!result.ok){
+      const hereKey=primary.name!=='here'&&process.env.AR_HERE_AUTOCOMPLETE_FALLBACK==='1'
+        ?readKey('HERE_API_KEY'):null;
+      const geoKey=primary.name!=='geoapify'&&process.env.AR_GEOAPIFY_SEARCH_FALLBACK==='1'
+        ?readKey('GEOAPIFY_API_KEY'):null;
+      if(geoKey)items=(await geoapify(q,n,max,geoKey)).items;
+      else if(hereKey&&allowExceptionalHere())items=(await here(q,n,max,hereKey)).items;
+    }
     if(result.ok){
       cache.set(ck,{at:Date.now(),items});
       if(cache.size>MAX_CACHE)cache.delete(cache.keys().next().value);
@@ -104,4 +161,4 @@ async function searchPlaces(query,near,limit=6){
   inflight.set(ck,work);
   try{return await work;}finally{inflight.delete(ck);}
 }
-module.exports={searchPlaces,normalizeSuggestion,normalizeGeoapify};
+module.exports={searchPlaces,normalizeSuggestion,normalizeGeoapify,normalizePhoton,privatePhotonEndpoint,selectedPrimary};

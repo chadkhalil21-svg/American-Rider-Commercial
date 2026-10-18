@@ -5,6 +5,8 @@
 // deduplicate by id before summing. If HERE explicitly reports toll data unavailable, or if
 // the provider cannot answer, status is unknown — never silently $0.
 const { readKey } = require('./env');
+const { officialTollPriceForRoute } = require('./official-toll-pricing');
+const { recordTollDecision } = require('./toll-decision-audit');
 
 const HERE_TOLL_URL = 'https://router.hereapi.com/v8/routes';
 const TIMEOUT_MS = 7000;
@@ -137,9 +139,9 @@ async function resolveTolls(from, to, opts = {}) {
  * Cost-aware toll resolution.
  * 1. Ask our own street router whether the selected route contains an OSM toll road class.
  * 2. A definitive OSRM "no toll class" is clear at zero provider cost.
- * 3. A toll-relevant route, or a router that cannot make that determination, falls through to
- *    the toll-price authority. Today that final authority is HERE; jurisdiction-maintained
- *    official rate registries can be inserted before HERE without changing callers.
+ * 3. For certified OSRM crossings, use a fresh rate book approved against the
+ *    public toll authority. Raw OSM charge=* is NEVER directly billable.
+ * 4. If not verified locally, use HERE as the final priced route authority.
  *
  * We deliberately do not infer "clear" from an unavailable/OTP route because absence of
  * evidence is not evidence of no toll.
@@ -152,9 +154,14 @@ async function resolveTollsCostAware(from, to, opts = {}) {
   // The fallback route and its tolls were obtained in the SAME verified HERE
   // response; do not ask HERE to price a potentially different route a second time.
   if (route?.provider === 'here' &&
-      ['clear', 'tolled'].includes(route.verifiedTolls?.status)) return route.verifiedTolls;
+      ['clear', 'tolled'].includes(route.verifiedTolls?.status)) {
+    recordTollDecision('here', { route, outcome: route.verifiedTolls });
+    return route.verifiedTolls;
+  }
   if (!route && opts.routeAttempted === true) {
-    return { status: 'unknown', tollCents: null, reason: 'authoritative_route_unavailable' };
+    const outcome = { status: 'unknown', tollCents: null, reason: 'authoritative_route_unavailable' };
+    recordTollDecision('route_unknown', { route, outcome });
+    return outcome;
   }
   if (!route) {
     try { route = await require('./streets').routeCar(from, to); } catch { route = null; }
@@ -163,10 +170,23 @@ async function resolveTollsCostAware(from, to, opts = {}) {
   // been certified against the responsible public authorities. OSM can be incomplete; absence
   // of toll=yes must never become a nationwide $0 assumption.
   const region = require('./regions').regionForTrip(from, to);
-  if (route?.provider === 'osrm' && route.tollRelevant === false && region?.tollCoverage?.certified === true) {
-    return { status: 'clear', tollCents: 0, provider: 'osrm-osm-certified', reason: 'certified_market_route_has_no_toll_class' };
+  if (route?.provider === 'osrm' && route.tollRelevant === false &&
+      route.tollSignalComplete === true && region?.tollCoverage?.certified === true) {
+    const outcome = { status: 'clear', tollCents: 0, provider: 'osrm-osm-certified', reason: 'certified_market_route_has_no_toll_class' };
+    recordTollDecision('verified_osm_clear', { route, outcome });
+    return outcome;
   }
-  return resolveTolls(from, to, opts);
+  // Price the exact traversed, independently verified toll facilities FIRST.
+  // The current registry is intentionally empty until official rates and full
+  // OSRM-to-gantry matching are commissioned. Never bill a raw OSM charge tag.
+  const official = officialTollPriceForRoute(route, region?.id);
+  if (official) {
+    recordTollDecision('verified_official', { route, outcome: official });
+    return official;
+  }
+  const outcome = await resolveTolls(from, to, opts);
+  recordTollDecision('here', { route, outcome });
+  return outcome;
 }
 
 module.exports = { resolveTolls, resolveTollsCostAware, verifiedHereRoute, parseHereTolls, HERE_TOLL_URL, TIMEOUT_MS };
