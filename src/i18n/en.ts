@@ -1275,6 +1275,8 @@ export default {
     familyTeenEmail: 'Teen account email',
     familyTeenDob: 'Date of birth — YYYY-MM-DD',
     familyInviteDelivery: 'American Rider sends the invitation to the Teen account email. The invitation link can be accepted only by that verified account.',
+    familyAuthorizationSteps: 'Invite a Teen aged 13–17. Once they accept through their verified account, Family Travel is available. You can revoke authorization for future bookings at any time.',
+    familyInviteSendUnconfirmed: 'Delivery of the Family invitation could not be confirmed. Check the Teen\'s email before sending another invitation.',
     familyCreateInvite: 'Send Family Invitation',
     familyWorking: 'Working…',
     familyAccepting: 'Accepting Family invitation…',
