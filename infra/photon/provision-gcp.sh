@@ -25,8 +25,12 @@ Storage: 120 GB balanced persistent data disk + 30 GB boot disk
 Private API: $PRIVATE_IP:2322
 Requires: project billing, enabled Google Compute Engine API, authorized Cloud Shell.
 
-Run with AR_PHOTON_CONFIRM_BILLABLE=INSTALL after reviewing the GCP price estimate.
+Run with AR_PHOTON_CONFIRM_BILLABLE=INSTALL ONLY after checking the
+actual Google Cloud budget, Photon-vs-HERE break-even, quality and licenses.
 EOF
+  if command -v node >/dev/null && [[ -f scripts/photon-cost-comparison.cjs ]]; then
+    node scripts/photon-cost-comparison.cjs
+  fi
   exit 2
 fi
 [[ "$PROJECT_ID" == "american-rider-35688" ||
