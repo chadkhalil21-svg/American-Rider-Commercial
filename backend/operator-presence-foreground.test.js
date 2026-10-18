@@ -87,12 +87,12 @@ assert.equal(typeof resolve, 'function');
     'background native location owns background renewal, not a JS timer');
 
   const native=fs.readFileSync(path.join(__dirname,'../src/backend/presence.ts'),'utf8');
-  assert.match(native,/if \(!response\.ok\)/,
-    'a resolved fetch does not prove the server accepted the heartbeat');
+  assert.match(native,/response\.ok && result\?\.ok === true/,
+    'a 2xx response alone must not count unless the server acknowledges duty');
   assert.match(native,/console\.warn\('\[operator-presence\] renewal_refused', response\.status, code\)/,
     'background refusal should be recorded without identity or coordinates');
-  assert.match(native,/distanceInterval: 150/,
-    'native position remains bounded; no arbitrary higher-cost GPS polling');
+  assert.match(native,/distanceInterval: 0/,
+    'both iOS and Android allow stationary position updates while in service');
   const matcher=fs.readFileSync(path.join(__dirname,'matching.js'),'utf8');
   assert.match(matcher,/PRESENCE_STALE_MS = 5 \* 60 \* 1000/,
     'stale dispatch remains fail-closed');

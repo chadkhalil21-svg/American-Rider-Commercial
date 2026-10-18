@@ -1187,7 +1187,16 @@ export function OperatorProvider({ children }: { children: React.ReactNode }) {
       inFlight = true;
       try {
         const here = await resolveOperatorDutyPosition();
-        if (stopped || !here) return;
+        if (stopped) return;
+        if (!here) {
+          // The phone may have internet while GPS permission, accuracy, or
+          // foreground position has become unavailable. Local In Service
+          // cannot promise the server will keep dispatching; expose the
+          // existing warning until a successful fresh renewal clears it.
+          setOnlineError(tr('traveler.gateLocation'));
+          setOnlineErrorCode('location_unavailable');
+          return;
+        }
         const r = await goOnline({
           lat: here.lat,
           lng: here.lng,
