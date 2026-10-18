@@ -1,7 +1,7 @@
 'use strict';
 // Cost-first, provider-neutral national address / business / POI search.
-// "auto" reuses an already-configured HERE key until American Rider commissions
-// its OWN Photon/OSM service. Geoapify is optional; never require a signup.
+// "auto" uses private Photon/OSM when commissioned, otherwise the already
+// configured HERE account. No Geoapify provider or subscription is supported.
 // A hosted public Photon demo or public OSM Nominatim is NEVER used here.
 const { readKey } = require('./env');
 const MAX_QUERY=160, CACHE_TTL_MS=10*60*1000, MAX_CACHE=500;
@@ -27,17 +27,6 @@ function normalizeSuggestion(x){
     title:x.title.slice(0,180),subtitle:String(x.address?.label||x.address?.street||x.address?.city||'').slice(0,240),
     category:['locality','city'].includes(k)?'locality':['street','housenumber','address'].includes(k)?'address':'place',
     lat:Number(pos.lat),lng:Number(pos.lng),source:'here'};
-}
-function normalizeGeoapify(x){
-  if(!x||!validCoord(Number(x.lat),Number(x.lon)))return null;
-  const name=String(x.name||x.address_line1||x.formatted||'').trim();
-  if(!name)return null;
-  const kind=String(x.result_type||'').toLowerCase();
-  return {id:String(x.place_id||x.formatted||x.lon+','+x.lat).slice(0,240),
-    title:name.slice(0,180),subtitle:String(x.address_line2||x.formatted||'').slice(0,240),
-    category:['city','county','state','suburb','district','postcode'].includes(kind)?'locality':
-      ['building','street'].includes(kind)?'address':'place',
-    lat:Number(x.lat),lng:Number(x.lon),source:'geoapify'};
 }
 function normalizePhoton(feature){
   const p=feature?.properties,coords=feature?.geometry?.coordinates;
@@ -72,22 +61,28 @@ async function requestJson(url,timeout=2500){
     return res.ok?{ok:true,value:await res.json()}:{ok:false,value:null};
   }catch{return {ok:false,value:null};}finally{clearTimeout(timer);}
 }
+function annotateProximity(items, near) {
+  // Bias is not a geographic restriction. Distant U.S. matches must be clearly
+  // distinguishable in the phone UI without blocking explicitly national searches.
+  if (!near) return items;
+  const radians = n => n * Math.PI / 180;
+  return items.map(item => {
+    const dlat = radians(item.lat - near.lat);
+    const dlng = radians(item.lng - near.lng);
+    const hav = Math.sin(dlat/2)**2 +
+      Math.cos(radians(near.lat)) * Math.cos(radians(item.lat)) * Math.sin(dlng/2)**2;
+    const distanceKm = Math.round(6371 * 2 * Math.atan2(Math.sqrt(hav), Math.sqrt(Math.max(0,1-hav))));
+    const outsideLocalArea = distanceKm > 250;
+    return { ...item, distanceKm, outsideLocalArea,
+      subtitle: outsideLocalArea ? 'Farther away · ' + (item.subtitle || item.title) : item.subtitle };
+  });
+}
 function unique(items,limit){
   const seen=new Set();
   return items.filter(Boolean).filter(x=>{
     const key=x.lat.toFixed(6)+','+x.lng.toFixed(6);
     if(seen.has(key))return false;seen.add(key);return true;
   }).slice(0,limit);
-}
-async function geoapify(q,near,limit,key){
-  const u=new URL('https://api.geoapify.com/v1/geocode/autocomplete');
-  u.searchParams.set('text',q);u.searchParams.set('apiKey',key);
-  u.searchParams.set('format','json');u.searchParams.set('filter','countrycode:us');
-  u.searchParams.set('limit',String(limit));
-  if(near)u.searchParams.set('bias','proximity:'+near.lng+','+near.lat);
-  const out=await requestJson(u);
-  if(!out.ok||!Array.isArray(out.value?.results))return {ok:false,items:[]};
-  return {ok:true,items:unique(out.value.results.map(normalizeGeoapify),limit)};
 }
 async function photon(q,near,limit,endpoint){
   const u=new URL(endpoint);
@@ -111,23 +106,19 @@ function selectedPrimary(){
   const mode=String(process.env.AR_PLACE_SEARCH_PRIMARY||'auto').trim().toLowerCase();
   const photonUrl=privatePhotonEndpoint(process.env.AR_PHOTON_SEARCH_URL);
   const hereKey=readKey('HERE_API_KEY');
-  const geoKey=readKey('GEOAPIFY_API_KEY');
   if(mode==='photon')return photonUrl?{name:'photon',credential:photonUrl}:null;
   if(mode==='here')return hereKey?{name:'here',credential:hereKey}:null;
-  if(mode==='geoapify')return geoKey?{name:'geoapify',credential:geoKey}:null;
   if(mode!=='auto')return null;
   // Free data first, no additional vendor signup, keep existing functioning
   // HERE commercial account as interim until our own Photon host is available.
   if(photonUrl)return {name:'photon',credential:photonUrl};
   if(hereKey)return {name:'here',credential:hereKey};
-  // Founder did not approve Geoapify as an automatic provider. Its use
-  // requires an explicit primary selection (or separately enabled fallback).
   return null;
 }
 function invoke(primary,q,near,limit){
   if(primary.name==='photon')return photon(q,near,limit,primary.credential);
   if(primary.name==='here')return here(q,near,limit,primary.credential);
-  return geoapify(q,near,limit,primary.credential);
+  return here(q,near,limit,primary.credential);
 }
 async function searchPlaces(query,near,limit=6){
   const q=String(query||'').trim().slice(0,MAX_QUERY);
@@ -147,11 +138,9 @@ async function searchPlaces(query,near,limit=6){
     if(!result.ok){
       const hereKey=primary.name!=='here'&&process.env.AR_HERE_AUTOCOMPLETE_FALLBACK==='1'
         ?readKey('HERE_API_KEY'):null;
-      const geoKey=primary.name!=='geoapify'&&process.env.AR_GEOAPIFY_SEARCH_FALLBACK==='1'
-        ?readKey('GEOAPIFY_API_KEY'):null;
-      if(geoKey)items=(await geoapify(q,n,max,geoKey)).items;
-      else if(hereKey&&allowExceptionalHere())items=(await here(q,n,max,hereKey)).items;
+      if(hereKey&&allowExceptionalHere())items=(await here(q,n,max,hereKey)).items;
     }
+    items=annotateProximity(items,n);
     if(result.ok){
       cache.set(ck,{at:Date.now(),items});
       if(cache.size>MAX_CACHE)cache.delete(cache.keys().next().value);
@@ -161,4 +150,4 @@ async function searchPlaces(query,near,limit=6){
   inflight.set(ck,work);
   try{return await work;}finally{inflight.delete(ck);}
 }
-module.exports={searchPlaces,normalizeSuggestion,normalizeGeoapify,normalizePhoton,privatePhotonEndpoint,selectedPrimary};
+module.exports={searchPlaces,normalizeSuggestion,normalizePhoton,privatePhotonEndpoint,selectedPrimary,annotateProximity};
