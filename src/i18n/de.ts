@@ -1168,6 +1168,7 @@ export default {
     pickup: 'Abholung',
     setAsDestination: 'Als Ziel festlegen',
     searchHereCredit: 'Bereitgestellt von HERE',
+    searchFartherAway: 'Weiter entfernt',
     setPickupOnMap: 'Abholpunkt auf der Karte festlegen',
     leavingNow: 'Abfahrtszeit: sofort',
     change: 'Abfahrtszeit ändern',
