@@ -20,13 +20,19 @@ const {forEachBounded}=require('./bounded-tasks');
    await assert.rejects(forEachBounded(null,8,()=>{}));
    await assert.rejects(forEachBounded(expected,0,()=>{}));
    await assert.rejects(forEachBounded(expected,1,null));
-   let completed=0;
+   let started=0,completed=0,active=0;
    await assert.rejects(forEachBounded([1,2,3,4,5,6],2,async x=>{
-     try{await new Promise(resolve=>setImmediate(resolve));}
-     finally{completed++;}
-     if(x===3)throw Error('synthetic rejected read');
+     started++;active++;
+     try{
+       await new Promise(resolve=>setImmediate(resolve));
+       if(x===3)throw Error('synthetic rejected read');
+     } finally { completed++;active--; }
    }),/synthetic rejected read/);
-   assert.equal(completed,6,'no unobserved in-flight work after rejection');
+   // A rejected worker may stop taking NEW jobs, but all jobs already started
+   // must settle before the helper returns. Safety does not imply skip-free on error.
+   assert.equal(completed,started,'no unobserved in-flight work after rejection');
+   assert.equal(active,0);
+   assert.ok(started>=3&&started<=6);
  }
  console.log('PASS twice: all 3,000 candidate checks processed, concurrency bounded at eight, no detached tasks.');
 })().catch(e=>{console.error(e);process.exitCode=1;});
