@@ -65,15 +65,14 @@ const { normalizeSuggestion,normalizePhoton,privatePhotonEndpoint,selectedPrimar
     assert.equal(selectedPrimary().name,'photon','private Photon remains primary');
     // Both local and distant results remain searchable but distant labels
     // must not masquerade as a nearby business.
-    const far={...sample,geometry:{type:'Point',coordinates:[-122.42,37.77]},
-      properties:{...sample.properties,name:'Zoo Miami',city:'San Francisco',state:'California'}};
     const marked=annotateProximity([
       {title:'Zoo Miami',subtitle:'Miami, Florida',lat:25.611,lng:-80.398},
       {title:'Zoo Miami',subtitle:'San Francisco, California',lat:37.77,lng:-122.42},
     ],{lat:25.61,lng:-80.40});
     assert.equal(marked[0].outsideLocalArea,false);
     assert.equal(marked[1].outsideLocalArea,true);
-    assert.match(marked[1].subtitle,/Farther away.*San Francisco.*California/);
+    assert.equal(marked[1].subtitle,'San Francisco, California');
+    assert.ok(marked[1].distanceKm > 250,'distance is provided for localized remote labels');
     assert.equal(marked.length,2,'national destinations remain discoverable');
 
     // No hidden second bill after a valid empty answer.
@@ -107,6 +106,7 @@ const { normalizeSuggestion,normalizePhoton,privatePhotonEndpoint,selectedPrimar
     const screen=fs.readFileSync(path.join(__dirname,'../app/reserve.tsx'),'utf8');
     const client=fs.readFileSync(path.join(__dirname,'../src/backend/placeSearch.ts'),'utf8');
     assert.doesNotMatch(screen,/traveler\.searchGeoapifyCredit/);
+    assert.match(screen,/traveler\.searchFartherAway/);
     assert.match(screen,/traveler\.searchHereCredit/);
     assert.match(screen,/www\.openstreetmap\.org\/copyright/);
     assert.match(screen,/traveler\.mapAttribution/);
@@ -115,6 +115,7 @@ const { normalizeSuggestion,normalizePhoton,privatePhotonEndpoint,selectedPrimar
       const locale=fs.readFileSync(path.join(__dirname,'../src/i18n/'+lang+'.ts'),'utf8');
       assert.doesNotMatch(locale,/searchGeoapifyCredit:/);
       assert.match(locale,/searchHereCredit:.*HERE/);
+      assert.match(locale,/searchFartherAway:/);
     }
     assert.deepEqual(await searchPlaces('',null),[]);
     assert.deepEqual(await searchPlaces('x',null),[]);
