@@ -1,5 +1,8 @@
 # AMERICAN RIDER — CANONICAL PROJECT LEDGER
 
+**2026-10-18 REGULAR TRAVEL OPERATOR-SEARCH CANCEL VISIBILITY:** The actual founder complaint concerns `/ride` while the app searches for an Operator, not just Plan Ahead `/schedule`. PR #72 already merged server-authoritative cancel and uncertain-refund safety but the search Cancel control sat below a secondary safety block and could require scrolling. This source-only change places the *same* Cancel and confirmation immediately under the search result, makes the control at least 44 points and screen-reader-labeled, and preserves the server-authoritative cancellation, Return Home and Patron Support fallback. Adds a focused regression. This does not alter payment/refunds or automatically update an installed TestFlight build. Six exact-head CI campaigns before merge, no production deployment.
+
+
 **2026-10-18 REMOVE REDUNDANT MOBILE SWEEP CALLS (SOURCE ONLY):** Current signed-in Operator app invokes GET `/scheduled/sweep` on a timer without the server-only token. The current backend deliberately returns 401; the paid Render process already runs authorized sweeps every 60 seconds. New narrow PR removes on-duty client wake-ups and leaves the old shared heartbeat exports as harmless no-ops. This reduces requests and mobile work without changing the actual Operator location/presence renewal, dispatch, pricing, schedule, or login. Synthetic regression verifies no unauthorized phone poll and intact server schedule/auth; exact-head CI before source merge. No Render/mobile production deploy.
 
 
