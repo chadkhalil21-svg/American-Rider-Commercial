@@ -4,13 +4,13 @@
 // a server-assigned Travel.
 import { useFocusEffect, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Animated, AppState, Modal, Pressable, StyleSheet, View } from 'react-native';
+import { Animated, AppState, Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { Text } from '../../src/components/AppText';
 import Svg, { Path, Rect } from 'react-native-svg';
 import { useNative } from '../../src/components/anim';
 import { OperatorBar, OperatorDrawer, OperatorScreen } from '../../src/components/operator';
 import { Avatar, Card, Num, OutlineButton, PrimaryButton, useNote } from '../../src/components/UI';
-import { SimRequest, earnOf, useOperator } from '../../src/state/OperatorContext';
+import { SimRequest, useOperator } from '../../src/state/OperatorContext';
 import { useLanguage } from '../../src/state/LanguageContext';
 import { colors, fmt, radii } from '../../src/theme';
 import { coordinationFee, platformFee } from '../../src/data';
@@ -20,6 +20,17 @@ import { coordinationFee, platformFee } from '../../src/data';
 // claim about journeys nobody has taken yet.
 const SAMPLE_FARE = 17.94;
 const SAMPLE_KEEP = +(SAMPLE_FARE - coordinationFee(SAMPLE_FARE)).toFixed(2);
+
+// Institutional Operator offer: deliberately scoped to this surface. The global demo
+// palette remains unchanged. Restrained graphite/slate gives the single green earnings
+// figure a clear semantic role, rather than using green for every positive action.
+const offerPalette = {
+  ink: '#182530',
+  secondary: '#475360',
+  slate: '#263E51',
+  surface: '#F5F6F7',
+  border: '#DCE1E5',
+} as const;
 
 const RESPOND_SECONDS = 15;
 
@@ -233,7 +244,11 @@ export default function OperatorHome() {
 
   useFocusEffect(clearTimers);
 
-  const earn = request ? earnOf(request.fare) : 0;
+  // Never invent an offer price from the local tariff. Both values must come from the
+  // server-priced Travel record, with the exact toll reimbursement included.
+  const prices = request?.travelerTotalCents != null && request.operatorReceivesCents != null
+    ? { travelerTotalCents: request.travelerTotalCents, operatorReceivesCents: request.operatorReceivesCents }
+    : null;
 
   if (!op.ready || op.verification !== 'commissioned') {
     return (
@@ -409,6 +424,11 @@ export default function OperatorHome() {
       }}>
         {request && (
           <View style={styles.requestRoot}>
+            {/* The offer is compact at standard text sizes; when large accessibility
+                text or a small device needs more space, the sheet itself can scroll.
+                Never clip Accept/Decline behind the bottom safe area. */}
+            <ScrollView style={styles.requestScroll} contentContainerStyle={styles.requestScrollContent}
+              showsVerticalScrollIndicator={false} bounces={false}>
             <View style={styles.requestCard}>
               <View style={styles.cbar}>
                 <Animated.View
@@ -423,10 +443,12 @@ export default function OperatorHome() {
                   ]}
                 />
               </View>
-              <Text style={styles.cbarText}>{t('operator.respondWithin', { seconds: Math.max(countdown, 0) })}</Text>
-              <Text style={styles.requestTitle}>{t('operator.request')}</Text>
+              <View style={styles.requestHeading}>
+                <Text style={styles.requestTitle}>{t('operator.request')}</Text>
+                <Text style={styles.cbarText}>{t('operator.offerResponseTime', { seconds: Math.max(countdown, 0) })}</Text>
+              </View>
               <View style={styles.travelerRow}>
-                <Avatar initials={request.tInit} size={44} />
+                <Avatar initials={request.tInit} size={34} />
                 <View style={{ flex: 1, marginLeft: 12 }}>
                   {/* A traveler who has not set a name is identified by their Travel Number,
                       which is what the operator will actually check on arrival. No rating:
@@ -444,17 +466,32 @@ export default function OperatorHome() {
                     <Text style={styles.travelerRating}>★ {request.tRating}</Text>
                   )}
                 </View>
-                <View style={{ alignItems: 'flex-end' }}>
-                  <Text style={styles.estLabel}>{t('operator.estimatedRevenue')}</Text>
-                  <Num size={24} weight="600" color={colors.green} style={{ marginTop: 3 }}>
-                    {fmt(earn)}
-                  </Num>
-                </View>
               </View>
+              {prices ? (
+                <View style={styles.offerAmounts}>
+                  {/* The Operator's compensation is the first and primary value.
+                       Traveler Total remains plainly visible beside it, with a
+                       smaller numeral to preserve the established visual hierarchy. */}
+                  <View style={styles.offerAmountColumn}>
+                    <Text style={styles.offerAmountLabel}>{t('operator.offerOperatorReceives')}</Text>
+                    <Num size={26} weight="600" color={colors.green}>{fmt(prices.operatorReceivesCents / 100)}</Num>
+                  </View>
+                  <View style={styles.offerAmountDivider} />
+                  <View style={[styles.offerAmountColumn, styles.offerAmountRight]}>
+                    <Text style={styles.offerAmountLabel}>{t('operator.offerTravelerTotal')}</Text>
+                    <Num size={20} weight="600">{fmt(prices.travelerTotalCents / 100)}</Num>
+                  </View>
+                  {!!request.tollReimbursementCents && (
+                    <Text style={styles.offerTollNote}>{t('operator.offerTollIncluded', { amount: fmt(request.tollReimbursementCents / 100) })}</Text>
+                  )}
+                </View>
+              ) : (
+                <Text accessibilityRole="alert" style={styles.dutyError}>{t('operator.offerPriceUnavailable')}</Text>
+              )}
               <View style={styles.routeCard}>
                 <View style={styles.routeRow}>
                   <View style={styles.dot} />
-                  <View>
+                  <View style={{ flex: 1 }}>
                     {/* "3 min away" was scripted. A dispatched travel carries no operator ETA,
                         and telling somebody how far a pickup is when nobody measured it is
                         the same defect as a fare nobody charged. */}
@@ -465,22 +502,26 @@ export default function OperatorHome() {
                   </View>
                 </View>
                 <View style={[styles.routeRow, styles.hair]}>
-                  <View style={styles.dot} />
-                  <View>
-                    <Text style={styles.routeMeta}>
-                      {request.tripMin != null && request.dist != null
-                        ? t('traveler.opDestinationMeta', { min: request.tripMin, mi: request.dist })
-                        : t('traveler.destination')}
-                    </Text>
+                  <View style={[styles.dot, styles.destinationDot]} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.routeMeta}>{t('traveler.destination')}</Text>
                     <Text style={styles.routePlace}>{request.dest}</Text>
                   </View>
                 </View>
+                {request.tripMin != null && request.dist != null && (
+                  <View style={styles.journeyEstimate}>
+                    <Text style={styles.journeyEstimateText}>{t('operator.offerJourneyEstimate', {
+                      miles: Math.round(request.dist * 10) / 10,
+                      minutes: request.tripMin,
+                    })}</Text>
+                  </View>
+                )}
               </View>
               <View style={styles.requestButtons}>
                 <OutlineButton
                   label={t('operator.decline')}
-                  textColor={colors.red}
-                  borderColor={colors.redBorder}
+                  textColor={offerPalette.slate}
+                  borderColor={offerPalette.border}
                   onPress={() => { if (!acceptingRef.current && !decliningRef.current) void explicitlyDecline(); }}
                   style={{ flex: 1, opacity: accepting || declining ? 0.5 : 1 }}
                 />
@@ -499,9 +540,9 @@ export default function OperatorHome() {
                   // an operator declines the REQUEST, and "Decline Traveler" would put a
                   // person's name on a rejection.
                   label={t('operator.acceptTraveler')}
-                  color={colors.green}
+                  color={colors.ink}
                   onPress={async () => {
-                    if (acceptingRef.current || decliningRef.current) return;
+                    if (acceptingRef.current || decliningRef.current || !prices) return;
                     acceptingRef.current = true;
                     setAccepting(true);
                     setAcceptError(null);
@@ -523,12 +564,13 @@ export default function OperatorHome() {
                       setAccepting(false);
                     }
                   }}
-                  disabled={accepting || declining}
-                  style={{ flex: 1.6 }}
+                  disabled={accepting || declining || !prices}
+                  style={{ flex: 1 }}
                 />
               </View>
               {acceptError && <Text accessibilityRole="alert" style={styles.dutyError}>{acceptError}</Text>}
             </View>
+            </ScrollView>
           </View>
         )}
       </Modal>
@@ -625,40 +667,64 @@ const styles = StyleSheet.create({
     padding: 24,
     paddingBottom: 40,
   },
+  requestScroll: { maxHeight: '100%', flexShrink: 1 },
+  requestScrollContent: { flexGrow: 1, justifyContent: 'flex-end' },
   requestCard: {
     backgroundColor: colors.card,
     borderWidth: 1,
     borderColor: colors.hairline,
     borderRadius: radii.card,
-    padding: 22,
+    padding: 16,
   },
-  cbar: { height: 4, borderRadius: 2, backgroundColor: colors.border, overflow: 'hidden' },
+  cbar: { height: 3, borderRadius: 2, backgroundColor: colors.border, overflow: 'hidden' },
   cbarFill: { height: '100%', backgroundColor: colors.ink },
-  cbarText: {
-    fontSize: 12,
-    color: colors.ink2,
-    marginTop: 8,
-    textAlign: 'center',
-    letterSpacing: 0.24,
+  requestHeading: {
+    marginTop: 12,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    columnGap: 8,
+    rowGap: 4,
   },
-  requestTitle: { fontSize: 20, fontWeight: '600', color: colors.ink, marginTop: 14 },
-  travelerRow: { flexDirection: 'row', alignItems: 'center', marginTop: 14 },
-  travelerName: { fontSize: 16, fontWeight: '600', color: colors.ink },
-  travelerRating: { fontSize: 13, color: colors.muted, marginTop: 2 },
-  estLabel: { fontSize: 11, fontWeight: '600', letterSpacing: 1.1, color: colors.ink2 },
+  cbarText: { fontSize: 12, fontWeight: '500', color: offerPalette.secondary },
+  requestTitle: { fontSize: 18, fontWeight: '600', color: offerPalette.ink },
+  travelerRow: { flexDirection: 'row', alignItems: 'center', marginTop: 11 },
+  travelerName: { fontSize: 16, fontWeight: '600', color: offerPalette.ink },
+  travelerRating: { fontSize: 13, color: offerPalette.secondary, marginTop: 2 },
+  // One quiet divider instead of an extra nested card. Compensation remains the
+  // strongest number. Dynamic Type can wrap both figures without truncation.
+  offerAmounts: {
+    marginTop: 11,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'flex-start',
+    borderTopWidth: 1,
+    borderColor: offerPalette.border,
+    paddingTop: 12,
+    paddingBottom: 2,
+  },
+  offerAmountColumn: { flex: 1, minWidth: 100, gap: 5 },
+  offerAmountRight: { alignItems: 'flex-end' },
+  offerAmountLabel: { fontSize: 10.5, fontWeight: '600', letterSpacing: 0.7, color: offerPalette.secondary },
+  offerAmountDivider: { width: 1, height: 36, backgroundColor: offerPalette.border, marginHorizontal: 10 },
+  offerTollNote: { width: '100%', fontSize: 11, color: offerPalette.secondary, marginTop: 9, textAlign: 'right' },
   routeCard: {
-    marginTop: 16,
-    backgroundColor: colors.blueTint, // the demo's neutral --fill
+    marginTop: 10,
+    backgroundColor: offerPalette.surface,
     borderWidth: 1,
-    borderColor: colors.hairline,
+    borderColor: offerPalette.border,
     borderRadius: radii.card,
-    paddingVertical: 2,
-    paddingHorizontal: 18,
+    paddingVertical: 1,
+    paddingHorizontal: 13,
   },
-  routeRow: { flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 16 },
-  hair: { borderTopWidth: 1, borderTopColor: colors.hairline },
-  dot: { width: 9, height: 9, borderRadius: 5, backgroundColor: colors.ink },
-  routeMeta: { fontSize: 12, color: colors.ink2 },
-  routePlace: { fontSize: 15, color: colors.ink, marginTop: 2 },
-  requestButtons: { flexDirection: 'row', gap: 10, marginTop: 18 },
+  routeRow: { flexDirection: 'row', alignItems: 'center', gap: 11, paddingVertical: 10 },
+  hair: { borderTopWidth: 1, borderTopColor: offerPalette.border },
+  dot: { width: 9, height: 9, borderRadius: 5, backgroundColor: offerPalette.slate },
+  destinationDot: { backgroundColor: 'transparent', borderWidth: 2, borderColor: offerPalette.slate },
+  routeMeta: { fontSize: 12, color: offerPalette.secondary },
+  routePlace: { fontSize: 15, color: offerPalette.ink, marginTop: 2 },
+  journeyEstimate: { borderTopWidth: 1, borderTopColor: offerPalette.border, paddingVertical: 9 },
+  journeyEstimateText: { fontSize: 12.5, fontWeight: '500', color: offerPalette.secondary },
+  requestButtons: { flexDirection: 'row', gap: 10, marginTop: 12 },
 });

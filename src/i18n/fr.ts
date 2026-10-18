@@ -105,8 +105,12 @@ export default {
     foregroundOnly: 'Gardez American Rider ouverte pour rester en service. Cet appareil ne permet pas l’attribution de trajets lorsque le téléphone est verrouillé — modifiez-le dans Réglages › American Rider › Position, en choisissant Toujours.',
 
     request: 'Demande d’Opération',
-    respondWithin: 'Répondez sous %{seconds} s',
-    estimatedRevenue: 'REVENU ESTIMÉ',
+    offerResponseTime: '%{seconds} secondes',
+    offerTravelerTotal: 'TOTAL DU VOYAGEUR',
+    offerOperatorReceives: 'VOUS RECEVEZ',
+    offerTollIncluded: 'Comprend %{amount} de remboursement des péages',
+    offerPriceUnavailable: 'Les montants du trajet n’ont pas pu être vérifiés. Cette demande ne peut être acceptée.',
+    offerJourneyEstimate: 'Trajet estimé · %{miles} mi · %{minutes} min',
     acceptTraveler: 'Accepter le Voyageur',
     decline: 'Refuser',
 
@@ -483,7 +487,6 @@ export default {
     msgOpHasReport: 'Tout ce qui peut aider à le retrouver se note ici.',
     msgMessagesAppear: 'Les messages à %{name} apparaissent ici.',
     opPickupMinAway: 'Prise en charge · à %{n} min',
-    opDestinationMeta: 'Destination · %{min} min · %{mi} mi',
     rideToAgain: 'Retourner à %{place}',
     bookReturnTravel: 'Réserver le trajet de retour',
     returnPickupCheck: 'Vérifiez le lieu de prise en charge et le prix actuel avant de réserver.',

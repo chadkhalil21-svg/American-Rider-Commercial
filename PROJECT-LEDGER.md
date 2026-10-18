@@ -1,5 +1,8 @@
 # AMERICAN RIDER — CANONICAL PROJECT LEDGER
 
+**2026-10-18 PR #79 CURRENT-BASE REFRESH (REVIEW ONLY):** Existing Operator request transparency displays the actual server-stamped Traveler Total and 99% Travel Fare share plus toll reimbursement. Original #79 has been re-applied onto latest Commercial `release/current`, preserving merged PR #51 Accept/Decline and nearby Operator search. No server tariff, screening, payouts, booking, Render or live payments changed. Exact-head CI, real iPhone/Android UI verification, and a comparison to genuine quoted/charged/settled amounts remain required before describing a production Operator offer as certified.
+
+
 ## CURRENT COMMERCIAL REPOSITORY: VERIFIED STATUS SNAPSHOT — 2026-10-18
 
 **Repository authority:** `chadkhalil21-svg/American-Rider-Commercial` / `release/current`. This is the **CURRENT STATUS TABLE**; dated historical prose below is a point-in-time audit record only. Some older paragraphs originated in the former `American-Rider` repository and contain reused PR numbers. **Never infer Commercial PR status from an older repository or a historic 'deployed' claim.** Do not label existing features as unbuilt merely because an enhancement PR is open. Recheck GitHub merged SHA, exact Render live SHA, any native binary's exact build SHA, and external provider authorization separately on every release review.

@@ -112,8 +112,12 @@ export default {
     foregroundOnly: 'Keep American Rider open to stay in service. This device is not set to allow travel to be assigned while the phone is locked — change it in Settings › American Rider › Location, choosing Always.',
 
     request: 'Operation Request',
-    respondWithin: 'Respond within %{seconds}s',
-    estimatedRevenue: 'ESTIMATED REVENUE',
+    offerResponseTime: '%{seconds} seconds',
+    offerTravelerTotal: 'TRAVELER TOTAL',
+    offerOperatorReceives: 'YOU RECEIVE',
+    offerTollIncluded: 'Includes %{amount} in toll reimbursement',
+    offerPriceUnavailable: 'Travel amounts could not be verified. This request cannot be accepted.',
+    offerJourneyEstimate: 'Estimated journey · %{miles} mi · %{minutes} min',
     acceptTraveler: 'Accept Traveler',
     decline: 'Decline',
 
@@ -494,7 +498,6 @@ export default {
     msgOpHasReport: 'Anything else that helps find it goes here.',
     msgMessagesAppear: 'Messages to %{name} appear here.',
     opPickupMinAway: 'Pickup · %{n} min away',
-    opDestinationMeta: 'Destination · %{min} min · %{mi} mi',
     rideToAgain: 'Travel to %{place} again',
     bookReturnTravel: 'Book Return Travel',
     returnPickupCheck: 'Confirm the pickup and current price before booking.',

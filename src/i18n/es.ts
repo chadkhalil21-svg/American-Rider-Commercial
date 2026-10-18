@@ -115,8 +115,12 @@ export default {
     foregroundOnly: 'Mantenga American Rider abierta para permanecer en servicio. Este dispositivo no permite que se le asignen viajes con el teléfono bloqueado — cámbielo en Ajustes › American Rider › Ubicación, eligiendo Siempre.',
 
     request: 'Solicitud de Operación',
-    respondWithin: 'Responda en %{seconds} s',
-    estimatedRevenue: 'INGRESO ESTIMADO',
+    offerResponseTime: '%{seconds} segundos',
+    offerTravelerTotal: 'TOTAL DEL VIAJERO',
+    offerOperatorReceives: 'USTED RECIBE',
+    offerTollIncluded: 'Incluye %{amount} de reembolso por peajes',
+    offerPriceUnavailable: 'No se pudieron verificar los importes del viaje. No es posible aceptar esta solicitud.',
+    offerJourneyEstimate: 'Trayecto estimado · %{miles} mi · %{minutes} min',
     acceptTraveler: 'Aceptar Viajero',
     decline: 'Rechazar',
 
@@ -493,7 +497,6 @@ export default {
     msgOpHasReport: 'Cualquier otro dato que ayude a encontrarlo va aquí.',
     msgMessagesAppear: 'Los mensajes a %{name} aparecen aquí.',
     opPickupMinAway: 'Recogida · a %{n} min',
-    opDestinationMeta: 'Destino · %{min} min · %{mi} mi',
     rideToAgain: 'Viajar de nuevo a %{place}',
     bookReturnTravel: 'Reservar viaje de regreso',
     returnPickupCheck: 'Confirma el lugar de recogida y el precio actual antes de reservar.',
