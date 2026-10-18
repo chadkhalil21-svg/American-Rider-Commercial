@@ -73,8 +73,7 @@ function annotateProximity(items, near) {
       Math.cos(radians(near.lat)) * Math.cos(radians(item.lat)) * Math.sin(dlng/2)**2;
     const distanceKm = Math.round(6371 * 2 * Math.atan2(Math.sqrt(hav), Math.sqrt(Math.max(0,1-hav))));
     const outsideLocalArea = distanceKm > 250;
-    return { ...item, distanceKm, outsideLocalArea,
-      subtitle: outsideLocalArea ? 'Farther away · ' + (item.subtitle || item.title) : item.subtitle };
+    return { ...item, distanceKm, outsideLocalArea };
   });
 }
 function unique(items,limit){
