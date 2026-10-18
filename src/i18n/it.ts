@@ -1167,6 +1167,7 @@ export default {
     pickup: 'Ritiro',
     setAsDestination: 'Imposta come destinazione',
     searchHereCredit: 'Con HERE',
+    searchFartherAway: 'Più lontano',
     setPickupOnMap: 'Imposta il punto di ritiro sulla mappa',
     leavingNow: 'Orario di partenza: immediato',
     change: 'Modificare l’orario di partenza',
