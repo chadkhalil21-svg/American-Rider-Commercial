@@ -168,15 +168,14 @@ export async function startBackgroundPresence(): Promise<boolean> {
   try {
     const registered = await TaskManager.isTaskRegisteredAsync(PRESENCE_TASK);
     if (registered) {
-      // Existing registered tasks survive upgrades on both operating systems.
-      // A 150 m filter can silence updates while parked, even on Android.
-      // Inspect persisted options and update only with retained permission.
-      const options = await TaskManager.getTaskOptionsAsync<{ distanceInterval?: number }>(PRESENCE_TASK);
-      if (options && Number(options.distanceInterval) === 0) return true;
-      // Reconfiguration must not silently recreate tracking after permission
-      // has been withdrawn; fail closed until Operator explicitly grants it.
+      // Existing tasks survive upgrades on both operating systems.
+      // Permission might have been revoked even when options are already 0 m.
+      // Never claim background presence solely because the task is registered.
       const permission = await Location.getBackgroundPermissionsAsync();
       if (!permission.granted) return false;
+      // A 150 m filter can silence updates while parked, even on Android.
+      const options = await TaskManager.getTaskOptionsAsync<{ distanceInterval?: number }>(PRESENCE_TASK);
+      if (options && Number(options.distanceInterval) === 0) return true;
     } else {
       const granted = await requestBackgroundPresence();
       if (!granted) return false;
