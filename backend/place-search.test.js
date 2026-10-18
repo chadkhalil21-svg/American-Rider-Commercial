@@ -60,9 +60,13 @@ try{
     'HERE off means no hidden usage');
   const fs=require('node:fs'),path=require('node:path');
   const screen=fs.readFileSync(path.join(__dirname,'../app/reserve.tsx'),'utf8');
-  assert.match(screen,/Powered by Geoapify/,'destination and pickup search must show provider attribution');
-  assert.match(screen,/© OpenStreetMap contributors/,'underlying OSM data requires attribution');
-  assert.match(screen,/Powered by HERE/,'rare fallback must be attributed honestly');
+  assert.match(screen,/traveler\.searchGeoapifyCredit/,'destination and pickup must show localized provider attribution');
+  assert.match(screen,/traveler\.searchHereCredit/,'rare fallback must show localized credit');
+  for(const language of ['en','es','fr','it','de']){
+    const locale=fs.readFileSync(path.join(__dirname,'../src/i18n/'+language+'.ts'),'utf8');
+    assert.match(locale,/searchGeoapifyCredit:.*OpenStreetMap/,'underlying OSM source must be credited in '+language);
+    assert.match(locale,/searchHereCredit:.*HERE/,'fallback provider must be credited in '+language);
+  }
   assert.deepEqual(await searchPlaces('',null),[]);
   assert.deepEqual(await searchPlaces('a',null),[]);
 }finally{
