@@ -4,7 +4,7 @@ const { insuranceReminderPlan, sendInsuranceReminder, sweepInsuranceMonitoring,
   continuingStatus, DAY_MS, STATUS_MAX_AGE_MS } = require('./insurance-monitoring');
 const NOW = Date.parse('2026-10-10T18:00:00Z');
 const user = () => ({ insuranceMonitoring: {
-  status: 'verified_active', lastVerifiedAt: NOW - 31 * DAY_MS,
+  status: 'verified_active', lastVerifiedAt: NOW - 61 * DAY_MS,
   nextVerificationDueAt: NOW - DAY_MS, policyNumber: 'SYNTHETIC-123',
   effectiveDate: '2026-01-01', expirationDate: '2027-01-01',
 } });
@@ -87,9 +87,9 @@ async function main() {
 
   // A new verified cycle gets its own reminders; an old accepted reminder does not hide it.
   fixture.change(u => ({ ...u, insuranceMonitoring: { ...u.insuranceMonitoring,
-    lastVerifiedAt: NOW, nextVerificationDueAt: NOW + 30 * DAY_MS } }));
+    lastVerifiedAt: NOW, nextVerificationDueAt: NOW + 60 * DAY_MS } }));
   assert.equal(insuranceReminderPlan(fixture.read(), NOW), null);
-  assert.ok(insuranceReminderPlan(fixture.read(), NOW + 31 * DAY_MS));
+  assert.ok(insuranceReminderPlan(fixture.read(), NOW + 61 * DAY_MS));
   for (const status of ['cancelled', 'unverified', 'pending_cancellation', 'coverage_reduced']) {
     const u = user(); u.insuranceMonitoring.status = status;
     assert.equal(insuranceReminderPlan(u, NOW), null);

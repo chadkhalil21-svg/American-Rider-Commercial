@@ -13,7 +13,7 @@
 // state machine decides whether that evidence is fresh enough to permit service.
 const { createHash, randomUUID } = require('node:crypto');
 const DAY_MS = 24 * 60 * 60 * 1000;
-const STATUS_INTERVAL_DAYS = 30;
+const STATUS_INTERVAL_DAYS = 60;
 const STATUS_GRACE_DAYS = 5;
 const STATUS_DUE_MS = STATUS_INTERVAL_DAYS * DAY_MS;
 const STATUS_MAX_AGE_MS = (STATUS_INTERVAL_DAYS + STATUS_GRACE_DAYS) * DAY_MS;
@@ -56,7 +56,7 @@ function initialMonitoringFromDocument(doc, now = Date.now()) {
   // OCR/document checks prove what a paper says, not that the policy is
   // currently in force. First qualification requires an authenticated insurer
   // or independently verified broker confirmation; never manufacture the
-  // 30-day clock merely by accepting a document upload.
+  // 60-day clock merely by accepting a document upload.
   return {
     status: 'unverified',
     source: 'onboarding_document_unconfirmed',
@@ -66,6 +66,19 @@ function initialMonitoringFromDocument(doc, now = Date.now()) {
     statusMaxAgeDays: STATUS_INTERVAL_DAYS + STATUS_GRACE_DAYS,
     ...p,
   };
+}
+
+// Derive the review due date from the last independent confirmation. Older
+// Firestore records may still contain the prior 30-day due field; never use
+// that obsolete field to send a review at day 30 after this policy changes.
+function effectiveVerificationDueAt(m) {
+  const confirmedAt = Number(m?.lastVerifiedAt);
+  const storedDue = Number(m?.nextVerificationDueAt);
+  if (!Number.isSafeInteger(confirmedAt) || confirmedAt <= 0) {
+    return Number.isSafeInteger(storedDue) && storedDue > 0 ? storedDue : 0;
+  }
+  const requiredDue = confirmedAt + STATUS_DUE_MS;
+  return Number.isSafeInteger(storedDue) && storedDue > requiredDue ? storedDue : requiredDue;
 }
 
 function continuingStatus(user, now = Date.now()) {
@@ -135,7 +148,7 @@ function continuingStatus(user, now = Date.now()) {
     };
   }
 
-  // BEFORE DAY 30: no Operator action. Fresh carrier/broker/document evidence is enough.
+  // THROUGH DAY 60: no Operator attestation. Independent carrier/broker status is still required.
   if (age <= STATUS_DUE_MS) {
     return {
       ok: true,
@@ -150,7 +163,7 @@ function continuingStatus(user, now = Date.now()) {
     };
   }
 
-  // DAYS 31–35: if independent confirmation has not arrived, one in-app attestation opens only
+  // DAYS 61–65: if independent confirmation has not arrived, one in-app attestation opens only
   // the short grace window while American Rider seeks fresh independent evidence. It does not
   // reset lastVerifiedAt and therefore cannot extend the grace indefinitely.
   const attestedAt = Number(m.operatorAttestedAt) || 0;
@@ -209,6 +222,13 @@ function applyIndependentConfirmation(monitoring, {
     source: String(source || 'broker').slice(0, 40),
     lastVerifiedAt: now,
     nextVerificationDueAt: now + STATUS_INTERVAL_DAYS * DAY_MS,
+    statusMaxAgeDays: STATUS_INTERVAL_DAYS + STATUS_GRACE_DAYS,
+    // New independent verification begins a new request cycle. Without resetting
+    // these counters an Operator who used three reminders would NEVER receive
+    // future automated refresh requests, even after a verified renewal.
+    verificationRequestCount: 0,
+    verificationRequestedAt: null,
+    verificationIssue: null,
     confirmation: { at: now, source: String(source || 'broker').slice(0, 40), actor, note: note || null },
   };
 }
@@ -315,7 +335,11 @@ async function sweepInsuranceMonitoring({ db, requestConfirmation, notify, now =
     const u = doc.data() || {};
     const m = u.insuranceMonitoring || {};
     if (!['verified_active', 'verification_due'].includes(cleanStatus(m.status))) continue;
-    const due = Number(m.nextVerificationDueAt) || 0;
+    const due = effectiveVerificationDueAt(m);
+    // A legacy stored review date at day 30 must not trigger new provider
+    // messages. Existing records can be migrated later, with audit logs,
+    // while indexed read-window behavior remains bounded.
+    if (due > requestWindow) continue;
     const lastRequest = Number(m.verificationRequestedAt) || 0;
     const contact = m.contact || null;
     const operatorName = String(u.legalName || u.name || 'the Operator').slice(0, 100);
@@ -394,6 +418,7 @@ module.exports = {
   STATUS_GRACE_DAYS,
   STATUS_DUE_MS,
   STATUS_MAX_AGE_MS,
+  effectiveVerificationDueAt,
   cleanStatus,
   policyIdentityFromDocument,
   initialMonitoringFromDocument,

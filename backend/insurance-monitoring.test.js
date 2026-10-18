@@ -29,19 +29,19 @@ assert.equal(confirmed.status, 'verified_active');
 assert.equal(continuingStatus({ insuranceMonitoring: confirmed }, now).ok, true);
 assert.equal(continuingStatus({ insuranceMonitoring: confirmed }, now).operatorActionRequired, false);
 
-// At day 31, only if independent confirmation has not arrived, one tap can bridge the short grace.
-const day31 = now + STATUS_DUE_MS + 1;
-const due = continuingStatus({ insuranceMonitoring: confirmed }, day31);
+// At day 61, only if independent confirmation has not arrived, one tap can bridge the short grace.
+const day61 = now + STATUS_DUE_MS + 1;
+const due = continuingStatus({ insuranceMonitoring: confirmed }, day61);
 assert.equal(due.ok, false);
 assert.equal(due.code, 'insurance_attestation_due');
 assert.equal(due.operatorActionRequired, true);
 
-const attested = applyOperatorAttestation(confirmed, day31);
-const grace = continuingStatus({ insuranceMonitoring: attested }, day31);
+const attested = applyOperatorAttestation(confirmed, day61);
+const grace = continuingStatus({ insuranceMonitoring: attested }, day61);
 assert.equal(grace.ok, true);
 assert.equal(grace.status, 'verification_due');
 
-// Self-attestation never resets independent verification; after day 35 it still blocks.
+// Self-attestation never resets independent verification; after day 65 it still blocks.
 const tooOld = continuingStatus({ insuranceMonitoring: attested }, now + STATUS_MAX_AGE_MS + 1);
 assert.equal(tooOld.code, 'insurance_status_stale');
 
