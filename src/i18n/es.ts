@@ -1269,6 +1269,8 @@ export default {
     familyInviteDelivery: 'American Rider envía la invitación al correo de la cuenta del adolescente. Solo esa cuenta verificada puede aceptar el enlace.',
     familyCreateInvite: 'Enviar Invitación Familiar',
     familyWorking: 'Procesando…',
+    familyInvitePrompt: 'Le han invitado a una cuenta Familia de American Rider. Revise la invitación y acéptela para activar los Viajes de Adolescentes.',
+    familyAcceptInvitation: 'Aceptar Invitación Familiar',
     familyAccepting: 'Aceptando la invitación familiar…',
     familyAccepted: 'Autorización familiar aceptada.',
     familyInviteUnable: 'No se pudo aceptar esta invitación.',
