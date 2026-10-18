@@ -26,6 +26,7 @@ try{
   let x=await searchPlaces('Cutler B', {lat:25.6,lng:-80.33});
   assert.equal(x[0]?.title,'Cutler Bay');
   assert.equal(x[0]?.category,'locality');
+  assert.equal(x[0]?.source,'geoapify');
   assert.equal(calls.length,1);
   const geo=new URL(calls[0]);
   assert.equal(geo.host,'api.geoapify.com');
@@ -46,12 +47,19 @@ try{
       position:{lat:25.8,lng:-80.1}}]})};
     throw Error('unapproved provider '+url.host);
   };
-  assert.equal((await searchPlaces('South FL outage',null))[0]?.title,'South Florida');
+  const secondary=await searchPlaces('South FL outage',null);
+  assert.equal(secondary[0]?.title,'South Florida');
+  assert.equal(secondary[0]?.source,'here');
   assert.equal(calls.filter(u=>u.includes('hereapi.com')).length,1);
   process.env.AR_HERE_AUTOCOMPLETE_FALLBACK='0';
   assert.deepEqual(await searchPlaces('South FL outage disabled',null),[]);
   assert.equal(calls.filter(u=>u.includes('hereapi.com')).length,1,
     'HERE off means no hidden usage');
+  const fs=require('node:fs'),path=require('node:path');
+  const screen=fs.readFileSync(path.join(__dirname,'../app/reserve.tsx'),'utf8');
+  assert.match(screen,/Powered by Geoapify/,'destination and pickup search must show provider attribution');
+  assert.match(screen,/© OpenStreetMap contributors/,'underlying OSM data requires attribution');
+  assert.match(screen,/Powered by HERE/,'rare fallback must be attributed honestly');
   assert.deepEqual(await searchPlaces('',null),[]);
   assert.deepEqual(await searchPlaces('a',null),[]);
 }finally{
