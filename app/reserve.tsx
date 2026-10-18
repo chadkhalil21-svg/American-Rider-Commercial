@@ -676,6 +676,14 @@ export default function TravelConfirmation() {
                   </View>
                 </Pressable>
               )}
+              {liveMatched.some(p => p.source) && (
+                <Pressable accessibilityRole="link"
+                  onPress={() => { void Linking.openURL(liveMatched.some(p => p.source === 'geoapify') ? 'https://www.geoapify.com/' : 'https://www.here.com/'); }}>
+                  <Text style={styles.searchAttribution}>
+                    {liveMatched.some(p => p.source === 'geoapify') ? t('traveler.searchGeoapifyCredit') : t('traveler.searchHereCredit')}
+                  </Text>
+                </Pressable>
+              )}
             </Card>
           )}
 
@@ -733,6 +741,14 @@ export default function TravelConfirmation() {
                     <View style={{ flex: 1 }} />
                     <Chev />
                   </View>
+                </Pressable>
+              )}
+              {depMatched.some(p => p.source) && (
+                <Pressable accessibilityRole="link"
+                  onPress={() => { void Linking.openURL(depMatched.some(p => p.source === 'geoapify') ? 'https://www.geoapify.com/' : 'https://www.here.com/'); }}>
+                  <Text style={styles.searchAttribution}>
+                    {depMatched.some(p => p.source === 'geoapify') ? t('traveler.searchGeoapifyCredit') : t('traveler.searchHereCredit')}
+                  </Text>
                 </Pressable>
               )}
             </Card>
@@ -993,6 +1009,7 @@ const styles = StyleSheet.create({
   resultName: { fontSize: 15, color: colors.ink },
   resultMeta: { fontSize: 12.5, color: colors.muted, marginTop: 3 },
   noResults: { fontSize: 13.5, color: colors.muted, paddingVertical: 16 },
+  searchAttribution: { fontSize: 11, color: colors.muted, paddingTop: 5, paddingBottom: 12 },
   mapPickText: { fontSize: 15, fontWeight: '600', color: colors.ink2 },
   routeDistance: { fontSize: 13, color: colors.ink2, marginTop: 8 },
   whenText: { fontSize: 15, color: colors.ink },
