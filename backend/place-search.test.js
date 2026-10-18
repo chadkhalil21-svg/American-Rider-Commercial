@@ -19,7 +19,7 @@ const { normalizeSuggestion,normalizeGeoapify,normalizePhoton,privatePhotonEndpo
     assert.equal(normalizePhoton(sample)?.source,'photon');
     assert.equal(normalizePhoton({...sample,properties:{...sample.properties,countrycode:'GB'}}),null);
     assert.equal(normalizePhoton({...sample,geometry:{type:'Point',coordinates:[999,25.6]}}),null);
-    assert.equal(normalizePhoton({...sample,properties:{street:'Old Cutler Rd',housenumber:'1234',city:'Miami',countrycode:'US'}})?.category,'address');
+    assert.equal(normalizePhoton({...sample,properties:{...sample.properties,name:null,street:'Old Cutler Rd',housenumber:'1234',city:'Miami',countrycode:'US',osm_key:'highway'}})?.category,'address');
     assert.equal(privatePhotonEndpoint('https://photon.komoot.io'),null,'no public demo');
     assert.equal(privatePhotonEndpoint('http://nominatim.openstreetmap.org'),null,'no public OSM Nominatim');
     assert.equal(privatePhotonEndpoint('https://user:pass@internal.example'),null,'no embedded secrets');
