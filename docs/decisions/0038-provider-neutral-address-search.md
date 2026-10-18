@@ -8,10 +8,10 @@ Supersedes PR #100's claim that Geoapify must be commissioned for the next launc
 
 ## Source behavior
 `AR_PLACE_SEARCH_PRIMARY` is optional: `auto` (default), `photon`, `here`, `geoapify`.
-- `auto` prioritizes **American Rider's own HTTPS Photon instance** if `AR_PHOTON_SEARCH_URL` is valid; otherwise reuses the **existing HERE key**; otherwise uses an already-configured Geoapify key. With none, returns no results rather than inventing locations.
+- `auto` prioritizes **American Rider's own HTTPS Photon instance** if `AR_PHOTON_SEARCH_URL` is valid; otherwise reuses the **existing HERE key**; otherwise returns no results rather than automatically engaging another vendor. Geoapify is never auto-selected simply because a key happens to exist.
 - `photon` requires a PRIVATE/owned endpoint; public `photon.komoot.io` and public Nominatim are rejected. GeoJSON features provide OSM results. OSM is attributed in both pickup and destination search. Backend never invokes an uncontrolled public OSM geocoding API.
 - `here` intentionally selects the existing HERE account as an **interim commercial bridge**, subject to owner-verified account rates, HERE licensed use, quotas and spend controls. This is different from the long-term founder preference for HERE only on unresolved exceptions.
-- `geoapify` is an **optional** alternative, not required. Do not obtain or purchase a Geoapify subscription without comparative evidence.
+- `geoapify` is an **explicit-only, optional** alternative, not required. Do not obtain or purchase a Geoapify subscription without founder direction and comparative evidence.
 - On any primary **failure** (not a valid zero-results answer), emergency HERE is disabled unless `AR_HERE_AUTOCOMPLETE_FALLBACK=1`; optional Geoapify backup is disabled unless `AR_GEOAPIFY_SEARCH_FALLBACK=1`. A successful empty search never triggers paid provider chaining. Cache and simultaneous request merging remain; mobile debounce is now 350ms, with cancellation.
 - Multiple Cloud Run instances have separate caches; fleet-wide provider budget/quotas must be enforced at the vendor/account level before ramp-up. Do not equate a per-process cap with a fleet-wide guarantee.
 
