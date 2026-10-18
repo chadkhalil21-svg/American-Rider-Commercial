@@ -1253,6 +1253,8 @@ export default {
     familyInviteDelivery: 'American Rider sendet die Einladung an die E-Mail des Jugendkontos. Nur dieses verifizierte Konto kann den Einladungslink annehmen.',
     familyCreateInvite: 'Familieneinladung Senden',
     familyWorking: 'Wird verarbeitet…',
+    familyInvitePrompt: 'Sie wurden zu einem American Rider Familienkonto eingeladen. Prüfen und bestätigen Sie die Einladung, um Jugend-Reisen zu aktivieren.',
+    familyAcceptInvitation: 'Familieneinladung Annehmen',
     familyAccepting: 'Familieneinladung wird angenommen…',
     familyAccepted: 'Familienautorisierung angenommen.',
     familyInviteUnable: 'Diese Einladung konnte nicht angenommen werden.',
