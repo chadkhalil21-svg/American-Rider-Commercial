@@ -1,5 +1,8 @@
 # AMERICAN RIDER — CANONICAL PROJECT LEDGER
 
+**2026-10-18 SOURCE MERGE STATUS (AUTHORITATIVE):** Commercial PR #79 (real Operator offer prices) merged at `f2c940322a44540e99eaff355af8759d6ff41834`; PR #72 (cancellation exits/refund truth) merged at `fc46a84266cf9c528121f49ffe98f4b458222fc7`. Both had six successful exact-head CI suites. Commits used `[skip render]` deliberately, so the live Render backend remains `5102ae7` and the current native/TestFlight app has NOT been confirmed updated. PR #63 payout protection is still DRAFT, updated independently to preserve both preceding changes. The status table below supersedes older draft-language paragraphs. No Stripe charge/refund/transfer was conducted by these merges, and neither a safe commercial pilot nor a provider-approved test has been certified.
+
+
 **2026-10-18 PR #72 refreshed after PR #79 (REVIEW, NOT LIVE):** Code for confirmed local cancellation exit, truthful uncertain refund outcomes, five translations, and recovery/support actions has been preserved and rebased against the new Operator offer changes. Payment and refund behavior requires provider and signed-device evidence before live release. No real Stripe refund was initiated by this PR.
 
 
@@ -17,9 +20,9 @@
 | Operator Accept/Decline | **MERGED PR #51**, code included in live backend SHA `5102ae7`. | Native app/build and real-request device acceptance are NOT verified by Render deploy. |
 | Plan Ahead and Family/Teen menu access | **MERGED PRs #52 and #73** in `release/current`. | Native binary parity and teen guardian authority/safety eligibility are unverified. Do not advertise independent Teen Travel as launch-certified. |
 | Cloud Run staging preparation | **MERGED PR #85, Render LIVE SHA `5102ae7caf8d2d46aaed86150eb9219039e85d02` after manual redeploy on 2026-10-18**. | Cloud Run service and separate staging project are NOT commissioned; Render remains the authoritative backend. No live cutover. |
-| Operator offer: Traveler total and 99% Fare plus eligible toll reimbursements | **PR #79 OPEN/DRAFT**. | Test real device display and compare actual payment and settlement before merger/release. |
-| Travel cancellation and uncertain refund | **PR #72 OPEN/DRAFT**. | Test on physical iOS/Android and real sandbox Stripe/Firebase failure/recovery paths before merger/release. |
-| Durable Operator payout once-only guard | **PR #63 OPEN/DRAFT**, with overlapping umbrella PR #67. | Stripe sandbox/provider reconciliation, historical payouts, safety and device checks. Avoid merging both overlapping implementations blindly. |
+| Operator offer: Traveler total and 99% Fare plus eligible toll reimbursements | **PR #79 MERGED at `f2c9403`** (all six CI checks passed). Source now in `release/current`, **not a new mobile build**. | Release-certified native iOS/Android screen and actual Fare/toll/payment reconciliation still need verification. |
+| Travel cancellation and uncertain refund | **PR #72 MERGED at `fc46a84`** (all six CI checks passed), deliberately committed `[skip render]`. Source is in `release/current` but **not yet live on Render or an updated phone build**. | Verify device cancellation, genuine Stripe/Firebase uncertain refund cases; then authorized backend and native release. |
+| Durable Operator payout once-only guard | **PR #63 OPEN/DRAFT**, now refreshed after both #79 and #72 as independent code; overlapping umbrella PR #67 remains separate. | Must complete exact-head checks, provider reconciliation, historical payout safety and devices before commercial payment release. Avoid merging duplicate implementations. |
 | Geo optimisation | **PR #81 OPEN/DRAFT**; base nearby-search is already built. | Validate saturation/nearby eligibility parity and measure Firestore reads under load. |
 | Lower scheduled read/index write overhead | **PR #82 OPEN/DRAFT**. | Requires index/query evidence; exemption changes are not yet deployed. |
 | HERE exceptional-only destination search proposal | **PR #84 OPEN/DRAFT**; contains unrelated duplicate Cloud Run staging. | **Do not merge as-is**: missing commercial primary-search credentials could make destination suggestions disappear. Cloud Run is already covered by #85. |
