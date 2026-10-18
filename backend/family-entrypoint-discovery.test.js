@@ -10,6 +10,9 @@ for(let pass=0;pass<2;pass++){
   'Account menu must match Home Family/Teen entry');
  assert.match(family,/createFamilyInvite\(/,'Guardian must have a create invitation action');
  assert.match(family,/acceptFamilyInvite\(/,'Teen must have verified invitation acceptance action');
+ assert.match(family,/onPress=\{acceptInvitation\}/,'Teen must deliberately accept');
+ assert(!family.includes('setAcceptAttempt('),'Opening an invitation must not auto-accept it');
+ for(const lang of ['en','es','fr','de','it'])assert(/familyInvitePrompt:/.test(file('src/i18n/'+lang+'.ts')) && /familyAcceptInvitation:/.test(file('src/i18n/'+lang+'.ts')));
  const server=file('backend/server.js');
  assert(server.includes("app.post('/family/invite', requireAuth, requireVerifiedEmail"),
   'Only verified guardian accounts may invite');
