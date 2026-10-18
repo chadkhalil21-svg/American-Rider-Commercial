@@ -65,6 +65,13 @@ const { normalizeSuggestion,normalizeGeoapify,normalizePhoton,privatePhotonEndpo
     assert.equal(selectedPrimary(),null,'no Geoapify key means fail closed in explicit mode');
     process.env.GEOAPIFY_API_KEY='synthetic-geo';
     assert.equal(selectedPrimary().name,'geoapify');
+    delete process.env.HERE_API_KEY;
+    delete process.env.AR_PHOTON_SEARCH_URL;
+    process.env.AR_PLACE_SEARCH_PRIMARY='auto';
+    assert.equal(selectedPrimary(),null,'auto mode never starts optional Geoapify merely because its key exists');
+    process.env.HERE_API_KEY='synthetic-here';
+    process.env.AR_PHOTON_SEARCH_URL='https://search.american-rider.example';
+    process.env.AR_PLACE_SEARCH_PRIMARY='geoapify';
     global.fetch=async(u)=>{calls.push(String(u));return {ok:true,json:async()=>({
       results:[{place_id:'geo-1',name:'Cutler Bay',result_type:'city',
         lat:25.58,lon:-80.35,address_line2:'Miami-Dade County'}],
