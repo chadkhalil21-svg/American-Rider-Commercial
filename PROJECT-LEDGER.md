@@ -1,5 +1,8 @@
 # AMERICAN RIDER — CANONICAL PROJECT LEDGER
 
+**2026-10-18 PATRON SUPPORT HISTORY CURRENT-SOURCE PROPOSAL (NOT DEPLOYED):** New support history query orders cases newest first in Firestore, scans no more than 100 rows across pages, filters Operator-only cases, and conservatively warns about potentially incomplete history. Existing no-order query can omit the real newest cases. This change introduces composite `support_tickets(uid, createdAt DESC)` in the manifest; NOT VERIFIED READY in Firebase and MUST NOT be deployed until commissioned, with privacy tests and exact-head CI. Ported narrowly from old PR #78, which will be closed only after equivalent source is merged. No real cases, payment, deploy, credentials or production data altered.
+
+
 **2026-10-18 SCHEDULED DUE-WINDOW COST-SAVING SOURCE REVIEW:** Ported only PR #82's existing-index due-time query and five-minute deduplication of unchanged waiting notes onto current Commercial. Reservations still reevaluated each minute; changing status, safety, price, assignment, failure and payment events are not delayed. Existing `scheduled_rides(status,atMs)` compound index is declared; live commission and Query Explain remain separate rollout evidence. PR #82's five optional single-field index exemptions are deliberately NOT applied or represented as reducing billed document writes; they need field-usage and index-commissioning review. Exact-head GitHub synthetic and regression suites required before merge. No provider, Render, Firebase, Stripe, native build or live operations changed.
 
 
