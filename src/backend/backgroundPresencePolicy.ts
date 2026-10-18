@@ -34,3 +34,33 @@ export function backgroundRenewalDue(lastAcceptedAt: number, now = Date.now()): 
   if (!Number.isFinite(lastAcceptedAt) || lastAcceptedAt <= 0 || lastAcceptedAt > now) return true;
   return now - lastAcceptedAt >= BACKGROUND_RENEWAL_MIN_MS;
 }
+
+/**
+ * A moving car needs a fresher dispatch position than a parked Operator.
+ * Only accelerate requests after both meaningful movement and a minimum
+ * thirty-second interval. This keeps the worst-case API rate bounded.
+ * Uses a modest spherical distance estimate, not a reverse-geocoder.
+ */
+export const MOVING_RENEWAL_MIN_MS = 30_000;
+export const MOVING_RENEWAL_DISTANCE_M = 300;
+export function backgroundMovementDue(
+  lastAcceptedAt: number,
+  previous: { latitude: number; longitude: number } | null,
+  next: { latitude: number; longitude: number },
+  now = Date.now(),
+): boolean {
+  if (!Number.isFinite(lastAcceptedAt) || lastAcceptedAt <= 0 ||
+      !Number.isFinite(now) || now - lastAcceptedAt < MOVING_RENEWAL_MIN_MS) return false;
+  if (!previous || !next) return false;
+  const lat1 = previous.latitude, lon1 = previous.longitude;
+  const lat2 = next.latitude, lon2 = next.longitude;
+  if (![lat1,lon1,lat2,lon2].every(Number.isFinite) ||
+      Math.abs(lat1)>90 || Math.abs(lat2)>90 ||
+      Math.abs(lon1)>180 || Math.abs(lon2)>180) return false;
+  const radians = Math.PI / 180;
+  const phi1=lat1*radians, phi2=lat2*radians;
+  const dphi=(lat2-lat1)*radians, dlambda=(lon2-lon1)*radians;
+  const a=Math.sin(dphi/2)**2+Math.cos(phi1)*Math.cos(phi2)*Math.sin(dlambda/2)**2;
+  const meters=2*6371000*Math.asin(Math.min(1,Math.sqrt(a)));
+  return meters >= MOVING_RENEWAL_DISTANCE_M;
+}
