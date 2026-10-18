@@ -680,7 +680,7 @@ export default function TravelConfirmation() {
                 <Pressable accessibilityRole="link"
                   onPress={() => { void Linking.openURL(liveMatched.some(p => p.source === 'geoapify') ? 'https://www.geoapify.com/' : 'https://www.here.com/'); }}>
                   <Text style={styles.searchAttribution}>
-                    {liveMatched.some(p => p.source === 'geoapify') ? 'Powered by Geoapify · © OpenStreetMap contributors' : 'Powered by HERE'}
+                    {liveMatched.some(p => p.source === 'geoapify') ? t('traveler.searchGeoapifyCredit') : t('traveler.searchHereCredit')}
                   </Text>
                 </Pressable>
               )}
@@ -747,7 +747,7 @@ export default function TravelConfirmation() {
                 <Pressable accessibilityRole="link"
                   onPress={() => { void Linking.openURL(depMatched.some(p => p.source === 'geoapify') ? 'https://www.geoapify.com/' : 'https://www.here.com/'); }}>
                   <Text style={styles.searchAttribution}>
-                    {depMatched.some(p => p.source === 'geoapify') ? 'Powered by Geoapify · © OpenStreetMap contributors' : 'Powered by HERE'}
+                    {depMatched.some(p => p.source === 'geoapify') ? t('traveler.searchGeoapifyCredit') : t('traveler.searchHereCredit')}
                   </Text>
                 </Pressable>
               )}
