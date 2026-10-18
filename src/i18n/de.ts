@@ -1164,6 +1164,8 @@ export default {
     signOut: 'Abmelden',
     pickup: 'Abholung',
     setAsDestination: 'Als Ziel festlegen',
+    searchGeoapifyCredit: 'Bereitgestellt von Geoapify · © OpenStreetMap-Mitwirkende',
+    searchHereCredit: 'Bereitgestellt von HERE',
     setPickupOnMap: 'Abholpunkt auf der Karte festlegen',
     leavingNow: 'Abfahrtszeit: sofort',
     change: 'Abfahrtszeit ändern',
