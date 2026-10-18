@@ -18,7 +18,7 @@ function normalizeSuggestion(x){
     title:x.title.slice(0,180),
     subtitle:String(x.address?.label||x.address?.street||x.address?.city||'').slice(0,240),
     category:['locality','city'].includes(k)?'locality':['street','housenumber','address'].includes(k)?'address':'place',
-    lat:Number(pos.lat),lng:Number(pos.lng)};
+    lat:Number(pos.lat),lng:Number(pos.lng),source:'here'};
 }
 function normalizeGeoapify(x){
   if(!x||!validCoord(Number(x.lat),Number(x.lon)))return null;
@@ -30,7 +30,7 @@ function normalizeGeoapify(x){
     subtitle:String(x.address_line2||x.formatted||'').slice(0,240),
     category:['city','county','state','suburb','district','postcode'].includes(kind)?'locality':
       ['building','street'].includes(kind)?'address':'place',
-    lat:Number(x.lat),lng:Number(x.lon)};
+    lat:Number(x.lat),lng:Number(x.lon),source:'geoapify'};
 }
 async function requestJson(url,timeout=2500){
   const ctrl=new AbortController(),timer=setTimeout(()=>ctrl.abort(),timeout);
