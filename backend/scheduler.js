@@ -38,6 +38,7 @@ const { notify } = require('./push');
 const { activeFamilyLink } = require('./family');
 const { provisionTeenPin } = require('./teenpickup');
 const { readKey } = require('./env');
+const { dueReservationsQuery, shouldWriteWaitingState } = require('./scheduled-query-budget');
 
 // How far ahead a reservation enters consideration. Inside this window it is looked at on
 // every sweep; outside it, it is not read at all.
@@ -87,19 +88,13 @@ async function sweepScheduled({ now = Date.now(), checkMarket } = {}) {
 
   let due;
   try {
-    // Status + due time uses the declared composite index. Without the index, return a loud
-    // failure; an arbitrary first 100 reserved records can starve the actually due bookings.
-    const snap = await db
-      .collection('scheduled_rides')
-      .where('status', '==', 'reserved')
-      .orderBy('atMs', 'asc')
-      .limit(RESERVED_SCAN_LIMIT)
-      .get();
+    // The declared (status, atMs) index can exclude distant-future bookings
+    // BEFORE Firestore returns documents. Do not read the first 100 future
+    // reservations and then filter them in app code every minute.
+    // A missing/unready index fails visibly; it never counts as no demand.
+    const snap = await dueReservationsQuery(db, now, WINDOW_MS, RESERVED_SCAN_LIMIT).get();
     if (snap.docs.length >= RESERVED_SCAN_LIMIT) report.overCapacity = true;
-    due = snap.docs.filter((d) => {
-      const r = d.data();
-      return typeof r.atMs === 'number' && r.atMs - now <= WINDOW_MS;
-    });
+    due = snap.docs.filter(d => typeof d.data().atMs === 'number');
   } catch (e) {
     return { ok: false, reason: `could not read reservations: ${e.message}`, considered: 0 };
   }
@@ -130,7 +125,7 @@ async function sweepScheduled({ now = Date.now(), checkMarket } = {}) {
     if (!await admitted(pickup)) {
       // Keep the reservation visible and uncharged. Closure/refunds and already-running rides
       // continue independently; a lapse must never be reported as "no Operator available".
-      await touch(db, id, { lastSweepAt: now, lastSweepResult: 'market admission unavailable' });
+      await touchWaiting(db, id, r, 'market admission unavailable', now);
       report.failed.push({ id, reason: 'market admission unavailable; no charge requested' });
       continue;
     }
@@ -162,7 +157,7 @@ async function sweepScheduled({ now = Date.now(), checkMarket } = {}) {
         });
         report.failed.push({ id, reason: 'nobody available' });
       } else {
-        await touch(db, id, { lastSweepAt: now, lastSweepResult: 'no operator available' });
+        await touchWaiting(db, id, r, 'no operator available', now);
         report.waiting++;
       }
       continue;
@@ -172,10 +167,8 @@ async function sweepScheduled({ now = Date.now(), checkMarket } = {}) {
     // order to be there when it is due.
     const leaveBy = r.atMs - (match.etaMin + ARRIVAL_BUFFER_MIN) * 60 * 1000;
     if (now < leaveBy && !late) {
-      await touch(db, id, {
-        lastSweepAt: now,
-        lastSweepResult: `holding — nearest operator is ${match.etaMin} min away`,
-      });
+      await touchWaiting(db, id, r,
+        `holding — nearest operator is ${match.etaMin} min away`, now);
       report.waiting++;
       continue;
     }
@@ -469,6 +462,12 @@ async function recoverStaleClaims(db,now,report){
   }
   return true;
  }catch(e){report.failed.push({reason:`stale scheduled claims could not be reconciled: ${e.message}`});return false;}
+}
+
+// This is a presentation/operations note, never a gate for dispatch or money.
+async function touchWaiting(db,id,prior,reason,now){
+  if(!shouldWriteWaitingState(prior,reason,now))return;
+  await touch(db,id,{lastSweepAt:now,lastSweepResult:reason});
 }
 
 /** Write to the reservation. Never throws — a lost note must not stop the sweep. */
