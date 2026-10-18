@@ -35,6 +35,19 @@ for(let pass=0;pass<2;pass++){
   assert.equal((await durableMaintenance({db,name:'marketReference',work,now:now+PERIOD_MS.marketReference+60_000})).runs,4);
   // A later instance must not get blocked forever when its wall clock moves back.
   assert.equal((await durableMaintenance({db,name:'screening',work,now:now-60_000})).runs,5);
+  const failedAt=now+2*PERIOD_MS.insuranceMonitoring;
+  const failure=await durableMaintenance({db,name:'insuranceMonitoring',now:failedAt,
+    work:async()=>({ok:false,reason:'synthetic provider outage'})});
+  assert.equal(failure.ok,false,'a provider failure is never stamped successful');
+  assert.equal((await durableMaintenance({db,name:'insuranceMonitoring',now:failedAt+60_000,
+    work})).skipped,'cadence','failed optional work briefly backs off');
+  assert.equal((await durableMaintenance({db,name:'insuranceMonitoring',now:failedAt+5*60_000,
+    work})).runs,6,'failed optional work retries automatically instead of disappearing for 30 minutes');
+  const raisedAt=now+3*PERIOD_MS.screening;
+  await assert.rejects(durableMaintenance({db,name:'screening',now:raisedAt,
+    work:async()=>{throw Error('synthetic scheduler error');}}),/synthetic scheduler error/);
+  assert.equal((await durableMaintenance({db,name:'screening',now:raisedAt+5*60_000,work})).runs,7,
+    'exceptions never stamp successful optional work');
   await assert.rejects(durableMaintenance({db:null,name:'screening',work,now}),/Database unavailable/);
   await assert.rejects(durableMaintenance({db,name:'unknown',work,now}),/Invalid/);
 }
