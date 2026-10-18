@@ -1,7 +1,7 @@
 'use strict';
 const assert = require('node:assert/strict');
 const { DAY_MS, STATUS_INTERVAL_DAYS, STATUS_GRACE_DAYS, STATUS_DUE_MS,
-  STATUS_MAX_AGE_MS, initialMonitoringFromDocument, continuingStatus,
+  STATUS_MAX_AGE_MS, effectiveVerificationDueAt, initialMonitoringFromDocument, continuingStatus,
   applyIndependentConfirmation, applyOperatorAttestation } = require('./insurance-monitoring');
 const now = Date.parse('2026-10-18T12:00:00Z');
 const specimen = { expiry: '2027-12-01', evidence: { insurance: {
@@ -37,6 +37,8 @@ for(let pass=0;pass<2;pass++) {
   assert.equal(continuingStatus({insuranceMonitoring:legacyAttest},now+61*DAY_MS).ok,false,
     'old day-30 confirmation is not a day-60 attestation');
   const legacyDue={...confirmed,nextVerificationDueAt:now+30*DAY_MS,statusMaxAgeDays:35};
+  assert.equal(effectiveVerificationDueAt(legacyDue),now+60*DAY_MS,'older due timestamp must not trigger early contact');
+  assert.equal(effectiveVerificationDueAt(confirmed),now+60*DAY_MS);
   assert.equal(continuingStatus({insuranceMonitoring:legacyDue},now+59*DAY_MS).ok,true,
     'historic next-due field is not authoritative for new 60-day rule');
   const expiry={...confirmed,expirationDate:'2026-10-17'};
