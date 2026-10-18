@@ -91,7 +91,7 @@ assert.equal(typeof resolve, 'function');
     'a 2xx response alone must not count unless the server acknowledges duty');
   assert.match(native,/console\.warn\('\[operator-presence\] renewal_refused', response\.status, code\)/,
     'background refusal should be recorded without identity or coordinates');
-  assert.match(native,/distanceInterval: Platform\.OS === 'ios' \? 0 : 150/);
+  assert.match(native,/distanceInterval: Platform\.OS === 'ios' \? 0 : 150/,
     'iOS asks for stationary fix opportunities, Android retains its 150m movement filter');
   const matcher=fs.readFileSync(path.join(__dirname,'matching.js'),'utf8');
   assert.match(matcher,/PRESENCE_STALE_MS = 5 \* 60 \* 1000/,
