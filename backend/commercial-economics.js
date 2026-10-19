@@ -20,7 +20,7 @@ const DEFAULT=Object.freeze({
   billableInstanceSecondsPerTravel:8,otherBillableInstanceSecondsPerDay:180,
   cloudMemoryGib:1,
   nonCloudVariableUsdPerTravel:0.10,
-  verifiedFixedMonthlyUsd:2000,
+  assumedFixedMonthlyUsd:2000,
   useFreeTiers:true,
 });
 function nonneg(n,name) {
@@ -60,7 +60,7 @@ function evaluate(overrides={}) {
     Math.max(0,instanceSeconds-(a.useFreeTiers?PRICES.monthlyFreeCpuSeconds:0))*PRICES.cloudCpuPerSecond+
     Math.max(0,gibSeconds-(a.useFreeTiers?PRICES.monthlyFreeGibSeconds:0))*PRICES.cloudMemoryPerGibSecond+
     Math.max(0,requests-(a.useFreeTiers?PRICES.monthlyFreeRequests:0))*PRICES.cloudRequestsPerMillion/1e6;
-  const fixed=a.verifiedFixedMonthlyUsd;
+  const fixed=a.assumedFixedMonthlyUsd;
   const otherVariable=rides*a.nonCloudVariableUsdPerTravel;
   const totalCost=fixed+otherVariable+firestoreUsd+cloudRunUsd;
   const room=rides*transactionRoomUsd;
