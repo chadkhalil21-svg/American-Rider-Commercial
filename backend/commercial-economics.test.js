@@ -15,7 +15,7 @@ assert.equal(v.firestoreReadsPerDay,7500);
 assert.equal(v.freeTierAssumed,true);
 assert.equal(v.cloudRunCostUsd,0);
 assert.equal(v.firestoreCostUsd,0);
-assert(v.modeledOperatingResultUsd<0,'50 paid Travels/day does not break even if fixed costs are $2000 and unknown fees 10c per Travel');
+assert(v.modeledOperatingResultUsd>0,'default model includes no hypothetical monthly company expenses');
 const demand=evaluate({travelsPerDay:100,internationalShare:0,assumedFixedMonthlyUsd:2000});
 assert(demand.modeledOperatingResultUsd>0);
 assert(evaluate({travelsPerDay:100,internationalShare:1}).modeledOperatingResultUsd<
