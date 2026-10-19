@@ -98,7 +98,7 @@ def render_environment(api_key):
 def eligible_values(values):
     staged, excluded, invalid = {}, [], []
     for name, value in values.items():
-        if name.startswith("RENDER_") or name in SKIP_EXACT:
+        if name.startswith("RENDER_") or name in SKIP_EXACT or name.endswith("_WEBHOOK_SECRET"):
             excluded.append(name)
         elif not KEY_PATTERN.fullmatch(name):
             invalid.append(name)
@@ -171,6 +171,7 @@ def main():
     print(f"Eligible to stage: {len(staged)}; excluded platform/endpoint-specific: {len(excluded)}.")
     print("Excluded:", ", ".join(sorted(excluded)) or "none")
     print("Note: linked Render environment groups and Render secret files are NOT included.")
+    print("Webhook signing secrets must be issued for the new endpoint; never reuse old URLs blindly.")
     print("Review before eventual binding:", ", ".join(sorted(REVIEW_KEYS.intersection(staged))) or "none")
     if "STRIPE_SECRET_KEY" not in staged:
         print("WARNING: No directly-defined STRIPE_SECRET_KEY; check linked Render environment groups.")
