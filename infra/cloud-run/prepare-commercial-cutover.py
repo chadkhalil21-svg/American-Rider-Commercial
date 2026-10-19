@@ -158,24 +158,48 @@ def grant_secret_access(names):
 
 
 def service_health(url):
+    # The founder's original production commissioning verified both URLs at
+    # HTTP 200. Later preflight returned only "health verification failed"
+    # without identifying whether the problem was IAM, DNS or application.
+    # NEVER disclose tokens, response bodies, request headers or secrets.
     token = google("auth", "print-identity-token", timeout=30)
     def read(path):
-        req = urllib.request.Request(url + path,
-                                     headers={"Authorization": "Bearer " + token})
-        with urllib.request.urlopen(req, timeout=35) as r:
-            return r.status, json.loads(r.read(250_000))
-    try:
-        code, live = read("/live")
-        code2, health = read("/health")
-    except (TimeoutError, urllib.error.HTTPError, urllib.error.URLError, ValueError):
-        stop("Private Cloud Run health verification failed. Render remains live.")
-    if code != 200 or code2 != 200 or health.get("stripe") != "no-key" or \
-            health.get("deployment") != "development":
-        stop("Private API is not proven payment-disabled.")
+        req = urllib.request.Request(
+            url + path, headers={
+                "Authorization": "Bearer " + token,
+                "Accept": "application/json",
+            },
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=45) as r:
+                status = r.status
+                data = json.loads(r.read(250_000))
+        except urllib.error.HTTPError as exc:
+            # HTTP 401/403 points to service IAM / audience or application
+            # authorization; HTTP 404 points to URL routing, not proof that
+            # a Cloud Run deployment has failed.
+            stop(f"Private {path}: HTTP {exc.code} on {url}. "
+                 "Check Cloud Run invoker authorization, identity-token "
+                 "audience and the advertised service URL. No cutover.")
+        except (urllib.error.URLError, TimeoutError) as exc:
+            stop(f"Private {path}: network/timeout ({type(exc).__name__}). "
+                 "No deployment or payment cutover.")
+        except (ValueError, UnicodeDecodeError) as exc:
+            stop(f"Private {path}: HTTP reply is not valid JSON "
+                 f"({type(exc).__name__}). No cutover.")
+        print(f"Private {path}: HTTP {status}")
+        return status, data
+    code, _ = read("/live")
+    code2, health = read("/health")
+    if code != 200 or code2 != 200:
+        stop(f"Private health endpoints did not return HTTP 200 "
+             f"(live={code}, health={code2}). Render remains live.")
+    if health.get("stripe") != "no-key" or health.get("deployment") != "development":
+        stop("Private API is not proven payment-disabled. No cutover.")
     if health.get("support", {}).get("firestore") != "on":
-        stop("Firestore no longer available.")
+        stop("Firestore unavailable from private API; no cutover.")
     if not isinstance(health.get("fleet", {}).get("operators"), int):
-        stop("Firestore query failed. No cutover.")
+        stop("Private API Firestore count query failed; no cutover.")
     print("PASS: private API and real Firebase read; Stripe stays OFF.")
 
 

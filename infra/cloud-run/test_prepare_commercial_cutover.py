@@ -76,6 +76,30 @@ class CutoverPrepTests(unittest.TestCase):
         self.assertNotIn("--allow-unauthenticated", deploy.replace(
             "--no-allow-unauthenticated", ""))
 
+    def test_private_http_403_reports_iam_without_leaking_token(self):
+        import io
+        import urllib.error
+        from contextlib import redirect_stdout
+        status = urllib.error.HTTPError(
+            "https://private.run.app/live", 403, "Forbidden", {}, None)
+        with mock.patch.object(m, "google", return_value="PRIVATE_ID_TOKEN"), \
+             mock.patch.object(m.urllib.request, "urlopen", side_effect=status):
+            with redirect_stdout(io.StringIO()) as output:
+                with self.assertRaisesRegex(RuntimeError, r"Private /live: HTTP 403") as ctx:
+                    m.service_health("https://private.run.app")
+        self.assertNotIn("PRIVATE_ID_TOKEN", str(ctx.exception))
+        self.assertNotIn("PRIVATE_ID_TOKEN", output.getvalue())
+
+    def test_private_network_error_classified_without_redeploy(self):
+        import urllib.error
+        with mock.patch.object(m, "google", return_value="PRIVATE_ID_TOKEN"), \
+             mock.patch.object(m.urllib.request, "urlopen",
+                               side_effect=urllib.error.URLError("DNS unavailable")):
+            with self.assertRaisesRegex(RuntimeError, r"Private /live: network/timeout") as ctx:
+                m.service_health("https://private.run.app")
+        self.assertNotIn("DNS unavailable", str(ctx.exception))
+        self.assertNotIn("PRIVATE_ID_TOKEN", str(ctx.exception))
+
     def test_existing_paused_scheduler_is_reused(self):
         calls = []
         def api(url, token, operation, payload=None, method="GET"):
