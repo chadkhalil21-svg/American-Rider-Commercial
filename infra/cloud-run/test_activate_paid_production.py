@@ -57,13 +57,13 @@ class LiveGcpTests(unittest.TestCase):
     def test_ready_private_preflight(self):
         self.assertEqual(self.inspect(), [])
 
-    def test_reject_missing_screening_evidence_flag_without_fake_attestation(self):
+    def test_missing_optional_screening_attestation_does_not_block_platform_api(self):
         s = state()
         s["spec"]["template"]["spec"]["containers"][0]["env"] = [
             x for x in s["spec"]["template"]["spec"]["containers"][0]["env"]
             if x["name"] != "SCREENING_EVIDENCE_WORKFLOW_VERIFIED"
         ]
-        self.assertTrue(any("screening evidence" in x for x in self.inspect(s=s)))
+        self.assertEqual(self.inspect(s=s), [], "individual screening is checked at duty/dispatch, not by platform-wide payment gate")
 
     def test_reject_incomplete_webhooks_scheduler_or_live_already(self):
         s = state()
@@ -116,7 +116,7 @@ class LiveGcpTests(unittest.TestCase):
         self.assertTrue(any("scheduler state unreadable" in b for b in blockers))
         self.assertTrue(any("VERSION METADATA unreadable" in b for b in blockers))
 
-    def test_live_get_responses_require_real_verified_provider_and_mode(self):
+    def test_live_get_responses_require_real_payments_document_review_and_mode(self):
         health = {
             "stripe": "live", "deployment": "production", "screening": "on",
             "documents": "on", "scheduler": "authenticated",
@@ -127,8 +127,9 @@ class LiveGcpTests(unittest.TestCase):
         m.verify_paid_public(health, cfg, {"ok": True})
         with self.assertRaisesRegex(m.Stop, "publishable key"):
             m.verify_paid_public(health, {**cfg, "stripePublishableKey": "pk_test_DUMMY"}, {"ok": True})
-        with self.assertRaisesRegex(m.Stop, "Screening"):
-            m.verify_paid_public({**health, "screening": "off"}, cfg, {"ok": True})
+        m.verify_paid_public({**health, "screening": "off"}, cfg, {"ok": True})
+        with self.assertRaisesRegex(m.Stop, "document review"):
+            m.verify_paid_public({**health, "documents": "off"}, cfg, {"ok": True})
 
     def test_failed_public_health_auto_rolls_back_without_stripe_url_changes(self):
         live = state()
