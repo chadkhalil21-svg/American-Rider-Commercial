@@ -22,5 +22,9 @@ for(let pass=0;pass<2;pass++){
     'Cloud Run accepts scheduler secret only in a protected header, never URL query');
   assert.match(admin,/else if \(process\.env\.K_SERVICE\)/,'Cloud Run uses instance identity');
   assert.match(admin,/credential: appMod\.applicationDefault\(\)/,'no exported private Firebase key required');
+  assert.match(server,/app\.get\('\/live', \(req, res\) => res\.json\(\{ ok: true, service: 'american-rider-server' \}\)\)/,
+    'Cloud Run-safe liveness endpoint must be cheap and synchronous');
+  assert.match(server,/app\.get\('\/healthz', \(req, res\) => res\.json\(\{ ok: true, service: 'american-rider-server' \}\)\)/,
+    'Render existing liveness route remains compatible');
 }
 console.log('PASS twice: Cloud Run timer fail-closed, authenticated leased scheduler and Google-native Firebase identity');
