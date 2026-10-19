@@ -658,7 +658,10 @@ async function refundableFor({ paymentIntentId, expectUid }) {
 //
 // Returns { ok, refundId, amountCents } or { ok:false, error }. The caller must NOT tell the
 // traveler money moved unless ok is true; server.js routes a failed refund to a person.
-async function refundTravel({ paymentIntentId, amountCents, expectUid, idempotencyKey = null }) {
+async function refundTravel({ paymentIntentId, amountCents, expectUid, idempotencyKey = null, maxOutOfPocketCents = null }) {
+  if (maxOutOfPocketCents !== null && (!Number.isInteger(maxOutOfPocketCents) || maxOutOfPocketCents < 0)) {
+    return { ok: false, error: 'invalid automatic refund exposure cap' };
+  }
   if (!paymentIntentId) return { ok: false, error: 'no payment on record for that travel' };
   if (!Number.isInteger(amountCents) || amountCents <= 0) {
     return { ok: false, error: 'refund amount must be a positive whole number of cents' };
@@ -710,6 +713,11 @@ async function refundTravel({ paymentIntentId, amountCents, expectUid, idempoten
     const platformHeld = Number(pi.metadata?.platformTake) || 0;
     const stillOurs = Math.max(0, platformHeld - alreadyRefunded);
     const outOfPocketCents = Math.max(0, amountCents - stillOurs);
+    // Patron Support must check the economic exposure BEFORE moving real money.
+    // Mandatory cancellation and approved manual refunds omit this optional cap.
+    if (maxOutOfPocketCents !== null && outOfPocketCents > maxOutOfPocketCents) {
+      return { ok: false, error: 'Automatic refund requires human review: exposure exceeds approved cap', code: 'refund_exposure_review_required', outOfPocketCents };
+    }
 
     const refund = await getStripe().refunds.create({
       payment_intent: paymentIntentId,
