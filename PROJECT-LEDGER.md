@@ -1,5 +1,11 @@
 # AMERICAN RIDER — CANONICAL PROJECT LEDGER
 
+## Prevent discretionary support refunds exceeding Founder exposure cap — 2026-10-19
+
+**AUTHORITY / SCOPE:** The $25 `MAX_OUT_OF_POCKET_CENTS` safeguard for AI-proposed Patron Support credits was previously checked **after** Stripe completed the refund. PR #142 changes the authoritative `refundTravel()` routine to verify the maximum out-of-pocket cost from Stripe's own PaymentIntent and remaining refundable amount **before** requesting a refund. Over-cap **discretionary** credits now require a human review ticket with no automatic refund; tests use fake Stripe payments and make no money movement. This does NOT restrict refunds actually owed for cancelled/undelivered Travel, affect bank chargeback rights, silently seize Operator earnings, or assume zero disputes. Existing verified ownership, idempotency and mandatory cancellation/refund logic remain. Fully reliable live coverage of this safeguard requires a distinct paid Cloud Run source release after CI/merge. Customer-rights changes require transportation/consumer counsel review. One Founder receives exception cases only, not routine refund micro-management.
+
+---
+
 ## Paid first-day launch: current authority and source-sync route — 19 October 2026
 
 **CONFIRMED EXTERNALLY:** Live Stripe account has both existing account and Connect webhooks targeting Google Cloud Run. Google paid service is public with live Stripe and Firestore in production mode. Google authenticated minute scheduler resumed successfully in GitHub [run 39268828128](https://github.com/chadkhalil21-svg/American-Rider-Commercial/actions/runs/39268828128); Render restart logs 14:17:09Z explicitly say "External authenticated scheduler selected; in-process sweep clock disabled." **The real Stripe account presently reports 0 charges and 0 Connect transfers and USD $0 balances** on authenticated direct API reads. This is a production-capable platform, **not** financial/operational proof of completed commercial Travels or Apple/Google publication.
