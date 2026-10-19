@@ -101,18 +101,38 @@ for ROLE in roles/run.sourceDeveloper roles/serviceusage.serviceUsageConsumer; d
     --quiet >/dev/null
 done
 
-# Google Cloud can use different identities for default Cloud Build.
-# Inspect the actually configured one, not a guessed project-number identity.
+# Source deployments use BOTH a builder identity and the distinct Cloud Run
+# runtime account. Cloud Build requires roles/run.builder on its build SA.
+# The initiating deployer ALSO requires iam.serviceAccounts.actAs on that build
+# SA, in addition to the existing actAs permission on ar-*-runtime.
+# 2026-10-18 GitHub run #39179844611 failed exactly on that missing actAs.
 BUILD_SA="$(gcloud builds get-default-service-account --project="$PROJECT" \
   --region=us-east1 --format='value(serviceAccount)' 2>/dev/null || true)"
 BUILD_SA="${BUILD_SA##*/}"
-if [[ "$BUILD_SA" == *"@"* ]]; then
+if [[ "$BUILD_SA" != *"@"* ]]; then
+  # Some new projects return empty Cloud Build metadata until a build starts.
+  # Only use Google's documented Compute default if it EXISTS in this project.
+  CANDIDATE="${PROJECT_NUMBER}-compute@developer.gserviceaccount.com"
+  if gcloud iam service-accounts describe "$CANDIDATE" --project="$PROJECT" >/dev/null 2>&1; then
+    BUILD_SA="$CANDIDATE"
+    echo "Verified Google Compute default Cloud Build identity: $BUILD_SA"
+  else
+    echo "No verified build service account. Check Cloud Build defaults; refusing a broad IAM grant." >&2
+    exit 1
+  fi
+fi
+if [[ "$BUILD_SA" == *".gserviceaccount.com" ]]; then
   gcloud projects add-iam-policy-binding "$PROJECT" \
     --member="serviceAccount:$BUILD_SA" --role=roles/run.builder \
     --quiet >/dev/null
-  echo "Cloud Build builder role confirmed for configured default build identity."
+  # Bind permission to the specific build account, never project-wide.
+  gcloud iam service-accounts add-iam-policy-binding "$BUILD_SA" \
+    --project="$PROJECT" --member="serviceAccount:$DEPLOYER" \
+    --role=roles/iam.serviceAccountUser --quiet >/dev/null
+  echo "Builder rights and deployer permission to act as build account verified."
 else
-  echo "Cloud Build default identity not resolved; verify roles/run.builder before source deployment."
+  echo "Unexpected build identity: $BUILD_SA. Stopping before granting permissions." >&2
+  exit 1
 fi
 
 echo "DONE: Identity/permission setup for $NAME. Existing resources were reused."
