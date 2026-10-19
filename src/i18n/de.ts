@@ -88,7 +88,7 @@ export default {
     guardianTeenTravel: "Vom Erziehungsberechtigten autorisierte Reise eines Jugendlichen",
     bookedByAnother: "Von einem anderen Kontoinhaber angeforderte Reise",
     activeAccountCost: "Kosten des aktiven Kontos",
-    activeAccountCostBody: "Die Stripe-Connect-Kontogebühr von 2 $ fällt in jedem Monat mit einer Auszahlung an ein Bankkonto oder eine Debitkarte an, unabhängig von der Anzahl der Reisen. Sie wird nach ausdrücklicher Zustimmung zusammen mit offengelegten Karten-Einzugskosten separat berechnet. Standard- und Sofortauszahlungen können weitere Anbietergebühren auslösen. Ihr Anteil von 99 % am Fahrpreis bleibt unverändert.",
+        activeAccountCostBody: "Monat mit Bank- oder Kartenauszahlung: 2 $ für Stripe Connect zuzüglich gesondert ausgewiesener Einzugskosten. Standardauszahlung: 0,25 % + 0,25 $ je Auszahlung. Gelderweiterleitung: 0,25 %. Optionale Sofortauszahlung: zusätzliche 1 %, sofern verfügbar. Diese Gebühren trägt der Operator nur nach separater Vereinbarung und Abrechnung; sein Anteil von 99 % am Fahrpreis bleibt unverändert.",
     feeConsentAccept: "Ich stimme den separaten 2 $ und den ausgewiesenen Auszahlungsgebühren zu",
     feeConsentRequired: "Bitte stimmen Sie den Connect-Konto- und Auszahlungsgebühren vor der Einrichtung zu.",
     operatingArea: 'Einsatzgebiet',
