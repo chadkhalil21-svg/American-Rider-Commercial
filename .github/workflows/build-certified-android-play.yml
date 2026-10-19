@@ -7,6 +7,11 @@ on:
         description: 'Exact tested release/current SHA to build (40 hexadecimal characters)'
         required: true
         type: string
+      submit_to_google_play_internal:
+        description: 'Also upload signed AAB to Google Play INTERNAL TESTING (requires EAS Play service account)'
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -75,8 +80,20 @@ jobs:
             throw Error('EAS did not confirm a completed Android build.');
           }
           console.log('Completed Android EAS build:', b.id);
+          fs.appendFileSync(process.env.GITHUB_ENV, 'EAS_BUILD_ID=' + b.id + '\\n');
           fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY,
             '### Android store candidate built\n\nExact source: `' + process.env.CERTIFIED_SHA +
             '`\n\nEAS build ID: `' + b.id +
             '`\n\n**Not submitted to or approved by Google Play.** Play Console review and physical-device validation remain separate.\n');
           NODE
+
+      - name: Submit the exact Android bundle to Google Play INTERNAL TESTING (explicit choice only)
+        if: ${{ inputs.submit_to_google_play_internal == true }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${EAS_BUILD_ID:-}" || { echo "::error::Exact Android build ID missing."; exit 1; }
+          # Expo needs a Google Play service account assigned to the application.
+          # This does NOT submit to public production or approve store listing.
+          npx --yes eas-cli@latest submit --platform android --id "$EAS_BUILD_ID" --profile production --non-interactive --wait
+          echo "Android uploaded to Google Play INTERNAL testing only. Public Play rollout requires Play Console setup and review." >> "$GITHUB_STEP_SUMMARY"
