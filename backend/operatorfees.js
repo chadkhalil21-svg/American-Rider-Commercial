@@ -59,9 +59,23 @@ async function recordPayoutActivity({ accountId, createdAt = Date.now() }) {
   const uid = await uidByAccount(db, accountId);
   if (!uid) return { ok: true, ignored: true };
   const month = monthKey(createdAt);
-  await db.collection('operator_months').doc(month).collection('accounts').doc(uid).set({
-    uid, month, payoutSeen: true, lastPayoutAt: createdAt,
-  }, { merge: true });
+  const ref = db.collection('operator_months').doc(month).collection('accounts').doc(uid);
+  // Record the FIRST payout, not just the latest payout. Otherwise an Operator
+  // who consents mid-month could be billed for an earlier unconsented payout.
+  await db.runTransaction(async (tx) => {
+    const snap = await tx.get(ref);
+    const rec = snap.exists ? snap.data() || {} : {};
+    const firstPayoutAt = Number.isSafeInteger(rec.firstPayoutAt)
+      ? Math.min(rec.firstPayoutAt, createdAt)
+      : Number.isSafeInteger(rec.lastPayoutAt)
+        ? null // legacy monthly record: first payout cannot be proven; never back-bill
+        : createdAt;
+    tx.set(ref, {
+      uid, month, payoutSeen: true,
+      ...(firstPayoutAt === null ? {} : { firstPayoutAt }),
+      lastPayoutAt: Math.max(Number(rec.lastPayoutAt) || 0, createdAt),
+    }, { merge: true });
+  });
   return { ok: true, uid, month };
 }
 
@@ -108,8 +122,8 @@ async function sweepOperatorAccountFees({ charge, cardCountryFor = async () => n
     const consent = user.exists ? user.data()?.stripeFeeConsent : null;
     if (consent?.version !== FEE_CONSENT_VERSION ||
         !Number.isSafeInteger(consent.acceptedAt) ||
-        !Number.isSafeInteger(rec.lastPayoutAt) ||
-        consent.acceptedAt > rec.lastPayoutAt) {
+        !Number.isSafeInteger(rec.firstPayoutAt) ||
+        consent.acceptedAt > rec.firstPayoutAt) {
       if (rec.feeStatus !== 'consent_required')
         await d.ref.set({ feeStatus:'consent_required', feeConsentVersion:FEE_CONSENT_VERSION }, { merge:true });
       due++;
