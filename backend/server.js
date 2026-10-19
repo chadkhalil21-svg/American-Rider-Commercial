@@ -292,6 +292,7 @@ if (process.env.K_SERVICE === 'american-rider-api-production') {
   if (realMoneyPosture !== cutoverActive ||
       (cutoverActive && (keyMode !== 'live' || DEPLOYMENT_MODE !== 'production' ||
         !readKey('STRIPE_WEBHOOK_SECRET') || !readKey('STRIPE_CONNECT_WEBHOOK_SECRET') ||
+        !/^pk_live_/.test(readKey('STRIPE_PUBLISHABLE_KEY')) ||
         readKey('AR_EXTERNAL_SCHEDULER') !== '1'))) {
     throw new Error('Cloud Run commercial API requires an explicit, complete cutover: live Stripe, both signed webhooks, external scheduler and production mode');
   }
@@ -324,7 +325,7 @@ function productionReadiness() {
   const missing = [];
   if (!['development', 'production'].includes(DEPLOYMENT_MODE)) missing.push('deployment_mode');
   if (keyMode !== 'live') missing.push('stripe_live_key');
-  if (!readKey('STRIPE_PUBLISHABLE_KEY')) missing.push('stripe_publishable_key');
+  if (keyMode === 'live' ? !/^pk_live_/.test(readKey('STRIPE_PUBLISHABLE_KEY')) : !readKey('STRIPE_PUBLISHABLE_KEY')) missing.push('stripe_publishable_key');
   if (!readKey('STRIPE_WEBHOOK_SECRET')) missing.push('stripe_webhook_secret');
   if (!readKey('STRIPE_CONNECT_WEBHOOK_SECRET')) missing.push('stripe_connect_webhook_secret');
   if (!screeningReady()) missing.push('screening_provider');
@@ -491,7 +492,7 @@ app.get('/health', async (req, res) => {
     // Which commit is answering. Render sets RENDER_GIT_COMMIT on every deploy; without it the
     // live backend's revision was ASSUMED in three handoffs running (16 Sept 2026), and a deploy
     // that changed no health field could not be told from the one before it.
-    commit: (process.env.RENDER_GIT_COMMIT || '').slice(0, 7) || null,
+    commit: (process.env.AR_RELEASE_COMMIT || process.env.RENDER_GIT_COMMIT || '').slice(0, 7) || null,
     stripe: keyMode,
     transit: {
       configured: !!defaultRegion().otpUrl,

@@ -1,0 +1,46 @@
+name: Enable ONE paid Google dispatch clock after Render and Stripe handoff
+
+# Final owner-authorized operational handoff. Never runs on GitHub pushes.
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'After BOTH Stripe webhooks target Google and Render sweep OFF, type RENDER_DISABLED_STRIPE_GOOGLE_ENABLE_DISPATCH'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: american-rider-real-production-paid-activation
+  cancel-in-progress: false
+
+jobs:
+  switch-single-scheduler:
+    if: ${{ github.ref == 'refs/heads/release/current' && inputs.confirm == 'RENDER_DISABLED_STRIPE_GOOGLE_ENABLE_DISPATCH' }}
+    runs-on: ubuntu-latest
+    environment: american-rider-commercial-live
+    timeout-minutes: 12
+    env:
+      FOUNDER_CONFIRM: ${{ inputs.confirm }}
+      CLOUDSDK_CORE_PROJECT: american-rider-35688
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Local safe scheduler tests before any Google change
+        run: python3 -m unittest discover -s infra/cloud-run -p test_enable_live_google_scheduler.py
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: projects/623854974930/locations/global/workloadIdentityPools/github-production/providers/github
+          service_account: ar-production-deployer@american-rider-35688.iam.gserviceaccount.com
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Verify live Cloud Run, pre-approved Stripe handoff and enable minute dispatcher
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          python3 infra/cloud-run/enable-live-google-scheduler.py
