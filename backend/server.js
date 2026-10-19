@@ -1009,6 +1009,29 @@ app.post('/connect/onboard', requireAuth, LIMITS.connect, requireActiveOperating
   }
 });
 
+// Explicit consent for operators already linked to Stripe. Never back-bill fees
+// from before acceptance; the month sweep verifies acceptance precedes a payout.
+app.post('/connect/fee-consent', requireAuth, LIMITS.connect, async (req,res)=>{
+  if(req.body?.agreeFeePolicy!==true)
+    return res.status(400).json({code:'fee_consent_required'});
+  const db=adminDb();
+  if(!db)return res.status(503).json({code:'no_admin_db'});
+  const ref=db.collection('users').doc(String(req.uid));
+  const version=require('./operatorfees').FEE_CONSENT_VERSION;
+  try {
+    const result=await db.runTransaction(async tx=>{
+      const snap=await tx.get(ref);
+      const existing=snap.exists?snap.data()?.stripeFeeConsent:null;
+      if(existing?.version===version)return existing;
+      const consent={version,acceptedAt:Date.now(),
+        accountMonthlyUsd:2,approvedSeparatelyBilledFees:true};
+      tx.set(ref,{stripeFeeConsent:consent},{merge:true});
+      return consent;
+    });
+    return res.json({ok:true,version:result.version,acceptedAt:result.acceptedAt});
+  }catch(e){return res.status(503).json({code:'fee_consent_save_failed'});}
+});
+
 // GET /connect/status — can this operator actually be paid?
 app.get('/connect/status', requireAuth, async (req, res) => {
   if (keyMode === 'no-key') return res.json({ exists: false, payoutsEnabled: false, due: [] });
