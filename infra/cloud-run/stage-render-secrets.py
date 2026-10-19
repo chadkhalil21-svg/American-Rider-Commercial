@@ -102,7 +102,8 @@ def eligible_values(values):
             excluded.append(name)
         elif not KEY_PATTERN.fullmatch(name):
             invalid.append(name)
-        elif not value or value in ("*****", "********", "[REDACTED]"):
+        elif (not value or value in ("[REDACTED]", "<redacted>")
+              or (len(value) >= 3 and set(value) <= {"*", "•"})):
             invalid.append(name)
         else:
             staged[name] = value
