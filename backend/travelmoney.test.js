@@ -189,6 +189,30 @@ const rides = (over = {}) => ({
       result.body.arrivalFeeCents===0&&st.log.transfers.length===0);
   }
 
+  {
+    const at=2_000_000_000_000;
+    const db=fakeDb({...rides({A:{acceptedAt:at,pickupLat:25.8,pickupLng:-80.19,
+      pickupProgressStart:{lat:25.78,lng:-80.19,positionAt:at-10000}}}),
+      operators:{op1:{currentRideId:'A',lat:25.786,lng:-80.19,onlineAt:at+130000}}});
+    const st=stripe(); const originalRefund=st.refundTravel;
+    let failOnce=true;
+    st.refundTravel=async args=>{
+      if(failOnce){failOnce=false;throw Error('synthetic Stripe outage');}
+      return originalRefund(args);
+    };
+    const first=await cancelTravel({db,uid:'alice',rideId:'A',deps:st,now:at+150000,
+      enableVerifiedProgressFee:true});
+    check('Stripe outage: Travel closed, fee evidence preserved and refund pending',
+      first.status===202&&db.data.rides.A.refundPending===true&&
+      db.data.rides.A.cancellationFeeCents===300);
+    const recovered=await cancelTravel({db,uid:'alice',rideId:'A',deps:st,now:at+180000,
+      enableVerifiedProgressFee:true});
+    check('retry: original $3 amount frozen after Operator reservation released',
+      recovered.status===200&&recovered.body.arrivalFeeCents===300&&
+      st.log.refunds.length===1&&st.log.refunds[0].amountCents===1644&&
+      st.log.transfers.length===1);
+  }
+
   // ——— 2. /create-payment-intent proves the ride before anything is charged ——————————————————
   {
     const db = fakeDb(rides());
