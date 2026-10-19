@@ -26,12 +26,6 @@
       "android": {
         "buildType": "apk"
       }
-    },
-    "prelaunch-onboarding": {
-      "distribution": "internal",
-      "env": {
-        "EXPO_PUBLIC_API_URL": "https://american-rider-api-production-623854974930.us-east1.run.app"
-      }
     }
   },
   "submit": {
