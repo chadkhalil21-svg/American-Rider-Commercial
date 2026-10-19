@@ -36,4 +36,16 @@ const test = spawnSync('python3', ['-m','unittest','discover','-s',
     path.join(root,'infra/cloud-run'),'-p','test_activate_paid_production.py'],
     {encoding:'utf8', timeout:30000});
 assert.equal(test.status,0,'mocked private paid-activation tests: '+test.stderr.slice(-4000));
+const dispatchWorkflow = fs.readFileSync(path.join(root,'.github/workflows/cloud-run-enable-paid-dispatch.yml'),'utf8');
+const dispatchScript = fs.readFileSync(path.join(root,'infra/cloud-run/enable-live-google-scheduler.py'),'utf8');
+assert.match(dispatchWorkflow,/RENDER_DISABLED_STRIPE_GOOGLE_ENABLE_DISPATCH/);
+assert.match(dispatchWorkflow,/workflow_dispatch:/);
+assert.doesNotMatch(dispatchWorkflow,/on:\s*\n\s*push:/);
+assert.match(dispatchScript,/--schedule=\* \* \* \* \*/);
+assert.match(dispatchScript,/scheduler", "jobs", "resume"/);
+assert.match(dispatchScript,/Google scheduler destination/);
+const dispatchTests = spawnSync('python3', ['-m','unittest','discover','-s',
+    path.join(root,'infra/cloud-run'),'-p','test_enable_live_google_scheduler.py'],
+    {encoding:'utf8',timeout:30000});
+assert.equal(dispatchTests.status,0,'single-authority scheduler mocked tests: '+dispatchTests.stderr.slice(-4000));
 console.log('PASS: live Cloud Run Stripe configuration is exact, founder-approved, provider-screening gated, and reversible.');
