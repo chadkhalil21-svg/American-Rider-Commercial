@@ -71,6 +71,11 @@ def summary_of_service(info):
         "account_webhook_secret_bound": "STRIPE_WEBHOOK_SECRET" in env,
         "connect_webhook_secret_bound": "STRIPE_CONNECT_WEBHOOK_SECRET" in env,
         "resend_webhook_secret_bound": "RESEND_WEBHOOK_SECRET" in env,
+        # This flag is an owner's assertion; it is not underlying FCRA evidence.
+        "screening_workflow_attested": (
+            env.get("SCREENING_EVIDENCE_WORKFLOW_VERIFIED", {}).get("value") == "true"
+        ),
+        "live_publishable_key_configured": "STRIPE_PUBLISHABLE_KEY" in env,
     }
 
 
@@ -141,6 +146,11 @@ def audit():
         ("account_webhook_secret_bound", "connect_webhook_secret_bound", "resend_webhook_secret_bound")
     )))
     results.append(("External scheduler selected", "yes" if summary["external_scheduler_selected"] else "no"))
+    results.append(("Operator screening evidence attestation", 
+                    "set (independent proof required)" if summary["screening_workflow_attested"]
+                    else "NOT SET — screening blocks commercial Travel"))
+    results.append(("Live Stripe publishable key binding",
+                    "present" if summary["live_publishable_key_configured"] else "NOT FOUND"))
     if not summary["runtime_ok"]:
         risk = True
     if summary["live_stripe_secret_bound"] and summary["cutover"] != "1":
@@ -173,6 +183,24 @@ def audit():
         results.append(("Google Scheduler state", "UNKNOWN (missing audit permission)"))
 
     results.append(("Private Google API /live", verify_http_through_proxy()))
+    # Preparation vs commercial launch are deliberately separate. We NEVER infer
+    # working payment capture or an approved Operator from an env-variable name.
+    not_ready = []
+    if not summary["live_stripe_secret_bound"]:
+        not_ready.append("live Stripe payment key not mounted")
+    if not summary["screening_workflow_attested"]:
+        not_ready.append("Operator screening evidence not attested")
+    if exposed is False:
+        not_ready.append("public Google API not enabled")
+    elif exposed is None:
+        not_ready.append("public Google API IAM state unknown")
+    if not summary["account_webhook_secret_bound"] or not summary["connect_webhook_secret_bound"]:
+        not_ready.append("signed Stripe webhook bindings incomplete")
+    if summary["cutover"] != "1" or summary["mode"] != "production":
+        not_ready.append("commercial runtime not activated")
+    results.append(("First store launch infrastructure", 
+                    "PRELAUNCH: " + "; ".join(not_ready) if not_ready 
+                    else "runtime configured; store/provider approvals still unverified"))
     return results, risk
 
 
