@@ -27,9 +27,10 @@ function cancellationFeeDecision({acceptedAt,now,verifiedProgress=false,arrivedA
  if(operatorAtFault||!travelerAtFault)return {feeCents:0,reason:'not_traveler_fault'};
  if(!Number.isFinite(now)||!Number.isFinite(acceptedAt)||acceptedAt>now)
    return {feeCents:0,reason:'not_verified_accepted'};
+ // The promised free period applies even if the Operator arrives unusually quickly.
+ if(now-acceptedAt<CANCEL_GRACE_MS)return {feeCents:0,reason:'within_free_window'};
  if(Number.isFinite(arrivedAt)&&arrivedAt<=now)
    return {feeCents:ARRIVAL_FEE_CENTS,reason:'verified_arrival'};
- if(now-acceptedAt<CANCEL_GRACE_MS)return {feeCents:0,reason:'within_free_window'};
  if(verifiedProgress!==true)return {feeCents:0,reason:'progress_not_proven'};
  return {feeCents:ARRIVAL_FEE_CENTS,reason:'verified_en_route_after_grace'};
 }
