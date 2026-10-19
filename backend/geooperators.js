@@ -47,20 +47,23 @@ function prefixes(point,tier){
 async function queryTier(db,point,tier,{excludeIds=new Set(),limitPerPrefix=PER_PREFIX_LIMIT,saturationLimit=SATURATION_LIMIT,stats=null}={}){
   const out=new Map();
   await Promise.all(prefixes(point,tier).map(async prefix=>{
+    const query=db.collection('operators').where('available','==',true)
+      .orderBy('geohash').startAt(prefix).endAt(prefix+'\uf8ff');
     if(stats)stats.queries++;
-    let snap=await db.collection('operators').where('available','==',true)
-      .orderBy('geohash').startAt(prefix).endAt(prefix+'\uf8ff').limit(limitPerPrefix).get();
-    // A full prefix page is ambiguous: there may be more Operators hidden behind the
-    // lexicographic cutoff. Escalate only that saturated cell, still to a hard ceiling.
-    if(snap.docs.length===limitPerPrefix && saturationLimit>limitPerPrefix){
-      if(stats)stats.documentsReturned+=snap.docs.length;
+    const first=await query.limit(limitPerPrefix).get();
+    let docs=first.docs;
+    // When a prefix is full, fetch only the missing tail (not the first 40 again).
+    // Cursor is the Firestore DocumentSnapshot, retaining stable geohash + document
+    // identity ordering. Never skip tiers: eligibility filtering happens afterwards.
+    if(docs.length===limitPerPrefix && saturationLimit>limitPerPrefix){
       if(stats)stats.queries++;
-      snap=await db.collection('operators').where('available','==',true)
-        .orderBy('geohash').startAt(prefix).endAt(prefix+'\uf8ff').limit(saturationLimit).get();
+      const tail=await query.startAfter(docs[docs.length-1])
+        .limit(saturationLimit-limitPerPrefix).get();
+      docs=docs.concat(tail.docs);
     }
-    if(stats)stats.documentsReturned+=snap.docs.length;
-    if(stats&&snap.docs.length>=saturationLimit)stats.saturatedPrefixes++;
-    for(const d of snap.docs){
+    if(stats)stats.documentsReturned+=docs.length;
+    if(stats&&docs.length>=saturationLimit)stats.saturatedPrefixes++;
+    for(const d of docs){
       if(excludeIds.has(String(d.id)))continue;
       const x={id:d.id,...d.data()};
       if(Number.isFinite(Number(x.lat))&&Number.isFinite(Number(x.lng)))out.set(String(d.id),x);
