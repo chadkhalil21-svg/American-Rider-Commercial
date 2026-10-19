@@ -17,7 +17,7 @@ const code=fs.readFileSync(path.join(__dirname,'operatorfees.js'),'utf8');
 const server=fs.readFileSync(path.join(__dirname,'server.js'),'utf8');
 const screen=fs.readFileSync(path.join(root,'app/operator/payouts.tsx'),'utf8');
 const client=fs.readFileSync(path.join(root,'src/backend/connect.ts'),'utf8');
-assert.match(code,/consent\.acceptedAt > rec\.lastPayoutAt/,'no backbilling a payout before agreement');
+assert.match(code,/consent\.acceptedAt > rec\.firstPayoutAt/,'no backbilling a payout before agreement');
 assert.match(code,/feeStatus:'consent_required'/,'without consent, no unapproved bank charge');
 assert.match(server,/app\.post\('\/connect\/fee-consent'/,'explicit, authenticated consent endpoint exists');
 assert.match(server,/req\.body\?\.agreeFeePolicy!==true/,'no inferred agreement');
