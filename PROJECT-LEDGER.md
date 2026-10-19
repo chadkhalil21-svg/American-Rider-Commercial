@@ -1,5 +1,16 @@
 # AMERICAN RIDER — CANONICAL PROJECT LEDGER
 
+## Cloud Run mobile client authority: legacy Render fallback identified | 2026-10-19
+
+**EXACT-SOURCE AUDIT:** `eas.json` production already selects `https://american-rider-api-production-623854974930.us-east1.run.app`. However, `src/config.ts` still selected the old paid Render API when `EXPO_PUBLIC_API_URL` was absent; the **internal EAS preview** explicitly uses Render, and `scripts/check-simulator-parity.mjs` wrongly labeled the former Render hostname as production. This is a real potential dependency that the provider register must not hide. It does **not** prove the currently distributed TestFlight binary uses Render, because build profiles and exact signed bundles must be checked.
+
+**PROPOSED SOURCE-ONLY FIX:** Use the already-approved live Cloud Run address as the mobile client's default, correct simulator production/legacy labeling and add an offline regression test. **Keep the internal preview on Render temporarily**; changing that independent test build to a live-money backend without a signed verification would be an avoidable risk. TestFlight production target stays Cloud Run. This change does not deploy Cloud Run, build new iOS/Android binaries, change a provider secret, authorize a Stripe charge, or shut down the Render Starter. Retire the $7 legacy server ONLY after the internal preview has an approved alternative and its remaining callbacks and old mobile versions are accounted for.
+
+**EMAIL ARCHITECTURE:** Resend is the sender; Cloud Run receives Resend's signed delivery webhook. Gmail/Cloudflare forwarding handles replies. Render is **not** the configured email provider, despite its old API still serving any clients that point to it. SES à la carte is a preferred alternative but cannot be activated without founder-controlled AWS registration and SES production approval; do not create an unsupported SNS/email event path or silently replace signed insurance-delivery correlation. Provider ledger remains the source of truth.
+
+---
+
+
 ## Verified service-provider register | release/current baseline | 2026-10-19
 
 **READ THIS FIRST on provider/expense questions:** [Full audited service inventory, connected vs code-only vs deferred](docs/architecture/VERIFIED-SERVICES-REGISTRY-2026-10-19.md). Do not conflate GitHub code or a dependency/package with a running vendor, a configured secret, a billed subscription, an approved mobile app, or a certified full-stack load test.
