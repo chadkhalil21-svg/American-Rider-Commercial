@@ -20,7 +20,7 @@ assert.equal(qualified.reason,'verified_enroute_progress');
 assert(qualified.evidence.closingMiles>=0.3);
 assert(qualified.evidence.directionalRatio>=0.55);
 assert.equal(cancellationProgress({...seed(),now:acceptedAt+119999}).feeCents,0,'free within 2 minutes');
-assert.equal(cancellationProgress({...seed(),now:acceptedAt+120000}).feeCents,300,'boundary at 2 minutes');
+assert.equal(cancellationProgress({...seed({op:{onlineAt:acceptedAt+119000}}),now:acceptedAt+120000}).feeCents,300,'boundary at 2 minutes');
 assert.equal(evaluate({op:{lat:25.78}}).feeCents,0,'no movement means no charge');
 assert.equal(evaluate({op:{lat:25.7805}}).feeCents,0,'GPS jitter is not progress');
 assert.equal(evaluate({op:{lat:25.77}}).feeCents,0,'moving away never earns a fee');
