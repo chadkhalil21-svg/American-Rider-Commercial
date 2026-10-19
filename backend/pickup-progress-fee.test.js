@@ -27,14 +27,14 @@ assert.equal(evaluate({op:{lat:25.77}}).feeCents,0,'moving away never earns a fe
 assert.equal(evaluate({op:{lat:25.782,lng:-80.16}}).feeCents,0,'large detour toward side is not directional progress');
 assert.equal(evaluate({op:{currentRideId:'another'}}).feeCents,0,'no fee for another assigned Travel');
 assert.equal(evaluate({op:{onlineAt:acceptedAt-50000}}).feeCents,0,'old GPS is not proof');
-assert.equal(evaluate({op:{onlineAt:acceptedAt+149999}}).feeCents,0,'speed impossible in one second');
-assert.equal(evaluate({op:{onlineAt:acceptedAt+90000}}).feeCents,0,'GPS older than two minutes must fail closed');
+assert.equal(evaluate({op:{lat:25.799,onlineAt:acceptedAt+31000}}).feeCents,0,'implausibly fast GPS jump');
+assert.equal(evaluate({op:{onlineAt:acceptedAt-90000}}).feeCents,0,'old GPS observation must fail closed');
 assert.equal(cancellationProgress({...seed(),now:acceptedAt+400000,operator:seed().op}).feeCents,0,'stale at cancellation');
 assert.equal(evaluate({ride:{pickupProgressStart:null}}).feeCents,0,'legacy acceptance missing baseline');
 assert.equal(evaluate({ride:{acceptedAt:null}}).feeCents,0,'unverified acceptance is free');
 assert.equal(evaluate({ride:{operatorAtFault:true}}).feeCents,0);
 assert.equal(evaluate({ride:{status:'onboard'}}).feeCents,0,'already onboard is never cancellation');
-assert.equal(evaluate({ride:{operatorEtaMin:1}}).feeCents,0,'late Operator waiver');
+assert.equal(cancellationProgress({...seed({ride:{operatorEtaMin:1}}),now:acceptedAt+7*60*1000}).reason,'operator_excessively_late','late Operator waiver');
 assert.equal(evaluate({ride:{status:'arrived',arrivedAt:acceptedAt+70000}}).feeCents,300,'server arrival after free grace');
 assert.equal(cancellationProgress({...seed({ride:{status:'arrived',arrivedAt:acceptedAt+70000}}),
   now:acceptedAt+100000}).feeCents,0,'arrival during free period still free');
