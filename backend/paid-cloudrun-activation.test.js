@@ -23,7 +23,9 @@ assert.doesNotMatch(workflow,/on:\s*\n\s*push:/);
 assert.match(code,/PROJECT = "american-rider-35688"/);
 assert.match(code,/SERVICE = "american-rider-api-production"/);
 assert.match(code,/STRIPE_SECRET = "ar-render-import-stripe-secret-key"/);
-assert.match(code,/SCREENING_EVIDENCE_WORKFLOW_VERIFIED/);
+assert.doesNotMatch(code,/blockers\.append\("external CRA screening evidence pilot/, 'provider attestations cannot veto platform-wide payments');
+assert.match(server,/screeningCurrent\(/, 'individual screening must remain enforced');
+assert.match(server,/coverageUnsafeForNewTravel|coverageLapsed/, 'individual insurance must remain enforced');
 assert.match(code,/Google scheduler state unreadable/);
 assert.match(code,/--no-invoker-iam-check/);
 assert.match(code,/--invoker-iam-check/);
@@ -55,4 +57,4 @@ assert.doesNotMatch(reportWorkflow, /python3 infra\/cloud-run\/activate-paid-pro
   'regular/scheduled auditor must NEVER activate payment or open the Google API');
 assert.match(reportWorkflow, /if python3 infra\/cloud-run\/activate-paid-production\.py VERIFY; then/,
   'prelaunch blocking result must not make the completed read-only audit fail');
-console.log('PASS: live Cloud Run Stripe configuration is exact, founder-approved, provider-screening gated, and reversible.');
+console.log('PASS: platform-wide paid readiness separated from individual Operator screening and insurance; cutover reversible.');
