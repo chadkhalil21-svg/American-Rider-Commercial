@@ -21,7 +21,7 @@ jobs:
     if: ${{ github.ref == 'refs/heads/release/current' && inputs.confirmation == 'DEPLOY_EXISTING_PAID_CODE_ONLY' }}
     runs-on: ubuntu-latest
     timeout-minutes: 50
-    environment: cloud-run-paid-production
+    environment: american-rider-commercial-live
     env:
       FOUNDER_CONFIRM: ${{ inputs.confirmation }}
     steps:
