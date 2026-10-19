@@ -12,13 +12,13 @@ const normal = {
   health: {
     deployment:'production', stripe:'live',
     support:{firestore:'on'}, fleet:{operators:0},
-    screening:'on', scheduler:'authenticated', operationalReady:true,
+    screening:'off', documents:'on', scheduler:'authenticated', operationalReady:true,
   },
-  config: {mode:'live'}
+  config: {mode:'live',canTakePayment:true,stripePublishableKey:'pk_live_DUMMY'}
 };
 assert.ok(verifyProductionResponses(normal.live, normal.health, normal.config));
 for (const [field, bad] of [
-  ['deployment','development'], ['stripe','no-key'], ['screening','off'],
+  ['deployment','development'], ['stripe','no-key'],
   ['scheduler','off'], ['operationalReady',false],
 ]) {
   const data={...normal.health,[field]:bad};
@@ -30,7 +30,13 @@ assert.throws(()=>verifyProductionResponses(normal.live,
 assert.throws(()=>verifyProductionResponses(normal.live,
   {...normal.health, fleet:{operators:null}},normal.config),/Firestore/);
 assert.throws(()=>verifyProductionResponses(normal.live,normal.health,
-  {mode:'test'}),/publishable/);
+  {...normal.config,mode:'test'}),/payment/);
+assert.throws(()=>verifyProductionResponses(normal.live,normal.health,
+  {...normal.config,canTakePayment:false}),/payment/);
+assert.throws(()=>verifyProductionResponses(normal.live,normal.health,
+  {...normal.config,stripePublishableKey:'pk_test_DUMMY'}),/payment/);
+assert.ok(verifyProductionResponses(normal.live,{...normal.health,screening:'off'},normal.config),
+  'no individual screening approval is needed merely to publish platform binary');
 assert.throws(()=>verifyProductionResponses({ok:false},normal.health,
   normal.config),/liveness/);
 for(const workflow of [
