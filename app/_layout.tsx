@@ -52,13 +52,12 @@ function AppGate() {
   useEffect(() => {
     if (Platform.OS === 'web' || !user || initializing || onboarding) return;
     let mounted = true;
-    const currentUid = user.uid;
     const open = (data: Record<string, unknown>) => {
       if (!mounted) return;
       // A push is untrusted external input. Authenticate its recipient; navigate
       // only to existing safe destinations. No acceptance or payment action here.
       const recipientUid = typeof data?.recipientUid === 'string' ? data.recipientUid : null;
-      if (!recipientUid || recipientUid !== currentUid) return;
+      if (!user || !recipientUid || recipientUid !== user.uid) return;
       const screen = typeof data?.screen === 'string' ? data.screen : null;
       const allowed = new Set(['/ride', '/receipt', '/operator', '/operator/insurance', '/family']);
       if (screen && allowed.has(screen)) router.navigate(screen as never);
