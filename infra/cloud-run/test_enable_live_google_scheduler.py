@@ -123,11 +123,11 @@ class DispatchTests(unittest.TestCase):
             self.assertTrue(m.public_paid_ready(),
                             "A globally unset screening flag cannot veto an otherwise ready platform")
             health["documents"] = "off"
-            with self.assertRaisesRegex(m.Stop, "payment"):
+            with self.assertRaisesRegex(m.Stop, "Paid Google Cloud Run public service readiness"):
                 m.public_paid_ready()
             health["documents"] = "on"
             config["stripePublishableKey"] = "pk_test_SYNTHETIC_ONLY"
-            with self.assertRaisesRegex(m.Stop, "payment"):
+            with self.assertRaisesRegex(m.Stop, "Paid Google Cloud Run public service readiness"):
                 m.public_paid_ready()
 
     def test_owner_confirmation_gate(self):
