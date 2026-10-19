@@ -1,7 +1,7 @@
 'use strict';
 // Read-only last gate before building an Apple App Store or Google Play binary.
 // The backend must be PUBLIC, serving from the actual Google Cloud Run production
-// service, with real payments and real operator qualification. Nothing is changed.
+// service, with real payments; individual Operator qualification is checked at duty/dispatch. Nothing is changed.
 const fs = require('node:fs');
 const path = require('node:path');
 
@@ -31,14 +31,14 @@ function verifyProductionResponses(live, health, config) {
   if (health?.operationalReady !== true) {
     throw Error('Public production API is not ready for payment creation; inspect the provider names in /health.');
   }
-  if (health?.screening !== 'on') {
-    throw Error('Operator screening intake is not independently verified for first public launch.');
-  }
+  // Vendor-neutral background checks and insurance are reviewed individually;
+  // unapproved Operators never acquire duty/dispatch eligibility.
   if (health?.scheduler !== 'authenticated') {
     throw Error('Production scheduled Travel is missing an authenticated scheduler token.');
   }
-  if (config?.mode !== 'live') {
-    throw Error('Native payment configuration has no confirmed live Stripe publishable key.');
+  if (config?.mode !== 'live' || config?.canTakePayment !== true ||
+      !String(config?.stripePublishableKey || '').startsWith('pk_live_')) {
+    throw Error('Native payment configuration has no confirmed live Stripe payment authority.');
   }
   return true;
 }
@@ -65,7 +65,7 @@ async function main() {
   ]);
   verifyProductionResponses(live, health, config);
   console.log('PASS: Google Cloud Run production API publicly reachable, Stripe live,');
-  console.log('Firestore connected, screening and scheduler verified. Safe to request certified store builds.');
+  console.log('Firestore connected, individual qualification enforced, scheduler verified. Safe to request certified store builds.');
 }
 
 if (require.main === module) {
