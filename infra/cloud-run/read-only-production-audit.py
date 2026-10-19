@@ -55,6 +55,15 @@ def public_invoker(policy):
     )
 
 
+def effective_public_invocation(service, policy):
+    # Google recommends disabling the Invoker IAM check on public Cloud Run
+    # services, which does NOT need an allUsers IAM binding. Honor both methods.
+    annotations = service.get("metadata", {}).get("annotations", {})
+    if str(annotations.get("run.googleapis.com/invoker-iam-disabled", "")).lower() == "true":
+        return True
+    return public_invoker(policy)
+
+
 def summary_of_service(info):
     spec = info.get("spec", {}).get("template", {}).get("spec", {})
     env = {i.get("name"): i for i in spec.get("containers", [{}])[0].get("env", [])}
@@ -160,7 +169,7 @@ def audit():
 
     policy = metadata("run", "services", "get-iam-policy", SERVICE,
                       f"--project={PROJECT}", f"--region={REGION}")
-    exposed = public_invoker(policy)
+    exposed = effective_public_invocation(info, policy)
     results.append(("Public invoker", {None: "UNKNOWN (missing audit permission)",
                                        False: "not configured", True: "configured"}[exposed]))
     if exposed and not summary["live_stripe_secret_bound"]:
