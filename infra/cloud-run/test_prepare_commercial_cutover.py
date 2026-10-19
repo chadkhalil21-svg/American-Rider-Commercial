@@ -76,29 +76,77 @@ class CutoverPrepTests(unittest.TestCase):
         self.assertNotIn("--allow-unauthenticated", deploy.replace(
             "--no-allow-unauthenticated", ""))
 
+    def test_private_health_uses_verified_alternative_after_401(self):
+        good = {
+            "stripe": "no-key", "deployment": "development",
+            "support": {"firestore": "on"}, "fleet": {"operators": 0},
+        }
+        called = []
+        def probe(url, token=None):
+            called.append(url)
+            return (None, "/live HTTP 401") if len(called) == 1 else (good, "ok")
+        with mock.patch.object(m, "google", return_value="PRIVATE_ID_TOKEN"), \
+             mock.patch.object(m, "_health_probe", side_effect=probe), \
+             mock.patch.object(m, "_health_through_google_proxy") as proxy:
+            result = m.service_health("https://alternate-name.a.run.app")
+        self.assertEqual(result, m.VERIFIED_PRODUCTION_URL)
+        self.assertEqual(called, [
+            "https://alternate-name.a.run.app", m.VERIFIED_PRODUCTION_URL
+        ])
+        proxy.assert_not_called()
+
+    def test_proxy_rescues_two_unusable_private_urls(self):
+        good = {
+            "stripe": "no-key", "deployment": "development",
+            "support": {"firestore": "on"}, "fleet": {"operators": 1},
+        }
+        with mock.patch.object(m, "google", return_value="PRIVATE_ID_TOKEN"), \
+             mock.patch.object(m, "_health_probe", return_value=(None, "/live HTTP 401")), \
+             mock.patch.object(m, "_health_through_google_proxy", return_value=(good, "ok")) as proxy:
+            result = m.service_health("https://alternate-name.a.run.app")
+        self.assertEqual(result, "https://alternate-name.a.run.app")
+        proxy.assert_called_once()
+
     def test_private_http_403_reports_iam_without_leaking_token(self):
         import io
         import urllib.error
         from contextlib import redirect_stdout
-        status = urllib.error.HTTPError(
+        denied = urllib.error.HTTPError(
             "https://private.run.app/live", 403, "Forbidden", {}, None)
         with mock.patch.object(m, "google", return_value="PRIVATE_ID_TOKEN"), \
-             mock.patch.object(m.urllib.request, "urlopen", side_effect=status):
+             mock.patch.object(m.urllib.request, "urlopen", side_effect=denied), \
+             mock.patch.object(m, "_health_through_google_proxy", return_value=(
+                 None, "Google authenticated proxy exited")):
             with redirect_stdout(io.StringIO()) as output:
-                with self.assertRaisesRegex(RuntimeError, r"Private /live: HTTP 403") as ctx:
+                with self.assertRaisesRegex(RuntimeError, r"/live HTTP 403") as ctx:
                     m.service_health("https://private.run.app")
         self.assertNotIn("PRIVATE_ID_TOKEN", str(ctx.exception))
         self.assertNotIn("PRIVATE_ID_TOKEN", output.getvalue())
+        self.assertIn("No secrets, Stripe, scheduler or stores changed", str(ctx.exception))
 
     def test_private_network_error_classified_without_redeploy(self):
         import urllib.error
         with mock.patch.object(m, "google", return_value="PRIVATE_ID_TOKEN"), \
              mock.patch.object(m.urllib.request, "urlopen",
-                               side_effect=urllib.error.URLError("DNS unavailable")):
-            with self.assertRaisesRegex(RuntimeError, r"Private /live: network/timeout") as ctx:
+                               side_effect=urllib.error.URLError("DNS unavailable")), \
+             mock.patch.object(m, "_health_through_google_proxy",
+                               return_value=(None, "proxy not reachable")):
+            with self.assertRaisesRegex(RuntimeError, r"/live transport URLError") as ctx:
                 m.service_health("https://private.run.app")
         self.assertNotIn("DNS unavailable", str(ctx.exception))
         self.assertNotIn("PRIVATE_ID_TOKEN", str(ctx.exception))
+
+    def test_health_must_stay_payment_disabled_even_if_http_200(self):
+        bad = {
+            "stripe": "live", "deployment": "production",
+            "support": {"firestore": "on"}, "fleet": {"operators": 2},
+        }
+        with mock.patch.object(m, "google", return_value="PRIVATE_ID_TOKEN"), \
+             mock.patch.object(m, "_health_probe", return_value=(bad, "ok")), \
+             mock.patch.object(m, "_health_through_google_proxy") as proxy:
+            with self.assertRaisesRegex(RuntimeError, "Stripe OFF") as ctx:
+                m.service_health("https://private.run.app")
+        proxy.assert_not_called()
 
     def test_existing_paused_scheduler_is_reused(self):
         calls = []

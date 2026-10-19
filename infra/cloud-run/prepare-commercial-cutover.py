@@ -157,50 +157,126 @@ def grant_secret_access(names):
         print("Secret access checked:", name)
 
 
-def service_health(url):
-    # The founder's original production commissioning verified both URLs at
-    # HTTP 200. Later preflight returned only "health verification failed"
-    # without identifying whether the problem was IAM, DNS or application.
-    # NEVER disclose tokens, response bodies, request headers or secrets.
-    token = google("auth", "print-identity-token", timeout=30)
-    def read(path):
-        req = urllib.request.Request(
-            url + path, headers={
-                "Authorization": "Bearer " + token,
-                "Accept": "application/json",
-            },
-        )
+# This is the alternate Google-assigned URI shown by the founder's successful
+# production commission. Use only service URLs from the verified target/project.
+VERIFIED_PRODUCTION_URL = (
+    "https://american-rider-api-production-623854974930.us-east1.run.app"
+)
+
+
+def _health_probe(base_url, token=None, timeout=20):
+    """(health_json, reason) for a PRIVATE Google service, never printing tokens.
+
+    No state-changing endpoint is touched. Error responses are not read.
+    """
+    for path in ("/live", "/health"):
+        headers = {"Accept": "application/json"}
+        if token:
+            headers["Authorization"] = "Bearer " + token
+        req = urllib.request.Request(base_url + path, headers=headers)
         try:
-            with urllib.request.urlopen(req, timeout=45) as r:
-                status = r.status
-                data = json.loads(r.read(250_000))
+            with urllib.request.urlopen(req, timeout=timeout) as rsp:
+                status = rsp.status
+                response = json.loads(rsp.read(250_000))
         except urllib.error.HTTPError as exc:
-            # HTTP 401/403 points to service IAM / audience or application
-            # authorization; HTTP 404 points to URL routing, not proof that
-            # a Cloud Run deployment has failed.
-            stop(f"Private {path}: HTTP {exc.code} on {url}. "
-                 "Check Cloud Run invoker authorization, identity-token "
-                 "audience and the advertised service URL. No cutover.")
+            return None, f"{path} HTTP {exc.code}"
         except (urllib.error.URLError, TimeoutError) as exc:
-            stop(f"Private {path}: network/timeout ({type(exc).__name__}). "
-                 "No deployment or payment cutover.")
-        except (ValueError, UnicodeDecodeError) as exc:
-            stop(f"Private {path}: HTTP reply is not valid JSON "
-                 f"({type(exc).__name__}). No cutover.")
-        print(f"Private {path}: HTTP {status}")
-        return status, data
-    code, _ = read("/live")
-    code2, health = read("/health")
-    if code != 200 or code2 != 200:
-        stop(f"Private health endpoints did not return HTTP 200 "
-             f"(live={code}, health={code2}). Render remains live.")
+            return None, f"{path} transport {type(exc).__name__}"
+        except (ValueError, UnicodeDecodeError, TypeError) as exc:
+            return None, f"{path} non-JSON {type(exc).__name__}"
+        if status != 200 or not isinstance(response, dict):
+            return None, f"{path} HTTP {status} (unexpected response)"
+        if path == "/live" and response.get("ok") is not True:
+            return None, "/live did not report ok"
+        if path == "/health":
+            return response, "ok"
+    return None, "missing health response"
+
+
+def _verify_health_data(health):
+    """Do not infer launch-readiness from private liveness alone."""
     if health.get("stripe") != "no-key" or health.get("deployment") != "development":
-        stop("Private API is not proven payment-disabled. No cutover.")
+        stop("Private API must have Stripe OFF and development mode before PREPARE.")
     if health.get("support", {}).get("firestore") != "on":
-        stop("Firestore unavailable from private API; no cutover.")
+        stop("Private API cannot access Firebase/Firestore; no cutover.")
     if not isinstance(health.get("fleet", {}).get("operators"), int):
-        stop("Private API Firestore count query failed; no cutover.")
-    print("PASS: private API and real Firebase read; Stripe stays OFF.")
+        stop("Private API Firestore count query unavailable; no cutover.")
+    print("PASS: private production API, Firestore count and non-money mode verified.")
+
+
+def _health_through_google_proxy():
+    """Official gcloud private-service proxy, no public IAM grant or token logs.
+
+    Only a locally bound ephemeral port is used, and the proxy is always stopped.
+    """
+    import socket
+    import time
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as listener:
+        listener.bind(("127.0.0.1", 0))
+        port = listener.getsockname()[1]
+    cmd = ["gcloud", "run", "services", "proxy", SERVICE,
+           f"--project={PROJECT}", f"--region={REGION}", f"--port={port}"]
+    try:
+        proc = subprocess.Popen(cmd, stdin=subprocess.DEVNULL,
+                                stdout=subprocess.DEVNULL,
+                                stderr=subprocess.DEVNULL)
+    except OSError:
+        return None, "Google authenticated proxy could not start"
+    reason = "proxy did not become ready within 45 seconds"
+    try:
+        for attempt in range(23):
+            if proc.poll() is not None:
+                reason = "Google authenticated proxy exited before responding"
+                break
+            health, result = _health_probe(f"http://127.0.0.1:{port}", timeout=2)
+            if health is not None:
+                return health, "ok"
+            reason = "Google authenticated proxy: " + result
+            time.sleep(1)
+        return None, reason
+    finally:
+        if proc.poll() is None:
+            proc.terminate()
+            try:
+                proc.wait(timeout=7)
+            except subprocess.TimeoutExpired:
+                proc.kill()
+                proc.wait(timeout=5)
+
+
+def service_health(url):
+    """Try both VERIFIED service addresses, then official Google private proxy.
+
+    Cloud Run can report a modern *.a.run.app URI while also advertising its
+    project-number.us-east1.run.app URI. The founder's initial production
+    commissioning already proved the latter with an authenticated HTTP 200.
+    A 401 on just one hostname must not start another staging/deployment cycle.
+    """
+    token = google("auth", "print-identity-token", timeout=30)
+    candidates = [url]
+    if VERIFIED_PRODUCTION_URL != url:
+        candidates.append(VERIFIED_PRODUCTION_URL)
+    failures = []
+    for candidate in candidates:
+        health, reason = _health_probe(candidate, token=token)
+        if health is not None:
+            _verify_health_data(health)
+            print("Authenticated private Google endpoint: HTTP 200")
+            return candidate
+        failures.append(candidate.split("://", 1)[-1].split("/", 1)[0] +
+                        " " + reason)
+    # Google explicitly recommends gcloud run services proxy for developers
+    # testing IAM-private Cloud Run services. The proxy handles auth itself.
+    # Never make the production API public to bypass prelaunch health testing.
+    print("Direct private invocation failed; trying Google's authenticated local proxy.")
+    health, proxy_reason = _health_through_google_proxy()
+    if health is not None:
+        _verify_health_data(health)
+        print("Authenticated Google Cloud Run proxy: HTTP 200")
+        return url
+    stop("Private Google API not reachable; " + "; ".join(failures) +
+         "; " + proxy_reason + ". No secrets, Stripe, scheduler or stores changed.")
+
 
 
 def stage_webhooks():
@@ -345,7 +421,7 @@ def main():
     info = service_info()
     url = verify_safe_private(info)
     print("Final Cloud Run production service:", url, "(IAM-private)")
-    service_health(url)
+    url = service_health(url)
     print("Actions: stage 3 existing Render webhook secrets, bind to final PRIVATE API,")
     print("refresh source safeguards, prepare a PAUSED separate minute scheduler.")
     print("No Stripe live key, no payment transaction, no new webhook endpoint,")
