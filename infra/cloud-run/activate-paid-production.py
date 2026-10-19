@@ -2,8 +2,8 @@
 """One GitHub Actions control for EXISTING production Cloud Run, first paid launch.
 
 VERIFY: read real GCP status and list remaining evidence/permissions, no changes.
-ACTIVATE: requires explicit founder confirmation, verified screening workflow and
-paused scheduler. Mount live Stripe key + production flags in one PRIVATE Cloud
+ACTIVATE: requires explicit founder confirmation, payment and scheduler integrity.
+Operator screening and insurance remain required individually before duty/dispatch. Mount live Stripe key + production flags in one PRIVATE Cloud
 Run revision, then open that actual service and independently verify HTTP health.
 Do not change Stripe webhook URLs, Render clock, scheduler job or app builds here.
 Those are distinct, ordered external authority handoffs after this gate.
@@ -71,8 +71,8 @@ def inspect(service, scheduler, secret, *, private_expected=True):
         blockers.append("external scheduler credential/mode missing")
     if "STRIPE_PUBLISHABLE_KEY" not in env:
         blockers.append("Stripe publishable key not bound to production API")
-    if env.get("SCREENING_EVIDENCE_WORKFLOW_VERIFIED", {}).get("value") != "true":
-        blockers.append("external CRA screening evidence pilot not founder-verified")
+    # Do not require a platform-wide CRA attestation to activate the payment API.
+    # Individual Operator eligibility remains a separate server-side gate.
     if private_expected and str(service.get("metadata", {}).get("annotations", {}).get(
         "run.googleapis.com/invoker-iam-disabled", "")).lower() == "true":
         blockers.append("API is unexpectedly public before controlled cutover")
@@ -149,8 +149,9 @@ def print_preflight(service, blockers):
     print("Existing GCP production service:", SERVICE)
     print("Ready revision:", service.get("status", {}).get("latestReadyRevisionName", "unknown"))
     print("Live Stripe key binding:", "PRESENT" if "STRIPE_SECRET_KEY" in env else "not yet mounted")
-    print("Screening provider evidence attested:",
-          "yes" if env.get("SCREENING_EVIDENCE_WORKFLOW_VERIFIED", {}).get("value") == "true" else "NO")
+    print("External screening evidence attestation (informational only):",
+          "yes" if env.get("SCREENING_EVIDENCE_WORKFLOW_VERIFIED", {}).get("value") == "true" else "not set")
+    print("Operator screening/insurance still mandatory for each duty/dispatch eligibility check.")
     print("Scheduled dispatcher:", "must remain PAUSED until old Render clock retired")
     if blockers:
         for b in blockers:
@@ -188,8 +189,8 @@ def verify_paid_public(health, config, live):
         raise Stop("Google API /live does not report healthy.")
     if health.get("stripe") != "live" or health.get("deployment") != "production":
         raise Stop("Google API must report PRODUCTION with real live Stripe.")
-    if health.get("screening") != "on" or health.get("documents") != "on":
-        raise Stop("Screening/document qualification process not verified for live launch.")
+    if health.get("documents") != "on":
+        raise Stop("Operator document review process unavailable for live launch.")
     if health.get("support", {}).get("firestore") != "on" or not isinstance(
         health.get("fleet", {}).get("operators"), int
     ):
