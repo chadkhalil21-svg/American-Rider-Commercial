@@ -79,6 +79,22 @@ def inspect(service, scheduler, secret, *, private_expected=True):
     if private_expected and ("STRIPE_SECRET_KEY" in env or
                              env.get("AR_CLOUDRUN_CUTOVER_ACTIVE", {}).get("value") == "1"):
         blockers.append("Cloud Run already has live money or cutover activated")
+    # An invoker-IAM annotation alone does not reveal legacy allUsers bindings.
+    # Fail closed unless the precise service IAM state is independently readable.
+    try:
+        iam = meta("run", "services", "get-iam-policy", SERVICE,
+                   f"--project={PROJECT}", f"--region={REGION}")
+    except Stop:
+        iam = None
+    if not isinstance(iam, dict):
+        blockers.append("Cloud Run invoker IAM policy unreadable; grant read access for paid activation")
+    elif private_expected and any(
+        principal in ("allUsers", "allAuthenticatedUsers")
+        for binding in iam.get("bindings", [])
+        if binding.get("role") == "roles/run.invoker"
+        for principal in binding.get("members", [])
+    ):
+        blockers.append("Cloud Run unexpectedly exposes public invoker before activation")
     if isinstance(scheduler, dict):
         if scheduler.get("state") != "PAUSED":
             blockers.append("Google scheduler is not PAUSED")
@@ -208,25 +224,26 @@ def activate(sha, secret):
     grant_live_secret_access()
     version = str(secret["name"]).rsplit("/", 1)[-1]
     print("Deploying real paid backend to PRIVATE Cloud Run first. No store or Stripe URL switch.")
-    gcloud("run", "deploy", SERVICE, f"--project={PROJECT}", f"--region={REGION}",
-           "--source=./backend", f"--service-account={RUNTIME}",
-           "--invoker-iam-check", "--ingress=all",
-           "--min-instances=0", "--max-instances=2",
-           "--cpu=1", "--memory=1Gi", "--concurrency=20",
-           f"--update-secrets=STRIPE_SECRET_KEY={STRIPE_SECRET}:{version}",
-           f"--update-env-vars=DEPLOYMENT_MODE=production,AR_CLOUDRUN_CUTOVER_ACTIVE=1,AR_EXTERNAL_SCHEDULER=1,AR_RELEASE_COMMIT={sha}",
-           timeout=1500)
-    s = meta("run", "services", "describe", SERVICE, f"--project={PROJECT}", f"--region={REGION}")
-    env = env_map(s)
-    if (env.get("DEPLOYMENT_MODE", {}).get("value") != "production" or
-        env.get("AR_CLOUDRUN_CUTOVER_ACTIVE", {}).get("value") != "1" or
-        "STRIPE_SECRET_KEY" not in env or
-        env.get("AR_RELEASE_COMMIT", {}).get("value") != sha):
-        rollback_private()
-        raise Stop("Private paid revision did not match the approved release, automatically rolled back.")
-
-    print("PRIVATE live-money revision created; opening public API only for final read-only readiness checks.")
+    attempted = False
     try:
+        attempted = True
+        gcloud("run", "deploy", SERVICE, f"--project={PROJECT}", f"--region={REGION}",
+               "--source=./backend", f"--service-account={RUNTIME}",
+               "--invoker-iam-check", "--ingress=all",
+               "--min-instances=0", "--max-instances=2",
+               "--cpu=1", "--memory=1Gi", "--concurrency=20",
+               f"--update-secrets=STRIPE_SECRET_KEY={STRIPE_SECRET}:{version}",
+               f"--update-env-vars=DEPLOYMENT_MODE=production,AR_CLOUDRUN_CUTOVER_ACTIVE=1,AR_EXTERNAL_SCHEDULER=1,AR_RELEASE_COMMIT={sha}",
+               timeout=1500)
+        s = meta("run", "services", "describe", SERVICE, f"--project={PROJECT}", f"--region={REGION}")
+        env = env_map(s)
+        if (env.get("DEPLOYMENT_MODE", {}).get("value") != "production" or
+            env.get("AR_CLOUDRUN_CUTOVER_ACTIVE", {}).get("value") != "1" or
+            "STRIPE_SECRET_KEY" not in env or
+            env.get("AR_RELEASE_COMMIT", {}).get("value") != sha):
+            raise Stop("Private paid revision did not match the approved release.")
+
+        print("PRIVATE live-money revision created; opening public API only for final read-only readiness checks.")
         gcloud("run", "services", "update", SERVICE,
                f"--project={PROJECT}", f"--region={REGION}",
                "--no-invoker-iam-check", timeout=420)
@@ -236,12 +253,12 @@ def activate(sha, secret):
         verify_paid_public(health, config, live)
         if health["commit"] != sha[:7]:
             raise Stop("Cloud Run revision source SHA mismatch.")
-        print("PAID GOOGLE API READY, BUT LAUNCH NOT COMPLETE.")
-        print("NEXT: update existing TWO Stripe webhook URLs to verified Google host,")
-        print("disable Render's in-process clock, THEN update/resume minute Google scheduler.")
-        print("Do not publish native apps until Stripe and scheduler authority are confirmed.")
+        print("VERIFIED: real public backend accepts live Stripe payments but no app-store build has switched yet.")
+        print("NEXT: point existing TWO Stripe webhooks to Google, disable Render sweeps,")
+        print("then update/resume exactly one Google Scheduler job. Do not submit native apps before.")
     except Exception:
-        rollback_private()
+        if attempted:
+            rollback_private()
         raise
 
 
