@@ -80,13 +80,13 @@ class TestOnboarding(unittest.TestCase):
         bad["/config"] = {"mode": "live", "canTakePayment": True}
         with mock.patch.object(mod, "meta", return_value=service(prelaunch="1")), \
              mock.patch.object(mod, "http_json", side_effect=lambda url, path: bad[path]):
-            with self.assertRaisesRegex(RuntimeError, "payment"):
+            with self.assertRaisesRegex(RuntimeError, "(?i)payment"):
                 mod.verify_public()
 
     def test_no_external_command_without_founder_exact_confirmation(self):
         with mock.patch.object(mod, "run") as runner:
             with self.assertRaisesRegex(RuntimeError, "founder confirmation"):
-                mod.main() if False else mod.main()  # must fail before Google
+                mod.main()  # must fail before Google
         runner.assert_not_called()
 
 
