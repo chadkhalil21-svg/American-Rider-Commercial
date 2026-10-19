@@ -24,7 +24,7 @@ for (const source of [shell, workflow]) {
   assert.doesNotMatch(source, /STRIPE_SECRET_KEY\s*[:=]/, 'no Stripe credentials');
   assert.doesNotMatch(source, /STRIPE_WEBHOOK_SECRET\s*[:=]/, 'no live webhook');
 }
-assert.match(shell, /gcloud secrets add-iam-policy-binding/, 'secret access scoped to this identity');
+assert.match(shell, /gcloud(?: --quiet)? secrets add-iam-policy-binding/, 'secret access scoped to this identity');
 assert.match(shell, /gcloud --quiet secrets describe/, 'bounded Secret Manager existence check is explicit');
 assert.match(shell, /timeout --signal=TERM --kill-after=5s 35s/, 'Secret Manager existence check cannot hang indefinitely');
 assert.match(shell, /SECRET_CHECK_STATUS.*\$\?/s, 'lookup command status is captured');
