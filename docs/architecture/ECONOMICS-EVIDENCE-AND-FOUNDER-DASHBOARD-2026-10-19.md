@@ -1,5 +1,26 @@
 # American Rider | Economics evidence and founder dashboard | 2026-10-19
 
+## Final audit correction: Operator duty is ALSO a Cloud Run workload | 2026-10-19
+
+The earlier scenario table further below undercounted on-duty Operator server traffic. The released `src/backend/presence.ts` and `src/state/OperatorContext.tsx` send up to one accepted position renewal per 90 seconds while on duty to **Cloud Run POST /operator/online**. `backend/server.js` performs at least five underlying Firestore reads on a successful renewal (account closure, user/operator state, eligibility inputs); actual extra reads and execution duration must be measured from Google Cloud. The revised prospective estimate now includes **one server HTTP request, five Firestore reads and one write per 90-second renewal**, plus **0.20 active CPU seconds per renewal as an ASSUMPTION**, not measured billing. The app's operating model may use fewer background updates on a stationary phone; actual reliable iOS parked behavior still requires signed-device proof. No user should infer a missing heartbeat costs no money when the Operator is moving.
+
+**Revised, not invoiced, first-principles 30-day monthly scenarios:** assume $20 Travel, 95% domestic cards, one Resend custom receipt per completed Travel, 8 active compute-seconds and 100 Firestore reads +40 writes per completed Travel in addition to heartbeat load, 90-second heartbeat for eight hours per Operator-day, ordinary shared Google free quotas, 1 Cloud Scheduler job, existing $7 Render API, R2 documents within free capacity, and zero HERE request charges **ONLY AS EXCLUDED UNKNOWN**. The "platform runtime" excludes Stripe card fees already subtracted from unit contribution.
+
+| Completed Travels/day | On-duty Operators/day | Monthly Stripe card processing for DOMESTIC $20 payments ONLY | Modeled Cloud Run + Firestore + Resend + Render + Scheduler + R2 | Status |
+|--:|--:|--:|--:|---|
+| 10 | 10 | $264 | **$7.00** | Partial; excludes HERE and other unknowns |
+| 50 | 30 | $1,320 | **$7.05** | Partial; excludes HERE and other unknowns |
+| 100 | 60 | $2,640 | **$7.63** | Partial; excludes HERE and other unknowns |
+| 1,000 | 500 | $26,400 | **$67.64** | Partial; excludes HERE and other unknowns |
+| 10,000 | 5,000 | $264,000 | **$719.78** | Partial; excludes HERE and other unknowns |
+
+Amounts calculated with original source's domestic processor assumption **2.9% + $0.30 = $0.88 per $20 charge**. International cards are dearer. Source economic contribution before separately invoiced operations remains roughly **$1.375/Travel in a 95/5 card mix** after modeled Stripe cash-handling provision and 25c prudential reserve, before unknown expenses and actual Operator Connect fee receipts. A reserve is not a vendor expense. Do not subtract card processing twice: once from transaction contribution and again from it as an expense. **None of these figures proves corporate profit**. More active Operators, larger maps usage, higher Cloud Run average execution duration, live HERE toll calls, or additional compliance/insurance costs change the result.
+
+To validate, run `node backend/commercial-economics.test.js`, then compare actual Google Cloud billing, Cloud Monitoring request/latency totals, Firestore document read/write meter, Stripe fees and verified delivery metrics to assumptions. No scaling claims until live billed telemetry and signed-device test at parking/lock screen have passed.
+
+---
+
+
 ## Founder-first follow-up audit | 19 October 2026 | VERIFIED vs STILL MISSING
 
 **No imaginary $2,000 fixed expense.** Source: platform uses Stripe domestic processing modeled at 2.9% + 30c per successful $20 Travel, a separately conservative 0.5% + 6c Connect payout/routing provision, and 25c cash **risk reserve** (not an invoice). Operator retains 99% of Fare. The 25c operating allowance is an accounting guardrail, not a provider bill: economic model adds it back and deducts evidence-based service usage once. Please DO NOT equate $1.38 hypothetical margin after transaction reserves with profit. Platform fee minimum $2.50.
