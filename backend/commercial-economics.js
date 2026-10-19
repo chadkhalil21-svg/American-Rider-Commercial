@@ -9,6 +9,8 @@ const PRICES=Object.freeze({
   cloudCpuPerSecond:0.000024,cloudMemoryPerGibSecond:0.0000025,
   cloudRequestsPerMillion:0.40,
   monthlyFreeCpuSeconds:180000,monthlyFreeGibSeconds:360000,monthlyFreeRequests:2000000,
+  r2FreeStorageGibMonths:10,r2FreeClassA:1000000,r2FreeClassB:10000000,
+  r2StoragePerGibMonth:0.015,r2ClassAPerMillion:4.50,r2ClassBPerMillion:0.36,
 });
 const DEFAULT=Object.freeze({
   days:30,travelsPerDay:50,operatorsOnDutyDaily:30,dutyHoursEach:8,
@@ -30,6 +32,12 @@ const DEFAULT=Object.freeze({
   // Set to $0 only after retiring the legacy Render API and validating callbacks.
   legacyRenderApiMonthlyUsd:7,
   cloudSchedulerJobs:1,
+  // Existing Cloudflare R2 private document storage, usually free for small usage.
+  r2StorageGibMonths:0,r2ClassARequestsMonthly:0,r2ClassBRequestsMonthly:0,
+  // Request counts must be measured separately from completed Travels. HERE vendor
+  // contract unit prices are UNKNOWN by default and MUST NOT be invented as $0.
+  hereAutosuggestRequestsMonthly:0,hereTollRequestsMonthly:0,
+  hereAutosuggestUsdPer1000:null,hereTollUsdPer1000:null,
   useFreeTiers:true,
 });
 function nonneg(n,name) {
@@ -41,7 +49,9 @@ function evaluate(overrides={}) {
   if(!overrides||typeof overrides!=='object'||Array.isArray(overrides))throw Error('options must be an object');
   for(const k of Object.keys(overrides)) if(!(k in DEFAULT))throw Error('unsupported economics input: '+k);
   const a={...DEFAULT,...overrides};
-  for(const [k,v] of Object.entries(a)) if(k!=='useFreeTiers') nonneg(v,k);
+  for(const [k,v] of Object.entries(a)) if(k!=='useFreeTiers'&&v!==null) nonneg(v,k);
+  for(const k of ['hereAutosuggestUsdPer1000','hereTollUsdPer1000'])
+    if(a[k]!==null) nonneg(a[k],k);
   if(!Number.isInteger(a.days)||a.days<1||a.days>366)throw Error('days out of range');
   if(!Number.isInteger(a.cloudSchedulerJobs))throw Error('cloudSchedulerJobs must be an integer');
   if(!Number.isInteger(a.fareCents)||!Number.isInteger(a.platformFeeCents))throw Error('fare and fee require whole cents');
@@ -86,12 +96,21 @@ function evaluate(overrides={}) {
   // additional job costs $0.10/month. The number of executions does not change that charge.
   const cloudSchedulerUsd=Math.max(0,a.cloudSchedulerJobs-(a.useFreeTiers?3:0))*0.10;
   const renderLegacyUsd=a.legacyRenderApiMonthlyUsd;
+  const r2Usd=Math.max(0,a.r2StorageGibMonths-(a.useFreeTiers?PRICES.r2FreeStorageGibMonths:0))*PRICES.r2StoragePerGibMonth+
+    Math.max(0,a.r2ClassARequestsMonthly-(a.useFreeTiers?PRICES.r2FreeClassA:0))*PRICES.r2ClassAPerMillion/1e6+
+    Math.max(0,a.r2ClassBRequestsMonthly-(a.useFreeTiers?PRICES.r2FreeClassB:0))*PRICES.r2ClassBPerMillion/1e6;
+  const hereAutosuggestUsd=a.hereAutosuggestRequestsMonthly===0?0:
+    a.hereAutosuggestUsdPer1000===null?null:a.hereAutosuggestRequestsMonthly*a.hereAutosuggestUsdPer1000/1000;
+  const hereTollUsd=a.hereTollRequestsMonthly===0?0:
+    a.hereTollUsdPer1000===null?null:a.hereTollRequestsMonthly*a.hereTollUsdPer1000/1000;
+  const pricedHereUsd=(hereAutosuggestUsd??0)+(hereTollUsd??0);
+  const hereUsageUnpriced=hereAutosuggestUsd===null||hereTollUsd===null;
   const totalCost=fixed+otherVariable+firestoreUsd+cloudRunUsd+accountFees-accountFeesRecovered+resendUsd+
-    cloudSchedulerUsd+renderLegacyUsd;
+    cloudSchedulerUsd+renderLegacyUsd+r2Usd+pricedHereUsd;
   const room=rides*transactionRoomUsd;
   const result=room-totalCost;
   const approximateBreakEvenTravels=transactionRoomUsd>a.nonCloudVariableUsdPerTravel?
-    Math.ceil((fixed+accountFees-accountFeesRecovered+resendUsd+cloudSchedulerUsd+renderLegacyUsd+a.days*(a.otherReadsPerDay*PRICES.firestoreReadPer100k/100000+
+    Math.ceil((fixed+accountFees-accountFeesRecovered+resendUsd+cloudSchedulerUsd+renderLegacyUsd+r2Usd+pricedHereUsd+a.days*(a.otherReadsPerDay*PRICES.firestoreReadPer100k/100000+
       (a.otherWritesPerDay+presenceWritesPerDay)*PRICES.firestoreWritePer100k/100000))/
       (a.days*(transactionRoomUsd-a.nonCloudVariableUsdPerTravel))):null;
   return {
@@ -107,11 +126,13 @@ function evaluate(overrides={}) {
     accountFeeUsd:money(accountFees),operatorRecoveredAccountFeeUsd:money(accountFeesRecovered),
     resendUsd:money(resendUsd),
     cloudSchedulerUsd:money(cloudSchedulerUsd),legacyRenderApiUsd:money(renderLegacyUsd),
-    knownServiceCostsUsd:money(firestoreUsd+cloudRunUsd+resendUsd+cloudSchedulerUsd+renderLegacyUsd),
+    r2Usd:money(r2Usd),hereAutosuggestUsd:hereAutosuggestUsd===null?null:money(hereAutosuggestUsd),
+    hereTollUsd:hereTollUsd===null?null:money(hereTollUsd),hereUsageUnpriced,
+    knownServiceCostsUsd:money(firestoreUsd+cloudRunUsd+resendUsd+cloudSchedulerUsd+renderLegacyUsd+r2Usd+pricedHereUsd),
     availableBeforeActualOverheadUsd:money(room),
     modeledOperatingResultUsd:money(result),
     modeledResultBeforeUnpricedCostsUsd:money(result),
-    economicsStatus:'NOT NET PROFIT: HERE/Photon/OSRM routing, cloud egress, storage, support, insurance, legal, tax, real provider invoices and actual use unverified',
+    economicsStatus:'NOT NET PROFIT: real HERE fees, OSRM/OTP and map tiles, cloud egress/logs, support, insurance, legal, tax, real provider bills unverified',
     approximateBreakEvenTravelsPerDay:approximateBreakEvenTravels,
     freeTierAssumed:a.useFreeTiers,
   };
