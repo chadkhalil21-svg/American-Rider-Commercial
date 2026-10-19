@@ -11,13 +11,15 @@ assert.equal(v.internationalModeledContributionUsd,0.84);
 assert.equal(v.transactionRoomBeforeActualOverheadUsd,1.38); // 95% * 1.39 + 5% * 1.09 = 1.375, rounding is half-up
 assert.equal(v.presenceWritesPerDay,9600);
 assert.equal(v.firestoreWritesPerDay,12100);
-assert.equal(v.firestoreReadsPerDay,7500);
+assert.equal(v.firestoreReadsPerDay,55500,'location check-ins read source-of-truth eligibility records');
+assert.equal(v.presenceCloudRequestsMonthly,288000,'each 90-second check-in is a Cloud Run request');
+assert.equal(v.assumedPresenceInstanceSecondsMonthly,57600,'synthetic active-CPU estimate is disclosed');
 assert.equal(v.freeTierAssumed,true);
 assert.equal(v.cloudRunCostUsd,0);
-assert.equal(v.firestoreCostUsd,0);
+assert.equal(v.firestoreCostUsd,0.05);
 assert.equal(v.legacyRenderApiUsd,7);
 assert.equal(v.cloudSchedulerUsd,0,'one scheduled job is within the three-job free tier');
-assert.equal(v.knownServiceCostsUsd,7,'only the explicitly identified legacy hosting fee is in this low-usage scenario');
+assert.equal(v.knownServiceCostsUsd,7.05,'count database reads made by on-duty check-ins');
 assert.equal(v.r2Usd,0,'Cloudflare R2 fits within its own free storage and request quotas');
 assert.equal(evaluate({r2StorageGibMonths:110}).r2Usd,1.5);
 assert.equal(evaluate({r2ClassARequestsMonthly:2000000,r2ClassBRequestsMonthly:20000000}).r2Usd,8.1);
@@ -29,7 +31,7 @@ const pricedHere=evaluate({hereAutosuggestRequestsMonthly:10000,hereAutosuggestU
 assert.equal(pricedHere.hereUsageUnpriced,false);
 assert.equal(pricedHere.hereAutosuggestUsd,10);
 assert.equal(pricedHere.hereTollUsd,2);
-assert.equal(pricedHere.knownServiceCostsUsd,19);
+assert.equal(pricedHere.knownServiceCostsUsd,19.05);
 assert.throws(()=>evaluate({r2StorageGibMonths:-1}),/nonnegative/);
 assert.throws(()=>evaluate({hereTollUsdPer1000:-1}),/nonnegative/);
 assert.equal(evaluate({cloudSchedulerJobs:4}).cloudSchedulerUsd,0.1);
