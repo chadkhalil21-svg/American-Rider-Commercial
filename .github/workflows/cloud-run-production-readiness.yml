@@ -41,3 +41,19 @@ jobs:
         env:
           CLOUDSDK_CORE_PROJECT: american-rider-35688
         run: python3 infra/cloud-run/read-only-production-audit.py
+      - name: Exact real-money launch prerequisites (READ ONLY, reports blockers)
+        env:
+          CLOUDSDK_CORE_PROJECT: american-rider-35688
+        shell: bash
+        run: |
+          set -euo pipefail
+          # VERIFY reads ONLY Cloud Run, Scheduler, IAM policy and Stripe secret
+          # VERSION METADATA. It does not read secret content or deploy/charge money.
+          # Commercial blockers are expected before launch; record them as a
+          # status report rather than treating a successful audit as a failed CI.
+          if python3 infra/cloud-run/activate-paid-production.py VERIFY; then
+            echo '✅ Paid Cloud Run prerequisites READY; live cutover still requires explicit founder approval.' >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo '⚠️ Paid Cloud Run prerequisites remain BLOCKED; inspect the safe BLOCKED lines above.' >> "$GITHUB_STEP_SUMMARY"
+            echo 'No Cloud Run, Stripe, Render, Scheduler or App Store configuration was changed.'
+          fi
