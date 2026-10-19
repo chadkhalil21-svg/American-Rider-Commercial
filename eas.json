@@ -13,7 +13,7 @@
     "production": {
       "autoIncrement": true,
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://american-rider-server-3d7x.onrender.com",
+        "EXPO_PUBLIC_API_URL": "https://american-rider-api-production-623854974930.us-east1.run.app",
         "EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID": "623854974930-4muug9hi3jjrml3tokaqh3n2tbd0h2ms.apps.googleusercontent.com",
         "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID": "623854974930-4t4u62mvkeopvlrm6ne15eq6rubn25r9.apps.googleusercontent.com"
       }
@@ -36,6 +36,9 @@
         "ascApiKeyPath": "./.ci/AuthKey_LS74L322NV.p8",
         "ascApiKeyId": "LS74L322NV",
         "ascApiKeyIssuerId": "2fa282d5-2b2c-4820-8fe9-6928ac1e8d33"
+      },
+      "android": {
+        "track": "internal"
       }
     }
   }
