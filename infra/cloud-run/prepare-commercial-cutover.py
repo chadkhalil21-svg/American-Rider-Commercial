@@ -164,7 +164,7 @@ VERIFIED_PRODUCTION_URL = (
 )
 
 
-def _health_probe(base_url, token=None):
+def _health_probe(base_url, token=None, timeout=20):
     """(health_json, reason) for a PRIVATE Google service, never printing tokens.
 
     No state-changing endpoint is touched. Error responses are not read.
@@ -175,7 +175,7 @@ def _health_probe(base_url, token=None):
             headers["Authorization"] = "Bearer " + token
         req = urllib.request.Request(base_url + path, headers=headers)
         try:
-            with urllib.request.urlopen(req, timeout=20) as rsp:
+            with urllib.request.urlopen(req, timeout=timeout) as rsp:
                 status = rsp.status
                 response = json.loads(rsp.read(250_000))
         except urllib.error.HTTPError as exc:
@@ -228,7 +228,7 @@ def _health_through_google_proxy():
             if proc.poll() is not None:
                 reason = "Google authenticated proxy exited before responding"
                 break
-            health, result = _health_probe(f"http://127.0.0.1:{port}")
+            health, result = _health_probe(f"http://127.0.0.1:{port}", timeout=2)
             if health is not None:
                 return health, "ok"
             reason = "Google authenticated proxy: " + result
