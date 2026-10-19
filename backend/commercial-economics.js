@@ -43,6 +43,7 @@ function evaluate(overrides={}) {
   const a={...DEFAULT,...overrides};
   for(const [k,v] of Object.entries(a)) if(k!=='useFreeTiers') nonneg(v,k);
   if(!Number.isInteger(a.days)||a.days<1||a.days>366)throw Error('days out of range');
+  if(!Number.isInteger(a.cloudSchedulerJobs))throw Error('cloudSchedulerJobs must be an integer');
   if(!Number.isInteger(a.fareCents)||!Number.isInteger(a.platformFeeCents))throw Error('fare and fee require whole cents');
   if(a.internationalShare>1)throw Error('internationalShare must not exceed 1');
   if(a.recoveredAccountFeeFraction>1)throw Error('recoveredAccountFeeFraction must not exceed 1');
