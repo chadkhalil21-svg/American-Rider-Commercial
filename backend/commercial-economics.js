@@ -25,6 +25,7 @@ const DEFAULT=Object.freeze({
   activePayoutAccountsMonthly:0,
   recoveredAccountFeeFraction:0,
   monthlyResendEmailCount:0,
+  peakDailyResendEmailCount:0,
   useFreeTiers:true,
 });
 function nonneg(n,name) {
@@ -74,7 +75,7 @@ function evaluate(overrides={}) {
   const accountFeesRecovered=accountFees*a.recoveredAccountFeeFraction;
   // Resend free tier covers up to 3,000 emails and 100 per day. That daily
   // threshold is not inferable from monthly volume; switch to Pro if exceeded.
-  const resendUsd=a.monthlyResendEmailCount<=3000?0:
+  const resendUsd=a.monthlyResendEmailCount<=3000&&a.peakDailyResendEmailCount<=100?0:
     a.monthlyResendEmailCount<=50000?20:20+Math.ceil((a.monthlyResendEmailCount-50000)/1000)*0.90;
   const totalCost=fixed+otherVariable+firestoreUsd+cloudRunUsd+accountFees-accountFeesRecovered+resendUsd;
   const room=rides*transactionRoomUsd;
@@ -99,7 +100,7 @@ function evaluate(overrides={}) {
     modeledOperatingResultUsd:money(result),
     modeledResultBeforeUnpricedCostsUsd:money(result),
     economicsStatus:'NOT NET PROFIT: HERE/map fallback, egress, storage, support, insurance, legal, tax and real billing unverified',
-    approximateBreakEvenTravelsPerMonth:approximateBreakEvenTravels,
+    approximateBreakEvenTravelsPerDay:approximateBreakEvenTravels,
     freeTierAssumed:a.useFreeTiers,
   };
 }
