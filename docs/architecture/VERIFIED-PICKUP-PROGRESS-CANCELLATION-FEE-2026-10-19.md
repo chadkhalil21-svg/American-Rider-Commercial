@@ -10,7 +10,7 @@
 
 `backend/travelmoney.js` already reads the same Operator document inside the cancellation transaction to release the reservation. The consent-gated evaluation uses **that same snapshot** and writes a compact reason/progress proof into the existing cancellation transaction; no GPS history collection, telemetry polling, new database lookup, HERE charge or route API.
 
-At cancellation, strictly require:
+The proposed `firestore.indexes.json` also exempts four unqueried cancellation fields from individual indexes to reduce write amplification. **These exemptions do not affect the live database until its configuration is separately deployed.**\n\nAt cancellation, strictly require:
 1. Server-authenticated acceptance and cancellation at least **120 seconds later**.
 2. Current active Travel (not pre-booked queued Travel); valid pickup coordinates and accepted baseline.
 3. Recent Operator position at acceptance and cancellation (max 2 minutes), measurements separated by more than 30 seconds, with plausible net speed up to 75 mph.
