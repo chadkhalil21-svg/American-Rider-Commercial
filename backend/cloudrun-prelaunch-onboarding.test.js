@@ -1,0 +1,28 @@
+'use strict';
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+const root = path.resolve(__dirname,'..');
+const server = fs.readFileSync(path.join(__dirname, 'server.js'),'utf8');
+const workflow = fs.readFileSync(path.join(root,'.github/workflows/cloud-run-public-onboarding.yml'),'utf8');
+const script = fs.readFileSync(path.join(root,'infra/cloud-run/open-prelaunch-onboarding.py'),'utf8');
+
+assert.match(server,/process\.env\.K_SERVICE === 'american-rider-api-production'/);
+assert.match(server,/const prelaunchOnboarding = readKey\('AR_PRELAUNCH_PUBLIC'\) === '1'/);
+assert.match(server,/prelaunchOnboarding[\s\S]{0,400}cutoverActive \|\| keyMode !== 'no-key'/);
+assert.match(server,/prelaunchOnboarding[\s\S]{0,450}DEPLOYMENT_MODE !== 'production'/);
+assert.match(server,/prelaunchOnboarding[\s\S]{0,500}AR_EXTERNAL_SCHEDULER/);
+assert.match(server,/Cloud Run public onboarding mode forbids live Stripe/);
+assert.match(server,/Cloud Run production scheduler is not active/);
+assert.match(server,/readKey\('AR_CLOUDRUN_CUTOVER_ACTIVE'\) !== '1'/);
+assert.match(server,/app\.post\('\/create-payment-intent', requireAuth/);
+assert.match(script,/--no-invoker-iam-check/);
+assert.match(script,/--invoker-iam-check/);
+assert.match(script,/config\.get\("mode"\) != "no-key"/);
+assert.match(script,/config\.get\("canTakePayment"\) is not False/);
+assert.doesNotMatch(script,/update-secrets=STRIPE_SECRET_KEY|scheduler jobs resume|STRIPE_SECRET_KEY=.*:latest/);
+assert.match(workflow,/workflow_dispatch:/);
+assert.match(workflow,/OPEN_ONBOARDING/);
+assert.match(workflow,/github\.ref == 'refs\/heads\/release\/current'/);
+assert.doesNotMatch(workflow,/on:\s*\n\s*push:/);
+console.log('PASS: first-store public onboarding is separate from paid Travel activation, Stripe and dispatch remain OFF.');
