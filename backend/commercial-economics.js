@@ -32,7 +32,7 @@ function evaluate(overrides={}) {
   if(!overrides||typeof overrides!=='object'||Array.isArray(overrides))throw Error('options must be an object');
   for(const k of Object.keys(overrides)) if(!(k in DEFAULT))throw Error('unsupported economics input: '+k);
   const a={...DEFAULT,...overrides};
-  for(const [k,v] of Object.entries(a)) nonneg(v,k);
+  for(const [k,v] of Object.entries(a)) if(k!=='useFreeTiers') nonneg(v,k);
   if(!Number.isInteger(a.days)||a.days<1||a.days>366)throw Error('days out of range');
   if(!Number.isInteger(a.fareCents)||!Number.isInteger(a.platformFeeCents))throw Error('fare and fee require whole cents');
   if(a.internationalShare>1)throw Error('internationalShare must not exceed 1');
