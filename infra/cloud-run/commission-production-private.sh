@@ -23,7 +23,7 @@ done
 [[ "$(git branch --show-current)" == "$EXPECTED_BRANCH" ]] || fail "Switch to release/current before deployment."
 [[ -f backend/server.js && -f backend/Dockerfile && -f PROJECT-LEDGER.md ]] || fail "Run from the American Rider Commercial repository root."
 remote="$(git remote get-url origin)"
-[[ "$remote" == "$EXPECTED_REPO" || "$remote" == "git@github.com:chadkhalil21-svg/American-Rider-Commercial.git" ]] || fail "Unexpected GitHub origin: refusing production project."
+[[ "$remote" == "$EXPECTED_REPO" || "$remote" == "https://github.com/chadkhalil21-svg/American-Rider-Commercial" || "$remote" == "git@github.com:chadkhalil21-svg/American-Rider-Commercial.git" ]] || fail "Unexpected GitHub origin: refusing production project."
 git diff --quiet && git diff --cached --quiet || fail "Working tree has local changes; refusing an unreviewed build."
 LOCAL_HEAD="$(git rev-parse HEAD)"
 REMOTE_HEAD="$(git rev-parse "refs/remotes/origin/$EXPECTED_BRANCH")"
