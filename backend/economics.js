@@ -16,10 +16,11 @@
 //     fee rather than silently absorbed.
 //
 // COST MODEL, 25 Sept 2026. Monetary values are cents; percentage rates are basis points.
-// The $2 monthly active-account cost is recovered separately from the Operator account and is
-// waived at 20 completed Travels/month (backend/operatorfees.js). It is therefore NOT charged
-// to Travelers here. This model retains only the fixed payout allowance: about 4.33 x $0.25
-// scheduled payouts / 20 Travels = 5.4c per Travel, rounded UP to 6c.
+// Stripe's $2 monthly payout-active Connect account charge belongs to the Operator,
+// not Travelers; the former 20-Travel waiver is repealed. Separate collection requires
+// affirmative fee consent, and cannot be assumed recovered in the fare model until paid.
+// Payout/routing costs remain conservatively reserved here until actual per-payout Operator
+// billing is verified. Never pretend a payout is free or double-count recovered fees.
 //
 // IMPORTANT. Costs that cannot yet be known from a quote (e.g. actual TNC corporate insurance,
 // legal/accounting retainers) belong in the OPERATING_OVERHEAD allowance once quoted and in the
