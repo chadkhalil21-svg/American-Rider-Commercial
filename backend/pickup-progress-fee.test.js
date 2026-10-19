@@ -10,7 +10,7 @@ function seed(over={}){
  assert(start && start.startDistanceMi>1.2);
  return {ride:{acceptedAt,status:'accepted',pickupLat:pickup.lat,pickupLng:pickup.lng,operatorEtaMin:8,
    pickupProgressStart:start,...(over.ride||{})},
-   op:{...base,lat:25.786,onlineAt:acceptedAt+130000,...(over.op||{})},
+   operator:{...base,lat:25.786,onlineAt:acceptedAt+130000,...(over.op||{})},
    now:acceptedAt+150000,rideId};
 }
 const evaluate=(changes={})=>cancellationProgress(seed(changes));
@@ -29,7 +29,7 @@ assert.equal(evaluate({op:{currentRideId:'another'}}).feeCents,0,'no fee for ano
 assert.equal(evaluate({op:{onlineAt:acceptedAt-50000}}).feeCents,0,'old GPS is not proof');
 assert.equal(evaluate({op:{lat:25.799,onlineAt:acceptedAt+31000}}).feeCents,0,'implausibly fast GPS jump');
 assert.equal(evaluate({op:{onlineAt:acceptedAt-90000}}).feeCents,0,'old GPS observation must fail closed');
-assert.equal(cancellationProgress({...seed(),now:acceptedAt+400000,operator:seed().op}).feeCents,0,'stale at cancellation');
+assert.equal(cancellationProgress({...seed(),now:acceptedAt+400000,operator:seed().operator}).feeCents,0,'stale at cancellation');
 assert.equal(evaluate({ride:{pickupProgressStart:null}}).feeCents,0,'legacy acceptance missing baseline');
 assert.equal(evaluate({ride:{acceptedAt:null}}).feeCents,0,'unverified acceptance is free');
 assert.equal(evaluate({ride:{operatorAtFault:true}}).feeCents,0);
