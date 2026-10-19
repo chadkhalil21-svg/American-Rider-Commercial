@@ -282,6 +282,14 @@ app.use(express.json()); // parse JSON request bodies — everything BELOW the w
 const KEY = readKey('STRIPE_SECRET_KEY');
 const keyMode = /^(sk|rk)_live_/.test(KEY) ? 'live' : /^(sk|rk)_test_/.test(KEY) ? 'test' : 'no-key';
 const DEPLOYMENT_MODE = String(readKey('DEPLOYMENT_MODE') || 'development').toLowerCase();
+// A manually deployed IAM-private commissioning candidate must never become
+// real-money capable merely because a live Stripe key was mounted by mistake.
+// Keep this distinct from the eventual separately commissioned live API.
+if (process.env.K_SERVICE === 'american-rider-api-production-candidate' &&
+    (keyMode === 'live' || DEPLOYMENT_MODE !== 'test' ||
+     !!readKey('STRIPE_WEBHOOK_SECRET') || !!readKey('STRIPE_CONNECT_WEBHOOK_SECRET'))) {
+  throw new Error('Private Cloud Run candidate cannot run with live Stripe credentials, production mode or webhook secrets');
+}
 const declaredProduction = DEPLOYMENT_MODE === 'production';
 // A live Stripe credential is itself a production posture. This prevents an omitted or mistyped
 // DEPLOYMENT_MODE from allowing real-money operation around the full readiness gate.
