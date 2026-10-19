@@ -8,7 +8,7 @@ import { Stack, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import React, { useEffect } from 'react';
 import { Platform, StyleSheet, View } from 'react-native';
-import { onNotificationTap, registerForPush } from '../src/backend/push';
+import { onNotificationTap, recoverLastNotificationTap, registerForPush } from '../src/backend/push';
 import { pingSweep } from '../src/backend/heartbeat';
 import { AuthScreen } from '../src/screens/AuthScreen';
 import { AuthProvider, useAuth } from '../src/state/AuthContext';
@@ -50,16 +50,25 @@ function AppGate() {
 
   // Tapping a notification opens the thing it was about.
   useEffect(() => {
-    if (Platform.OS === 'web') return;
-    return onNotificationTap((data) => {
-      // Push data is external input. Bind it to the active account and restrict navigation.
+    if (Platform.OS === 'web' || !user || initializing || onboarding) return;
+    let mounted = true;
+    const currentUid = user.uid;
+    const open = (data: Record<string, unknown>) => {
+      if (!mounted) return;
+      // A push is untrusted external input. Authenticate its recipient; navigate
+      // only to existing safe destinations. No acceptance or payment action here.
       const recipientUid = typeof data?.recipientUid === 'string' ? data.recipientUid : null;
-      if (!user || !recipientUid || recipientUid !== user.uid) return;
+      if (!recipientUid || recipientUid !== currentUid) return;
       const screen = typeof data?.screen === 'string' ? data.screen : null;
       const allowed = new Set(['/ride', '/receipt', '/operator', '/operator/insurance', '/family']);
       if (screen && allowed.has(screen)) router.navigate(screen as never);
-    });
-  }, [router, user]);
+    };
+    const unsubscribe = onNotificationTap(open);
+    // Expo may have launched us FROM a notification before React subscribed.
+    // Its persistent last response is replayed only once and then cleared.
+    void recoverLastNotificationTap(open);
+    return () => { mounted = false; unsubscribe(); };
+  }, [router, user?.uid, initializing, onboarding]);
 
   return (
     <View style={{ flex: 1 }}>
