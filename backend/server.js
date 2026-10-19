@@ -1405,6 +1405,9 @@ app.post('/travel/cancel', requireAuth, LIMITS.payments, requireFreshAuth, async
       uid: req.uid,
       rideId: req.body?.rideId,
       stripeConfigured: keyMode !== 'no-key',
+      // Never enable via a native flag or GitHub merge. Requires explicit paid
+      // deployment configuration after fee disclosure and synthetic Stripe tests.
+      enableVerifiedProgressFee: process.env.AR_VERIFIED_ENROUTE_CANCEL_FEE === 'true',
       deps: { refundableFor, refundTravel, cancelUnpaidIntent, transferFixed, operatorPayoutAccount },
     });
     res.status(out.status).json(out.body);
