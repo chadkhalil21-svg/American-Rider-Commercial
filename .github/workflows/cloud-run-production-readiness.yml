@@ -1,16 +1,14 @@
 name: Audit real American Rider Google Cloud production (read only)
 
 # Establish recurring Google Cloud observability from connected GitHub, avoiding
-# repeated iPad Cloud Shell copying. No production mutations or provider secrets.
+# repeated iPad Cloud Shell copying. Audit each release and once per day. No production mutations or provider secrets.
 on:
   workflow_dispatch:
   push:
     branches:
       - release/current
-    paths:
-      - .github/workflows/cloud-run-production-readiness.yml
-      - infra/cloud-run/read-only-production-audit.py
-      - infra/cloud-run/test_read_only_production_audit.py
+  schedule:
+    - cron: '23 12 * * *'
 
 permissions:
   contents: read
