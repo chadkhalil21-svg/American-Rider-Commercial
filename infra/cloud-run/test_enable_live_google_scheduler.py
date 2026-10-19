@@ -97,6 +97,39 @@ class DispatchTests(unittest.TestCase):
                 m.activate()
         self.assertTrue(any(call[:3] == ("scheduler", "jobs", "pause") for call in events))
 
+    def test_public_payment_ready_is_independent_of_global_screening_flag(self):
+        import json
+        health = {"deployment": "production", "stripe": "live",
+                  "operationalReady": True, "documents": "on", "screening": "off",
+                  "support": {"firestore": "on"}}
+        config = {"canTakePayment": True, "mode": "live",
+                  "stripePublishableKey": "pk_live_SYNTHETIC_ONLY"}
+
+        class Response:
+            status = 200
+            def __init__(self, payload):
+                self.payload = payload
+            def __enter__(self):
+                return self
+            def __exit__(self, *exc):
+                return False
+            def read(self, _):
+                return json.dumps(self.payload).encode("utf8")
+
+        def get(request, timeout=30):
+            return Response(health if request.full_url.endswith("/health") else config)
+
+        with mock.patch.object(m.urllib.request, "urlopen", side_effect=get):
+            self.assertTrue(m.public_paid_ready(),
+                            "A globally unset screening flag cannot veto an otherwise ready platform")
+            health["documents"] = "off"
+            with self.assertRaisesRegex(m.Stop, "payment"):
+                m.public_paid_ready()
+            health["documents"] = "on"
+            config["stripePublishableKey"] = "pk_test_SYNTHETIC_ONLY"
+            with self.assertRaisesRegex(m.Stop, "payment"):
+                m.public_paid_ready()
+
     def test_owner_confirmation_gate(self):
         import os
         with mock.patch.dict(os.environ, {"GITHUB_REF": "refs/heads/release/current",
