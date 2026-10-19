@@ -56,6 +56,16 @@ class TestReadOnlyAudit(unittest.TestCase):
             {"role": "roles/run.invoker", "members": ["allUsers"]}
         ]}))
 
+    def test_google_recommended_public_invoker_method(self):
+        actual = service()
+        actual["metadata"] = {"annotations": {
+            "run.googleapis.com/invoker-iam-disabled": "true",
+        }}
+        self.assertTrue(audit.effective_public_invocation(actual, {"bindings": []}))
+        actual["metadata"]["annotations"]["run.googleapis.com/invoker-iam-disabled"] = "false"
+        self.assertFalse(audit.effective_public_invocation(actual, {"bindings": []}))
+        self.assertIsNone(audit.effective_public_invocation(actual, None))
+
     def test_safe_current_prelaunch_configuration(self):
         data = [
             service(), {"bindings": []},

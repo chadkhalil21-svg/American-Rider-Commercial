@@ -1,0 +1,21 @@
+'use strict';
+const assert=require('node:assert/strict');
+const fs=require('node:fs');
+const path=require('node:path');
+const root=path.resolve(__dirname,'..');
+const {sourceCheck,responseCheck,URL}=require('../scripts/verify-public-onboarding-api.cjs');
+assert.doesNotThrow(()=>sourceCheck(root));
+assert.match(URL,/^https:\/\/american-rider-api-production-\d+\.us-east1\.run\.app$/);
+const good={l:{ok:true},h:{deployment:'production',stripe:'no-key',support:{firestore:'on'},fleet:{operators:0}},c:{mode:'no-key',canTakePayment:false}};
+assert.doesNotThrow(()=>responseCheck(good.l,good.h,good.c));
+for(const [field,bad] of [['stripe','live'],['deployment','development']])
+ assert.throws(()=>responseCheck(good.l,{...good.h,[field]:bad},good.c),/disabled|verified/i);
+assert.throws(()=>responseCheck(good.l,good.h,{mode:'live',canTakePayment:true}),/DISABLED/);
+assert.throws(()=>responseCheck(good.l,{...good.h,fleet:{operators:null}},good.c),/Firebase/);
+const workflow=fs.readFileSync(path.join(root,'.github/workflows/build-onboarding-devices.yml'),'utf8');
+assert.match(workflow,/matrix:[\s\S]*platform: \[ios, android\]/);
+assert.match(workflow,/BUILD_INTERNAL/);
+assert.match(workflow,/verify-public-onboarding-api\.cjs/);
+assert.match(workflow,/--profile prelaunch-onboarding --non-interactive/);
+assert.doesNotMatch(workflow,/eas-cli@latest submit|--profile production|--platform all --auto-submit/);
+console.log('PASS: internal iOS/Android build gate enforces Google public Firebase and NO live money.');
