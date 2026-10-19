@@ -43,7 +43,7 @@ assert.match(dispatchWorkflow,/workflow_dispatch:/);
 assert.doesNotMatch(dispatchWorkflow,/on:\s*\n\s*push:/);
 assert.match(dispatchScript,/--schedule=\* \* \* \* \*/);
 assert.match(dispatchScript,/scheduler", "jobs", "resume"/);
-assert.match(dispatchScript,/Google scheduler destination/);
+assert.match(dispatchScript,/Google Scheduler destination/);
 const dispatchTests = spawnSync('python3', ['-m','unittest','discover','-s',
     path.join(root,'infra/cloud-run'),'-p','test_enable_live_google_scheduler.py'],
     {encoding:'utf8',timeout:30000});
