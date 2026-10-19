@@ -2127,6 +2127,12 @@ async function runLeasedSweepsOnce() {
 const runLeasedSweeps = singleFlight(runLeasedSweepsOnce);
 
 async function runSweep(req, res) {
+  // A scheduler token is installed during private commissioning, but operational
+  // sweeps must remain inactive until Render's scheduler is retired at cutover.
+  if (process.env.K_SERVICE === 'american-rider-api-production' &&
+      readKey('AR_CLOUDRUN_CUTOVER_ACTIVE') !== '1') {
+    return res.status(503).json({ error: 'Cloud Run production scheduler is not active' });
+  }
   // Operational sweeps can dispatch reserved travel, re-offer assignments, block expired
   // screenings, open safety cases and move money owed to operators. They are therefore an
   // authenticated operational control, not a public health endpoint. The process already
