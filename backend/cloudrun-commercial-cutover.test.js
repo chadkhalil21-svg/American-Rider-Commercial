@@ -6,6 +6,11 @@ const fs = require('node:fs');
 const path = require('node:path');
 const {spawnSync} = require('node:child_process');
 const root = path.join(__dirname, '..');
+const gitignore = fs.readFileSync(path.join(root, '.gitignore'), 'utf8');
+assert.match(gitignore, /^__pycache__\/$/m,
+  'Python Cloud Shell bytecode must be ignored before the clean release guard');
+assert.match(gitignore, /^\*\.py\[cod\]$/m,
+  'Python interpreter bytecode must not block Cloud Run commissioning');
 const server = fs.readFileSync(path.join(__dirname, 'server.js'), 'utf8');
 const prepPath = path.join(root, 'infra/cloud-run/prepare-commercial-cutover.py');
 const prep = fs.readFileSync(prepPath, 'utf8');

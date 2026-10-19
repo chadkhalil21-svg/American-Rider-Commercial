@@ -7,3 +7,8 @@ ios/
 android/
 *.log
 .DS_Store
+
+# Python interpreters/tests leave bytecode next to Cloud Run commissioning scripts.
+# These disposable caches must not trigger the preflight clean-release guard.
+__pycache__/
+*.py[cod]
