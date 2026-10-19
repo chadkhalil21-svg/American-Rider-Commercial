@@ -270,6 +270,8 @@ def main():
     blockers = inspect(svc, scheduler, secret)
     print_preflight(svc, blockers)
     if sys.argv[1] == "VERIFY":
+        if blockers:
+            raise Stop("Paid launch prerequisites above remain UNRESOLVED. No live changes made.")
         return
     if os.environ.get("FOUNDER_APPROVAL") != "ACTIVATE_PAID_CLOUDRUN":
         raise Stop("Explicit owner approval ACTIVATE_PAID_CLOUDRUN is required.")
