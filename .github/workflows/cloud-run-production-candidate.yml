@@ -56,10 +56,9 @@ jobs:
             NODE_ENV=production
             DEPLOYMENT_MODE=test
             AR_EXTERNAL_SCHEDULER=1
-          secrets: |
-            SCHEDULER_TOKEN=ar-production-private-candidate-scheduler-token:latest
+            AR_PRIVATE_CANDIDATE_NO_SCHEDULER=1
       - name: Record safe private candidate boundary
         run: |
           echo "Candidate privately deployed; not the paid-travel production API."
-          echo "No Stripe webhooks, Cloud Scheduler jobs or client origin switched."
+          echo "No Stripe keys or webhooks, scheduler token, Cloud Scheduler jobs or client origin switched."
           echo "Verify authenticated /live and production secrets before separate go-live."
