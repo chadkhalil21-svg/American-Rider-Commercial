@@ -288,12 +288,26 @@ const DEPLOYMENT_MODE = String(readKey('DEPLOYMENT_MODE') || 'development').toLo
 // Render (K_SERVICE absent) and the old IAM-private candidate keep their own rules.
 if (process.env.K_SERVICE === 'american-rider-api-production') {
   const cutoverActive = readKey('AR_CLOUDRUN_CUTOVER_ACTIVE') === '1';
-  const realMoneyPosture = keyMode === 'live' || DEPLOYMENT_MODE === 'production';
-  if (realMoneyPosture !== cutoverActive ||
-      (cutoverActive && (keyMode !== 'live' || DEPLOYMENT_MODE !== 'production' ||
-        !readKey('STRIPE_WEBHOOK_SECRET') || !readKey('STRIPE_CONNECT_WEBHOOK_SECRET') ||
-        readKey('AR_EXTERNAL_SCHEDULER') !== '1'))) {
-    throw new Error('Cloud Run commercial API requires an explicit, complete cutover: live Stripe, both signed webhooks, external scheduler and production mode');
+  // First App Store/Play launch can begin with public onboarding even when no
+  // Operators have yet registered. Public onboarding MUST NOT mean permitted
+  // paid Travel or dispatch: production route guards remain in force and a
+  // missing Stripe live secret blocks all payment-dependent functionality.
+  // This is a deliberately separate phase from commercial payment activation.
+  const prelaunchOnboarding = readKey('AR_PRELAUNCH_PUBLIC') === '1';
+  if (prelaunchOnboarding) {
+    if (cutoverActive || keyMode !== 'no-key' || DEPLOYMENT_MODE !== 'production' ||
+        readKey('AR_EXTERNAL_SCHEDULER') !== '1' || !readKey('STRIPE_WEBHOOK_SECRET') ||
+        !readKey('STRIPE_CONNECT_WEBHOOK_SECRET')) {
+      throw new Error('Cloud Run public onboarding mode forbids live Stripe, active cutover, missing webhook signatures or internal sweeps');
+    }
+  } else {
+    const realMoneyPosture = keyMode === 'live' || DEPLOYMENT_MODE === 'production';
+    if (realMoneyPosture !== cutoverActive ||
+        (cutoverActive && (keyMode !== 'live' || DEPLOYMENT_MODE !== 'production' ||
+          !readKey('STRIPE_WEBHOOK_SECRET') || !readKey('STRIPE_CONNECT_WEBHOOK_SECRET') ||
+          readKey('AR_EXTERNAL_SCHEDULER') !== '1'))) {
+      throw new Error('Cloud Run commercial API requires an explicit, complete cutover: live Stripe, both signed webhooks, external scheduler and production mode');
+    }
   }
 }
 // A manually deployed IAM-private commissioning candidate must never become
