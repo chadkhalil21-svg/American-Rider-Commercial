@@ -29,6 +29,7 @@ Date: 2026-10-19. Supersedes older hypothetical $2,000 operating overhead and ol
 | Cloudflare Email Routing + Gmail | verified test incoming support/insurance @americanrider.app → americanrider.communications@gmail.com | free forwarding to established business Gmail | working for .app; does NOT depend on Resend inbound; .com addresses not proven |
 | Cloudflare R2 | backend/r2.js private operator documents | standard 10GiB, 1m A, 10m B free monthly, thereafter $0.015/GiB-month, $4.50/m A, $0.36/m B | code configured, real invoice/retained GB unknown |
 | Render | historic API and four static websites | existing paid $7/month API; separate static-site quota/usage | do NOT retire until client links/callbacks verified |
+| Expo Push / APNs / FCM | backend/push.js and backend/pushreceipts.js; accepted tickets tracked for safety | Expo push sending is free but LIMITED to 600 notifications/second/project; SDK retries and batching at scale required, Firestore safety receipts still incur DB reads/writes | ACTIVE code, physical delivery not implied by provider receipt |
 | Twilio Voice | backend/voice.js token/call endpoints | if configured and used, USD local calls e.g $0.014/min outbound and app SDK $0.004/min/leg; number fee extra | conditional readiness; live service use or contract NOT VERIFIED |
 | Local document OCR | backend/documents.js Tesseract local | local CPU cycles included in Cloud Run time, no separate image-AI per-document service fee | code present; requires qualified human compliance review |
 | Expo EAS builds, Apple Store and Google Play | mobile build/distribution | build usage can cost; Apple Developer $99/year, Google Play $25 one-time | enrollment/build actual invoices unknown |
@@ -61,6 +62,7 @@ Card-cost column above intentionally **domestic-only** for comparability; underl
 - Firestore warns sequentially indexed timestamps can cap a collection at ~500 writes/second. Confirm current index consumption and exemptions before high volume; ramp with documented 500/50/5 practice.
 - Google Cloud Run has default max-instances settings, concurrency and regional quotas; test at escalating request rates, measure p95 and p99, cap connection pools, ensure auth, payment and provider throttles, idempotent dispatch/capture/retry. A low monthly estimate does NOT equal proven production throughput.
 - Public OpenFreeMap tiles have no availability guarantee; plan fallback before relying on nationwide map UI. Maps rendering degradation must not corrupt paid dispatch.
+- Expo Push Service is free but documented to accept at most 600 push notifications/second/project; enforce outbound throttle, retry/backoff, batch and real-device verification rather than assuming all offers reach a phone.
 - SES must have production approval and an increased daily recipient quota; an initial sandbox is only 200/day. Keep resilient custom-mail outbox so booking and payout remain correct during email outages, but undelivered required receipt triggers safe alerts/retries.
 - Source geocoder CURRENTLY uses HERE Autosuggest as primary without Photon, not just exceptional toll pricing; its bill can be material if searches and non-bookers greatly exceed Travels. Example: SIX address requests per completed Travel = **18 million/month at 100k/day**; hypothetical $1/1,000 would equal $18,000/month BEFORE toll calls. This rate is NOT a verified HERE contract.
 - Govern real revenue/expenses: Stripe settled bank and transfer reconciliation, provider invoices, Cloud Billing exports/metrics, actual insurance costs, legal review, store publication, physical devices. ONE Founder should only receive compact exception alerts and daily reconciliation.
@@ -72,6 +74,6 @@ Cloudflare: https://developers.cloudflare.com/r2/pricing/ ; https://developers.c
 MapLibre / maps: https://maplibre.org/ ; https://openfreemap.org/tos/
 AWS SES (July 2026 change): https://aws.amazon.com/ses/pricing/ ; https://docs.aws.amazon.com/ses/latest/dg/request-production-access.html
 Resend: https://resend.com/pricing ; Twilio https://www.twilio.com/en-us/voice/pricing/us
-Reliability: https://docs.cloud.google.com/run/docs/about-load-testing ; https://firebase.google.com/docs/firestore/best-practices
+Reliability: https://docs.cloud.google.com/run/docs/about-load-testing ; https://firebase.google.com/docs/firestore/best-practices ; https://docs.expo.dev/push-notifications/sending-notifications/
 
 **State:** This file, backend/service-scale-economics.js and its tests are synthetic source-only additions to PR #144; no emails sent, provider subscriptions purchased, live Stripe charge/payout, Cloud Run deploy, DNS change or store submission.
