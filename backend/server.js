@@ -756,7 +756,9 @@ app.post('/support', requireAuth, requireVerifiedEmail, LIMITS.support, async (r
       amountCents: decision.credit_cents,
       expectUid: req.uid,
       idempotencyKey: `ar_support_refund_${rideId}`,
+      maxOutOfPocketCents: MAX_OUT_OF_POCKET_CENTS,
     });
+    // Preflight now enforces the out-of-pocket cap before moving money.
     // THE EXPOSURE CAP, WHICH IS NOT THE SAME AS THE CREDIT CAP. The credit cap measures what
     // a traveler might reasonably be owed; this measures what the company actually pays for
     // it, and the two diverge because the operator's 99% has already left. refundTravel()
