@@ -395,7 +395,10 @@ const FLEET_READ_TIMEOUT_MS = 2000;
 // HTTP", and it answers it without reaching anything that can be slow.
 //
 // /health keeps everything else. It is for people, not for a watchdog.
+// Cloud Run reserves some paths ending in 'z'; keep /healthz for existing Render
+// probes, but expose this same cheap, I/O-free liveness response at /live on GCP.
 app.get('/healthz', (req, res) => res.json({ ok: true, service: 'american-rider-server' }));
+app.get('/live', (req, res) => res.json({ ok: true, service: 'american-rider-server' }));
 
 app.get('/health', async (req, res) => {
   const tickets = adminStatus();
