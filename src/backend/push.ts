@@ -131,10 +131,44 @@ export async function clearPushToken(): Promise<void> {
   }
 }
 
-/** Run `onOpen` when the person taps a notification. Returns an unsubscribe. */
+// Expo may deliver the same notification through both the foreground listener and
+// cold-start response recovery. Never navigate twice or open a stale offer twice.
+const navigatedNotificationIds = new Set<string>();
+function deliverTappedNotification(
+  response: Notifications.NotificationResponse,
+  onOpen: (data: Record<string, unknown>) => void,
+): void {
+  if (response.actionIdentifier !== Notifications.DEFAULT_ACTION_IDENTIFIER) return;
+  const id = response.notification.request.identifier;
+  if (!id || navigatedNotificationIds.has(id)) return;
+  navigatedNotificationIds.add(id);
+  if (navigatedNotificationIds.size > 64) {
+    const oldest = navigatedNotificationIds.values().next().value;
+    if (oldest) navigatedNotificationIds.delete(oldest);
+  }
+  const data = response.notification.request.content.data;
+  if (data && typeof data === 'object' && !Array.isArray(data)) onOpen(data as Record<string, unknown>);
+}
+
+/** Subscribed while an authenticated account is available; taps only NAVIGATE. */
 export function onNotificationTap(onOpen: (data: Record<string, unknown>) => void): () => void {
   const sub = Notifications.addNotificationResponseReceivedListener((res) => {
-    onOpen((res.notification.request.content.data ?? {}) as Record<string, unknown>);
+    deliverTappedNotification(res,onOpen);
   });
   return () => sub.remove();
+}
+
+/** Recover a locked-phone / app-terminated notification tap after Firebase login loads.
+ *  No offer is accepted here. The Operator screen still checks the authoritative server. */
+export async function recoverLastNotificationTap(
+  onOpen: (data: Record<string, unknown>) => void,
+): Promise<void> {
+  const response = await Notifications.getLastNotificationResponseAsync().catch(() => null);
+  if (!response) return;
+  try {
+    deliverTappedNotification(response,onOpen);
+  } finally {
+    // A consumed response must not reopen a stale Travel on the next startup.
+    await Notifications.clearLastNotificationResponseAsync().catch(() => {});
+  }
 }
