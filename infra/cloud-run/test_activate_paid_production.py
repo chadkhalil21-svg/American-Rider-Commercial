@@ -73,7 +73,6 @@ class LiveGcpTests(unittest.TestCase):
         self.assertTrue(any("not PAUSED" in x for x in self.inspect(j={
             "state": "ENABLED", "httpTarget": scheduler()["httpTarget"]
         })))
-        self.assertTrue(any("unreadable" in x for x in self.inspect(j={}))) if False else None
 
     def test_reject_public_access_and_unknown_iam(self):
         self.assertTrue(any("unexpectedly exposes" in x for x in
@@ -84,7 +83,9 @@ class LiveGcpTests(unittest.TestCase):
         self.assertTrue(any("policy unreadable" in x for x in result))
 
     def test_missing_scheduler_read_and_disabled_stripe_secret(self):
-        self.assertTrue(any("unreadable" in x for x in self.inspect(j=None if False else {})))
+        with mock.patch.object(m, "meta", return_value={"bindings": []}):
+            blockers = m.inspect(state(), None, secret())
+        self.assertTrue(any("scheduler state unreadable" in x for x in blockers))
         self.assertTrue(any("no enabled" in x for x in self.inspect(sec={
             "name": secret()["name"], "state": "DISABLED"
         })))
@@ -104,7 +105,6 @@ class LiveGcpTests(unittest.TestCase):
             m.verify_paid_public({**health, "screening": "off"}, cfg, {"ok": True})
 
     def test_failed_public_health_auto_rolls_back_without_stripe_url_changes(self):
-        original = state()
         live = state()
         vals = live["spec"]["template"]["spec"]["containers"][0]["env"]
         vals.extend([
