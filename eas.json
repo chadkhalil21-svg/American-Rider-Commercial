@@ -36,6 +36,9 @@
         "ascApiKeyPath": "./.ci/AuthKey_LS74L322NV.p8",
         "ascApiKeyId": "LS74L322NV",
         "ascApiKeyIssuerId": "2fa282d5-2b2c-4820-8fe9-6928ac1e8d33"
+      },
+      "android": {
+        "track": "internal"
       }
     }
   }
