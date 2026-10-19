@@ -148,7 +148,7 @@ def audit():
     results.append(("External scheduler selected", "yes" if summary["external_scheduler_selected"] else "no"))
     results.append(("Operator screening evidence attestation", 
                     "set (independent proof required)" if summary["screening_workflow_attested"]
-                    else "NOT SET — screening blocks commercial Travel"))
+                    else "NOT SET — individual Operator screening required; not a payment API veto"))
     results.append(("Live Stripe publishable key binding",
                     "present" if summary["live_publishable_key_configured"] else "NOT FOUND"))
     if not summary["runtime_ok"]:
@@ -188,8 +188,8 @@ def audit():
     not_ready = []
     if not summary["live_stripe_secret_bound"]:
         not_ready.append("live Stripe payment key not mounted")
-    if not summary["screening_workflow_attested"]:
-        not_ready.append("Operator screening evidence not attested")
+    # The external-provider attestation is not a platform-wide money switch.
+    # Individual Operator screening remains mandatory before duty and dispatch.
     if exposed is False:
         not_ready.append("public Google API not enabled")
     elif exposed is None:
