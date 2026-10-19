@@ -49,17 +49,59 @@ fi
 # The application refuses to start on Cloud Run without a scheduler token.
 # Generate a unique token in Google's own Secret Manager; NEVER print, store in
 # GitHub, give it to the mobile app, or invoke the scheduler in this phase.
-gcloud services enable secretmanager.googleapis.com --project="$PROJECT" --quiet
-if ! gcloud secrets describe "$SECRET" --project="$PROJECT" >/dev/null 2>&1; then
-  gcloud secrets create "$SECRET" --project="$PROJECT" --replication-policy=automatic --quiet
+# Google Cloud SDK commands normally finish quickly. The founder saw this
+# specific secrets describe take over 15 minutes on 2026-10-18. Do not silently
+# treat permission errors or timeouts as a missing secret and create duplicates.
+# Keep production secret requirements; timebox the diagnostic instead of bypassing.
+command -v timeout >/dev/null || fail "GNU timeout is required in Google Cloud Shell."
+echo "Checking production Secret Manager API and candidate token (bounded to 35 seconds)..."
+timeout --signal=TERM --kill-after=5s 90s env CLOUDSDK_CORE_HTTP_TIMEOUT=15 CLOUDSDK_CORE_MAX_RETRIES=0 \
+  gcloud --quiet services enable secretmanager.googleapis.com --project="$PROJECT" \
+  || fail "Secret Manager API enablement did not finish. Check Google Cloud permissions/API status before retrying."
+SECRET_CHECK_ERROR="$(mktemp)"
+trap 'rm -f "$SECRET_CHECK_ERROR"' EXIT
+if timeout --signal=TERM --kill-after=5s 35s \
+  env CLOUDSDK_CORE_HTTP_TIMEOUT=12 CLOUDSDK_CORE_MAX_RETRIES=0 \
+  gcloud --quiet secrets describe "$SECRET" --project="$PROJECT" --format='value(name)' \
+  >/dev/null 2>"$SECRET_CHECK_ERROR"; then
+  echo "Candidate secret exists: reusing it."
+else
+  SECRET_CHECK_STATUS=$?
+  if [[ "$SECRET_CHECK_STATUS" == 124 || "$SECRET_CHECK_STATUS" == 137 ]]; then
+    fail "Secret Manager lookup TIMEOUT after 35 seconds. No Cloud Run deployment attempted. Check cloud SDK auth and Google Secret Manager API availability; do not repeat long-running setup."
+  fi
+  if grep -Eiq 'NOT_FOUND|not found|404' "$SECRET_CHECK_ERROR"; then
+    echo "Candidate secret does not exist: creating once in the production project."
+    timeout --signal=TERM --kill-after=5s 60s \
+      env CLOUDSDK_CORE_HTTP_TIMEOUT=15 CLOUDSDK_CORE_MAX_RETRIES=0 \
+      gcloud --quiet secrets create "$SECRET" --project="$PROJECT" --replication-policy=automatic \
+      || fail "Candidate secret creation failed; inspect Secret Manager IAM/API access."
+  else
+    echo "Secret Manager returned a non-404 error:" >&2
+    cat "$SECRET_CHECK_ERROR" >&2
+    fail "Cannot confirm candidate secret. No Cloud Run deployment attempted."
+  fi
 fi
-VERSIONS="$(gcloud secrets versions list "$SECRET" --project="$PROJECT" --filter='state:ENABLED' --format='value(name)')" || fail "Cannot read candidate secret version state."
+echo "Verifying existing secret version (bounded to 45 seconds)..."
+VERSIONS="$(timeout --signal=TERM --kill-after=5s 45s \
+  env CLOUDSDK_CORE_HTTP_TIMEOUT=15 CLOUDSDK_CORE_MAX_RETRIES=0 \
+  gcloud --quiet secrets versions list "$SECRET" --project="$PROJECT" \
+    --filter='state:ENABLED' --format='value(name)')" \
+  || fail "Secret Manager version lookup failed or timed out; no deployment attempted."
 if [[ -z "$VERSIONS" ]]; then
-  # Do not retain the random token in a file or an environment variable.
-  openssl rand -hex 32 | gcloud secrets versions add "$SECRET" --project="$PROJECT" --data-file=- --quiet >/dev/null
+  echo "Adding an automatically generated token version (value never displayed)."
+  # Pipe is intentionally scoped; no shell environment file or GitHub storage.
+  openssl rand -hex 32 | timeout --signal=TERM --kill-after=5s 60s \
+    env CLOUDSDK_CORE_HTTP_TIMEOUT=15 CLOUDSDK_CORE_MAX_RETRIES=0 \
+    gcloud --quiet secrets versions add "$SECRET" --project="$PROJECT" --data-file=- >/dev/null \
+    || fail "Secret Manager token version creation failed."
 fi
-gcloud secrets add-iam-policy-binding "$SECRET" --project="$PROJECT" \
-  --member="serviceAccount:$RUNTIME_SA" --role="roles/secretmanager.secretAccessor" --quiet >/dev/null
+echo "Binding least-privilege access to the verified candidate runtime account..."
+timeout --signal=TERM --kill-after=5s 60s \
+  env CLOUDSDK_CORE_HTTP_TIMEOUT=15 CLOUDSDK_CORE_MAX_RETRIES=0 \
+  gcloud --quiet secrets add-iam-policy-binding "$SECRET" --project="$PROJECT" \
+    --member="serviceAccount:$RUNTIME_SA" --role="roles/secretmanager.secretAccessor" >/dev/null \
+  || fail "Secret Manager candidate runtime IAM grant failed; no deployment attempted."
 
 # Only a PRIVATE candidate, with no live payments, external scheduler calls,
 # live webhook forwarding, app API-origin change, or production provider keys.
