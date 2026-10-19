@@ -103,10 +103,17 @@ def inspect(service, scheduler, secret, *, private_expected=True):
             blockers.append("Google scheduler targets unexpected destination")
     else:
         blockers.append("Google scheduler state unreadable; grant viewer permission before paid activation")
-    if not isinstance(secret, dict) or secret.get("state") != "ENABLED":
-        blockers.append("imported live Stripe key has no enabled secret version")
-    if not re.fullmatch(r"[0-9]+", str(secret.get("name", "")).rsplit("/", 1)[-1]):
-        blockers.append("live Stripe secret version cannot be pinned")
+    if not isinstance(secret, dict):
+        # The GitHub WIF deployer might have no Secret Manager VERSION VIEWER
+        # permission. Missing readable metadata is NOT proof that the stored
+        # live key does not exist. VERIFY must report this as an authorization
+        # blocker, never crash or promote it to a valid enabled secret.
+        blockers.append("live Stripe secret VERSION METADATA unreadable; check Google Secret Manager viewer permission")
+    else:
+        if secret.get("state") != "ENABLED":
+            blockers.append("imported live Stripe key has no enabled secret version")
+        if not re.fullmatch(r"[0-9]+", str(secret.get("name", "")).rsplit("/", 1)[-1]):
+            blockers.append("live Stripe secret version cannot be pinned")
     return blockers
 
 
