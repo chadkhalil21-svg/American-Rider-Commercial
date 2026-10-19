@@ -282,6 +282,20 @@ app.use(express.json()); // parse JSON request bodies — everything BELOW the w
 const KEY = readKey('STRIPE_SECRET_KEY');
 const keyMode = /^(sk|rk)_live_/.test(KEY) ? 'live' : /^(sk|rk)_test_/.test(KEY) ? 'test' : 'no-key';
 const DEPLOYMENT_MODE = String(readKey('DEPLOYMENT_MODE') || 'development').toLowerCase();
+// The final Cloud Run API is precommissioned with real data but NO real money.
+// A live Stripe credential must never silently activate commercial operations
+// in this service before the separately verified one-authority cutover. Existing
+// Render (K_SERVICE absent) and the old IAM-private candidate keep their own rules.
+if (process.env.K_SERVICE === 'american-rider-api-production') {
+  const cutoverActive = readKey('AR_CLOUDRUN_CUTOVER_ACTIVE') === '1';
+  const realMoneyPosture = keyMode === 'live' || DEPLOYMENT_MODE === 'production';
+  if (realMoneyPosture !== cutoverActive ||
+      (cutoverActive && (keyMode !== 'live' || DEPLOYMENT_MODE !== 'production' ||
+        !readKey('STRIPE_WEBHOOK_SECRET') || !readKey('STRIPE_CONNECT_WEBHOOK_SECRET') ||
+        readKey('AR_EXTERNAL_SCHEDULER') !== '1'))) {
+    throw new Error('Cloud Run commercial API requires an explicit, complete cutover: live Stripe, both signed webhooks, external scheduler and production mode');
+  }
+}
 // A manually deployed IAM-private commissioning candidate must never become
 // real-money capable merely because a live Stripe key was mounted by mistake.
 // Keep this distinct from the eventual separately commissioned live API.
