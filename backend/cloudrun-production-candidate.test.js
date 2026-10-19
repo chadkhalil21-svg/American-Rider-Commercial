@@ -10,6 +10,7 @@ const shellPath = path.join(root, 'infra/cloud-run/commission-production-private
 const workflowPath = path.join(root, '.github/workflows/cloud-run-production-candidate.yml');
 const shell = fs.readFileSync(shellPath, 'utf8');
 const workflow = fs.readFileSync(workflowPath, 'utf8');
+const server = fs.readFileSync(path.join(__dirname, 'server.js'), 'utf8');
 const syntax = spawnSync('bash', ['-n', shellPath], { encoding: 'utf8' });
 assert.equal(syntax.status, 0, 'shell has valid bash syntax: ' + syntax.stderr);
 for (const source of [shell, workflow]) {
@@ -41,4 +42,12 @@ assert.match(workflow, /workflow_dispatch:/, 'candidate refresh strictly manual'
 assert.match(workflow, /inputs\.confirm == 'PRIVATE_ONLY'/, 'manual confirmation required');
 assert.match(workflow, /github\.ref == 'refs\/heads\/release\/current'/, 'deployment only from release/current');
 assert.doesNotMatch(workflow, /^  push:/m, 'no automatic production deploy');
+assert.match(server, /process\.env\.K_SERVICE === 'american-rider-api-production-candidate'/,
+  'live Stripe candidate guard must use exact Cloud Run service identity');
+assert.match(server, /keyMode === 'live' \|\| DEPLOYMENT_MODE !== 'test'/,
+  'private candidate must reject live Stripe key and production mode');
+assert.match(server, /readKey\('STRIPE_WEBHOOK_SECRET'\)/,
+  'private candidate must reject live payments webhook signing secret');
+assert.match(server, /readKey\('STRIPE_CONNECT_WEBHOOK_SECRET'\)/,
+  'private candidate must reject Connect webhook signing secret');
 console.log('PASS: private production-project candidate guards; Render, live payments, webhooks and scheduler untouched.');
