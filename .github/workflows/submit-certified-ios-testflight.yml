@@ -113,6 +113,12 @@ jobs:
           print("Selected next unused iOS build number:", next_build)
           PY
 
+      - name: Require real Google Cloud Run API before certified store build
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/verify-store-cloudrun-api.cjs
+
       - name: Build exact certified iOS candidate
         shell: bash
         run: |
