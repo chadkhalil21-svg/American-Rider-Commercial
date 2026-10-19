@@ -1,0 +1,45 @@
+name: Audit real American Rider Google Cloud production (read only)
+
+# Establish recurring Google Cloud observability from connected GitHub, avoiding
+# repeated iPad Cloud Shell copying. No production mutations or provider secrets.
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - release/current
+    paths:
+      - .github/workflows/cloud-run-production-readiness.yml
+      - infra/cloud-run/read-only-production-audit.py
+      - infra/cloud-run/test_read_only_production_audit.py
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: american-rider-production-read-only-audit
+  cancel-in-progress: false
+
+jobs:
+  google-production-metadata:
+    if: ${{ github.ref == 'refs/heads/release/current' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - name: Exact release sources
+        uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Read-only audit unit tests
+        run: python3 -m unittest discover -s infra/cloud-run -p test_read_only_production_audit.py
+      - name: Federated GitHub authentication (no downloaded Google keys)
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: projects/623854974930/locations/global/workloadIdentityPools/github-production/providers/github
+          service_account: ar-production-deployer@american-rider-35688.iam.gserviceaccount.com
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Inspect REAL production Cloud Run, signing-key BINDINGS and paused scheduler
+        env:
+          CLOUDSDK_CORE_PROJECT: american-rider-35688
+        run: python3 infra/cloud-run/read-only-production-audit.py
