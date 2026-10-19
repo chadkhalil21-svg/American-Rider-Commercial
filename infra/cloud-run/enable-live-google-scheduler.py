@@ -83,10 +83,14 @@ def public_paid_ready():
             raise Stop(f"Paid Google API {part} unreachable: {type(exc).__name__}") from None
     health = get_json("/health")
     config = get_json("/config")
+    # Platform money readiness is separate from each Operator's screening
+    # and insurance. The server must still verify every Operator before duty.
     if (health.get("deployment") != "production" or health.get("stripe") != "live" or
         health.get("operationalReady") is not True or
-        health.get("screening") != "on" or
-        config.get("canTakePayment") is not True or config.get("mode") != "live"):
+        health.get("documents") != "on" or
+        health.get("support", {}).get("firestore") != "on" or
+        config.get("canTakePayment") is not True or config.get("mode") != "live" or
+        not str(config.get("stripePublishableKey", "")).startswith("pk_live_")):
         raise Stop("Paid Google Cloud Run public service readiness was not proven.")
     return True
 
