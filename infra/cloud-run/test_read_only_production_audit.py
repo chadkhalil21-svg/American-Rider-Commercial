@@ -82,7 +82,8 @@ class TestReadOnlyAudit(unittest.TestCase):
         blockers = dict(results)["First store launch infrastructure"]
         self.assertIn("PRELAUNCH:", blockers)
         self.assertIn("live Stripe payment key not mounted", blockers)
-        self.assertIn("Operator screening evidence not attested", blockers)
+        self.assertNotIn("Operator screening evidence not attested", blockers,
+                         "screening approval is per Operator, not a platform booking prerequisite")
         self.assertIn("public Google API not enabled", blockers)
         self.assertIn("commercial runtime not activated", blockers)
 

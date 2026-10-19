@@ -1,5 +1,8 @@
 # Operator screening — production commissioning gate
 
+> **Updated founder instruction, 19 October 2026:** American Rider is a provider-neutral transportation platform. Platform-wide payment/Cloud Run activation is independent of the screening approval of each Operator. Commercial insurance, screened criminal/sex-offender/driving history, documents and payouts remain mandatory **per Operator** before duty or dispatch. Applicants may choose any suitable screening firm, but American Rider verifies real agency evidence before approval. A synthetic test never qualifies an actual person. The former global `SCREENING_EVIDENCE_WORKFLOW_VERIFIED` attestation is evidence metadata, not a paid-platform launch veto. Prior blanket statements below about keeping the entire payment service closed pending one vendor pilot are superseded; the real intake/evidence and FCRA requirements still apply to individual cases.
+
+
 **Status reviewed 14 October 2026: EXISTING PROVIDER-NEUTRAL FLOW IS IMPLEMENTED; EXTERNAL DELIVERY PILOT NOT YET VERIFIED.** A public screening-provider URL is not evidence that background screening works. The production service must remain closed to paid Travel until an approved consumer-reporting agency (CRA) and the actual report-delivery/adjudication process have passed a documented end-to-end pilot. Florida launch requirements: https://www.flsenate.gov/Laws/Statutes/2026/627.748 (especially subsection (12)). Confirm all legal/FCRA/adverse-action handling with qualified counsel.
 
 ## Architecture and limitations observed

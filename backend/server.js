@@ -328,7 +328,8 @@ function productionReadiness() {
   if (keyMode === 'live' ? !/^pk_live_/.test(readKey('STRIPE_PUBLISHABLE_KEY')) : !readKey('STRIPE_PUBLISHABLE_KEY')) missing.push('stripe_publishable_key');
   if (!readKey('STRIPE_WEBHOOK_SECRET')) missing.push('stripe_webhook_secret');
   if (!readKey('STRIPE_CONNECT_WEBHOOK_SECRET')) missing.push('stripe_connect_webhook_secret');
-  if (!screeningReady()) missing.push('screening_provider');
+  // Screening and insurance are evaluated per Operator before duty/dispatch.
+  // An uncommissioned individual must not turn off platform-wide payment readiness.
   if (!readKey('HERE_API_KEY')) missing.push('toll_provider');
   if (!readKey('SCHEDULER_TOKEN')) missing.push('scheduler_token');
   if (!adminStatus().ok) missing.push('firebase_admin');
