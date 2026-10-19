@@ -100,7 +100,7 @@ export default {
     guardianTeenTravel: "Viaje de adolescente autorizado por tutor",
     bookedByAnother: "Viaje solicitado por otro titular de cuenta",
     activeAccountCost: "Costo de cuenta activa",
-    activeAccountCostBody: "Se aplica un costo de cuenta Stripe Connect de $2 en cada mes con un pago a un banco o tarjeta de débito, independientemente del número de Viajes. Se cobra por separado, junto con el costo de tarjeta indicado, solo tras su aceptación expresa. Los cargos de pago ordinario o inmediato son costos adicionales del proveedor. Su 99 % de la Tarifa no cambia.",
+        activeAccountCostBody: "Mes con un pago a banco o tarjeta: $2 por la cuenta Stripe Connect, más costos de cobro indicados por separado. Pago ordinario: 0,25 % + $0,25 por pago. Transferencia de fondos: 0,25 %. Pago inmediato opcional: 1 % adicional, si está disponible. Estos costos corresponden al Operador y requieren consentimiento y cobro separado; no reducen su 99 % de la Tarifa.",
     feeConsentAccept: "Acepto el costo separado de $2 y los cargos por pagos indicados",
     feeConsentRequired: "Debe aceptar los costos de la cuenta Connect y los pagos antes de configurarlos.",
     operatingArea: 'Zona de Operación',
