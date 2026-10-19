@@ -90,6 +90,32 @@ class LiveGcpTests(unittest.TestCase):
             "name": secret()["name"], "state": "DISABLED"
         })))
 
+    def test_missing_live_secret_version_permission_fails_closed_not_traceback(self):
+        # GitHub WIF may read Cloud Run but not Secret Manager versions.
+        # Absence of permission is a BLOCKER, not evidence that secret vanished.
+        with mock.patch.object(m, "meta", return_value={"bindings": []}):
+            blockers = m.inspect(state(), scheduler(), None)
+        self.assertEqual(len([b for b in blockers if "VERSION METADATA unreadable" in b]), 1)
+        self.assertFalse(any("cannot be pinned" in b for b in blockers))
+        with mock.patch.object(m, "meta", return_value={"bindings": []}):
+            malformed = m.inspect(state(), scheduler(), {})
+        self.assertTrue(any("no enabled" in b for b in malformed))
+        self.assertTrue(any("cannot be pinned" in b for b in malformed))
+
+    def test_read_state_handles_denied_credential_metadata_without_exposing_values(self):
+        with mock.patch.object(m, "meta", side_effect=[
+            state(), m.Stop("scheduler viewer denied"), m.Stop("secret version viewer denied")
+        ]):
+            svc, sched, sec = m.read_state()
+        self.assertEqual(svc["status"]["latestReadyRevisionName"],
+                         "american-rider-api-production-00003-lhg")
+        self.assertIsNone(sched)
+        self.assertIsNone(sec)
+        with mock.patch.object(m, "meta", return_value={"bindings": []}):
+            blockers = m.inspect(svc, sched, sec)
+        self.assertTrue(any("scheduler state unreadable" in b for b in blockers))
+        self.assertTrue(any("VERSION METADATA unreadable" in b for b in blockers))
+
     def test_live_get_responses_require_real_verified_provider_and_mode(self):
         health = {
             "stripe": "live", "deployment": "production", "screening": "on",
