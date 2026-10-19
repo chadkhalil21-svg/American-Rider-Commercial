@@ -1,0 +1,50 @@
+name: Open REAL Google production API for first-store onboarding (no money)
+
+# Founder-controlled one-time opening of existing Cloud Run, not a new staging service.
+# This deliberately keeps Stripe live money OFF and Google dispatch blocked.
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: "Type OPEN_ONBOARDING to enable public sign-in/onboarding WITHOUT live payments"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: american-rider-production-onboarding
+  cancel-in-progress: false
+
+jobs:
+  open-for-onboarding:
+    if: ${{ github.ref == 'refs/heads/release/current' && inputs.confirm == 'OPEN_ONBOARDING' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 38
+    environment: american-rider-prelaunch-onboarding
+    steps:
+      - name: Checkout founder-approved current release
+        uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Verify code-level payment and dispatch guards before any Google change
+        run: |
+          node backend/cloudrun-prelaunch-onboarding.test.js
+          python3 -m unittest discover -s infra/cloud-run -p test_open_prelaunch_onboarding.py
+      - name: Authenticate GitHub to REAL Google production with existing WIF
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: projects/623854974930/locations/global/workloadIdentityPools/github-production/providers/github
+          service_account: ar-production-deployer@american-rider-35688.iam.gserviceaccount.com
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Confirm immutable release and open onboarding ONLY
+        shell: bash
+        env:
+          VERIFIED_RELEASE_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$VERIFIED_RELEASE_SHA"
+          python3 infra/cloud-run/open-prelaunch-onboarding.py OPEN_ONBOARDING
