@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Read-only investigation of a Google-front-end 404 on PRIVATE staging Cloud Run.
+# Read-only confirmation of PRIVATE staging Cloud Run /health reachability.
 # Does not change IAM, endpoints, secrets, code, deployments, webhooks or billing.
 # From an authenticated Cloud Shell: bash infra/cloud-run/diagnose-staging-404.sh
 set -Eeuo pipefail
@@ -23,7 +23,7 @@ command -v gcloud >/dev/null || { echo 'Run in authenticated Google Cloud Shell 
 command -v curl >/dev/null || { echo 'curl is required.' >&2; exit 1; }
 command -v python3 >/dev/null || { echo 'python3 is required.' >&2; exit 1; }
 
-echo 'AMERICAN RIDER — PRIVATE STAGING ONLY; READ-ONLY 404 DIAGNOSTIC'
+echo 'AMERICAN RIDER — PRIVATE STAGING ONLY; READ-ONLY HEALTH DIAGNOSTIC'
 echo "Project: $PROJECT | Region: $REGION | Service: $SERVICE"
 SERVICE_JSON="$(gcloud run services describe "$SERVICE" --project="$PROJECT" --region="$REGION" --format=json)"
 printf '%s' "$SERVICE_JSON" | python3 -c '
@@ -62,14 +62,14 @@ fi
 TOKEN="$(gcloud auth print-identity-token)"
 if [[ -z "$TOKEN" ]]; then echo 'Active Google identity token unavailable.' >&2; exit 1; fi
 
-echo '=== AUTHENTICATED /healthz (each advertised URL) ==='
+echo '=== AUTHENTICATED /health (each advertised URL) ==='
 DIRECT_CODES=()
 for u in "${URLS[@]}"; do
   code="$(curl --silent --show-error --max-time 20 --output /dev/null --write-out '%{http_code}' \
-    -H "Authorization: Bearer $TOKEN" "$u/healthz" || true)"
+    -H "Authorization: Bearer $TOKEN" "$u/health" || true)"
   [[ "$code" =~ ^[0-9]{3}$ ]] || code=000
   DIRECT_CODES+=("$code")
-  printf '%s -> HTTP %s\n' "$u/healthz" "$code"
+  printf '%s -> HTTP %s\n' "$u/health" "$code"
 done
 unset TOKEN
 
@@ -83,9 +83,9 @@ sleep 3
 if kill -0 "$PROXY_PID" >/dev/null 2>&1; then
   proxy_code="$(curl --silent --show-error --retry 3 --retry-connrefused --retry-delay 1 \
     --max-time 20 --output /dev/null --write-out '%{http_code}' \
-    "http://127.0.0.1:$PORT/healthz" || true)"
+    "http://127.0.0.1:$PORT/health" || true)"
   [[ "$proxy_code" =~ ^[0-9]{3}$ ]] || proxy_code=000
-  printf 'Authenticated localhost proxy /healthz -> HTTP %s\n' "$proxy_code"
+  printf 'Authenticated localhost proxy /health -> HTTP %s\n' "$proxy_code"
 else
   proxy_code=000
   echo 'Cloud Run proxy could not start (it may need its optional gcloud component).'
@@ -101,14 +101,14 @@ else
   echo 'Not readable by the current Google identity.'
 fi
 
-echo '=== INTERPRETATION ==='
+echo '=== INTERPRETATION: /health (Cloud Run-compatible) ==='
 for c in "${DIRECT_CODES[@]}" "$proxy_code"; do
   if [[ "$c" == 200 ]]; then echo 'At least one route succeeded. Endpoint is reachable; reconcile the failing hostname before production.'; exit 0; fi
 done
 if [[ " ${DIRECT_CODES[*]} $proxy_code " == *" 401 "* || " ${DIRECT_CODES[*]} $proxy_code " == *" 403 "* ]]; then
   echo 'An authentication/Invoker issue is possible. Keep service PRIVATE; inspect invoker permission and Google identity.'
 elif [[ " ${DIRECT_CODES[*]} $proxy_code " == *" 404 "* ]]; then
-  echo 'Google 404 still occurs. Check default-url-disabled, ingress and VPC Service Controls. If permissive with no request logs, preserve evidence and escalate to Google Cloud support; do not redeploy blindly.'
+  echo 'Nonreserved /health returned HTTP 404. Check service URL, ingress, Invoker IAM and request logs. Do not redeploy blindly.'
 else
   echo 'No successful HTTP response. Review the service and the proxy output above.'
 fi
