@@ -12,6 +12,18 @@ for(let pass=0;pass<2;pass++){
   assert.throws(()=>externalSweepMode({K_SERVICE:'ar-test'}),/requires AR_EXTERNAL_SCHEDULER/);
   assert.throws(()=>externalSweepMode({K_SERVICE:'ar-test',AR_EXTERNAL_SCHEDULER:'1'}),/requires SCHEDULER_TOKEN/);
   assert.throws(()=>externalSweepMode({AR_EXTERNAL_SCHEDULER:'1'}),/requires SCHEDULER_TOKEN/);
+  const privateCandidate={K_SERVICE:'american-rider-api-production-candidate',
+    AR_PRIVATE_CANDIDATE_NO_SCHEDULER:'1',DEPLOYMENT_MODE:'test',AR_EXTERNAL_SCHEDULER:'1'};
+  assert.equal(externalSweepMode(privateCandidate),true,
+    'exact no-money private candidate can start without a scheduler token');
+  assert.throws(()=>externalSweepMode({...privateCandidate,K_SERVICE:'american-rider-api-live'}),/requires SCHEDULER_TOKEN/);
+  assert.throws(()=>externalSweepMode({...privateCandidate,DEPLOYMENT_MODE:'production'}),/requires SCHEDULER_TOKEN/);
+  assert.throws(()=>externalSweepMode({...privateCandidate,STRIPE_SECRET_KEY:'sk_live_dummy'}),/requires SCHEDULER_TOKEN/);
+  assert.throws(()=>externalSweepMode({...privateCandidate,STRIPE_SECRET_KEY:'sk_test_dummy'}),/requires SCHEDULER_TOKEN/);
+  assert.throws(()=>externalSweepMode({...privateCandidate,AR_PRIVATE_CANDIDATE_NO_SCHEDULER:'0'}),/requires SCHEDULER_TOKEN/);
+  assert.match(server,/if \(!want \|\| got !== want\)/,
+    'without any token, /scheduled/sweep must reject every request');
+
   assert.match(server,/const EXTERNAL_SWEEPS = externalSweepMode\(\)/,
     'execution mode checked before HTTP startup');
   assert.match(server,/if \(EXTERNAL_SWEEPS\) \{[\s\S]{0,180}return;/,
