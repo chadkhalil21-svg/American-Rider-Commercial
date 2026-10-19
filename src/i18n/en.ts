@@ -97,7 +97,7 @@ export default {
     guardianTeenTravel: "Guardian-authorized teen Travel",
     bookedByAnother: "Travel requested by another account holder",
     activeAccountCost: "Active-account cost",
-    activeAccountCostBody: "A $2 Stripe Connect account cost applies in each month with a bank or debit-card payout, regardless of how many Travels you complete. American Rider collects this amount separately, together with the disclosed card collection cost, only after your express agreement. Standard and optional instant payout fees are separate provider costs. Your 99% Fare share is unchanged.",
+        activeAccountCostBody: "Active payout month: $2 for the Stripe Connect account, plus separately disclosed collection costs. Standard payouts: 0.25% + $0.25 each. Funds routing: 0.25%. Optional Instant Payout: an additional 1% where available. These Operator-funded charges must be separately agreed and billed; they never reduce your 99% Travel Fare.",
     feeConsentAccept: "I agree to the separate $2 active-account cost and disclosed payout charges",
     feeConsentRequired: "You must agree to the separately billed Connect account and payout costs before setting up payouts.",
     operatingArea: 'Operating Area',
