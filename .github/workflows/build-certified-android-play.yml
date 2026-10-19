@@ -80,7 +80,7 @@ jobs:
             throw Error('EAS did not confirm a completed Android build.');
           }
           console.log('Completed Android EAS build:', b.id);
-          fs.appendFileSync(process.env.GITHUB_ENV, 'EAS_BUILD_ID=' + b.id + '\\n');
+          fs.appendFileSync(process.env.GITHUB_ENV, 'EAS_BUILD_ID=' + b.id + '\n');
           fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY,
             '### Android store candidate built\n\nExact source: `' + process.env.CERTIFIED_SHA +
             '`\n\nEAS build ID: `' + b.id +
