@@ -1,5 +1,14 @@
 # AMERICAN RIDER — CANONICAL PROJECT LEDGER
 
+## Verified en-route cancellation progress, no new recurring GPS database traffic | 2026-10-19
+
+**FOUNDER RULE (already decided):** Two-minute free cancellation period after acceptance, then a disclosed $3 only when a responsible Traveler cancels after verified Operator progress or server-recorded arrival. Reuse existing geolocation evidence and avoid paid HERE routing/database polling. **New focused source PR** adds a conservative first-principles geometry proof in `backend/pickup-progress-fee.js`: reuse Operator snapshot ALREADY retrieved by `acceptOffer` in the same Travel update to establish baseline, and Operator snapshot ALREADY read in `cancelTravel` to release their slot. Requires two fresh, distinct timestamps, at least 0.20 mile and 15% pickup-distance closure, directional efficiency >=55%, plausible speed <=75mph, correct active Travel, and no operator fault or excessive lateness. Under missing evidence the fee is $0, rather than inventing progress. This is a **directional GPS proxy**, not a real road-route efficiency engine or absolute spoof-proof truth. No new external routing provider, GPS-history collection, reads, per-90s writes or subscription. Test thresholds are provisional policy parameters for counsel/field review, not observed competitor algorithms.
+
+**SAFETY:** Current paid back end still captures at booking and retains existing arrived-only $3 behavior. New en-route mechanism is gated behind **OFF-by-default** `AR_VERIFIED_ENROUTE_CANCEL_FEE`; GitHub merge must not activate charges. Its isolated synthetic test and transaction-level fake Stripe flows cannot replace signed-device review, local disclosure, actual authorized provider transaction and counsel verification. PR #143 has an older BOOLEAN `verifiedProgress` proposal: supersede/merge carefully, do not deploy two different engines or double-charge. The final tested Stripe manual-hold lifecycle is independent and not implemented by this GPS calculation. See `docs/architecture/VERIFIED-PICKUP-PROGRESS-CANCELLATION-FEE-2026-10-19.md`.
+
+---
+
+
 ## Cloud Run mobile client authority: legacy Render fallback identified | 2026-10-19
 
 **EXACT-SOURCE AUDIT:** `eas.json` production already selects `https://american-rider-api-production-623854974930.us-east1.run.app`. However, `src/config.ts` still selected the old paid Render API when `EXPO_PUBLIC_API_URL` was absent; the **internal EAS preview** explicitly uses Render, and `scripts/check-simulator-parity.mjs` wrongly labeled the former Render hostname as production. This is a real potential dependency that the provider register must not hide. It does **not** prove the currently distributed TestFlight binary uses Render, because build profiles and exact signed bundles must be checked.
