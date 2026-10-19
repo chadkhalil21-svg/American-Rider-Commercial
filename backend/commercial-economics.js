@@ -19,8 +19,12 @@ const DEFAULT=Object.freeze({
   requestsPerTravel:20,otherRequestsPerDay:1000,
   billableInstanceSecondsPerTravel:8,otherBillableInstanceSecondsPerDay:180,
   cloudMemoryGib:1,
-  nonCloudVariableUsdPerTravel:0.10,
-  assumedFixedMonthlyUsd:2000,
+  // Zero here means no verified billed charge supplied, NOT that the real cost is zero.
+  nonCloudVariableUsdPerTravel:0,
+  assumedFixedMonthlyUsd:0,
+  activePayoutAccountsMonthly:0,
+  recoveredAccountFeeFraction:0,
+  monthlyResendEmailCount:0,
   useFreeTiers:true,
 });
 function nonneg(n,name) {
@@ -36,6 +40,7 @@ function evaluate(overrides={}) {
   if(!Number.isInteger(a.days)||a.days<1||a.days>366)throw Error('days out of range');
   if(!Number.isInteger(a.fareCents)||!Number.isInteger(a.platformFeeCents))throw Error('fare and fee require whole cents');
   if(a.internationalShare>1)throw Error('internationalShare must not exceed 1');
+  if(a.recoveredAccountFeeFraction>1)throw Error('recoveredAccountFeeFraction must not exceed 1');
   if(a.presencePeriodSeconds<=0)throw Error('presence period must be positive');
   if(a.useFreeTiers!==true&&a.useFreeTiers!==false)throw Error('useFreeTiers must be boolean');
   const rides=a.travelsPerDay*a.days;
@@ -62,13 +67,22 @@ function evaluate(overrides={}) {
     Math.max(0,requests-(a.useFreeTiers?PRICES.monthlyFreeRequests:0))*PRICES.cloudRequestsPerMillion/1e6;
   const fixed=a.assumedFixedMonthlyUsd;
   const otherVariable=rides*a.nonCloudVariableUsdPerTravel;
-  const totalCost=fixed+otherVariable+firestoreUsd+cloudRunUsd;
+  // Stripe charges $2 per account in a month with a bank/debit-card payout.
+  // Recovery is a separate Operator payment, and must not be presumed collected
+  // until their explicit fee consent and actual provider charge are verified.
+  const accountFees=a.activePayoutAccountsMonthly*2;
+  const accountFeesRecovered=accountFees*a.recoveredAccountFeeFraction;
+  // Resend free tier covers up to 3,000 emails and 100 per day. That daily
+  // threshold is not inferable from monthly volume; switch to Pro if exceeded.
+  const resendUsd=a.monthlyResendEmailCount<=3000?0:
+    a.monthlyResendEmailCount<=50000?20:20+Math.ceil((a.monthlyResendEmailCount-50000)/1000)*0.90;
+  const totalCost=fixed+otherVariable+firestoreUsd+cloudRunUsd+accountFees-accountFeesRecovered+resendUsd;
   const room=rides*transactionRoomUsd;
   const result=room-totalCost;
   const approximateBreakEvenTravels=transactionRoomUsd>a.nonCloudVariableUsdPerTravel?
-    Math.ceil((fixed+a.days*(a.otherReadsPerDay*PRICES.firestoreReadPer100k/100000+
+    Math.ceil((fixed+accountFees-accountFeesRecovered+resendUsd+a.days*(a.otherReadsPerDay*PRICES.firestoreReadPer100k/100000+
       (a.otherWritesPerDay+presenceWritesPerDay)*PRICES.firestoreWritePer100k/100000))/
-      (transactionRoomUsd-a.nonCloudVariableUsdPerTravel)):null;
+      (a.days*(transactionRoomUsd-a.nonCloudVariableUsdPerTravel))):null;
   return {
     scenarioType:'SYNTHETIC_ESTIMATE_NOT_LIVE_PROFIT',travelsMonthly:rides,
     travelerTotalUsd:domestic.travelerPays/100,
@@ -79,8 +93,12 @@ function evaluate(overrides={}) {
     cloudRequestsMonthly:requests,cloudInstanceSecondsMonthly:instanceSeconds,
     firestoreCostUsd:money(firestoreUsd),cloudRunCostUsd:money(cloudRunUsd),
     otherVariableCostUsd:money(otherVariable),assumedFixedMonthlyUsd:money(fixed),
+    accountFeeUsd:money(accountFees),operatorRecoveredAccountFeeUsd:money(accountFeesRecovered),
+    resendUsd:money(resendUsd),
     availableBeforeActualOverheadUsd:money(room),
     modeledOperatingResultUsd:money(result),
+    modeledResultBeforeUnpricedCostsUsd:money(result),
+    economicsStatus:'NOT NET PROFIT: HERE/map fallback, egress, storage, support, insurance, legal, tax and real billing unverified',
     approximateBreakEvenTravelsPerMonth:approximateBreakEvenTravels,
     freeTierAssumed:a.useFreeTiers,
   };
