@@ -1,0 +1,53 @@
+name: Deploy CURRENT backend source to EXISTING paid Cloud Run (controlled)
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: 'Type DEPLOY_EXISTING_PAID_CODE_ONLY (no Stripe or scheduler changes)'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: american-rider-paid-cloudrun-source
+  cancel-in-progress: false
+
+jobs:
+  update-existing-paid-backend:
+    if: ${{ github.ref == 'refs/heads/release/current' && inputs.confirmation == 'DEPLOY_EXISTING_PAID_CODE_ONLY' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    environment: american-rider-commercial-live
+    env:
+      FOUNDER_CONFIRM: ${{ inputs.confirmation }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Ensure exact latest branch and run all commercial money/source smoke checks
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin release/current --depth=1
+          test "$(git rev-parse HEAD)" = "$(git rev-parse FETCH_HEAD)"
+          node backend/commercial-economics.test.js
+          node backend/paid-scale-economics.test.js
+          node backend/booking-readiness.test.js
+          node backend/paid-cloudrun-activation.test.js
+          python3 -m py_compile infra/cloud-run/deploy-existing-paid-source.py
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: projects/623854974930/locations/global/workloadIdentityPools/github-production/providers/github
+          service_account: ar-production-deployer@american-rider-35688.iam.gserviceaccount.com
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Deploy same service with zero traffic, preserve all existing keys, rollback on failed public verification
+        shell: bash
+        run: python3 infra/cloud-run/deploy-existing-paid-source.py
