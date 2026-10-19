@@ -1,6 +1,6 @@
 // Where the app talks to the American Rider payment/backend server.
 //
-// THE DEFAULT IS THE HOSTED SERVER, and that is a correction made 25 Aug 2026.
+// THE DEFAULT IS THE LIVE GOOGLE CLOUD RUN API. A legacy Render URL is no longer the fallback.
 //
 // It used to fall back to http://localhost:4242, on the reasoning that local testing should
 // need no setup. The effect was the opposite. EXPO_PUBLIC_API_URL is set only in eas.json's
@@ -9,16 +9,17 @@
 // server nobody was running. Payments, dispatch, support and the planner all failed at once,
 // each reporting its own polite error, and none of them naming the real cause.
 //
-// So the common case is the default now: a build with no configuration reaches the real
-// platform. Anyone working ON the backend opts out explicitly, which is the rarer job and
-// the one where you know you are doing it:
+// Production EAS already specifies this Cloud Run endpoint. Match it when EAS or an
+// internal simulator supplies no explicit value, instead of silently reaching old Render.
+// Internal preview builds may intentionally specify a different endpoint; review those
+// explicitly before retiring any old service. Anyone working on the backend opts out:
 //
 //   EXPO_PUBLIC_API_URL=http://localhost:4242 npx expo start
 //
 // (On a real phone "localhost" means the phone itself, so that override only ever works on
 // the simulator or on web.)
 export const PAYMENT_SERVER_URL =
-  process.env.EXPO_PUBLIC_API_URL || 'https://american-rider-server-3d7x.onrender.com';
+  process.env.EXPO_PUBLIC_API_URL || 'https://american-rider-api-production-623854974930.us-east1.run.app';
 
 // WHICH COMMIT THIS BUILD IS. Stamped at build time — scripts/build-simulator.sh for the
 // simulator, scripts/eas-build-pre-install.sh for EAS/TestFlight — so a build can prove what

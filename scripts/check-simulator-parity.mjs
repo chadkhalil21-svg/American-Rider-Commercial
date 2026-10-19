@@ -23,7 +23,7 @@ const sh = (cmd, timeout = 30000) => {
   }
 };
 const BUNDLE_ID = 'com.americanrider.app';
-const PROD_API = 'https://american-rider-server.onrender.com';
+const PROD_API = 'https://american-rider-api-production-623854974930.us-east1.run.app';
 const short = (sha) => (sha ? sha.slice(0, 7) : '—');
 
 // ---- the candidate: what the repository says should ship ----------------------------------
@@ -76,11 +76,12 @@ function simulators() {
             /* no record */
           }
         }
-        // Metro inlines `process.env.EXPO_PUBLIC_API_URL || 'https://…onrender.com'` and the
-        // minifier folds it: a build pointed at localhost loses the production literal
-        // entirely, while a production (or unconfigured) build keeps it. So the production
-        // literal's PRESENCE is the signal; a localhost literal elsewhere in older code is not.
-        if (text.includes('american-rider-server.onrender.com')) api = 'production';
+        // Hermes/Metro generally retain the endpoint hostname as a literal. Only the
+        // canonical paid Cloud Run hostname proves production: Render is an old backend.
+        // A missing literal leaves this as unknown rather than falsely certifying a build.
+        if (text.includes(new URL(PROD_API).host)) api = 'production';
+        else if (text.includes('american-rider-server-3d7x.onrender.com') ||
+                 text.includes('american-rider-server.onrender.com')) api = 'legacy Render';
         else if (text.includes('localhost:4242') || text.includes('127.0.0.1:4242')) api = 'local (localhost:4242)';
       } catch {
         /* no bundle: a debug build served by Metro */
