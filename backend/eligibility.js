@@ -8,6 +8,7 @@
 // (backend/qualification.js assessOperator, context 'accept') before it writes 'accepted'.
 const { assessOperator } = require('./qualification');
 const { paymentMatches } = require('./booking');
+const { acceptanceEvidence } = require('./pickup-progress-fee');
 
 /**
  * @param externals { account: { disabled }, payouts: { enabled } } — the network half, checked by
@@ -68,7 +69,15 @@ async function acceptOffer({ db, uid, rideId, externals, liveMoney = false, now 
       }, { merge: true });
       return { status: 409, body: { error: first.reason, code: first.code, released: true } };
     }
-    tx.update(rideRef, { status: 'accepted', acceptedAt: at, statusAt: at });
+    // Reuse the Operator record already read for eligibility: no extra read,
+    // no GPS-history collection and no additional write transaction. If the
+    // position is stale/queued, record no basis for an en-route cancellation fee.
+    const pickupProgressStart = acceptanceEvidence({
+      operator: opSnap.exists ? opSnap.data() : null,
+      rideId,pickup:{lat:ride.pickupLat,lng:ride.pickupLng},at,
+    });
+    tx.update(rideRef, { status: 'accepted', acceptedAt: at, statusAt: at,
+      pickupProgressStart });
     return { status: 200, body: { ok: true, acceptedAt: at } };
   });
 }
