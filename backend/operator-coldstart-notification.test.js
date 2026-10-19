@@ -1,0 +1,17 @@
+'use strict';
+const assert=require('node:assert/strict');
+const fs=require('node:fs');
+const path=require('node:path');
+const root=path.resolve(__dirname,'..');
+const push=fs.readFileSync(path.join(root,'src/backend/push.ts'),'utf8');
+const layout=fs.readFileSync(path.join(root,'app/_layout.tsx'),'utf8');
+assert.match(push,/getLastNotificationResponseAsync\(/,'recover taps on process cold start');
+assert.match(push,/clearLastNotificationResponseAsync\(/,'discard stale response after recovery');
+assert.match(push,/navigatedNotificationIds\.has\(id\)/,'dedupe concurrent listener and cold-start replay');
+assert.match(push,/DEFAULT_ACTION_IDENTIFIER/,'do not promote arbitrary notification action into navigation');
+assert.match(layout,/!user \|\| initializing \|\| onboarding/,'never navigate before authentication');
+assert.match(layout,/recipientUid !== currentUid/,'never route a push across accounts');
+assert.match(layout,/const allowed = new Set\(\['\/ride'/,'restrict notification navigation destinations');
+assert.match(layout,/recoverLastNotificationTap\(open\)/,'recover startup route for locked phone');
+assert.doesNotMatch(push,/acceptTravel|markCompleted|transferFixed|settlePending/,'opening push never directly accepts a Travel or moves money');
+console.log('PASS cold-start push route recovery, dedupe, account binding, and no push-driven acceptance');
