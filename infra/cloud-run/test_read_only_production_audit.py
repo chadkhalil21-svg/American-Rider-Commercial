@@ -70,6 +70,31 @@ class TestReadOnlyAudit(unittest.TestCase):
         self.assertIn(("Google Scheduler state", "PAUSED"), rows)
         self.assertIn(("Private Google API /live", "HTTP 200"), rows)
 
+    def test_prelaunch_launch_blockers_not_false_success(self):
+        with mock.patch.object(audit, "metadata", side_effect=[
+            service(), {"bindings": []},
+            {"state": "PAUSED", "httpTarget": {
+                "uri": "https://american-rider-api-production-123.us-east1.run.app/scheduled/sweep"
+            }},
+        ]), mock.patch.object(audit, "verify_http_through_proxy", return_value="unknown"):
+            results, risk = audit.audit()
+        self.assertFalse(risk)
+        blockers = dict(results)["First store launch infrastructure"]
+        self.assertIn("PRELAUNCH:", blockers)
+        self.assertIn("live Stripe payment key not mounted", blockers)
+        self.assertIn("Operator screening evidence not attested", blockers)
+        self.assertIn("public Google API not enabled", blockers)
+        self.assertIn("commercial runtime not activated", blockers)
+
+    def test_screening_flag_alone_is_not_reported_as_proof(self):
+        item = service(stripe=True, flag="1", mode="production")
+        item["spec"]["template"]["spec"]["containers"][0]["env"].append(
+            {"name": "SCREENING_EVIDENCE_WORKFLOW_VERIFIED", "value": "true"})
+        status = audit.summary_of_service(item)
+        self.assertTrue(status["screening_workflow_attested"])
+        self.assertNotIn("verified", str(status))
+        self.assertFalse(audit.summary_of_service(service())["screening_workflow_attested"])
+
     def test_live_secret_without_activation_is_a_configuration_risk(self):
         with mock.patch.object(audit, "metadata", side_effect=[
             service(stripe=True, flag=None), {"bindings": []},
