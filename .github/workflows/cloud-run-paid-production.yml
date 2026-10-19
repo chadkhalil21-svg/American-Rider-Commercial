@@ -1,0 +1,71 @@
+name: REAL Google Cloud Run PAID launch (verify or founder-approved activation)
+
+# EXISTING production service, no staging; never silently switches money.
+# Stripe webhook URL and Render scheduler handoff remain separate checked operations.
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: 'VERIFY = read-only prerequisites, ACTIVATE_PAID = deploy real Stripe to verified Google production'
+        type: choice
+        required: true
+        default: VERIFY
+        options:
+          - VERIFY
+          - ACTIVATE_PAID
+      confirm:
+        description: 'For ACTIVATE_PAID only, type ACTIVATE_PAID_CLOUDRUN'
+        required: false
+        type: string
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: american-rider-real-production-paid-activation
+  cancel-in-progress: false
+
+jobs:
+  inspect-or-activate:
+    if: ${{ github.ref == 'refs/heads/release/current' }}
+    runs-on: ubuntu-latest
+    environment: american-rider-commercial-live
+    timeout-minutes: 42
+    env:
+      CLOUDSDK_CORE_PROJECT: american-rider-35688
+      FOUNDER_APPROVAL: ${{ inputs.confirm }}
+    steps:
+      - name: Use current approved release
+        uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Safety tests without Google or money
+        shell: bash
+        run: |
+          set -euo pipefail
+          node backend/paid-cloudrun-activation.test.js
+          python3 -m unittest discover -s infra/cloud-run -p test_activate_paid_production.py
+      - name: Authenticate founder-owned Google project via existing Workload Identity
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: projects/623854974930/locations/global/workloadIdentityPools/github-production/providers/github
+          service_account: ar-production-deployer@american-rider-35688.iam.gserviceaccount.com
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Real Cloud Run paid launch check / explicitly approved activation
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          case "${{ inputs.action }}" in
+            VERIFY) python3 infra/cloud-run/activate-paid-production.py VERIFY ;;
+            ACTIVATE_PAID)
+              test "$FOUNDER_APPROVAL" = "ACTIVATE_PAID_CLOUDRUN" || {
+                echo "::error::Explicit full paid Cloud Run approval phrase required."
+                exit 1
+              }
+              python3 infra/cloud-run/activate-paid-production.py ACTIVATE_PAID
+              ;;
+            *) echo "::error::Unknown commercial action"; exit 1 ;;
+          esac
