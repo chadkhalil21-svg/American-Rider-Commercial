@@ -17,6 +17,11 @@ const DEFAULT=Object.freeze({
   presencePeriodSeconds:90,
   fareCents:1750,platformFeeCents:250,internationalShare:0.05,
   firestoreReadsPerTravel:100,firestoreWritesPerTravel:40,
+  // /operator/online passes through Cloud Run and performs at least five distinct
+  // Firestore document gets per renewal. Model FIVE as a conservative lower bound,
+  // and 0.20 active vCPU-seconds as an EXPLICIT synthetic timing assumption.
+  firestoreReadsPerPresenceRenewal:5,
+  billableInstanceSecondsPerPresenceRenewal:0.20,
   otherReadsPerDay:2500,otherWritesPerDay:500,
   requestsPerTravel:20,otherRequestsPerDay:1000,
   billableInstanceSecondsPerTravel:8,otherBillableInstanceSecondsPerDay:180,
@@ -68,14 +73,16 @@ function evaluate(overrides={}) {
   const transactionRoomUsd=((1-a.internationalShare)*(domestic.platformContributionCents+OPERATING_OVERHEAD_ALLOWANCE_CENTS)+
     a.internationalShare*(international.platformContributionCents+OPERATING_OVERHEAD_ALLOWANCE_CENTS))/100;
   const presenceWritesPerDay=Math.ceil(a.operatorsOnDutyDaily*a.dutyHoursEach*3600/a.presencePeriodSeconds);
-  const readsDaily=a.travelsPerDay*a.firestoreReadsPerTravel+a.otherReadsPerDay;
+  const readsDaily=a.travelsPerDay*a.firestoreReadsPerTravel+a.otherReadsPerDay+
+    presenceWritesPerDay*a.firestoreReadsPerPresenceRenewal;
   const writesDaily=a.travelsPerDay*a.firestoreWritesPerTravel+a.otherWritesPerDay+presenceWritesPerDay;
   const billedReadsDaily=Math.max(0,readsDaily-(a.useFreeTiers?PRICES.dailyFreeReads:0));
   const billedWritesDaily=Math.max(0,writesDaily-(a.useFreeTiers?PRICES.dailyFreeWrites:0));
   const firestoreUsd=a.days*(billedReadsDaily*PRICES.firestoreReadPer100k/100000+
     billedWritesDaily*PRICES.firestoreWritePer100k/100000);
-  const requests=a.days*(a.travelsPerDay*a.requestsPerTravel+a.otherRequestsPerDay);
-  const instanceSeconds=a.days*(a.travelsPerDay*a.billableInstanceSecondsPerTravel+a.otherBillableInstanceSecondsPerDay);
+  const requests=a.days*(a.travelsPerDay*a.requestsPerTravel+a.otherRequestsPerDay+presenceWritesPerDay);
+  const instanceSeconds=a.days*(a.travelsPerDay*a.billableInstanceSecondsPerTravel+a.otherBillableInstanceSecondsPerDay+
+    presenceWritesPerDay*a.billableInstanceSecondsPerPresenceRenewal);
   const gibSeconds=instanceSeconds*a.cloudMemoryGib;
   const cloudRunUsd=
     Math.max(0,instanceSeconds-(a.useFreeTiers?PRICES.monthlyFreeCpuSeconds:0))*PRICES.cloudCpuPerSecond+
@@ -119,7 +126,9 @@ function evaluate(overrides={}) {
     domesticModeledContributionUsd:domestic.platformContributionCents/100,
     internationalModeledContributionUsd:international.platformContributionCents/100,
     transactionRoomBeforeActualOverheadUsd:money(transactionRoomUsd),
-    presenceWritesPerDay,firestoreReadsPerDay:readsDaily,firestoreWritesPerDay:writesDaily,
+    presenceWritesPerDay,presenceCloudRequestsMonthly:presenceWritesPerDay*a.days,
+    assumedPresenceInstanceSecondsMonthly:money(presenceWritesPerDay*a.days*a.billableInstanceSecondsPerPresenceRenewal),
+    firestoreReadsPerDay:readsDaily,firestoreWritesPerDay:writesDaily,
     cloudRequestsMonthly:requests,cloudInstanceSecondsMonthly:instanceSeconds,
     firestoreCostUsd:money(firestoreUsd),cloudRunCostUsd:money(cloudRunUsd),
     otherVariableCostUsd:money(otherVariable),assumedFixedMonthlyUsd:money(fixed),
@@ -132,7 +141,7 @@ function evaluate(overrides={}) {
     availableBeforeActualOverheadUsd:money(room),
     modeledOperatingResultUsd:money(result),
     modeledResultBeforeUnpricedCostsUsd:money(result),
-    economicsStatus:'NOT NET PROFIT: real HERE fees, OSRM/OTP and map tiles, cloud egress/logs, support, insurance, legal, tax, real provider bills unverified',
+    economicsStatus:'NOT NET PROFIT: synthetic 0.20s/operator check-in, minimum 5 Firestore reads/check-in, plus unpriced HERE, egress/logs, support, insurance, legal and actual invoices',
     approximateBreakEvenTravelsPerDay:approximateBreakEvenTravels,
     freeTierAssumed:a.useFreeTiers,
   };
