@@ -40,7 +40,6 @@ function accountFeeQuote(completedTravels, payoutSeen = true, cardCountry = null
   return {
     waived,
     threshold: null,
-    completedTravels: Number(completedTravels || 0),
     costCents,
     processingCents: totalCents - costCents,
     cardCountry: cardCountry || null,
@@ -116,25 +115,24 @@ async function sweepOperatorAccountFees({ charge, cardCountryFor = async () => n
       due++;
       continue;
     }
-    const count=0;
     const email = user.exists ? (user.data()?.email || null) : null;
     const cardCountry = await cardCountryFor(d.id).catch(() => null);
-    const q = accountFeeQuote(count, true, cardCountry);
+    const q = accountFeeQuote(0, true, cardCountry);
     if (q.waived) {
-      await d.ref.set({ completedTravels: count, feeStatus: 'waived', feeQuote: q, assessedAt: now }, { merge: true });
+      await d.ref.set({ feeStatus: 'waived', feeQuote: q, assessedAt: now }, { merge: true });
       waived++;
       continue;
     }
     const result = await charge({ uid: d.id, email, month, amountCents: q.totalCents, quote: q });
     if (result?.ok) {
       await d.ref.set({
-        completedTravels: count, feeStatus: 'paid', feeQuote: q, assessedAt: now,
+        feeStatus: 'paid', feeQuote: q, assessedAt: now,
         paymentIntentId: result.paymentIntentId || null, paidAt: now, lastAttemptAt: now,
       }, { merge: true });
       charged++;
     } else {
       await d.ref.set({
-        completedTravels: count, feeStatus: 'due', feeQuote: q, assessedAt: now, lastAttemptAt: now,
+        feeStatus: 'due', feeQuote: q, assessedAt: now, lastAttemptAt: now,
         lastChargeError: String(result?.error || 'payment method unavailable').slice(0, 500),
       }, { merge: true });
       due++; failed++;
