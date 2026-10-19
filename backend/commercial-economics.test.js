@@ -18,7 +18,7 @@ assert.equal(v.firestoreCostUsd,0);
 assert(v.modeledOperatingResultUsd>0,'default model includes no hypothetical monthly company expenses');
 const demand=evaluate({travelsPerDay:100,internationalShare:0,assumedFixedMonthlyUsd:2000});
 assert(demand.modeledOperatingResultUsd>0);
-assert(evaluate({travelsPerDay:100,internationalShare:1}).modeledOperatingResultUsd<
+assert(evaluate({travelsPerDay:100,internationalShare:1,assumedFixedMonthlyUsd:2000}).modeledOperatingResultUsd<
   demand.modeledOperatingResultUsd,'foreign-card exposure must reduce returns');
 const fee=evaluate({travelsPerDay:50,activePayoutAccountsMonthly:20});
 assert.equal(fee.accountFeeUsd,40,'payout-active Connect accounts have real provider costs');
