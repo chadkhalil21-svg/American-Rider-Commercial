@@ -84,7 +84,7 @@ jobs:
           fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY,
             '### Android store candidate built\n\nExact source: `' + process.env.CERTIFIED_SHA +
             '`\n\nEAS build ID: `' + b.id +
-            '`\n\n**Not submitted to or approved by Google Play.** Play Console review and physical-device validation remain separate.\n');
+            '`\n\n**Not approved for public Google Play.** Optional explicit internal-testing upload may follow; public review, data safety and physical-device validation remain separate.\n');
           NODE
 
       - name: Submit the exact Android bundle to Google Play INTERNAL TESTING (explicit choice only)
