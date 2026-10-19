@@ -20,6 +20,15 @@ const demand=evaluate({travelsPerDay:100,internationalShare:0,assumedFixedMonthl
 assert(demand.modeledOperatingResultUsd>0);
 assert(evaluate({travelsPerDay:100,internationalShare:1}).modeledOperatingResultUsd<
   demand.modeledOperatingResultUsd,'foreign-card exposure must reduce returns');
+const fee=evaluate({travelsPerDay:50,activePayoutAccountsMonthly:20});
+assert.equal(fee.accountFeeUsd,40,'payout-active Connect accounts have real provider costs');
+assert.equal(fee.operatorRecoveredAccountFeeUsd,0,'no money assumed collected without proof');
+assert.equal(evaluate({travelsPerDay:50,activePayoutAccountsMonthly:20,recoveredAccountFeeFraction:1}).operatorRecoveredAccountFeeUsd,40);
+assert.equal(evaluate({monthlyResendEmailCount:150,peakDailyResendEmailCount:101}).resendUsd,20,'Resend daily free limit matters');
+assert.equal(evaluate({monthlyResendEmailCount:4000,peakDailyResendEmailCount:50}).resendUsd,20);
+assert.equal(evaluate({monthlyResendEmailCount:0,peakDailyResendEmailCount:0}).resendUsd,0);
+assert.equal(v.assumedFixedMonthlyUsd,0,'do not invent flat operating expenses');
+assert.match(v.economicsStatus,/NOT NET PROFIT/);
 const busy=evaluate({travelsPerDay:1000,operatorsOnDutyDaily:500});
 assert(busy.firestoreCostUsd>0&&busy.cloudRunCostUsd>0);
 assert(busy.presenceWritesPerDay===160000);
