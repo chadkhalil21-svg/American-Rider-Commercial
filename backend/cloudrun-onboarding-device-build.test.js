@@ -9,7 +9,7 @@ assert.match(URL,/^https:\/\/american-rider-api-production-\d+\.us-east1\.run\.a
 const good={l:{ok:true},h:{deployment:'production',stripe:'no-key',support:{firestore:'on'},fleet:{operators:0}},c:{mode:'no-key',canTakePayment:false}};
 assert.doesNotThrow(()=>responseCheck(good.l,good.h,good.c));
 for(const [field,bad] of [['stripe','live'],['deployment','development']])
- assert.throws(()=>responseCheck(good.l,{...good.h,[field]:bad},good.c),/disabled|verified/);
+ assert.throws(()=>responseCheck(good.l,{...good.h,[field]:bad},good.c),/disabled|verified/i);
 assert.throws(()=>responseCheck(good.l,good.h,{mode:'live',canTakePayment:true}),/DISABLED/);
 assert.throws(()=>responseCheck(good.l,{...good.h,fleet:{operators:null}},good.c),/Firebase/);
 const workflow=fs.readFileSync(path.join(root,'.github/workflows/build-onboarding-devices.yml'),'utf8');
