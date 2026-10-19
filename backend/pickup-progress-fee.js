@@ -13,6 +13,7 @@ const MIN_DIRECTION_RATIO = 0.55; // closing distance / overall displacement
 const MAX_PLAUSIBLE_MPH = 75;
 const CANCELLATION_FEE_CENTS = 300;
 function coordinate(lat,lng){
+ if(lat===null||lat===undefined||lng===null||lng===undefined)return null;
  const a=Number(lat),b=Number(lng);
  return Number.isFinite(a)&&Number.isFinite(b)&&a>=-90&&a<=90&&b>=-180&&b<=180
    ? {lat:a,lng:b} : null;
