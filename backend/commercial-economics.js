@@ -26,6 +26,10 @@ const DEFAULT=Object.freeze({
   recoveredAccountFeeFraction:0,
   monthlyResendEmailCount:0,
   peakDailyResendEmailCount:0,
+  // Explicit existing service plan, not a speculative corporate overhead allowance.
+  // Set to $0 only after retiring the legacy Render API and validating callbacks.
+  legacyRenderApiMonthlyUsd:7,
+  cloudSchedulerJobs:1,
   useFreeTiers:true,
 });
 function nonneg(n,name) {
@@ -77,11 +81,16 @@ function evaluate(overrides={}) {
   // threshold is not inferable from monthly volume; switch to Pro if exceeded.
   const resendUsd=a.monthlyResendEmailCount<=3000&&a.peakDailyResendEmailCount<=100?0:
     a.monthlyResendEmailCount<=50000?20:20+Math.ceil((a.monthlyResendEmailCount-50000)/1000)*0.90;
-  const totalCost=fixed+otherVariable+firestoreUsd+cloudRunUsd+accountFees-accountFeesRecovered+resendUsd;
+  // Google Cloud Scheduler: 3 scheduled jobs/month free per billing account;
+  // additional job costs $0.10/month. The number of executions does not change that charge.
+  const cloudSchedulerUsd=Math.max(0,a.cloudSchedulerJobs-(a.useFreeTiers?3:0))*0.10;
+  const renderLegacyUsd=a.legacyRenderApiMonthlyUsd;
+  const totalCost=fixed+otherVariable+firestoreUsd+cloudRunUsd+accountFees-accountFeesRecovered+resendUsd+
+    cloudSchedulerUsd+renderLegacyUsd;
   const room=rides*transactionRoomUsd;
   const result=room-totalCost;
   const approximateBreakEvenTravels=transactionRoomUsd>a.nonCloudVariableUsdPerTravel?
-    Math.ceil((fixed+accountFees-accountFeesRecovered+resendUsd+a.days*(a.otherReadsPerDay*PRICES.firestoreReadPer100k/100000+
+    Math.ceil((fixed+accountFees-accountFeesRecovered+resendUsd+cloudSchedulerUsd+renderLegacyUsd+a.days*(a.otherReadsPerDay*PRICES.firestoreReadPer100k/100000+
       (a.otherWritesPerDay+presenceWritesPerDay)*PRICES.firestoreWritePer100k/100000))/
       (a.days*(transactionRoomUsd-a.nonCloudVariableUsdPerTravel))):null;
   return {
@@ -96,10 +105,12 @@ function evaluate(overrides={}) {
     otherVariableCostUsd:money(otherVariable),assumedFixedMonthlyUsd:money(fixed),
     accountFeeUsd:money(accountFees),operatorRecoveredAccountFeeUsd:money(accountFeesRecovered),
     resendUsd:money(resendUsd),
+    cloudSchedulerUsd:money(cloudSchedulerUsd),legacyRenderApiUsd:money(renderLegacyUsd),
+    knownServiceCostsUsd:money(firestoreUsd+cloudRunUsd+resendUsd+cloudSchedulerUsd+renderLegacyUsd),
     availableBeforeActualOverheadUsd:money(room),
     modeledOperatingResultUsd:money(result),
     modeledResultBeforeUnpricedCostsUsd:money(result),
-    economicsStatus:'NOT NET PROFIT: HERE/map fallback, egress, storage, support, insurance, legal, tax and real billing unverified',
+    economicsStatus:'NOT NET PROFIT: HERE/Photon/OSRM routing, cloud egress, storage, support, insurance, legal, tax, real provider invoices and actual use unverified',
     approximateBreakEvenTravelsPerDay:approximateBreakEvenTravels,
     freeTierAssumed:a.useFreeTiers,
   };
