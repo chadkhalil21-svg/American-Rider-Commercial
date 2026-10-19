@@ -1,0 +1,65 @@
+name: Cloud Run production PROJECT candidate (private, manual)
+
+# Never deploy the live API, connect a real Stripe key, or reroute customers.
+# The first-time private candidate is created by the founder's single Cloud Shell
+# commissioning script (which securely establishes a dedicated Secret Manager token).
+# Subsequent deliberate candidate-only refreshes may run via this manual workflow.
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type PRIVATE_ONLY to refresh the isolated candidate service'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: cloud-run-production-private-candidate
+  cancel-in-progress: false
+
+jobs:
+  candidate:
+    if: ${{ inputs.confirm == 'PRIVATE_ONLY' && github.ref == 'refs/heads/release/current' }}
+    runs-on: ubuntu-latest
+    environment: cloud-run-production-private-candidate
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Reject nonrelease and noncandidate deployment
+        run: |
+          test "${{ github.ref }}" = "refs/heads/release/current"
+          echo "Production GCP project PRIVATE CANDIDATE only; no live Stripe or customer traffic."
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: projects/623854974930/locations/global/workloadIdentityPools/github-production/providers/github
+          service_account: ar-production-deployer@american-rider-35688.iam.gserviceaccount.com
+      - uses: google-github-actions/deploy-cloudrun@v2
+        id: deploy
+        with:
+          service: american-rider-api-production-candidate
+          project_id: american-rider-35688
+          region: us-east1
+          source: ./backend
+          flags: >-
+            --no-allow-unauthenticated
+            --ingress=all
+            --min-instances=0
+            --max-instances=2
+            --cpu=1
+            --memory=1Gi
+            --concurrency=20
+            --service-account=ar-production-runtime@american-rider-35688.iam.gserviceaccount.com
+          env_vars: |
+            NODE_ENV=production
+            DEPLOYMENT_MODE=test
+            AR_EXTERNAL_SCHEDULER=1
+          secrets: |
+            SCHEDULER_TOKEN=ar-production-private-candidate-scheduler-token:latest
+      - name: Record safe private candidate boundary
+        run: |
+          echo "Candidate privately deployed; not the paid-travel production API."
+          echo "No Stripe webhooks, Cloud Scheduler jobs or client origin switched."
+          echo "Verify authenticated /live and production secrets before separate go-live."
