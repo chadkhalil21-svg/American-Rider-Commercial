@@ -1,8 +1,9 @@
 // Operator monthly Connect active-account recovery.
 //
 // Product rule: Stripe's $2 monthly active-account cost belongs to the Operator account that
-// caused it, not to every Traveler. It is waived when that Operator completes 20 Travels in
-// the same calendar month. The 99% fare share is untouched: this is a separate account-cost
+// caused it, not to every Traveler. No 20-Travel waiver applies under the
+// Founder-approved current policy. Operators must first consent to separate collection.
+// The 99% fare share is untouched: this is a separate account-cost
 // pass-through. Card collection cost is itemized and grossed up so American Rider does not
 // subsidize the pass-through or earn a margin on it.
 const { adminDb, adminStatus } = require('./firebase-admin');
@@ -11,7 +12,7 @@ const { postPlatformMessage } = require('./platforminbox');
 
 
 const ACCOUNT_COST_CENTS = 200;
-const WAIVER_TRAVELS = 20;
+const FEE_CONSENT_VERSION = 'connect-fees-2026-10';
 const DOMESTIC_CARD_PCT = 0.029;
 const INTERNATIONAL_CARD_PCT = 0.044;
 const CARD_FIXED_CENTS = 30;
@@ -31,14 +32,14 @@ function monthBounds(key) {
 }
 const grossUp = (cost, pct) => Math.ceil((cost + CARD_FIXED_CENTS) / (1 - pct));
 function accountFeeQuote(completedTravels, payoutSeen = true, cardCountry = null) {
-  const waived = !payoutSeen || Number(completedTravels || 0) >= WAIVER_TRAVELS;
+  const waived = !payoutSeen;
   const costCents = waived ? 0 : ACCOUNT_COST_CENTS;
   // Unknown card country is international-safe for the same reason Traveler pricing is.
   const pct = String(cardCountry || '').toUpperCase() === 'US' ? DOMESTIC_CARD_PCT : INTERNATIONAL_CARD_PCT;
   const totalCents = waived ? 0 : grossUp(costCents, pct);
   return {
     waived,
-    threshold: WAIVER_TRAVELS,
+    threshold: null,
     completedTravels: Number(completedTravels || 0),
     costCents,
     processingCents: totalCents - costCents,
@@ -102,8 +103,20 @@ async function sweepOperatorAccountFees({ charge, cardCountryFor = async () => n
     const rec = d.data() || {};
     if (!rec.payoutSeen || rec.feeStatus === 'paid' || rec.feeStatus === 'waived') continue;
     if (rec.feeStatus === 'due' && Number(rec.lastAttemptAt || 0) > now - 24 * 60 * 60 * 1000) continue;
-    const count = await completedTravelsInMonth(db, d.id, month);
+    // No historical Travels query is needed: the monthly account fee has no waiver.
+    // Consent must predate that month's actual payout. Never back-bill a consent.
     const user = await db.collection('users').doc(d.id).get();
+    const consent = user.exists ? user.data()?.stripeFeeConsent : null;
+    if (consent?.version !== FEE_CONSENT_VERSION ||
+        !Number.isSafeInteger(consent.acceptedAt) ||
+        !Number.isSafeInteger(rec.lastPayoutAt) ||
+        consent.acceptedAt > rec.lastPayoutAt) {
+      if (rec.feeStatus !== 'consent_required')
+        await d.ref.set({ feeStatus:'consent_required', feeConsentVersion:FEE_CONSENT_VERSION }, { merge:true });
+      due++;
+      continue;
+    }
+    const count=0;
     const email = user.exists ? (user.data()?.email || null) : null;
     const cardCountry = await cardCountryFor(d.id).catch(() => null);
     const q = accountFeeQuote(count, true, cardCountry);
@@ -129,12 +142,12 @@ async function sweepOperatorAccountFees({ charge, cardCountryFor = async () => n
         uid: d.id,
         kind: 'operator_account_fee_due',
         title: 'Operator account cost due',
-        body: `The $2 active-account cost for ${month} remains due. It is waived in months with 20 completed Travels.`,
+        body: `The separately agreed $2 active-account cost for ${month} remains due. Your 99% Fare share is unchanged.`,
         data: { screen: '/operator/payouts' },
       });
       await postPlatformMessage({
         uid: d.id, category: 'payout', title: 'Operator account cost due',
-        body: `The $2 active-account cost for ${month} remains due. It is waived in months with 20 completed Travels.`,
+        body: `The separately agreed $2 active-account cost for ${month} remains due. Your 99% Fare share is unchanged.`,
         action: { screen: '/operator/payouts' },
       }).catch(() => {});
     }
@@ -143,6 +156,6 @@ async function sweepOperatorAccountFees({ charge, cardCountryFor = async () => n
 }
 
 module.exports = {
-  ACCOUNT_COST_CENTS, WAIVER_TRAVELS, monthKey, monthBounds, previousMonth,
+  ACCOUNT_COST_CENTS, FEE_CONSENT_VERSION, monthKey, monthBounds, previousMonth,
   accountFeeQuote, recordPayoutActivity, sweepOperatorAccountFees,
 };
