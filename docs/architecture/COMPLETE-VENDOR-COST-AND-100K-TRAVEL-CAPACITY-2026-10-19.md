@@ -43,14 +43,14 @@ Per Travel contribution AFTER estimated Stripe processing, the model's conservat
 
 | Completed Travels/day | Daily on-duty Operators | Personalized emails/month | Domestic payment costs/month (2.9%+30c only) | Named operating-tech subtotal/month WITH SES alternative | Extra unrecovered Connect $2/account/month | Remainder BEFORE unpriced business costs/month |
 |---:|---:|---:|---:|---:|---:|---:|
-| 5 | 3 | 318 | $130.50 | $7.03 | $6 | $193.22 |
-| 10 | 5 | 636 | $261 | $7.06 | $10 | $395.44 |
-| 50 | 25 | 3,180 | $1,305 | $7.32 | $50 | $2,005.18 |
-| 100 | 50 | 6,360 | $2,610 | $8.03 | $100 | $4,016.97 |
-| 1,000 | 500 | 63,600 | $26,100 | $54.50 | $1,000 | $40,195.50 |
-| 10,000 | 5,000 | 636,000 | $261,000 | $545.63 | $10,000 | $401,954.37 |
-| 50,000 | 25,000 | 3,180,000 | $1,305,000 | $2,729.06 | $50,000 | $2,009,770.94 |
-| 100,000 | 50,000 | 6,360,000 | $2,610,000 | $5,458.34 | $100,000 | $4,019,541.66 |
+| 5 | 3 | 318 | $132 | $7.03 | $6 | $193.22 |
+| 10 | 5 | 636 | $264 | $7.06 | $10 | $395.44 |
+| 50 | 25 | 3,180 | $1,320 | $7.32 | $50 | $2,005.18 |
+| 100 | 50 | 6,360 | $2,640 | $8.03 | $100 | $4,016.97 |
+| 1,000 | 500 | 63,600 | $26,400 | $54.50 | $1,000 | $40,195.50 |
+| 10,000 | 5,000 | 636,000 | $264,000 | $545.63 | $10,000 | $401,954.37 |
+| 50,000 | 25,000 | 3,180,000 | $1,320,000 | $2,729.06 | $50,000 | $2,009,770.94 |
+| 100,000 | 50,000 | 6,360,000 | $2,640,000 | $5,458.34 | $100,000 | $4,019,541.66 |
 
 Card-cost column above intentionally **domestic-only** for comparability; underlying remaining-margin calculation uses **95% domestic, 5% international** (+$0.30/foreign card), making its actual blended monthly card-processing assumption a little higher. Gross platform take is 1% Fare plus Platform Fee, not the full $20.
 
