@@ -20,7 +20,7 @@ const feeRef={set:async v=>{fakeDB.records.push(v);}};
 fakeDB.collection=(name)=>{
  if(name==='operator_months')return {doc:()=>({collection:()=>({get:async()=>({docs:[{
     id:'operator_synthetic',ref:feeRef,data:()=>({
-      payoutSeen:true,lastPayoutAt:fakeDB.payoutAt,feeStatus:null,
+      payoutSeen:true,firstPayoutAt:fakeDB.payoutAt,lastPayoutAt:fakeDB.payoutAt,feeStatus:null,
     }),
  }]})})})};
  if(name==='users')return {doc:()=>({get:async()=>({exists:!!fakeDB.consent,
