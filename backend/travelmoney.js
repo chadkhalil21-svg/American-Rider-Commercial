@@ -180,8 +180,17 @@ async function cancelTravel({ db, uid, rideId, deps, stripeConfigured = true, no
     // this reservation. No secondary query, route-service request or GPS writes.
     // OFF by default: final consumer fee terms and Stripe reconciliation must pass
     // review before live charging is enabled.
+    // A Stripe outage can leave an already-cancelled Travel pending its refund.
+    // Freeze the original fee/evidence once, so a retry cannot reprice the refund
+    // based on a newer GPS position or a now-released Operator reservation.
+    const priorDecision = current.status === 'cancelled' &&
+      Number.isSafeInteger(current.cancellationFeeCents) &&
+      current.cancellationFeeCents>=0 && current.cancellationFeeCents<=300
+      ? {feeCents:current.cancellationFeeCents,
+        reason:String(current.cancellationFeeReason||'previously_recorded'),
+        evidence:current.cancellationFeeEvidence||undefined} : null;
     const feeDecision = enableVerifiedProgressFee
-      ? cancellationProgress({ ride:current, operator:op, rideId:id, now }) : null;
+      ? (priorDecision || cancellationProgress({ ride:current, operator:op, rideId:id, now })) : null;
     tx.update(rideRef, { status: 'cancelled', statusAt: now,
       cancelledFrom: current.cancelledFrom || current.status,
       refundPending: !!current.paymentIntentId,
