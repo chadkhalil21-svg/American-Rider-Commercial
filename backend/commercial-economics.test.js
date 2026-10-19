@@ -1,0 +1,36 @@
+'use strict';
+const assert=require('node:assert/strict');
+const {DEFAULT,PRICES,evaluate}=require('./commercial-economics');
+const noTrips=evaluate({travelsPerDay:0,operatorsOnDutyDaily:0,assumedFixedMonthlyUsd:500});
+assert.equal(noTrips.travelsMonthly,0);
+assert.equal(noTrips.modeledOperatingResultUsd,-500);
+const v=evaluate();
+assert.equal(v.travelsMonthly,1500);
+assert.equal(v.domesticModeledContributionUsd,1.14);
+assert.equal(v.internationalModeledContributionUsd,0.84);
+assert.equal(v.transactionRoomBeforeActualOverheadUsd,1.38); // 95% * 1.39 + 5% * 1.09 = 1.375, rounding is half-up
+assert.equal(v.presenceWritesPerDay,9600);
+assert.equal(v.firestoreWritesPerDay,12100);
+assert.equal(v.firestoreReadsPerDay,7500);
+assert.equal(v.freeTierAssumed,true);
+assert.equal(v.cloudRunCostUsd,0);
+assert.equal(v.firestoreCostUsd,0);
+assert(v.modeledOperatingResultUsd<0,'50 paid Travels/day does not break even if fixed costs are $2000 and unknown fees 10c per Travel');
+const demand=evaluate({travelsPerDay:100,internationalShare:0,assumedFixedMonthlyUsd:2000});
+assert(demand.modeledOperatingResultUsd>0);
+assert(evaluate({travelsPerDay:100,internationalShare:1}).modeledOperatingResultUsd<
+  demand.modeledOperatingResultUsd,'foreign-card exposure must reduce returns');
+const busy=evaluate({travelsPerDay:1000,operatorsOnDutyDaily:500});
+assert(busy.firestoreCostUsd>0&&busy.cloudRunCostUsd>0);
+assert(busy.presenceWritesPerDay===160000);
+assert(busy.firestoreWritesPerDay>20000);
+const allCharge=evaluate({travelsPerDay:100,assumedFixedMonthlyUsd:0,useFreeTiers:false});
+const someFree=evaluate({travelsPerDay:100,assumedFixedMonthlyUsd:0});
+assert(allCharge.cloudRunCostUsd>someFree.cloudRunCostUsd);
+assert(allCharge.firestoreCostUsd>someFree.firestoreCostUsd);
+assert(evaluate({travelsPerDay:100,assumedFixedMonthlyUsd:20000}).modeledOperatingResultUsd<0);
+assert.throws(()=>evaluate({travelsPerDay:-1}),/nonnegative/);
+assert.throws(()=>evaluate({useFreeTiers:'yes'}),/boolean/);
+assert.throws(()=>evaluate({internationalShare:1.5}),/must not exceed/);
+assert.throws(()=>evaluate({somethingMadeUp:1}),/unsupported/);
+console.log('PASS synthetic economics: source-faithful card fees, daily free tiers, active Operator GPS writes, profitability sensitivity and unknown overhead');
