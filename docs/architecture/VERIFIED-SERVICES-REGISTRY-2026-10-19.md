@@ -1,0 +1,79 @@
+# American Rider | Authoritative connected service & system inventory
+**Verified:** 2026-10-19 | **Repository:** `chadkhalil21-svg/American-Rider-Commercial` | **Release:** `release/current`
+
+## Rule: code, provider connection, deployment and billing are DIFFERENT
+
+- **E — Externally connected or directly observed:** live provider response / account state obtained on 2026-10-19. This does *not* prove every operation succeeds or incurs a bill.
+- **R — Reported production through verified release/commissioning evidence:** current canonical ledger or GitHub Actions reports the deployed provider/activation; not newly inspected via a cloud-admin API in this audit.
+- **S — Source code wired/selected:** present in `release/current`; credentials, external endpoint, actual deployment/use or invoices must be independently confirmed.
+- **O — Optional/dormant:** implementation exists, but it must not be counted as a subscribed/currently billable provider without further evidence.
+- **P — Proposed/not connected:** no operative production integration. **ZERO claimed bills is not proof of zero actual vendor costs.**
+
+Always check **GitHub HEAD, exact Cloud Run deployed SHA, Firebase/provider dashboard metrics, signed native app release SHA**, and company invoices separately. Never expose API keys, account credentials, insurer details or private identifiers in this public repository. This registry lists service names and public domains only.
+
+## 1. Externally connected infrastructure, payment & communications
+
+| System | Status | What we know | Expense / what still needs measurement |
+|---|---|---|---|
+| GitHub Commercial repository, `release/current`, Actions | **E** | Official release code; deterministic and synthetic CI workflows; commercial repository is accessible and active. | GitHub Actions build minutes / artifacts depend on plan. GH checks are NOT live Google traffic benchmarks. |
+| Google **Cloud Run** API | **R** | Ledger records public **paid-mode** `american-rider-api-production`, live Stripe + Firestore integration, and webhook cutover to Google. | Usage-priced CPU, RAM, HTTP requests, egress/build/logging; direct billing report and exact **latest** deployed SHA not obtained in this audit. Source may be ahead of production. |
+| Google **Cloud Scheduler** | **R** | Ledger's latest 2026-10-19 commissioning evidence says ONE authenticated minute scheduler resumed; old Render in-process clock disabled. | First 3 jobs per billing account free; Cloud Run execution still billable. Verify real job history and service account permissions in GCP. |
+| **Firebase Authentication** | **R/S** | App and server use Firebase user authentication, email verification, Apple/Google sign-in paths; latest commissioning checks report success. | Verification emails covered by Auth quota; not a general receipt/support email service. SMS or advanced identity features have separate limits/prices. |
+| **Cloud Firestore**, Firebase **Blaze** | **R/S** | Operator qualifications, bookings, duty presence, matching, provider event queues, inbox, safety, scheduled work and audit trails are implemented; live Cloud Run checks Firestore. | Billable reads, writes, deletes, index reads, storage, egress and listener fanout. Account's live usage and actual Blaze invoice NOT fetched here. |
+| **Stripe Payments** | **E/R** | Connected American Rider LIVE Stripe account and distinct sandbox; canonical ledger records BOTH real payment webhooks pointing at Cloud Run. No completed commercial charges in most recent validated live account read. | Card processing, disputes and chargebacks must be counted from actual balance transactions; code existence alone never proves received money. |
+| **Stripe Connect (Express)** | **E/S** | Implemented connected Operator creation, onboarding and payout transfer. Live account accessible; past read showed zero connected Operators and no transfers. | Exact Stripe-managed versus platform-managed pricing and real payouts NOT established by zero-transfer account. $2 payout-active connected account fee and bank/instant payout charges are governed by account regime; Operator pass-through with consent remains review in PR #143. |
+| **Resend outbound transactional email** | **E** | Verified `americanrider.app` sending domain; account FREE plan: 0/100 daily and 5/3,000 monthly at read. `backend/email.js` sends personalized receipts, invitations and alerts through Resend. | Free daily hard limit 100; cannot treat Firebase Auth as unlimited custom email sender. Any future SES cutover must preserve deliveries. |
+| **Resend delivery-event webhook** | **E** | Enabled endpoint on Cloud Run `/resend/webhook` with 7 configured event types (sent, delivered, delayed, bounce, failed, suppressed, complained). Source has signature checks and durable processing. | Event endpoint enabled is NOT proof of successful end-to-end provider delivery; monitor retry and actual receipt logs. Resend inbound receiving is disabled. |
+| **Gmail institutional mailbox** | **E** | Connected Gmail account **American Rider Communications** at `americanrider.communications@gmail.com`. Messages addressed to `support@americanrider.app` and `insurance@americanrider.app` were found in this Gmail account. | No separate bulk transactional sender role. Founder should receive only exceptions. `@americanrider.com` alias routing NOT verified; application uses `.app`. |
+| **Cloudflare Email Routing / DNS** | **E (delivery path inferred)** | Receiving `.app` business-alias mail into Gmail proves the forwarding path operates; direct Cloudflare admin configuration was not read. Resend "receiving off" is irrelevant to this independently routed Gmail inbox. | Free forwarding is not email sending or auto-reply processing; check DNS and domain renewal from Cloudflare account, not from code. |
+| **Render** | **E** | Connected **My Workspace** lists 5 **not suspended** services: paid `American-Rider-Server` web API (Starter, 0.5 CPU/512 MiB), `american-rider-platform` static website, `american-rider-preview` static site, and two old `American-Rider` static test/preview sites. | Existing known API plan **$7/month**; static-site bandwidth/build limits not invoiced here. Do not shut down any service until public URLs, mobile fallback, auth callbacks and monitoring dependencies verified. The last Render deploy SHA is not proof Google is fully current. |
+
+## 2. Source-selected app/library systems versus provider runtime still to attest
+
+| System | Classification | Evidence from actual `release/current` | Cost, caveat or dependency |
+|---|---|---|---|
+| **MapLibre Native** | **S — approved & implemented map renderer** | `src/components/MonoMap.tsx`, `HomeMap.tsx`, `RouteMap.tsx`; dependency `@maplibre/maplibre-react-native`. This is ALREADY DECIDED; do not reopen vendor selection. | Open-source renderer itself $0. |
+| **OpenFreeMap vector tiles / OpenStreetMap data** | **S — configured map source** | `src/components/mapStyle.ts` calls `tiles.openfreemap.org`. | Public no-fee map tiles; provider availability not contracted by SLA. Map tile rendering != geocoding != routing. |
+| **Expo app framework, Expo Push service, iOS APNs / Android FCM delivery** | **S** | `expo`, `expo-notifications`, `backend/push.js` posts to Expo; delivery receipts processed in `pushreceipts.js`. | Expo Push API has no per-notification fee but a documented 600 notifications/sec/project limit. Actual signed-device push delivery and current Expo/EAS plan/quota not independently attested. |
+| **Cloudflare R2 private operator-document storage** | **S; external active use NOT proven** | `backend/r2.js` signs private uploads/reads if R2 credentials configured. | 10 GiB and request free quotas then usage-based charges; no R2 console/billing proof fetched. Do NOT count an R2 charge just because code exists. |
+| **Tesseract local OCR** | **S — source implemented** | `backend/documents.js`, local OCR library dependencies. | No separate Tesseract API invoice; consumes server CPU/RAM. OCR does NOT certify real insurance/licence compliance. |
+| **HERE Routing/toll requests** | **S; some real account history, bill unverified** | `backend/tolls.js`, `backend/place-search.js`. Founder decision: HERE only for unresolved toll amounts, **but current search code STILL uses HERE Autosuggest when private Photon is absent**. | Actual paid requests and contract terms unknown. Approved official toll-rate catalogue still empty; do not label HERE fallback "rare" without metrics. |
+| **OSRM / OpenTripPlanner (OTP)** | **S — regional routing adapters** | `backend/streets.js` prefers privately configured OSRM, otherwise configured OTP; `backend/transit.js` does GTFS/OTP. No public demo router used. | Active regional host URL, hosting invoice and real endpoint responsiveness NOT inspected. Routing must fail safely if unavailable. |
+| **Native iOS AppleMaps residual** | **S — old code, NOT approved main maps provider** | `src/components/LiveMap.ios.tsx` imports `AppleMaps` from `expo-maps`. Main Home/Route map is MapLibre. | Do not add a fictitious Apple Maps paid API charge. Determine whether the legacy screen is mounted in current signed binary before describing runtime usage; planned narrow parity issue #146. |
+| **Apple/Google social sign-in** | **S (auth integration)** | Expo Apple Authentication, OAuth / Firebase auth flows in packages and app. | End-user availability depends on signed builds/provider credentials; no distinct general per-Travel map fee. |
+| **Anthropic / Claude AI assistant & Patron/Operator Support** | **S — conditional server integration** | `backend/assistant.js` uses Claude Haiku; `backend/support.js` and `backend/operatorsupport.js` use Claude Sonnet, gated by `ANTHROPIC_API_KEY`. | **Cannot claim inactive OR free** without checking secret binding and actual AI usage invoice. Count API tokens/cases, not every Travel. Human exceptional review persists. |
+| **Provider-neutral screening** | **S — gates and handoff are built** | `backend/external-screening.js`, `screening.js` and qualification; `backend/checkr.js` includes an optional **Checkr** API integration. | Founder decided NO required exclusive Checkr vendor. No contracted live CRA feed/pilot confirmed; do not assume Checkr subscription/bills or mark real people approved. |
+| **Operator insurance provider verification** | **S — workflows built** | `insurance-monitoring.js`, contact-trust module, documented secure confirmation/review. | No national direct insurer integration or per-policy vendor invoice confirmed. A policy's legal sufficiency needs qualified outside counsel, not a code test. |
+| **Apple App Store / Google Play / Expo EAS build distribution** | **S — configured release workflows; store approval pending** | `eas.json`, `.github/workflows/submit-certified-ios-testflight.yml`, app package/scripts. | Apple Developer membership, Google Play registration and EAS build use cannot be proven billed by source alone. Public publication/installation NOT yet certified. |
+
+## 3. Deliberately deferred or not operationally verified
+
+| Service / feature | Current status | Source of decision |
+|---|---|---|
+| **Amazon SES à la carte** | **P — NOT connected.** Founder now working through AWS account sign-in; no AWS connection, verified sender identity, production sending quota or Cloud Run SES adapter. | Proposed alternative to Resend free limit; issue #145. Never silently change MX or disable Resend. |
+| **Photon private search VM** | **O — installation scripts exist, no commissioned VM evidenced.** | Founder deferred hosting after cost comparison, ADR 0041; do not include its estimated VM as a current bill. |
+| **Geoapify** | **O — explicitly removed/rejected**, not current address provider. | ADR 0039 / `backend/place-search.js`. |
+| **Google Maps API / Mapbox / Stadia Maps paid tiles** | **O — not the app's current default mapping provider.** | MapLibre + OpenFreeMap selection; do not assume subscription. Stadia has been researched as a possible backup but not commissioned. |
+| **Twilio Voice** | **O — code & both SDKs exist; external activation NOT verified.** | `backend/voice.js` requires 6 runtime values and signed webhook to enable calls; client SDK installed. No Twilio console read or invoice. Do not present it as a running/paid communications service. |
+| **Checkr exclusive screening subscription** | **O — NOT mandated or evidenced commissioned.** | Provider-neutral screening policy. Optional API client in `backend/checkr.js` does NOT mean purchased or required. |
+| **Smart Travel full live transit experience** | **O — source built, Founder paused at launch.** | GTFS/OTP modules and prior UI decision. No live transit subscription assumed. |
+| **Automated company-wide SES/Resend/Firebase universal receipt replacement** | **P — NOT in production.** | Firebase Authentication only covers identity emails. Stripe card receipts + a genuine transactional email provider still needed for full Travel records. |
+
+## Operator/customer economics and founder controls
+
+- Operator's settled share: **99% Fare**, not platform fee. $2 monthly **payout-active** Connect fee plus actual bank/instant payouts may be recoverable from Operators **only after explicit consent**, matched to **actual Stripe pricing arrangement**; no 20-Travel waiver per PR #143. Open PR does not equal deployed billing.
+- Normal payout cannot be assumed universally free: two Stripe Connect pricing regimes differ. Do not count operator fees as company income without separately recording the actual Stripe fee and successful recovery.
+- Render legacy $7 is an identified listed plan and must remain until external link/callback retirement verified. No hypothetical $2,000 expense.
+- Cloud Run/Firebase/Stripe/HERE/AI/Resend/OCR/Push/Maps must be itemized using provider bills and **actual counts** of completed and cancelled Travels, on-duty Operator hours, map searches incl. nonbooking, live email receipts, route/toll lookups, support tokens, documents, read/write/egress, retries and chargebacks. Unknown ≠ free. 100k daily Travel math is not proof of 100k simultaneous capacity.
+- For "one Founder, one phone," retain durable logs, daily aggregated service-costs/alerts, and escalate ONLY genuine exceptions. Do not create recurring human setup for ordinary operational messages.
+
+## External evidence references and next validation
+- Direct GitHub Commercial `release/current`: repository, package manifests, source paths above.
+- Direct connected Render account **My Workspace** service listing read Oct 19.
+- Direct connected Resend usage, domain and enabled webhook read Oct 19.
+- Direct connected institutional Gmail profile and forwarded messages read Oct 19.
+- Direct connected Stripe account-mode list read Oct 19; Cloud Run/Stripe webhooks/scheduler production proofs recorded in the canonical ledger (not directly observed from Google console in this audit).
+- Precise next evidence: Google Cloud Billing/Cloud Run live revision SHA and Scheduler execution history; Firebase Blaze billed operations; HERE vendor request report and licence; R2 storage/usage; actual Claude/Twilio/Checkr use if configured; EAS/App Store build IDs; controlled synthetic load with isolated data; SES account authorization.
+- **Do not publish API key lists, actual secret names/values, provider account IDs or private billing data in public repository.** Resource configuration lives in service control planes, not wholly in GitHub. Update this registry only after new external evidence and record date/connection class.
+
+**Creation of this registry does not purchase, enable, disable or deploy any provider, charge a card, send an email or publish a mobile app.**
