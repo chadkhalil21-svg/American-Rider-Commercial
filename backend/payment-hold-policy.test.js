@@ -14,6 +14,7 @@ assert.equal(dispatchEligibility({paymentStatus:'requires_capture',now,authoriza
 assert.equal(dispatchEligibility({paymentStatus:'requires_capture',now,authorizationExpiresAt:now+120000,consentConfirmed:true}).dispatch,false);
 assert.deepEqual(cancellationFeeDecision({acceptedAt:now,now:now+120000,verifiedProgress:false}),{feeCents:0,reason:'progress_not_proven'});
 assert.equal(cancellationFeeDecision({acceptedAt:now,now:now+119999,verifiedProgress:true}).feeCents,0);
+assert.equal(cancellationFeeDecision({acceptedAt:now,now:now+90000,arrivedAt:now+60000}).feeCents,0,'arrival within the promised grace period must remain free');
 assert.equal(cancellationFeeDecision({acceptedAt:now,now:now+120001,verifiedProgress:true}).feeCents,300);
 assert.equal(cancellationFeeDecision({acceptedAt:now,now:now+120001,verifiedProgress:true,operatorAtFault:true}).feeCents,0);
 assert.equal(cancellationFeeDecision({acceptedAt:now,now:now+120001,arrivedAt:now+100000}).feeCents,300);
