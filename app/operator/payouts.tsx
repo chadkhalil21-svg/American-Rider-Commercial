@@ -130,8 +130,8 @@ export default function OperatorPayouts() {
             <Text style={styles.body}>
               {t('traveler.payoutsAutoTransfer')}
             </Text>
-            <Text style={styles.body}>{t('traveler.payoutTruthBank')}</Text>
-            <Text style={styles.body}>{t('traveler.payoutTruthInstant')}</Text>
+            <Text style={styles.body}>{t('operator.payoutTruthBank')}</Text>
+            <Text style={styles.body}>{t('operator.payoutTruthInstant')}</Text>
           </>
         ) : started ? (
           <>
