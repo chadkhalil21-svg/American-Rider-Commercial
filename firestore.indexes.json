@@ -303,6 +303,26 @@
       "fieldPath": "expiresAt",
       "ttl": true,
       "indexes": []
+    },
+    {
+      "collectionGroup": "rides",
+      "fieldPath": "pickupProgressStart",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "rides",
+      "fieldPath": "cancellationFeeEvidence",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "rides",
+      "fieldPath": "cancellationFeeReason",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "rides",
+      "fieldPath": "cancellationFeeCents",
+      "indexes": []
     }
   ]
 }

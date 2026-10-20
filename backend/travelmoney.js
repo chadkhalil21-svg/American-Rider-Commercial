@@ -1,4 +1,5 @@
 const { randomUUID } = require('crypto');
+const { cancellationProgress } = require('./pickup-progress-fee');
 
 // Money on a travel: paying for it, cancelling it, settling it — each decided from the travel
 // RECORD, never from what a client names.
@@ -129,7 +130,8 @@ async function payForTravel({ db, uid, rideId, create, resume = null, now = Date
  *
  * deps: { refundableFor, refundTravel, transferFixed, operatorPayoutAccount }
  */
-async function cancelTravel({ db, uid, rideId, deps, stripeConfigured = true, now = Date.now() }) {
+async function cancelTravel({ db, uid, rideId, deps, stripeConfigured = true, now = Date.now(),
+  enableVerifiedProgressFee = false }) {
   const id = String(rideId || '');
   if (!id) return fail(400, 'rideId is required');
   const rideRef = db.collection('rides').doc(id);
@@ -166,21 +168,45 @@ async function cancelTravel({ db, uid, rideId, deps, stripeConfigured = true, no
       return { status: 200, body: { ok: true, alreadyRefunded: true, refundId: current.refundId } };
     }
     const opRef = current.operatorId ? db.collection('operators').doc(String(current.operatorId)) : null;
+    let op = null;
     if (opRef) {
       const opSnap = await tx.get(opRef);
-      if (opSnap.exists && String(opSnap.data().currentRideId || '') === id) {
+      op = opSnap.exists ? opSnap.data() : null;
+      if (op && String(op.currentRideId || '') === id) {
         tx.update(opRef, { currentRideId: null, reservedAt: null });
       }
     }
+    // Evaluate with exactly the Operator snapshot ALREADY fetched to release
+    // this reservation. No secondary query, route-service request or GPS writes.
+    // OFF by default: final consumer fee terms and Stripe reconciliation must pass
+    // review before live charging is enabled.
+    // A Stripe outage can leave an already-cancelled Travel pending its refund.
+    // Freeze the original fee/evidence once, so a retry cannot reprice the refund
+    // based on a newer GPS position or a now-released Operator reservation.
+    const priorDecision = current.status === 'cancelled' &&
+      Number.isSafeInteger(current.cancellationFeeCents) &&
+      current.cancellationFeeCents>=0 && current.cancellationFeeCents<=300
+      ? {feeCents:current.cancellationFeeCents,
+        reason:String(current.cancellationFeeReason||'previously_recorded'),
+        evidence:current.cancellationFeeEvidence||undefined} : null;
+    const feeDecision = enableVerifiedProgressFee
+      ? (priorDecision || cancellationProgress({ ride:current, operator:op, rideId:id, now })) : null;
     tx.update(rideRef, { status: 'cancelled', statusAt: now,
       cancelledFrom: current.cancelledFrom || current.status,
-      refundPending: !!current.paymentIntentId });
-    return { current };
+      refundPending: !!current.paymentIntentId,
+      ...(enableVerifiedProgressFee ? {
+        cancellationFeeCents:feeDecision.feeCents,
+        cancellationFeeReason:feeDecision.reason,
+        cancellationFeeEvidence:feeDecision.evidence||null,
+      }:{}),
+    });
+    return { current, feeDecision };
   });
   if (closed.status) return closed;
   const currentRide = closed.current;
-  const arrivalFee = String(currentRide.cancelledFrom || currentRide.status || '') === 'arrived'
-    ? ARRIVAL_FEE_CENTS : 0;
+  const arrivalFee = enableVerifiedProgressFee
+    ? closed.feeDecision.feeCents
+    : (String(currentRide.cancelledFrom || currentRide.status || '') === 'arrived' ? ARRIVAL_FEE_CENTS : 0);
 
   // THE PAYMENT IS THE TRAVEL'S OWN. Never the request's: see the header.
   const paymentIntentId = String(currentRide.paymentIntentId || '');
@@ -235,7 +261,7 @@ async function cancelTravel({ db, uid, rideId, deps, stripeConfigured = true, no
         paymentIntentId,
         operatorStripeAccount: accountId,
         amountCents: withheld,
-        reference: `arrival fee ${currentRide.tripNo || id}`,
+        reference: `${enableVerifiedProgressFee ? 'verified cancellation fee' : 'arrival fee'} ${currentRide.tripNo || id}`,
       });
       await rideRef.set(
         paid.ok

@@ -136,6 +136,83 @@ const rides = (over = {}) => ({
     check('onboard: cancellation refused (unchanged)', out.status === 409 && db.data.rides.A.status === 'onboard');
   }
 
+  // ——— 1b. Future ENROUTE fees: consent/terms gated, same existing Operator read ———
+  {
+    const at = 2_000_000_000_000;
+    const start = { lat:25.78,lng:-80.19,positionAt:at-10000 };
+    const db = fakeDb({
+      ...rides({A:{acceptedAt:at,pickupLat:25.8,pickupLng:-80.19,
+        pickupProgressStart:start,operatorEtaMin:8}}),
+      operators:{op1:{currentRideId:'A',lat:25.786,lng:-80.19,onlineAt:at+130000}},
+    });
+    let operatorReads=0;
+    const originalCollection=db.collection;
+    db.collection=(name)=>{
+      const col=originalCollection(name);
+      return {doc(id){
+        const ref=col.doc(id),get=ref.get;
+        ref.get=async()=>{if(name==='operators')operatorReads++;return get();};
+        return ref;
+      }};
+    };
+    const st=stripe();
+    const result=await cancelTravel({db,uid:'alice',rideId:'A',deps:st,
+      now:at+150000,enableVerifiedProgressFee:true});
+    check('en-route verification: correct $3 from existing paid Travel, no new Stripe charge',
+      result.status===200&&result.body.arrivalFeeCents===300&&st.log.refunds[0].amountCents===1644&&
+        st.log.transfers.some(t=>t.kind==='fee'&&t.amountCents===300));
+    check('en-route verification: exactly one existing Operator doc read, no extra location query',
+      operatorReads===1);
+    check('en-route verification: reason and compact evidence in already-written cancellation',
+      db.data.rides.A.cancellationFeeReason==='verified_enroute_progress'&&
+      db.data.rides.A.cancellationFeeEvidence.closingMiles>=0.3);
+  }
+  {
+    const at=2_000_000_000_000;
+    const db=fakeDb({...rides({A:{acceptedAt:at,pickupLat:25.8,pickupLng:-80.19,
+      pickupProgressStart:null}}),operators:{op1:{currentRideId:'A',lat:25.79,lng:-80.19,
+      onlineAt:at+130000}}});
+    const st=stripe();
+    const result=await cancelTravel({db,uid:'alice',rideId:'A',deps:st,
+      now:at+150000,enableVerifiedProgressFee:true});
+    check('missing accepted GPS baseline: full refund and no payout fee',
+      result.body.arrivalFeeCents===0&&st.log.transfers.length===0&&
+      db.data.rides.A.cancellationFeeReason==='missing_or_wrong_operator_location');
+  }
+  {
+    const at=2_000_000_000_000;
+    const db=fakeDb(rides({A:{status:'arrived',acceptedAt:at,arrivedAt:at+60000}}));
+    const st=stripe();
+    const result=await cancelTravel({db,uid:'alice',rideId:'A',deps:st,
+      now:at+90000,enableVerifiedProgressFee:true});
+    check('verified arrival remains free during two-minute cancellation grace',
+      result.body.arrivalFeeCents===0&&st.log.transfers.length===0);
+  }
+
+  {
+    const at=2_000_000_000_000;
+    const db=fakeDb({...rides({A:{acceptedAt:at,pickupLat:25.8,pickupLng:-80.19,
+      pickupProgressStart:{lat:25.78,lng:-80.19,positionAt:at-10000}}}),
+      operators:{op1:{currentRideId:'A',lat:25.786,lng:-80.19,onlineAt:at+130000}}});
+    const st=stripe(); const originalRefund=st.refundTravel;
+    let failOnce=true;
+    st.refundTravel=async args=>{
+      if(failOnce){failOnce=false;throw Error('synthetic Stripe outage');}
+      return originalRefund(args);
+    };
+    const first=await cancelTravel({db,uid:'alice',rideId:'A',deps:st,now:at+150000,
+      enableVerifiedProgressFee:true});
+    check('Stripe outage: Travel closed, fee evidence preserved and refund pending',
+      first.status===202&&db.data.rides.A.refundPending===true&&
+      db.data.rides.A.cancellationFeeCents===300);
+    const recovered=await cancelTravel({db,uid:'alice',rideId:'A',deps:st,now:at+180000,
+      enableVerifiedProgressFee:true});
+    check('retry: original $3 amount frozen after Operator reservation released',
+      recovered.status===200&&recovered.body.arrivalFeeCents===300&&
+      st.log.refunds.length===1&&st.log.refunds[0].amountCents===1644&&
+      st.log.transfers.length===1);
+  }
+
   // ——— 2. /create-payment-intent proves the ride before anything is charged ——————————————————
   {
     const db = fakeDb(rides());
