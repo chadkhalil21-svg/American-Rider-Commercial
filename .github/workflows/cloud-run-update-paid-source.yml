@@ -43,6 +43,7 @@ jobs:
           node backend/booking-readiness.test.js
           node backend/paid-cloudrun-activation.test.js
           python3 -m py_compile infra/cloud-run/deploy-existing-paid-source.py
+          python3 -m unittest discover -s infra/cloud-run -p test_deploy_existing_paid_source.py
       - uses: google-github-actions/auth@v2
         with:
           workload_identity_provider: projects/623854974930/locations/global/workloadIdentityPools/github-production/providers/github
