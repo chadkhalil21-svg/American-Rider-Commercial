@@ -38,8 +38,8 @@ assert.ok(server.includes("operatorFees: async () => ({ok:true,skipped:'operator
 assert.ok(server.includes("sweepProviderEvents"),'Maintain payout provider event recovery');
 const operatorScreen=fs.readFileSync(require('node:path').join(__dirname,'../app/operator/payouts.tsx'),'utf8');
 const english=fs.readFileSync(require('node:path').join(__dirname,'../src/i18n/en.ts'),'utf8');
-assert.ok(operatorScreen.includes("t('traveler.payoutTruthBank')"));
-assert.ok(operatorScreen.includes("t('traveler.payoutTruthInstant')"));
+assert.ok(operatorScreen.includes("t('operator.payoutTruthBank')"));
+assert.ok(operatorScreen.includes("t('operator.payoutTruthInstant')"));
 assert.ok(!operatorScreen.includes('PayoutCalendar') && !operatorScreen.includes('payoutSchedulePicker'));
 assert.match(english,/payoutTruthBank:\s*["']Standard payout:/);
 assert.match(english,/payoutTruthInstant:\s*["']Instant payout:/);
