@@ -1,5 +1,12 @@
 # AMERICAN RIDER — CANONICAL PROJECT LEDGER
 
+## Physical TestFlight screenshot copy fixes | 20 October 2026 | SOURCE CANDIDATE
+
+Founder-supplied current iPhone images independently showed four `app/ride.tsx` calls to nonexistent `support.returnHome`, producing literal `[missing "en.support.returnHome" translation]`; the correct existing English and other-language path is `traveler.returnHome`. The `app/schedule.tsx` post-scheduling confirmation omitted a space between a bold chosen date/time and explanatory sentence, so text visually joined as `7:15 AMAn Operator...`. This PR repairs only existing translation key usage and spacing. No booking, payment, scheduling, screening, API or fees change. Since these ARE native client changes, **Build 47 does not include them**; only a subsequently tested and successfully signed iOS build from the exact merged release may claim they are fixed on App Store.
+
+---
+
+
 ## Public support and App Store publication | 20 October 2026 | VERIFIED SOURCES, RELEASE PR
 
 **Founder decision:** Present American Rider as a nationally designed platform, disclose today's actual South Florida operating footprint separately, and include the truthful **99% of Travel Fare for independent Operators** in Apple's description. Prefer "Arrange travel when you need it, or plan ahead" to "immediately", "quickly" or "promptly". Retain existing search terms and add `car service` and `airport` within Apple's 100-byte keyword limit. The founder welcomes clarification questions when indispensable. Use the historic Council standard as a rubric; never claim the advisers actually approved the copy.
@@ -513,6 +520,7 @@ Founder confirmed a second run of controlled source deployment. The existing pai
 
 | Function / release item | Proven status on Commercial | What remains distinct |
 | --- | --- | --- |
+| iPhone screenshot-visible translation and scheduled-time copy defects | **SOURCE PR:** Replace four nonexistent `support.returnHome` key usages with `traveler.returnHome` and restore missing space before scheduled Operator notice, without changing business logic. | CI, merge, controlled release parity and fresh iOS build are separate; Build 47 still displays old copy. |
 | Apple Store copy and verified support contacts (Oct 20) | **SOURCE PR:** Verified Gmail routing of support@, relations@ and insurance@; added public support and footer mail links; national-positioning description keeps 99% Fare and accurately distinguishes tri-county availability. Apple Build 47 selected and valid. | Merge CI and deploy controlled backend to make website mail links live. Apple metadata edit independently; authentic clean iPhone/iPad screenshots, age/privacy/review declarations and public publication not yet confirmed. |
 | Verified iOS legacy-credential bridge and current App Store candidate (Oct 20) | **REAL EVIDENCE:** legacy repo workflow #39373302086 checked out exact **Commercial** source `ad4c1288`, built iOS **46** and uploaded it to Apple. Latest Commercial baseline `13cff0d` (PRs #170/#171), all seven CI green; healthy public Cloud Run `00008-gqz` with one scheduler. Commercial GitHub secret scope lacks `EXPO_TOKEN`. | Build 46 predates merged fixes; use tested legacy runner only to build **post-ledger-merge exact Commercial SHA** once, verify source parity before submission, update live Cloud Run source, run real paid booking, select newest uploaded build in App Store Connect for Apple review. No public App Store release or latest binary claimed. |
 | Real TestFlight vehicle-class booking diagnosis (Oct 20 candidate) | **NEW SOURCE PR, NOT YET MERGED OR DEPLOYED:** key/label fare and market-reference parity, fail-closed special vehicle approval bound to reviewed plate plus six passenger belts/pet approval, shared simultaneous quotes and truthful prepayment preparation screen; 16.1s physical evidence audited. | CI, merge, source deployment and fresh signed TestFlight still required. No verified six-seat/pet Operator exists from the current self-entered vehicle form. Full physical booking, charge/refund and certified class rollout unverified. |
