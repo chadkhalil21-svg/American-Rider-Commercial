@@ -16,6 +16,15 @@ function verifiedOperatorClasses(profile, vehicle, now = Date.now()) {
       normalize(evidence.plate) !== normalize(vehicle.plate) ||
       normalize(evidence.car) !== normalize(vehicle.car) ||
       !Array.isArray(evidence.classes)) return base;
-  return base.concat(SPECIAL.filter(c => evidence.classes.includes(c)));
+  // Approval must attest to the exact passenger promise, not only a category.
+  // Six passenger seats EXCLUDE the Operator and each needs its own seat belt.
+  return base.concat(SPECIAL.filter(c => {
+    if (!evidence.classes.includes(c)) return false;
+    if (c === 'Large Vehicle') return evidence.verifiedSeatConfiguration === true &&
+      Number.isSafeInteger(evidence.passengerSeats) && evidence.passengerSeats >= 6 &&
+      Number.isSafeInteger(evidence.passengerSeatBelts) && evidence.passengerSeatBelts >= 6;
+    if (c === 'Pet Friendly') return evidence.petAcceptanceVerified === true;
+    return false;
+  }));
 }
 module.exports = { verifiedOperatorClasses };
