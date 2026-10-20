@@ -1111,8 +1111,15 @@ app.post('/operator/online', requireAuth, requireFreshAuth, requireOperationalRe
   const refuse = async (body) => {
     try {
       const ref = db.collection('operators').doc(String(req.uid));
-      if ((await ref.get()).exists) {
-        await ref.set({ available: false, offDutyReason: body.code, offDutyAt: Date.now() }, { merge: true });
+      const existing = await ref.get();
+      if (existing.exists) {
+        const prior = existing.data() || {};
+        // Do not rewrite the same unavailable state on each rejected renewal.
+        // Preserve an immediate write when an available Operator is disqualified
+        // or the authoritative reason changes. The read existed before this fix.
+        if (prior.available !== false || prior.offDutyReason !== body.code) {
+          await ref.set({ available: false, offDutyReason: body.code, offDutyAt: Date.now() }, { merge: true });
+        }
       }
     } catch {
       /* the presence timeout still applies */
