@@ -6,8 +6,8 @@ check('active low-volume operator owes $2 Connect account cost',q.costCents===20
 check('collection cost is itemized and grossed up',q.processingCents===37&&q.totalCents===237,JSON.stringify(q));
 check('unknown card is international-safe',accountFeeQuote(0,true,null).totalCents>=q.totalCents);
 check('19 Travels does not waive',accountFeeQuote(19,true,'US').waived===false);
-check('20 Travels waives',accountFeeQuote(20,true).waived===true);
-check('21 Travels remains waived',accountFeeQuote(21,true).totalCents===0);
+check('20 Travels no longer waives the account cost',accountFeeQuote(20,true).waived===false);
+check('21 Travels still owes the $2 account fee',accountFeeQuote(21,true,'US').costCents===200);
 check('no payout means no active-account recovery',accountFeeQuote(0,false).totalCents===0);
 check('month key is UTC',monthKey(Date.UTC(2026,8,30,23,59))==='2026-09');
 const b=monthBounds('2026-02');

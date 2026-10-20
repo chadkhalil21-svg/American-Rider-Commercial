@@ -37,12 +37,13 @@ t('provider retry backoff grows and caps', () => {
   assert.equal(backoffMs(100), 15 * 60_000);
 });
 
-// Low-utilization product decision: recover only the actual $2 active-account cost from the
-// Operator that caused it, waive at 20 Travels, and do not touch 99% fare economics.
-t('operator active-account cost is waived at 20 Travels', () => {
+// Current policy: the $2 payout-active account cost has no Travel-volume waiver;
+// collection requires express Operator consent and never reduces the 99% Fare share.
+t('operator active-account cost has no 20-Travel waiver', () => {
   assert.equal(accountFeeQuote(19, true).waived, false);
   assert.equal(accountFeeQuote(19, true).costCents, 200);
-  assert.equal(accountFeeQuote(20, true).waived, true);
+  assert.equal(accountFeeQuote(20, true).waived, false);
+  assert.equal(accountFeeQuote(20, true).costCents, 200);
   assert.equal(accountFeeQuote(0, false).waived, true);
 });
 t('operator account charge recovers processing rather than losing money', () => {

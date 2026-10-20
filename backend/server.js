@@ -972,7 +972,14 @@ app.post('/connect/onboard', requireAuth, LIMITS.connect, requireActiveOperating
     });
   }
   try {
-    const existing = (await operatorRecord(req.uid))?.stripeAccountId || null;
+    // Require Operator consent before creating a new Stripe payout account.
+    const consentVersion = require('./operatorfees').FEE_CONSENT_VERSION;
+    const operator = await operatorRecord(req.uid);
+    if (operator?.stripeFeeConsent?.version !== consentVersion) {
+      return res.status(409).json({code:'payout_fee_consent_required',
+        error:'Review and agree to the separately billed Connect account and payout charges before opening the payout account.'});
+    }
+    const existing = operator?.stripeAccountId || null;
     const account = await connectAccountFor({
       uid: req.uid,
       email: req.email,
@@ -994,14 +1001,40 @@ app.post('/connect/onboard', requireAuth, LIMITS.connect, requireActiveOperating
   }
 });
 
+// Explicit consent for new Operators and Operators already linked to Stripe.
+// The monthly sweep never back-bills a payout from before this consent.
+app.post('/connect/fee-consent', requireAuth, LIMITS.connect, async (req,res)=>{
+  if(req.body?.agreeFeePolicy!==true)
+    return res.status(400).json({code:'fee_consent_required'});
+  const db=adminDb();
+  if(!db)return res.status(503).json({code:'no_admin_db'});
+  const ref=db.collection('users').doc(String(req.uid));
+  const version=require('./operatorfees').FEE_CONSENT_VERSION;
+  try {
+    const result=await db.runTransaction(async tx=>{
+      const snap=await tx.get(ref);
+      const existing=snap.exists?snap.data()?.stripeFeeConsent:null;
+      if(existing?.version===version)return existing;
+      const consent={version,acceptedAt:Date.now(),
+        accountMonthlyUsd:2,approvedSeparatelyBilledFees:true};
+      tx.set(ref,{stripeFeeConsent:consent},{merge:true});
+      return consent;
+    });
+    return res.json({ok:true,version:result.version,acceptedAt:result.acceptedAt});
+  }catch(e){return res.status(503).json({code:'fee_consent_save_failed'});}
+});
+
 // GET /connect/status — can this operator actually be paid?
 app.get('/connect/status', requireAuth, async (req, res) => {
   if (keyMode === 'no-key') return res.json({ exists: false, payoutsEnabled: false, due: [] });
   const db = adminDb();
   if (!db) return res.json({ exists: false, payoutsEnabled: false, due: [], reason: adminStatus().reason });
   try {
-    const accountId = (await operatorRecord(req.uid))?.stripeAccountId || null;
-    res.json(await connectAccountStatus(accountId));
+    const operator=await operatorRecord(req.uid);
+    const accountId = operator?.stripeAccountId || null;
+    const status=await connectAccountStatus(accountId);
+    const consent=operator?.stripeFeeConsent;
+    res.json({...status,feeConsentAccepted:consent?.version===require('./operatorfees').FEE_CONSENT_VERSION});
   } catch (e) {
     res.status(502).json({ error: e.message });
   }

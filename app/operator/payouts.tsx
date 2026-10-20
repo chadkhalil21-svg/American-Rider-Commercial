@@ -17,7 +17,7 @@ import { Text } from '../../src/components/AppText';
 import { BadgeOk, OperatorBar, OperatorDrawer, OperatorScreen } from '../../src/components/operator';
 import { Card, PrimaryButton, SectionLabel, useNote } from '../../src/components/UI';
 import { useGoBack } from '../../src/components/nav';
-import { connectStatus, startConnectOnboarding, type ConnectStatus } from '../../src/backend/connect';
+import { acceptConnectFees, connectStatus, startConnectOnboarding, type ConnectStatus } from '../../src/backend/connect';
 import { useOperator } from '../../src/state/OperatorContext';
 import { useLanguage } from '../../src/state/LanguageContext';
 import { colors } from '../../src/theme';
@@ -30,6 +30,7 @@ export default function OperatorPayouts() {
   const { note, showNote } = useNote();
   const [status, setStatus] = useState<ConnectStatus | null>(null);
   const [busy, setBusy] = useState(false);
+  const [feeBusy, setFeeBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
@@ -74,6 +75,10 @@ export default function OperatorPayouts() {
   }, [refresh]);
 
   const begin = async () => {
+    if (status?.feeConsentAccepted !== true) {
+      setError(t('operator.feeConsentRequired'));
+      return;
+    }
     setBusy(true);
     setError(null);
     const r = await startConnectOnboarding();
@@ -100,6 +105,21 @@ export default function OperatorPayouts() {
       <Card style={styles.card}>
         <Text style={styles.accountTitle}>{t('operator.activeAccountCost')}</Text>
         <Text style={styles.accountBody}>{t('operator.activeAccountCostBody')}</Text>
+        {status && status.feeConsentAccepted !== true && (
+          <PrimaryButton
+            label={feeBusy ? t('traveler.familyWorking') : t('operator.feeConsentAccept')}
+            disabled={feeBusy}
+            style={{marginTop:16}}
+            onPress={async()=>{
+              setFeeBusy(true);
+              setError(null);
+              const ok=await acceptConnectFees();
+              if(!ok)setError(t('operator.feeConsentRequired'));
+              else await refresh();
+              setFeeBusy(false);
+            }}
+          />
+        )}
       </Card>
       <Card style={styles.card}>
         {status === null ? (
