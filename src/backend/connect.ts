@@ -12,6 +12,7 @@ export type ConnectStatus = {
   /** Stripe's answer, not ours. An account that exists but is unfinished cannot be paid. */
   payoutsEnabled: boolean;
   chargesEnabled: boolean;
+  feeConsentAccepted?: boolean;
   /** What Stripe is still waiting for, in its own field names. */
   due: string[];
 };
@@ -38,11 +39,23 @@ export async function connectStatus(): Promise<ConnectStatus> {
       exists: d?.exists === true,
       payoutsEnabled: d?.payoutsEnabled === true,
       chargesEnabled: d?.chargesEnabled === true,
+      feeConsentAccepted: d?.feeConsentAccepted === true,
       due: Array.isArray(d?.due) ? d.due : [],
     };
   } catch {
     return NONE;
   }
+}
+
+/** Separate express consent; never imply it from opening the Stripe browser. */
+export async function acceptConnectFees(): Promise<boolean> {
+  try {
+    const res = await fetch(`${PAYMENT_SERVER_URL}/connect/fee-consent`,{
+      method:'POST',headers:await authHeaders(),body:JSON.stringify({agreeFeePolicy:true}),
+    });
+    const d=await res.json().catch(()=>({}));
+    return res.ok && d?.ok===true;
+  } catch { return false; }
 }
 
 export type OnboardResult = { ok: true; url: string } | { ok: false; error: string };
