@@ -171,6 +171,7 @@ ${bodyHtml}
 <div class="foot">
 <a href="/about">About</a> · <a href="/terms">Terms of Service</a> ·
 <a href="/privacy">Privacy Policy</a><br>
+<a href="mailto:support@americanrider.app">support@americanrider.app</a><br>
 <span class="stamp">AMERICAN RIDER · MIAMI, FL</span></div>
 </main></body></html>`;
 }
