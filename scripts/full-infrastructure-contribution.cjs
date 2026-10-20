@@ -5,9 +5,9 @@
 const { economicsFor, minimumPlatformFeeCents, OPERATING_OVERHEAD_ALLOWANCE_CENTS } = require('../backend/economics');
 const NONNEG = n => typeof n === 'number' && Number.isFinite(n) && n >= 0;
 const REQUIRED_EXPENSES = Object.freeze([
-  'cloudRun', 'firestore', 'render', 'resend', 'r2AndTiles', 'scheduler', 'logsAndMonitoring',
+  'cloudRun', 'firestore', 'render', 'resend', 'smsAndVoice', 'r2AndTiles', 'scheduler', 'logsAndMonitoring',
   'operatorAccountShortfall', 'payoutAllowanceShortfall', 'support', 'marketing',
-  'corporateInsuranceAndLegal', 'accountingAndPermits', 'other'
+  'corporateInsuranceAndLegal', 'accountingAndPermits', 'taxesAndRegulatory', 'other'
 ]);
 const DEFAULT_ASSUMPTIONS = Object.freeze({
   searchesPerSession: 5,
@@ -62,7 +62,7 @@ function estimate({
     contributionBeforeActualOverheadPerTravel,
     possibleContributionUSD, // A ceiling, not actual net profit if any expense unknown.
     missingExpenses:missing,
-    actualNetProfitCertifiable:missing.length===0 ? false : false, // Invoice verification STILL required even with fields filled.
+    actualNetProfitCertifiable:false, // Filling hypothetical fields cannot verify invoices or corporate profit.
     evidence:'MODEL ONLY; no live HERE tariff, booking conversion, bank invoices or corporate expenses are known'
   };
 }
