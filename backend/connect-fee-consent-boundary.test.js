@@ -47,6 +47,13 @@ for(let pass=0;pass<2;pass++){
   assert.equal(matchOperator([operator],origin,'Standard',{requireScreening:false,now})?.operator.id,'operator',
     'synthetic non-money match remains independently configurable');
   const server=fs.readFileSync(path.join(__dirname,'server.js'),'utf8');
+  assert(server.includes("!require('./connect-fee-consent').currentConnectFeeConsent(operator?.stripeFeeConsent)"),
+    'new Stripe Connect setup verifies complete consent evidence');
+  assert(server.includes("currentConnectFeeConsent(existing)"),
+    'a version-only legacy record must be re-consented, never reused');
+  assert(server.includes("feeConsentAccepted:require('./connect-fee-consent').currentConnectFeeConsent(consent)"),
+    'the app must not claim consent accepted until the exact live duty proof exists');
+
   assert(server.includes("app.post('/connect/dashboard'"),
     'connected account dashboard remains available without new-Travel consent');
   assert(server.includes("app.post('/operator/settle-pending'"),
