@@ -19,7 +19,8 @@ assert.match(search,/if \(ok\) router\.dismissTo\('\/'\)/,
   'Only confirmed cancellation may close the booking');
 assert.match(search,/else setCancelFailed\(true\)/,
   'Ambiguous payment or provider outcome must remain unresolved');
-assert.match(search,/support.returnHome/);
+assert.match(search, /traveler\.returnHome/);
+assert.doesNotMatch(search, /support\.returnHome/);
 assert.match(search,/traveler.contactSupport/);
 const matched=src.split('const shareBookedTravel')[1]||'';
 assert.match(matched,/if \(await ride\.cancelRide\(\)\) router\.dismissTo\('\/'\)/,

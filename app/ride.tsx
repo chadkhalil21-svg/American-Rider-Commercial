@@ -182,7 +182,7 @@ export default function RideScreen() {
           <Text style={styles.searchTitle}>{t('traveler.updateRequiredTitle')}</Text>
           <Text style={styles.searchSub}>{t('traveler.updateRequiredBody')}</Text>
           <PrimaryButton
-            label={t('support.returnHome')}
+            label={t('traveler.returnHome')}
             onPress={()=>router.replace('/')}
           />
         </View>
@@ -256,7 +256,7 @@ export default function RideScreen() {
               ) : null}
               {/* Leaving the view never tells the server to cancel an existing booking. */}
               <Pressable accessibilityRole="button" onPress={() => router.dismissTo('/')} hitSlop={8}>
-                <Text style={styles.retryLink}>{t('support.returnHome')}</Text>
+                <Text style={styles.retryLink}>{t('traveler.returnHome')}</Text>
               </Pressable>
             </>
           )}
@@ -296,7 +296,7 @@ export default function RideScreen() {
               <View>
                 <Text style={styles.cancelNote}>{t('traveler.cancelFailed')}</Text>
                 <Pressable accessibilityRole="button" onPress={() => router.dismissTo('/')} style={{ minHeight: 44, justifyContent: 'center' }}>
-                  <Text style={styles.retryLink}>{t('support.returnHome')}</Text>
+                  <Text style={styles.retryLink}>{t('traveler.returnHome')}</Text>
                 </Pressable>
                 <Pressable accessibilityRole="button" onPress={() => router.navigate({ pathname: '/issues', params: { from: 'status' } })} style={{ minHeight: 44, justifyContent: 'center' }}>
                   <Text style={styles.retryLink}>{t('traveler.contactSupport')}</Text>
@@ -634,7 +634,7 @@ export default function RideScreen() {
                 <View>
                   <Text style={styles.cancelNote}>{t('traveler.cancelFailed')}</Text>
                   <Pressable accessibilityRole="button" onPress={() => router.dismissTo('/')} style={{ minHeight: 44, justifyContent: 'center' }}>
-                    <Text style={styles.retryLink}>{t('support.returnHome')}</Text>
+                    <Text style={styles.retryLink}>{t('traveler.returnHome')}</Text>
                   </Pressable>
                   <Pressable accessibilityRole="button" onPress={() => router.navigate({ pathname: '/issues', params: { from: 'status' } })} style={{ minHeight: 44, justifyContent: 'center' }}>
                     <Text style={styles.retryLink}>{t('traveler.contactSupport')}</Text>
