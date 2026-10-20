@@ -128,7 +128,10 @@ function matchOperator(operators, pickup, travelClass = 'Standard', { requireScr
     if (coverageLapsed(o, now) || coverageUnsafeForNewTravel(o.insuranceExpiry, now, travelMinutes)) continue;
     if (disclosureStale(o)) continue;
     if (o.commissioned !== true || o.documentBlocked) continue;
-    if (travelClass !== 'Standard' && !(o.classes || []).includes(travelClass)) continue;
+    if (travelClass !== 'Standard' && (
+      !(o.classes || []).includes(travelClass) ||
+      !(o.verifiedVehicleClasses || []).includes(travelClass)
+    )) continue; // historical/client-claimed classes never prove special eligibility
     const miles = distanceMiles(pickup, o);
     // Do not let an invalid coordinate displace a known eligible real position.
     if (!Number.isFinite(miles)) continue;
