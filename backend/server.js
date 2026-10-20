@@ -151,6 +151,7 @@ const { settleSweepJobs, createCriticalRecoveryGate } = require('./critical-swee
 const { createBackgroundReporter } = require('./workload-summary');
 const { sweepOperatorAccountFees } = require('./operatorfees');
 const { cachedPayoutStatus } = require('./stripe-duty-cache');
+const { shouldMarkOffDuty } = require('./operator-duty-write-policy');
 const { dutyCoverageExpiry } = require('./operator-duty-coverage');
 const crypto = require('node:crypto');
 const WORKER_ID = crypto.randomUUID();
@@ -1111,8 +1112,15 @@ app.post('/operator/online', requireAuth, requireFreshAuth, requireOperationalRe
   const refuse = async (body) => {
     try {
       const ref = db.collection('operators').doc(String(req.uid));
-      if ((await ref.get()).exists) {
-        await ref.set({ available: false, offDutyReason: body.code, offDutyAt: Date.now() }, { merge: true });
+      const existing = await ref.get();
+      if (existing.exists) {
+        const prior = existing.data() || {};
+        // Do not rewrite the same unavailable state on each rejected renewal.
+        // Preserve an immediate write when an available Operator is disqualified
+        // or the authoritative reason changes. The read existed before this fix.
+        if (shouldMarkOffDuty(prior, body.code)) {
+          await ref.set({ available: false, offDutyReason: body.code, offDutyAt: Date.now() }, { merge: true });
+        }
       }
     } catch {
       /* the presence timeout still applies */
@@ -1129,15 +1137,23 @@ app.post('/operator/online', requireAuth, requireFreshAuth, requireOperationalRe
     if ((await accountDisabled(req.uid)) !== false) {
       return refuse({ code: 'account_disabled', error: 'This account cannot accept travel.' });
     }
-    const rec = (await operatorRecord(req.uid)) || {};
+    // Read the authoritative user and fleet documents once per renewal. Previously
+    // operatorRecord + dutySnap read these, then the assessment fetched both AGAIN.
+    // Reuse only within this request; never cache qualification or insurance across renewals.
+    // Firebase/Auth account-disabled and Stripe payout gates still run independently.
+    const [userSnap, fleetSnap] = await Promise.all([
+      db.collection('users').doc(String(req.uid)).get(),
+      db.collection('operators').doc(String(req.uid)).get(),
+    ]);
+    let user = userSnap.exists ? userSnap.data() : null;
+    const fleetNow = fleetSnap.exists ? fleetSnap.data() : null;
+    const rec = user || {};
     // Location renewals are not financial events. Reuse only a recent, server-bound
     // Connect status from a direct provider check or a verified account.updated event.
     // Recheck Stripe on first duty entry, after expiry, and at each paid acceptance.
     // An absent/unreadable fleet record is NOT proof of payout readiness.
-    const dutySnap = await db.collection('operators').doc(String(req.uid)).get();
-    const dutyRecord = dutySnap.exists ? dutySnap.data() : null;
     const cachedStatus = cachedPayoutStatus({
-      accountId: rec.stripeAccountId || null, fleet: dutyRecord,
+      accountId: rec.stripeAccountId || null, fleet: fleetNow,
     });
     const status = cachedStatus || await connectAccountStatus(rec.stripeAccountId || null);
     const stripeCheckedAt = cachedStatus ? cachedStatus.stripeCheckedAt : Date.now();
@@ -1189,18 +1205,9 @@ app.post('/operator/online', requireAuth, requireFreshAuth, requireOperationalRe
     //
     // Nothing stored is read as approval. This replaced `commission.status === 'approved'`,
     // which a person set on /ops and which stayed true whatever happened afterwards.
-    let user = null;
-    let fleetNow = null;
-    try {
-      const [uSnap, oSnap] = await Promise.all([
-        db.collection('users').doc(String(req.uid)).get(),
-        db.collection('operators').doc(String(req.uid)).get(),
-      ]);
-      user = uSnap.exists ? uSnap.data() : null;
-      fleetNow = oSnap.exists ? oSnap.data() : null;
-    } catch {
-      /* unreadable is not qualified */
-    }
+    // Assessment uses the same fresh, server-authenticated snapshots that the
+    // payout cache inspected above. A failed read exits the outer handler without
+    // admitting duty; incomplete verification remains fail-closed.
     const assessment = assessOperator({
       user,
       fleet: fleetNow,
