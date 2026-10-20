@@ -3,6 +3,7 @@
 // The app never learns or sends an account id. It says "onboard me" and the server decides
 // which account that means from the caller's verified token, because a payout destination
 // supplied by a client is a payout destination an attacker can choose.
+import { initPaymentSheet, presentPaymentSheet } from '@stripe/stripe-react-native';
 import { PAYMENT_SERVER_URL } from '../config';
 import { auth } from '../firebase';
 import { t } from '../i18n';
@@ -13,6 +14,7 @@ export type ConnectStatus = {
   payoutsEnabled: boolean;
   chargesEnabled: boolean;
   feeConsentAccepted?: boolean;
+  feeBillingReady?: boolean;
   /** What Stripe is still waiting for, in its own field names. */
   due: string[];
 };
@@ -40,6 +42,7 @@ export async function connectStatus(): Promise<ConnectStatus> {
       payoutsEnabled: d?.payoutsEnabled === true,
       chargesEnabled: d?.chargesEnabled === true,
       feeConsentAccepted: d?.feeConsentAccepted === true,
+      feeBillingReady: d?.feeBillingReady === true,
       due: Array.isArray(d?.due) ? d.due : [],
     };
   } catch {
@@ -56,6 +59,37 @@ export async function acceptConnectFees(): Promise<boolean> {
     const d=await res.json().catch(()=>({}));
     return res.ok && d?.ok===true;
   } catch { return false; }
+}
+
+/** SetupIntent saves a distinct Operator-only card; it never charges the Traveler wallet. */
+export async function authorizeOperatorConnectFees(): Promise<{ok:boolean; canceled?:boolean; error?:string}> {
+  try {
+    const res=await fetch(`${PAYMENT_SERVER_URL}/connect/fees/setup`,{
+      method:'POST',headers:await authHeaders(),body:'{}'
+    });
+    const setup=await res.json().catch(()=>({}));
+    if(!res.ok || !setup?.clientSecret || !setup?.setupIntentId)
+      return {ok:false,error:setup?.error||'Operator billing authorization is unavailable'};
+    const init=await initPaymentSheet({
+      merchantDisplayName:'American Rider',
+      setupIntentClientSecret:setup.clientSecret,
+      customerId:setup.customerId,
+      customerEphemeralKeySecret:setup.ephemeralKeySecret,
+      returnURL:'americanrider://stripe-redirect',
+    });
+    if(init.error)return {ok:false,error:init.error.message};
+    const displayed=await presentPaymentSheet();
+    if(displayed.error)return {ok:false,canceled:displayed.error.code==='Canceled',
+      error:displayed.error.message};
+    const confirm=await fetch(`${PAYMENT_SERVER_URL}/connect/fees/confirm`,{
+      method:'POST',headers:await authHeaders(),body:JSON.stringify({setupIntentId:setup.setupIntentId})
+    });
+    const r=await confirm.json().catch(()=>({}));
+    return r.ok===true && confirm.ok ? {ok:true}:
+      {ok:false,error:r.error||'Card was not verified for Operator fees'};
+  }catch{
+    return {ok:false,error:'Cannot connect to Stripe to authorize Operator fees'};
+  }
 }
 
 export type OnboardResult = { ok: true; url: string } | { ok: false; error: string };
