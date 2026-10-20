@@ -12,7 +12,7 @@ const caseReport=(lines,override={})=>reviewFeeReport([header,...lines].join('\n
 assert.equal(cents('0.50'),50);assert.equal(cents('0.01'),1);
 assert.equal(cents('1.15'),115);assert.equal(cents('-0.01'),-1);
 assert.throws(()=>cents('1e3'),/bad fee amount/);
-assert.equal(parseCsv([header,r('ftxn_2','po_One','"x,y"','0.10','0','USD','Connect','Connect','Payouts','balance')].join('\u005cn')).length,1);
+assert.equal(parseCsv([header,r('ftxn_2','po_One','"x,y"','0.10','0','USD','Connect','Connect','Payouts','balance')].join(String.fromCharCode(10))).length,1);
 assert.equal(parseCsv([header,r('ftxn_1','po_One','"Payout, processing"','0.50','0','USD','Connect','Connect','Payouts','balance')].join('\n'))[0].fee_description,'Payout, processing');
 assert.equal(caseReport([payout]).accepted.length,1);
 const mix=caseReport([payout,monthly,invoice,credit]);
