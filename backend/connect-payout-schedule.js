@@ -1,18 +1,19 @@
 'use strict';
 // A platform-controlled payout cadence, NOT an Operator payday selector.
-// Absent configuration means Stripe keeps its existing schedule. No accidental
-// migration or false claim that weekly makes pending funds instantly eligible.
+// Default weekly Friday for Operator onboarding by Founder approval.
+// Existing accounts are not bulk-changed; weekly does not make pending funds eligible for Instant.
 // Stripe Accounts v1: settings.payouts.schedule.weekly_anchor.
 // https://docs.stripe.com/connect/manage-payout-schedule
 
 const WEEKDAYS = new Set(['monday','tuesday','wednesday','thursday','friday','saturday','sunday']);
 
 function desiredAutomaticSchedule(env = process.env) {
-  const interval = String(env.CONNECT_STANDARD_PAYOUT_INTERVAL || '').trim().toLowerCase();
-  if (!interval) return null; // No operational decision: preserve provider schedule.
+  // Founder-approved launch default. Existing accounts are reconciled during onboarding;
+  // no account is silently mutated merely by loading this module.
+  const interval = String(env.CONNECT_STANDARD_PAYOUT_INTERVAL || 'weekly').trim().toLowerCase();
   if (interval === 'daily') return {interval: 'daily'};
   if (interval !== 'weekly') throw Error('unsupported automatic payout cadence');
-  const weeklyAnchor = String(env.CONNECT_STANDARD_PAYOUT_WEEKDAY || '').trim().toLowerCase();
+  const weeklyAnchor = String(env.CONNECT_STANDARD_PAYOUT_WEEKDAY || 'friday').trim().toLowerCase();
   if (!WEEKDAYS.has(weeklyAnchor)) {
     throw Error('weekly automatic payouts require an explicit weekday');
   }
