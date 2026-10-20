@@ -2112,11 +2112,11 @@ async function runAllSweeps({criticalOnly=false}={}) {
       deps: { refundableFor, refundTravel, cancelUnpaidIntent, verifiedTravelPayment,
         transferFixed, operatorPayoutAccount } }),
     providerEvents: () => sweepProviderEvents({ handlers: PROVIDER_HANDLERS, workerId: WORKER_ID }),
-    operatorFees: () => maintenanceSweep('operatorFees', () => sweepOperatorAccountFees({
-      charge: ({ uid, email, month, amountCents }) =>
-        chargeOperatorAccountFee({ uid, email, month, amountCents }),
-      cardCountryFor: async (uid) => defaultCardCountry({ uid }),
-    })),
+    // No saved Traveler card may ever fund Operator costs. Stripe payout webhooks
+    // still record month/account activity; bank fee recovery is deferred until
+    // the itemized earnings-based implementation is safely commissioned.
+    // Avoid six-hour full-account scans of already paid monthly records.
+    operatorFees: async () => ({ok:true,skipped:'operator_fee_earnings_recovery_pending'}),
     familyAgeOut: () => maintenanceSweep('familyAgeOut', () => family.sweepFamilyAgeOut()),
     insuranceMonitoring: () => maintenanceSweep('insuranceMonitoring', () => sweepInsuranceMonitoring({ db: adminDb(), requestConfirmation: issueInsuranceConfirmationRequest, notify })),
     marketReference: () => maintenanceSweep('marketReference', async () => {
