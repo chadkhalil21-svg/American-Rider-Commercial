@@ -149,7 +149,7 @@ export default {
     econDisclaimer: "Ces exemples ne garantissent aucun Travel ni revenu. Le montant total pour le Traveler est communiqué avant chaque Travel.",
     econProjectionNote: "L’estimation applique la part de 1 % au total hebdomadaire. La commission réelle est arrondie au centime inférieur pour chaque Travel : le montant conservé peut donc varier légèrement. Les projections mensuelles et annuelles supposent 52 semaines identiques. Les dépenses ne sont pas déduites.",
     econCostsHeading: "Frais de compte et dépenses",
-    econAccountCostNote: "Les mois avec versement bancaire, les frais Connect, de versement standard ou instantané et d’acheminement peuvent s’appliquer. Aucune carte supplémentaire n’est nécessaire. Le véhicule et l’assurance restent à votre charge.",
+    econAccountCostNote: "Un mois avec versement bancaire peut entraîner des frais de compte actif de 2 $ selon le tarif Stripe, ainsi que les frais réels des versements et de l’acheminement des fonds. Aucune autre carte n’est requise. Assurance, carburant et véhicule restent à votre charge.",
     econShowAccountTerms: "Voir les conditions actuelles du compte",
     econHideAccountTerms: "Masquer les conditions du compte",
     econReviewRequirements: 'Consulter les conditions de qualification',
