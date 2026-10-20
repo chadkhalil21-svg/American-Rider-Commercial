@@ -359,6 +359,31 @@
       "collectionGroup": "rides",
       "fieldPath": "cancellationFeeCents",
       "indexes": []
+    },
+    {
+      "collectionGroup": "operators",
+      "fieldPath": "lat",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "operators",
+      "fieldPath": "lng",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "operator_connect_payouts",
+      "fieldPath": "eventId",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "operator_connect_payouts",
+      "fieldPath": "amountCents",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "operator_connect_payouts",
+      "fieldPath": "payoutCreatedAt",
+      "indexes": []
     }
   ]
 }
