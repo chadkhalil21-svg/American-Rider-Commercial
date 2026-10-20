@@ -1,7 +1,7 @@
 // One authoritative fare computation for quoting, dispatch and payment.
 // Request bodies provide route inputs only. They never provide a computed fare, distance or fee.
 const { quote } = require('./payments');
-const { fareCentsForCoords, applyTravelClass } = require('./fares');
+const { fareCentsForCoords, applyTravelClass, normalizeTravelClassKey } = require('./fares');
 const { outsideMarket, outsideMarketMessage } = require('./market');
 const { governmentFeesFor, permitRequired, permitRequiredMessage } = require('./fees');
 const { resolveTollsCostAware, verifiedHereRoute } = require('./tolls');
@@ -89,7 +89,7 @@ async function authoritativeFare({ body, uid = null, email = null, db = null, ca
     ? resolveTollsCostAware(body.pickup, body.dest, { route: selectedRoute, routeAttempted: true })
     : Promise.resolve({ status: 'unknown', tollCents: null, reason: 'coordinates_required' });
   const referencePromise = body?.pickup && body?.dest && route.miles && route.minutes
-    ? referenceForQuote({ pickup: body.pickup, dest: body.dest, serviceClass: body?.travelClass || body?.cls || 'standard', routedMiles: route.miles, routedMinutes: route.minutes })
+    ? referenceForQuote({ pickup: body.pickup, dest: body.dest, serviceClass: normalizeTravelClassKey(body?.travelClass || body?.cls), routedMiles: route.miles, routedMinutes: route.minutes })
     : Promise.resolve({ ok: false, reason: 'route conditions unavailable' });
   const [cardCountry, journey, toll, marketReference] = await Promise.all([
     uid && cardCountryFor ? cardCountryFor({ uid, email }) : null,
