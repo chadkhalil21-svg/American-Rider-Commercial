@@ -159,7 +159,7 @@ export default {
     econDisclaimer: "Estos ejemplos no garantizan Viajes ni ingresos. El Total para el Traveler se cotiza antes de cada Viaje.",
     econProjectionNote: "La estimación aplica el 1 % al total semanal. La comisión real se redondea hacia abajo en cada Viaje, por lo que el importe que conserve puede variar ligeramente. Los cálculos mensuales y anuales suponen 52 semanas iguales. No se descuentan gastos.",
     econCostsHeading: "Costos de cuenta y otros gastos",
-    econAccountCostNote: "En los meses con pago al banco pueden aplicarse cargos de Connect, pagos estándar o instantáneos y distribución de fondos. No necesita otra tarjeta de cobro. El vehículo y seguro siguen a su cargo.",
+    econAccountCostNote: "En un mes con pago al banco puede aplicarse un costo de cuenta activa de $2 según el plan Stripe, además de los cargos reales por pagos estándar o inmediatos y distribución. No necesita otra tarjeta. Seguro, combustible y vehículo son a su cargo.",
     econShowAccountTerms: "Ver condiciones actuales de la cuenta",
     econHideAccountTerms: "Ocultar condiciones de la cuenta",
     econReviewRequirements: 'Revisar requisitos de habilitación',
