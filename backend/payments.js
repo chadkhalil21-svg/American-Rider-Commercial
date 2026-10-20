@@ -1146,36 +1146,14 @@ async function operatorPayoutAccount(db, operatorId) {
 /** Charge the separate monthly Operator active-account cost off-session.
  * The amount is already grossed up by operatorfees.js so the $2 Stripe Connect cost and only
  * its collection cost are recovered. This never touches the Operator's 99% Travel Fare. */
-async function chargeOperatorAccountFee({ uid, email, month, amountCents }) {
-  const stripe = getStripe();
-  const customer = await customerForTraveler({ uid, email });
-  const pm = await savedPaymentMethodFor(customer);
-  if (!pm) return { ok: false, code: 'no_payment_method', error: 'No saved payment method for the Operator account fee.' };
-  try {
-    const pi = await stripe.paymentIntents.create({
-      amount: Math.max(0, Math.trunc(Number(amountCents) || 0)),
-      currency: 'usd',
-      customer: customer.id,
-      payment_method: pm.id,
-      confirm: true,
-      off_session: true,
-      statement_descriptor_suffix: STATEMENT_DESCRIPTOR,
-      receipt_email: email || undefined,
-      description: `American Rider · Operator account cost · ${month}`,
-      metadata: {
-        product: 'American Rider operator account cost',
-        uid: String(uid || ''),
-        month: String(month || ''),
-        passThrough: 'true',
-      },
-    }, { idempotencyKey: `ar_operator_account_${uid}_${month}_${amountCents}` });
-    if (pi.status !== 'succeeded') {
-      return { ok: false, code: pi.status, error: `Payment is ${pi.status}`, paymentIntentId: pi.id };
-    }
-    return { ok: true, paymentIntentId: pi.id };
-  } catch (e) {
-    return { ok: false, code: e?.code || 'charge_failed', error: e?.message || String(e) };
-  }
+async function chargeOperatorAccountFee({ uid, month, amountCents }) {
+  // Disabled pending a consented, exact-fee recovery path from Operator earnings.
+  // Former implementation incorrectly reused a Traveler Customer/card. A person's
+  // permission to pay for Travels is NOT authority to debit Operator account fees.
+  // Never create a charge here. Existing payout events are separately recorded.
+  return {ok:false,code:'operator_fee_earnings_recovery_pending',
+    error:'Operator fee recovery must use a verified earnings-based authorization',
+    uid:String(uid||''),month:String(month||''),amountCents:Math.trunc(Number(amountCents)||0)};
 }
 
 module.exports = {
