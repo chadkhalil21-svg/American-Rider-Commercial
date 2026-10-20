@@ -1151,7 +1151,7 @@ async function chargeOperatorAccountFee({ uid, month, amountCents }) {
   // Former implementation incorrectly reused a Traveler Customer/card. A person's
   // permission to pay for Travels is NOT authority to debit Operator account fees.
   // Never create a charge here. Existing payout events are separately recorded.
-  return {ok:false,code:'operator_earnings_fee_recovery_pending',
+  return {ok:false,code:'operator_fee_earnings_recovery_pending',
     error:'Operator fee recovery must use a verified earnings-based authorization',
     uid:String(uid||''),month:String(month||''),amountCents:Math.trunc(Number(amountCents)||0)};
 }
