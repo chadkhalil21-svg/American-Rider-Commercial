@@ -34,7 +34,12 @@ assert.ok(feeFn.includes("operator_fee_earnings_recovery_pending"));
 assert.ok(!feeFn.includes('stripe.paymentIntents.create'),'Never bill Operator from Traveler Wallet');
 assert.ok(!feeFn.includes('savedPaymentMethodFor'),'Never use Traveler saved card');
 const server=fs.readFileSync(require('node:path').join(__dirname,'server.js'),'utf8');
-assert.ok(server.includes("operatorFees: async () => ({ok:true,skipped:'operator_fee_earnings_recovery_pending'})"));
+assert.ok(server.includes("process.env.OPERATOR_CONNECT_FEE_REVIEW_ENABLED === 'true'"),
+  'Firestore fee review must be off by default until provider pricing and index are verified');
+assert.ok(server.includes("maintenanceSweep('operatorFees', () => listDueFeeObligations({db:adminDb()}))"),
+  'only explicitly commissioned bounded read-only due queue may run');
+assert.ok(server.includes("fee_recovery_uncommissioned"), 'safe default does zero Firestore fee reads');
+assert.ok(!server.includes("sweepOperatorAccountFees({"), 'no full previous-month account collection scan');
 assert.ok(server.includes("sweepProviderEvents"),'Maintain payout provider event recovery');
 const operatorScreen=fs.readFileSync(require('node:path').join(__dirname,'../app/operator/payouts.tsx'),'utf8');
 const english=fs.readFileSync(require('node:path').join(__dirname,'../src/i18n/en.ts'),'utf8');
@@ -46,11 +51,26 @@ assert.match(english,/payoutTruthInstant:\s*["']Instant payout:/);
 assert.ok(!english.includes('weekly payday selection'));
 for(const language of ['en','es','fr','it','de']) {
   const translations=fs.readFileSync(require('node:path').join(__dirname,'../src/i18n/'+language+'.ts'),'utf8');
-  for(const key of ['payoutTruthBank','payoutTruthInstant','activeAccountCostBody','nothingDeducted','econAccountCostNote']) {
+  for(const key of ['payoutTruthBank','payoutTruthInstant','viewStripePayouts','activeAccountCostBody','nothingDeducted','econAccountCostNote']) {
     assert.ok(translations.includes(key+':'), language+' missing '+key);
   }
 }
 assert.ok(english.includes('Your gross share is 99%'), 'show gross vs net Operator earnings');
 assert.ok(english.includes('no second') || english.includes('No second'), 'no added fee-card gate');
 assert.ok(!operatorScreen.includes('payouts.create('), 'bank payout timing remains Stripe-owned');
+assert.ok(operatorScreen.includes("onPress={showStripeDashboard}"),
+  'payable Operator has a direct route to actual Stripe payout options');
+assert.ok(operatorScreen.includes("await Linking.openURL(result.url)"),
+  'Operator payout link opens returned provider URL');
+assert.ok(english.includes('already included in a Standard bank payout'),
+  'do not suggest in-transit Standard funds can be withdrawn twice');
+const payoutRoute=server.split("app.post('/connect/dashboard'")[1]?.split("app.get('/connect/done'")[0];
+assert.ok(payoutRoute && payoutRoute.includes('res.json({ url });'),
+  'Express payout dashboard must return the URL string, not undefined link.url');
+assert.ok(!payoutRoute.includes('res.json({ url: link.url })'),
+  'prevent recurrence of Stripe dashboard link shape bug');
+const payoutProvider=paymentSource.split('async function connectDashboardLink(')[1]?.split('// ---- PAYING THE OPERATOR')[0];
+assert.ok(payoutProvider && payoutProvider.includes('return link.url;'),
+  'Stripe provider function returns URL string, not login link object');
+
 console.log('PASS: 0 payout, standard vs instant, exact once-month fee, duplicate events, authorized-net preview and no card debits');

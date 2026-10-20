@@ -24,7 +24,7 @@ const { corsOptionsFor } = require('./cors-policy');
 const { readinessForRoute } = require('./booking-readiness');
 const {
   quote, createPaymentIntent, resumePaymentIntent, verifiedTravelPayment, cancelUnpaidIntent, chargeRide, refundTravel,
-  connectAccountFor, connectOnboardingLink, connectAccountStatus,
+  connectAccountFor, configureConnectPayoutSchedule, connectOnboardingLink, connectAccountStatus,
   transferToOperator, refundableFor, connectDashboardLink, pingStripe, probeNetwork,
   transferFixed, operatorPayoutAccount,
   listPaymentMethods, createSetupIntent, setDefaultPaymentMethod, detachPaymentMethod,
@@ -150,7 +150,7 @@ const { durableMaintenance } = require('./durable-maintenance');
 const { externalSweepMode } = require('./cloudrun-sweep-mode');
 const { settleSweepJobs, createCriticalRecoveryGate } = require('./critical-sweep-recovery');
 const { createBackgroundReporter } = require('./workload-summary');
-const { sweepOperatorAccountFees } = require('./operatorfees');
+const { listDueFeeObligations } = require('./operator-payout-event-ledger');
 const { cachedPayoutStatus } = require('./stripe-duty-cache');
 const { shouldMarkOffDuty } = require('./operator-duty-write-policy');
 const { dutyCoverageExpiry } = require('./operator-duty-coverage');
@@ -990,6 +990,10 @@ app.post('/connect/onboard', requireAuth, LIMITS.connect, requireActiveOperating
       { stripeAccountId: account.id, stripeAccountAt: Date.now() },
       { merge: true },
     );
+    // Save the account ID BEFORE an optional schedule change. If Stripe refuses
+    // the update, retrying onboarding resumes this account, never creates a duplicate.
+    // Unconfigured deployments preserve the current provider payout cadence.
+    await configureConnectPayoutSchedule(account);
     const base = readKey('PUBLIC_APP_URL') || `${req.protocol}://${req.get('host')}`;
     const link = await connectOnboardingLink({
       accountId: account.id,
@@ -1058,8 +1062,13 @@ app.post('/connect/dashboard', requireAuth, LIMITS.connect, async (req, res) => 
     if (!accountId) {
       return res.status(409).json({ error: 'No payout account yet', code: 'not_onboarded' });
     }
-    const link = await connectDashboardLink(accountId);
-    res.json({ url: link.url });
+    // connectDashboardLink returns the short-lived URL string, not a Stripe object.
+    // Returning link.url here produced an empty response and blocked payout access.
+    const url = await connectDashboardLink(accountId);
+    if (typeof url !== 'string' || !url.startsWith('https://')) {
+      return res.status(502).json({ error: 'Stripe payout dashboard unavailable' });
+    }
+    res.json({ url });
   } catch (e) {
     res.status(502).json({ error: e.message });
   }
@@ -2112,11 +2121,15 @@ async function runAllSweeps({criticalOnly=false}={}) {
       deps: { refundableFor, refundTravel, cancelUnpaidIntent, verifiedTravelPayment,
         transferFixed, operatorPayoutAccount } }),
     providerEvents: () => sweepProviderEvents({ handlers: PROVIDER_HANDLERS, workerId: WORKER_ID }),
-    // No saved Traveler card may ever fund Operator costs. Stripe payout webhooks
-    // still record month/account activity; bank fee recovery is deferred until
-    // the itemized earnings-based implementation is safely commissioned.
-    // Avoid six-hour full-account scans of already paid monthly records.
-    operatorFees: async () => ({ok:true,skipped:'operator_fee_earnings_recovery_pending'}),
+    // Only an indexed, bounded DUE queue is checked; the Stripe payout webhook
+    // writes an event once. No old-account scan and NO money is collected here.
+    // Actual Operator earnings recovery remains disabled until fees are verified.
+    // No needless Firestore reads or missing-index queries until the fee
+    // obligation service is explicitly commissioned. This toggle ONLY enables
+    // READ-ONLY review and NEVER enables an Operator earnings deduction.
+    operatorFees: () => process.env.OPERATOR_CONNECT_FEE_REVIEW_ENABLED === 'true'
+      ? maintenanceSweep('operatorFees', () => listDueFeeObligations({db:adminDb()}))
+      : Promise.resolve({ok:true,disabled:true,reason:'fee_recovery_uncommissioned'}),
     familyAgeOut: () => maintenanceSweep('familyAgeOut', () => family.sweepFamilyAgeOut()),
     insuranceMonitoring: () => maintenanceSweep('insuranceMonitoring', () => sweepInsuranceMonitoring({ db: adminDb(), requestConfirmation: issueInsuranceConfirmationRequest, notify })),
     marketReference: () => maintenanceSweep('marketReference', async () => {

@@ -771,6 +771,15 @@ async function connectAccountFor({ uid, email, existingAccountId }) {
   });
 }
 
+/**
+ * Apply a founder-approved ordinary payout cadence only when explicitly enabled.
+ * A missing flag leaves Stripe's existing daily schedule untouched.
+ */
+async function configureConnectPayoutSchedule(account) {
+  const {applyAutomaticSchedule}=require('./connect-payout-schedule');
+  return applyAutomaticSchedule({stripe:getStripe(),account});
+}
+
 /** The Stripe-hosted onboarding link the operator completes. Single use, short lived. */
 async function connectOnboardingLink({ accountId, returnUrl, refreshUrl }) {
   return getStripe().accountLinks.create({
@@ -891,8 +900,11 @@ async function transferToOperator({
     operatorStripeAccount, chargeId, amountCents: q.operatorGets,
     platformTake: q.platformTake, paidWith,
     findTransfers: (group) => stripe.transfers.list({ transfer_group: group, limit: 2 }),
-    createTransfer: (group) => stripe.transfers.create({
-      amount: q.operatorGets, currency: 'usd',
+    // The gross 99% entitlement is computed above. Any verified, already
+    // accrued Connect fees are separately reserved by the durable transfer
+    // ledger; this value is its net provider transfer amount.
+    createTransfer: (group, transferAmountCents) => stripe.transfers.create({
+      amount: transferAmountCents, currency: 'usd',
       destination: operatorStripeAccount,
       source_transaction: chargeId,
       transfer_group: group,
@@ -1160,7 +1172,7 @@ module.exports = {
   operatorPayoutAccount,
   quote, commissionCents, platformFeeCents, isDomesticCard, defaultCardCountry, journeyFeeCents, createPaymentIntent, resumePaymentIntent, verifiedTravelPayment, cancelUnpaidIntent, chargeRide, refundTravel,
   MIN_PLATFORM_FEE_CENTS,
-  customerForTraveler, connectAccountFor, connectOnboardingLink, connectAccountStatus,
+  customerForTraveler, connectAccountFor, configureConnectPayoutSchedule, connectOnboardingLink, connectAccountStatus,
   transferToOperator, paidWithFromIntent, refundableFor, connectDashboardLink, pingStripe, probeNetwork,
   transferFixed, chargeScheduledTravel, createScreeningIntent, chargeOperatorAccountFee,
   describePaymentMethod, listPaymentMethods, createSetupIntent, setDefaultPaymentMethod, detachPaymentMethod,

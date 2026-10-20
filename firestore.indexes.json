@@ -295,6 +295,42 @@
           "order": "DESCENDING"
         }
       ]
+    },
+    {
+      "collectionGroup": "operator_connect_fee_obligations",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "nextReviewAt",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "operator_connect_fee_obligations",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "uid",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "incurredAt",
+          "order": "ASCENDING"
+        }
+      ]
     }
   ],
   "fieldOverrides": [
@@ -322,6 +358,31 @@
     {
       "collectionGroup": "rides",
       "fieldPath": "cancellationFeeCents",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "operators",
+      "fieldPath": "lat",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "operators",
+      "fieldPath": "lng",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "operator_connect_payouts",
+      "fieldPath": "eventId",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "operator_connect_payouts",
+      "fieldPath": "amountCents",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "operator_connect_payouts",
+      "fieldPath": "payoutCreatedAt",
       "indexes": []
     }
   ]

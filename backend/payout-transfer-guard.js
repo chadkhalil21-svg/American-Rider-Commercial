@@ -12,6 +12,7 @@
  * Their source-of-truth Stripe transfers require a separate historical census.
  */
 const VERSION = 1;
+const {prepareOffset,finalizeOffset}=require('./verified-connect-fee-transfer');
 const uncertain = (code = 'payout_reconciliation_required') => ({
   ok: false, code, retryable: false, unconfirmed: true,
   error: 'Operator transfer requires verified reconciliation before another payment attempt.',
@@ -57,20 +58,28 @@ async function transferOnce({
       const ledger = ledgerSnap.exists ? ledgerSnap.data() || {} : null;
       if (ledger && (ledger.paymentIntentId !== paymentIntentId ||
         ledger.accountId !== operatorStripeAccount || ledger.chargeId !== chargeId ||
-        ledger.amountCents !== amountCents || ledger.operatorId !== ride.operatorId))
+        (ledger.grossAmountCents ?? ledger.amountCents) !== amountCents || ledger.operatorId !== ride.operatorId))
         return { code: 'payout_identity_conflict' };
       if (ride.transferId) {
         if (ledger?.transferId && ledger.transferId !== ride.transferId)
           return { code: 'payout_identity_conflict' };
-        return { already: ride.transferId, amountCents: Number(ride.operatorPaidCents) || amountCents };
+        return { already: ride.transferId, transferAmountCents: Number(ride.operatorPaidCents) || amountCents,
+          feeWithheldCents:Number(ride.operatorFeesWithheldCents)||0 };
       }
-      if (ledger) return { newAttempt: false };
+      if (ledger) return { newAttempt:false,transferAmountCents:ledger.amountCents,
+        feeWithheldCents:ledger.feeWithheldCents||0 };
+      const fee=await prepareOffset({db,tx,ride:{...ride,id:rideId},
+        accountId:operatorStripeAccount,grossCents:amountCents,now});
       tx.create(ledgerRef, {
         version: VERSION, rideId, operatorId: ride.operatorId, paymentIntentId,
-        accountId: operatorStripeAccount, chargeId, amountCents, group,
+        accountId: operatorStripeAccount, chargeId,
+        grossAmountCents:amountCents,amountCents:fee.transferCents,
+        feeWithheldCents:fee.withheldCents,feeAllocations:fee.allocations,group,
         state: 'unconfirmed', startedAt: now,
       });
-      return { newAttempt: true };
+      fee.reserve();
+      return {newAttempt:true,transferAmountCents:fee.transferCents,
+        feeWithheldCents:fee.withheldCents};
     });
   } catch {
     return uncertain('payout_ledger_unavailable');
@@ -79,9 +88,14 @@ async function transferOnce({
   if (initial.code) return uncertain(initial.code);
   if (initial.already) return {
     ok: true, alreadySettled: true, transferId: initial.already,
-    amountCents: initial.amountCents, operatorGets: initial.amountCents,
+    amountCents: initial.transferAmountCents, operatorGets: amountCents,
+    feeWithheldCents: initial.feeWithheldCents,
     platformTake, paidWith,
   };
+
+  const transferAmountCents=initial.transferAmountCents;
+  if(!Number.isSafeInteger(transferAmountCents)||transferAmountCents<=0||
+     transferAmountCents>amountCents)return uncertain('verified_fee_transfer_amount_invalid');
 
   // Read-only Stripe verification MUST happen before a new payout, too.
   // A timeout or ambiguous transfer identity must never authorize money.
@@ -95,7 +109,7 @@ async function transferOnce({
     return uncertain('payout_provider_unavailable');
   }
   if (existing && !checkTransfer(existing, {
-    rideId, paymentIntentId, operatorStripeAccount, chargeId, amountCents, group,
+    rideId, paymentIntentId, operatorStripeAccount, chargeId, amountCents:transferAmountCents, group,
   })) return uncertain('payout_provider_mismatch');
 
   // If a previous attempt was initiated, the only safe automatic action is
@@ -105,13 +119,13 @@ async function transferOnce({
   let transfer = existing;
   if (!transfer) {
     try {
-      transfer = await createTransfer(group);
+      transfer = await createTransfer(group,transferAmountCents);
     } catch {
       // Stripe may have completed the transfer before the request timed out.
       return uncertain('payout_creation_unconfirmed');
     }
     if (!checkTransfer(transfer, {
-      rideId, paymentIntentId, operatorStripeAccount, chargeId, amountCents, group,
+      rideId, paymentIntentId, operatorStripeAccount, chargeId, amountCents:transferAmountCents, group,
     })) return uncertain('payout_created_identity_unconfirmed');
   }
 
@@ -123,18 +137,26 @@ async function transferOnce({
       if (ride.status !== 'completed' || ride.paymentIntentId !== paymentIntentId ||
         ride.operatorId !== ledger.operatorId ||
         ledger.accountId !== operatorStripeAccount || ledger.chargeId !== chargeId ||
-        ledger.amountCents !== amountCents ||
+        ledger.amountCents !== transferAmountCents ||
+        (ledger.grossAmountCents??ledger.amountCents)!==amountCents ||
         (ride.transferId && ride.transferId !== transfer.id) ||
         (ledger.transferId && ledger.transferId !== transfer.id)) return false;
+      // Inspect all claimed provider-fee records before writing either the
+      // operator's settled transfer or the recovered fee. Any inconsistency
+      // leaves the payout unconfirmed for safe reconciliation.
+      const finalizeFees=await finalizeOffset({db,tx,ledger,rideId,transferId:transfer.id});
       tx.set(ledgerRef, {
         state: 'transferred', transferId: transfer.id, verifiedAt: Date.now(),
       }, { merge: true });
       tx.set(ref, {
-        transferId: transfer.id, operatorPaidCents: amountCents,
+        transferId: transfer.id, operatorPaidCents: transferAmountCents,
+        operatorGrossCents: amountCents,
+        operatorFeesWithheldCents:ledger.feeWithheldCents||0,
         platformTakeCents: platformTake, payoutPending: false,
         payoutBlockedReason: null, needsPayout: false,
         settledAt: Date.now(), ...(paidWith ? { paidWith } : {}),
       }, { merge: true });
+      finalizeFees();
       return true;
     });
     if (!done) return uncertain('payout_reconciliation_conflict');
@@ -142,7 +164,8 @@ async function transferOnce({
     // Reconciliation on a later attempt will rediscover the Stripe transfer.
     return uncertain('payout_record_unconfirmed');
   }
-  return { ok: true, transferId: transfer.id, amountCents,
-    operatorGets: amountCents, platformTake, paidWith, reconciled: !!existing };
+  return {ok:true,transferId:transfer.id,amountCents:transferAmountCents,
+    operatorGets:amountCents,feeWithheldCents:initial.feeWithheldCents||0,
+    platformTake,paidWith,reconciled:!!existing};
 }
 module.exports = { transferOnce, checkTransfer, groupFor, VERSION };

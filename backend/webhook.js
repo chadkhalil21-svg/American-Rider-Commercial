@@ -21,7 +21,7 @@ const { adminDb, adminStatus } = require('./firebase-admin');
 const { fileTicket } = require('./tickets');
 const { readKey } = require('./env');
 const { money } = require('./email');
-const { recordPayoutActivity } = require('./operatorfees');
+const { recordOperatorPayoutEvent } = require('./operator-payout-event-ledger');
 const { saveDisputeEvidence } = require('./disputeevidence');
 
 /**
@@ -159,16 +159,20 @@ async function handleEvent(event) {
       // Stripe's $2 monthly active-account charge is incurred in a month a payout reaches an
       // Operator's bank/debit card. Record that month from Stripe's own event; do not infer it
       // merely because American Rider transferred fare into the connected balance.
-      const accountId = event.account || obj.destination || null;
-      const activity = await recordPayoutActivity({
-        accountId,
-        createdAt: Number(event.created || 0) > 0 ? Number(event.created) * 1000 : Date.now(),
-      });
-      return { ok: activity.ok !== false, action: activity.ignored ? 'payout account not ours' : 'operator active month recorded', reason: activity.reason };
+      // Connected account comes from Stripe's event.account, NOT payout.destination
+      // (destination is usually the bank account ID, not the Operator account).
+      if (!event.account) return {ok:true,action:'platform bank payout is not an Operator Connect payout'};
+      const activity = await recordOperatorPayoutEvent({db,event});
+      return {ok:activity.ok,action:activity.ignored?'payout account not ours':
+        activity.duplicate?'duplicate payout ignored':'operator payout activity recorded',
+        reason:activity.reason};
     }
 
     case 'transfer.reversed':
     case 'payout.failed': {
+      // Reverse the paid-payout count when Stripe later fails the bank deposit.
+      // Preserve the existing support escalation; do not silently count it paid.
+      if (event.type==='payout.failed' && event.account) await recordOperatorPayoutEvent({db,event});
       const caseNo = await open(db, null, {
         kind: 'support',
         reason: event.type === 'payout.failed' ? 'Operator payout failed' : 'Transfer reversed',
