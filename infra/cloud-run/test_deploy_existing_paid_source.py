@@ -16,9 +16,13 @@ def svc():
             {"name":"STRIPE_SECRET_KEY","valueFrom":{"secretKeyRef":{"name":"ar-render-import-stripe-secret-key","key":"1"}}},
             {"name":"SCHEDULER_TOKEN","valueFrom":{"secretKeyRef":{"name":"ar-production-scheduler-token","key":"1"}}},
         ]}]}}},
-        "status":{"traffic":[{"revisionName":"prod-old","percent":100}]} }
+        "status":{"traffic":[{"revisionName":"prod-old","percent":100}],
+                  "url":"https://american-rider-api-production-abc-ue.a.run.app"} }
 def job():
-    return {"state":"ENABLED","httpTarget":{"uri":m.URL+"/scheduled/sweep"}}
+    return {"state":"ENABLED","schedule":"* * * * *","httpTarget":{
+        "uri":m.URL+"/scheduled/sweep", "httpMethod":"POST",
+        "oidcToken":{"serviceAccountEmail":m.EXPECTED_SCHEDULER_SA},
+        "headers":{"x-scheduler-token":"SYNTHETIC_DO_NOT_USE"}}}
 
 class PaidSourceTest(unittest.TestCase):
     def test_one_authority_and_live_money(self):
@@ -29,7 +33,33 @@ class PaidSourceTest(unittest.TestCase):
         x["status"]["traffic"]=[{"revisionName":"old","percent":90},{"revisionName":"new","percent":10}]
         with self.assertRaisesRegex(m.Stop,"single known"): m.require_single_traffic(x)
         y=job();y["state"]="PAUSED"
-        with self.assertRaisesRegex(m.Stop,"must already"):m.assert_live(svc(),y)
+        with self.assertRaisesRegex(m.Stop,"not ENABLED"):m.assert_live(svc(),y)
+    def test_existing_service_url_alias_is_approved_without_new_job(self):
+        j=job()
+        j["httpTarget"]["uri"]=svc()["status"]["url"]+"/scheduled/sweep"
+        self.assertTrue(m.assert_live(svc(),j))
+
+    def test_wrong_hosts_routes_and_query_are_blocked(self):
+        for uri in ("https://other.example/scheduled/sweep",
+                    m.URL+"/scheduled/other",
+                    m.URL+"/scheduled/sweep?unexpected=true"):
+            j=job()
+            j["httpTarget"]["uri"]=uri
+            with self.assertRaisesRegex(m.Stop,"destination differs"):
+                m.assert_live(svc(),j)
+
+    def test_no_identity_method_signature_or_cadence_bypass(self):
+        variants = [
+            lambda x:x["httpTarget"].update({"httpMethod":"GET"}),
+            lambda x:x["httpTarget"]["oidcToken"].update({"serviceAccountEmail":"bad@example.com"}),
+            lambda x:x["httpTarget"].update({"headers":{}}),
+            lambda x:x.update({"schedule":"*/5 * * * *"}),
+        ]
+        for change in variants:
+            j=job()
+            change(j)
+            with self.assertRaises(m.Stop):m.assert_live(svc(),j)
+
     def test_never_clear_existing_secret_or_flip_payment_mode(self):
         text=FILE.read_text()
         self.assertIn('"--no-traffic"',text)
