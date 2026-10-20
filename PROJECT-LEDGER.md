@@ -1,5 +1,11 @@
 # AMERICAN RIDER — CANONICAL PROJECT LEDGER
 
+## Operator Connect fee-consent and payout boundary | 20 October 2026 (SOURCE PR CANDIDATE ONLY)
+
+**Actual source trace:** A Stripe Express/connected Operator can request ordinary/instant payouts inside Stripe; `/operator/settle-pending` only reads pending settlement records and never pays funds directly. Stripe's $2 is one *active bank-payout month* charge; under platform-managed Connect pricing, each bank payout and certain funds routing also cost money. The current separate fee collection computes $2 + card cost ($2.37 domestic) using the user account's saved payment method. **Remaining P0:** independent operator payment-method mandate, per-payout fee collection vs copy mismatch, and durable prior-charge reconciliation across changed amounts/24h Stripe idempotency expiry. These must not be claimed solved. PR candidate adds server-verified fee consent to **new paid duty and offer acceptance** plus legacy-fleet dispatch; never blocks Stripe dashboard or already-earned transfers. Explicit refusal, missing or future consent fails closed; all tests synthetic. Does not submit TestFlight, charge Stripe, change payout cadence or deploy. [Full journey audit and counsel questions](docs/audits/2026-10-20-PAID-TRAVEL-AND-CONNECT-PAYOUT-STATE-MACHINE.md). PR #163 separately addresses the physically observed Confirm → premature Operator search → changed Total loop and special-class fare canonicalization. Source, deploy, store build and live booking proof are distinct.
+
+---
+
 ## Source merge verification | 20 October 2026
 
 PR #161 and its two-pass synthetic stranded-Travel write reduction have merged into `release/current` at `9a975df6c`. PR exact-head Release Gate, two exhaustive campaigns, deterministic commissioning, scale stress, Firebase authentication checks and adversarial traces passed before merge. New commit on `release/current` is NOT equivalent to a production Cloud Run source deployment or signed TestFlight/Google Play build. The legally unresolved Florida §627.748(7)(d) insurer backstop review is tracked in issue #162; full financial lifecycle work remains issue #160.
