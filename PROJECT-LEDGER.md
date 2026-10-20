@@ -1,5 +1,15 @@
 # AMERICAN RIDER — CANONICAL PROJECT LEDGER
 
+## FOUNDER EXECUTION DECISION | 20 OCT 2026 | DEFAULT FRIDAY STANDARD, INSTANT ON DEMAND, LIVE LAUNCH
+
+**Final provider cadence:** Founder approves **weekly automatic Standard bank payouts on FRIDAY** plus eligible **Instant Payouts throughout the week**. This is not a new Operator payday/calendar feature. `backend/connect-payout-schedule.js` now defaults to Stripe `interval=weekly,weekly_anchor=friday` for newly onboarded connected accounts; it updates and rechecks Stripe before stating completion. `CONNECT_STANDARD_PAYOUT_INTERVAL=daily` remains emergency rollback only. Stripe's separate two-day settlement/availability delay is unchanged. Previously created connected accounts require explicit migration; latest live account query returned ZERO connected Operators, so none needs retroactive migration today. User's platform account weekly schedule is not to be changed.
+
+**Verified fee collection launch rule:** There are no live connected Operators or real Connect charge records yet. Do not hold the first commercial launch waiting for a historical Stripe fee invoice that cannot exist. Existing versioned Operator consent covers only actual separately billed fees. Allow paid travel and the Operator's 99% gross entitlement now, retain a durable future recovery obligation when a genuine provider report arrives; never charge an estimate, fees already paid directly by an Operator, or a Traveler's saved card. The per-Travel earnings offset implementation in PR #183 remains `CONNECT_VERIFIED_FEE_RECOVERY`-gated and needs final Firestore composite index deployment and production billing reconciliation before setting the fee money-moving flag; this is a transaction-safety control, NOT a regional/booking gate. Stripe All Fees account reports exclude certain later-invoiced charges and can lag 96 hours; a true final invoice is needed before making unproven monthly account deductions.
+
+**Firestore and Uber benchmark decision:** Keep deployed geohash 9-cell matching, per-event payout records and bounded due-only queue rather than migrating blindly to H3 or rereading every account. Google recommends reduce index fanout, avoid offsets, cursor pagination and use Firestore Query Explain (plan/analyze) before indexes/heartbeat changes. Operator presence freshness, screening, insurance and SOS may never be traded for quota savings. Study measured hot-field index exemptions only if not used in any query; no unbenchmarked global rewrite.
+
+---
+
 ## STRIPE LIVE FEE EVIDENCE REVIEW | 20 OCT 2026 | OPERATOR FEE DEDUCTIONS STILL DISABLED
 
 **Stripe connected account live state checked through authenticated Stripe plugin:** platform account `acct_1U5AJMAF5hzJigJI` had **zero** connected accounts returned by `GET /v1/accounts` and no Stripe fee balance transactions or payouts returned. The sandbox account has one Express account and sample `controller.fees.payer=application`, automatic daily schedule with 2-day delay. A sandbox fee payer is *not* proof of the future live account's commercial price plan. Existing contracted operator terms require actual fees; no actual fees are chargeable now.
