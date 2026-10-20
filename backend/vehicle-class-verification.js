@@ -5,11 +5,12 @@
 const SPECIAL = Object.freeze(['Large Vehicle', 'Pet Friendly']);
 const normalize = value => String(value || '').replace(/[^a-z0-9]/gi, '').toUpperCase();
 
-function verifiedOperatorClasses(profile, vehicle) {
+function verifiedOperatorClasses(profile, vehicle, now = Date.now()) {
   const base = ['Standard'];
   const evidence = profile?.vehicleClassApproval;
   if (!evidence || evidence.status !== 'approved' ||
-      !Number.isSafeInteger(evidence.verifiedAt) || evidence.verifiedAt <= 0 ||
+      !Number.isSafeInteger(evidence.verifiedAt) || evidence.verifiedAt <= 0 || evidence.verifiedAt > now ||
+      !Number.isSafeInteger(evidence.validUntil) || evidence.validUntil <= now ||
       !String(evidence.reviewedBy || '').trim() ||
       !normalize(vehicle?.plate) || !normalize(vehicle?.car) ||
       normalize(evidence.plate) !== normalize(vehicle.plate) ||
