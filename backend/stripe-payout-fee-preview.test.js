@@ -44,4 +44,13 @@ assert.ok(!operatorScreen.includes('PayoutCalendar') && !operatorScreen.includes
 assert.match(english,/payoutTruthBank:\s*["']Standard payout:/);
 assert.match(english,/payoutTruthInstant:\s*["']Instant payout:/);
 assert.ok(!english.includes('weekly payday selection'));
+for(const language of ['en','es','fr','it','de']) {
+  const translations=fs.readFileSync(require('node:path').join(__dirname,'../src/i18n/'+language+'.ts'),'utf8');
+  for(const key of ['payoutTruthBank','payoutTruthInstant','activeAccountCostBody','nothingDeducted','econAccountCostNote']) {
+    assert.ok(new RegExp('\\\\b'+key+':').test(translations), language+' missing '+key);
+  }
+}
+assert.ok(english.includes('Your gross share is 99%'), 'show gross vs net Operator earnings');
+assert.ok(english.includes('no second') || english.includes('No second'), 'no added fee-card gate');
+assert.ok(!operatorScreen.includes('payouts.create('), 'bank payout timing remains Stripe-owned');
 console.log('PASS: 0 payout, standard vs instant, exact once-month fee, duplicate events, authorized-net preview and no card debits');
