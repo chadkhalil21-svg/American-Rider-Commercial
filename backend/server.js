@@ -150,7 +150,7 @@ const { durableMaintenance } = require('./durable-maintenance');
 const { externalSweepMode } = require('./cloudrun-sweep-mode');
 const { settleSweepJobs, createCriticalRecoveryGate } = require('./critical-sweep-recovery');
 const { createBackgroundReporter } = require('./workload-summary');
-const { sweepOperatorAccountFees } = require('./operatorfees');
+const { listDueFeeObligations } = require('./operator-payout-event-ledger');
 const { cachedPayoutStatus } = require('./stripe-duty-cache');
 const { shouldMarkOffDuty } = require('./operator-duty-write-policy');
 const { dutyCoverageExpiry } = require('./operator-duty-coverage');
@@ -2112,11 +2112,10 @@ async function runAllSweeps({criticalOnly=false}={}) {
       deps: { refundableFor, refundTravel, cancelUnpaidIntent, verifiedTravelPayment,
         transferFixed, operatorPayoutAccount } }),
     providerEvents: () => sweepProviderEvents({ handlers: PROVIDER_HANDLERS, workerId: WORKER_ID }),
-    // No saved Traveler card may ever fund Operator costs. Stripe payout webhooks
-    // still record month/account activity; bank fee recovery is deferred until
-    // the itemized earnings-based implementation is safely commissioned.
-    // Avoid six-hour full-account scans of already paid monthly records.
-    operatorFees: async () => ({ok:true,skipped:'operator_fee_earnings_recovery_pending'}),
+    // Only an indexed, bounded DUE queue is checked; the Stripe payout webhook
+    // writes an event once. No old-account scan and NO money is collected here.
+    // Actual Operator earnings recovery remains disabled until fees are verified.
+    operatorFees: () => maintenanceSweep('operatorFees', () => listDueFeeObligations({db:adminDb()})),
     familyAgeOut: () => maintenanceSweep('familyAgeOut', () => family.sweepFamilyAgeOut()),
     insuranceMonitoring: () => maintenanceSweep('insuranceMonitoring', () => sweepInsuranceMonitoring({ db: adminDb(), requestConfirmation: issueInsuranceConfirmationRequest, notify })),
     marketReference: () => maintenanceSweep('marketReference', async () => {
