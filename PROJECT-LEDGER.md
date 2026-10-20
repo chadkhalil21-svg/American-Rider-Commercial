@@ -1,5 +1,15 @@
 # AMERICAN RIDER — CANONICAL PROJECT LEDGER
 
+## Verification and payout-dashboard repair | 20 October 2026 | DRAFT PR #183 ONLY, NOT DEPLOYED
+
+**Founder policy unchanged:** Only (1) Stripe automatic Standard bank payouts and (2) eligible Operator-requested Instant Payouts. Stripe's **two-day settlement/automatic delay is not a second queue the Operator can override**. Eligible funds can be withdrawn instantly only up to the provider's `instant_available` balance; once funds are incorporated into a Standard payout they cannot also be paid instantly. Standard continues automatically for the rest. Never switch to manual payouts or promise a 30-minute deposit if the operator/destination is ineligible. Source: https://docs.stripe.com/connect/instant-payouts ; https://support.stripe.com/questions/why-is-my-balance-no-longer-available-for-instant-payouts .
+
+**Specific source defect fixed:** `backend/payments.js:connectDashboardLink` returned a URL **string**, but `POST /connect/dashboard` previously serialized `link.url` (undefined), preventing the Operator from opening the Express dashboard to request Instant. Corrected the route to return a validated `url` string, surfaced a direct authenticated View payouts in Stripe action on the Getting Paid screen, explained the no-double-withdrawal rule in English/Spanish/French/Italian/German, and added static regression tests. Stripe owns actual eligibility and the instant-available amount; we do not initiate bank payouts or reserve duplicate balances in Firestore. This is a proposed SOURCE fix pending CI, merge, and device/sandbox verification.
+
+**Authenticated LIVE Stripe verification:** the connected live platform returned **zero connected Operator accounts**, **zero payouts**, and **zero `stripe_fee` balance transactions** on the read-only checks. The sandbox's `controller.fees.payer=application` does not establish live Operator fees. The exact live platform-versus-Stripe-managed Connect pricing contract, future fee amounts, and fee recovery authority remain **UNVERIFIED**, so no notional $2/month or bank payout charge can be deducted. Consent plus exact provider evidence and idempotent future earnings collection remain launch gaps. No real Stripe payments, bank payouts, pricing changes, or deployments were made. Public schedule/pricing: https://stripe.com/connect/pricing .
+
+---
+
 
 ## Event-based Connect fee queue, no duplicate Operator card, H3/Firestore evidence | 20 October 2026 | STACKED SOURCE PR, NOT LIVE
 **Founder decision confirmed:** No new payment card, no invented weekly paydays. Stripe Connect automatic Standard bank payouts plus optional Instant when eligible. Operator owns 99% gross Fare share, pays **only verifiably incurred**, expressly agreed Stripe Connect costs through future earnings where lawful; American Rider pays Traveler card processing. PR #181 CLOSED UNMERGED. Base PR #182 remains an unmerged draft: prevents old Traveler-wallet $2 card charges and abandons full six-hour account rescan. This stacked draft builds the replacement, and must not merge ahead of #182.
