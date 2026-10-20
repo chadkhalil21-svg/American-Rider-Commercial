@@ -1058,8 +1058,13 @@ app.post('/connect/dashboard', requireAuth, LIMITS.connect, async (req, res) => 
     if (!accountId) {
       return res.status(409).json({ error: 'No payout account yet', code: 'not_onboarded' });
     }
-    const link = await connectDashboardLink(accountId);
-    res.json({ url: link.url });
+    // connectDashboardLink returns the short-lived URL string, not a Stripe object.
+    // Returning link.url here produced an empty response and blocked payout access.
+    const url = await connectDashboardLink(accountId);
+    if (typeof url !== 'string' || !url.startsWith('https://')) {
+      return res.status(502).json({ error: 'Stripe payout dashboard unavailable' });
+    }
+    res.json({ url });
   } catch (e) {
     res.status(502).json({ error: e.message });
   }
