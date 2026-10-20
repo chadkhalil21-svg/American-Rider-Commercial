@@ -79,6 +79,19 @@ async function authoritativeFare({ body, uid = null, email = null, db = null, ca
       // A missing regional road server previously made *every* quote fail closed,
       // even with a working HERE key. HERE's same response now proves road
       // distance, time AND tolls without inventing a straight-line fare.
+      if (selectedRoute && selectedRoute.provider !== 'here') {
+        // Reuse the selected OSM/OSRM route when its exact toll price is already
+        // certified. Otherwise do NOT attach a separately routed HERE toll price
+        // to an OSRM-priced fare. Instead, use ONE independently verified HERE
+        // response as the authority for BOTH road metrics and applicable tolls.
+        // This is transitional until the official/OSM gantry matcher is commissioned.
+        const localTolls = await resolveTollsCostAware(body.pickup, body.dest,
+          { route: selectedRoute, routeAttempted: true });
+        if (localTolls.reason === 'unmatched_toll_route') {
+          const hereRoute = await verifiedHereRoute(body.pickup, body.dest);
+          if (hereRoute) selectedRoute = hereRoute;
+        }
+      }
       if (!selectedRoute) selectedRoute = await verifiedHereRoute(body.pickup, body.dest);
     }
   }
