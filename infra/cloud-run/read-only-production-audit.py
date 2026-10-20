@@ -125,6 +125,43 @@ def verify_http_through_proxy():
                 proc.wait(timeout=4)
 
 
+
+def safe_revision_readiness(revision):
+    """Only report Google's fixed readiness flags, not logs or condition messages."""
+    if not isinstance(revision, dict):
+        return "UNKNOWN (revision metadata unreadable)"
+    conditions = revision.get("status", {}).get("conditions", [])
+    ready = next((c for c in conditions if c.get("type") == "Ready"), {})
+    state = str(ready.get("status", "Unknown")).lower()
+    if state == "true":
+        return "READY (Cloud Run revision condition)"
+    if state == "false":
+        # Google condition messages can contain private deployment information.
+        # Never print arbitrary reason/message text in a public CI log.
+        return "NOT READY (inspect this exact revision in Google Cloud Run)"
+    return "PENDING or UNKNOWN (Cloud Run has not reported revision readiness)"
+
+
+def summarize_candidate_revision(service):
+    """Read newest created revision without changing its traffic or exposing settings."""
+    state = service.get("status", {})
+    ready = state.get("latestReadyRevisionName")
+    created = state.get("latestCreatedRevisionName")
+    if not isinstance(created, str) or not created:
+        return [("Latest candidate revision", "UNKNOWN (service metadata lacks creation status)")]
+    rows = [("Latest candidate revision", created)]
+    if created == ready:
+        rows.append(("Latest candidate readiness", "READY (matches current ready revision)"))
+        return rows
+    # Read only the named revision. No logs or service configuration are emitted.
+    details = metadata("run", "revisions", "describe", created,
+                       f"--project={PROJECT}", f"--region={REGION}")
+    rows.append(("Latest candidate readiness", safe_revision_readiness(details)))
+    rows.append(("Production traffic status",
+                 "latest candidate is not reported as the latest READY revision"))
+    return rows
+
+
 def audit():
     results = []
     risk = False
@@ -135,6 +172,7 @@ def audit():
         return results, False
     summary = summary_of_service(info)
     results.append(("Real production API", "deployed" if summary["revision"] else "NOT READY"))
+    results.extend(summarize_candidate_revision(info))
     results.append(("Google Cloud project", PROJECT))
     results.append(("Ready revision", summary["revision"] or "none"))
     results.append(("Runtime identity", "verified" if summary["runtime_ok"] else "UNEXPECTED"))
