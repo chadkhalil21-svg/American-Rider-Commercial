@@ -31,4 +31,6 @@ assert.ok(server.includes("app.post('/connect/fees/setup'"));
 assert.ok(server.includes("app.post('/connect/fees/confirm'"));
 assert.ok(server.includes('operatorBillingReady(operator)'));
 assert.ok(server.includes('feeBillingReady:'));
+assert.ok(server.includes("app.post('/connect/fees/setup', requireAuth, LIMITS.connect, requireActiveOperatingMarket"));
+assert.ok(server.includes("app.post('/connect/fees/confirm', requireAuth, LIMITS.connect, requireActiveOperatingMarket"));
 console.log('PASS Operator-only fee card, versioned consent, same-month reconciliation, no Traveler wallet billing');
