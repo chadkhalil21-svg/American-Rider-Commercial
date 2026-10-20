@@ -43,7 +43,7 @@ function run() {
     ['Standard'],'no approved reviewer means no certification');
   assert.deepEqual(verifiedOperatorClasses({vehicleClassApproval:{...good,validUntil:now-1}},op,now),
     ['Standard'],'expired reviewed class cannot qualify');
-  const verified={...op,verifiedVehicleClasses:verifiedOperatorClasses({vehicleClassApproval:good},op)};
+  const verified={...op,verifiedVehicleClasses:verifiedOperatorClasses({vehicleClassApproval:good},op,now)};
   assert.ok(matchOperator([verified],pickup,'Large Vehicle',{now}));
   assert.ok(matchOperator([verified],pickup,'Pet Friendly',{now}));
   assert.equal(matchOperator([verified],pickup,'Premium',{now}),null);
