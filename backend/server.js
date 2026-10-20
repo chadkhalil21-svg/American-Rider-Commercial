@@ -980,6 +980,10 @@ app.post('/connect/onboard', requireAuth, LIMITS.connect, requireActiveOperating
       return res.status(409).json({code:'payout_fee_consent_required',
         error:'Review and agree to the separately billed Connect account and payout charges before opening the payout account.'});
     }
+    if (!require('./operator-fee-billing-guard').operatorBillingReady(operator)) {
+      return res.status(409).json({code:'operator_billing_authorization_required',
+        error:'Authorize a separate Operator card for Connect costs before opening the payout account.'});
+    }
     const existing = operator?.stripeAccountId || null;
     const account = await connectAccountFor({
       uid: req.uid,
