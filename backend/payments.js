@@ -1188,6 +1188,21 @@ async function confirmOperatorFeeBilling({uid,customerId,setupIntentId}) {
     operatorOnly:true,feeConsentVersion:FEE_CONSENT_VERSION,authorizedAt:Date.now()};
 }
 
+/** The billing card's issuing country, never the Operator's possible Traveler wallet. */
+async function operatorFeeCardCountry({uid}) {
+  const {adminDb}=require('./firebase-admin');
+  const {operatorBillingReady}=require('./operator-fee-billing-guard');
+  const db=adminDb();
+  if(!db)return null;
+  const snap=await db.collection('users').doc(String(uid)).get();
+  const op=snap.exists?snap.data():null;
+  if(!operatorBillingReady(op))return null;
+  const method=await getStripe().paymentMethods.retrieve(op.stripeOperatorFeeBilling.paymentMethodId);
+  if(method.customer!==op.stripeOperatorFeeBilling.customerId || method.type!=='card')
+    return null;
+  return method.card?.country||null;
+}
+
 /** Charge the separate monthly Operator active-account cost off-session.
  * The amount is already grossed up by operatorfees.js so the $2 Stripe Connect cost and only
  * its collection cost are recovered. This never touches the Operator's 99% Travel Fare. */
@@ -1250,7 +1265,7 @@ module.exports = {
   customerForTraveler, connectAccountFor, connectOnboardingLink, connectAccountStatus,
   transferToOperator, paidWithFromIntent, refundableFor, connectDashboardLink, pingStripe, probeNetwork,
   transferFixed, chargeScheduledTravel, createScreeningIntent, chargeOperatorAccountFee,
-  startOperatorFeeBilling, confirmOperatorFeeBilling,
+  startOperatorFeeBilling, confirmOperatorFeeBilling, operatorFeeCardCountry,
   describePaymentMethod, listPaymentMethods, createSetupIntent, setDefaultPaymentMethod, detachPaymentMethod,
   // Exported under an underscored name for idempotency.test.js only. It is an internal detail
   // of how a charge is keyed, not part of the module's interface.
