@@ -41,6 +41,7 @@ const quoteViewStore=require('./quote-view-store');
 const {distanceBand:quoteDistanceBand}=require('./market-reference-service');
 const { forMarket: insuranceForMarket, publicConfig: publicInsuranceConfig } = require('./insurance-jurisdictions');
 const { setGeographicFleetOnline, setFleetOnlineIfOpen } = require('./market-fleet');
+const { verifiedOperatorClasses } = require('./vehicle-class-verification');
 const { geographyMarketPage } = require('./market-readiness-ui');
 const { proposeMarket } = require('./market-expansion');
 const { disputePage } = require('./disputeevidence-ui');
@@ -1281,7 +1282,14 @@ app.post('/operator/online', requireAuth, requireFreshAuth, requireOperationalRe
     }
     if (b.car !== undefined) identity.car = String(b.car).slice(0, 60);
     if (b.plate !== undefined) identity.plate = String(b.plate).slice(0, 16);
-    if (Array.isArray(b.classes) && b.classes.length) identity.classes = b.classes.slice(0, 6);
+    // Never accept self-declared special classes from the Operator's phone.
+    // Re-evaluate server-reviewed, vehicle-specific approval at each duty update.
+    const verifiedClasses = verifiedOperatorClasses(rec, {
+      car: identity.car ?? fleetNow?.car ?? '',
+      plate: identity.plate ?? fleetNow?.plate ?? '',
+    });
+    identity.classes = verifiedClasses;
+    identity.verifiedVehicleClasses = verifiedClasses;
 
     const fleetUpdate = {
         uid: String(req.uid),
