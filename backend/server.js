@@ -28,7 +28,7 @@ const {
   transferToOperator, refundableFor, connectDashboardLink, pingStripe, probeNetwork,
   transferFixed, operatorPayoutAccount,
   listPaymentMethods, createSetupIntent, setDefaultPaymentMethod, detachPaymentMethod,
-  defaultCardCountry, chargeOperatorAccountFee,
+  defaultCardCountry, chargeOperatorAccountFee, startOperatorFeeBilling, confirmOperatorFeeBilling,
 } = require('./payments');
 const { readKey } = require('./env');
 const { requireAuth, requireFreshAuth, attachAuth, requireVerifiedEmail } = require('./auth');
@@ -1025,6 +1025,44 @@ app.post('/connect/fee-consent', requireAuth, LIMITS.connect, async (req,res)=>{
   }catch(e){return res.status(503).json({code:'fee_consent_save_failed'});}
 });
 
+// A separate Operator-only off-session card, expressly authorized for actual Connect costs.
+// No fee collection may use the Traveler wallet or an unverified consent checkbox.
+app.post('/connect/fees/setup', requireAuth, LIMITS.connect, async(req,res)=>{
+  if(keyMode==='no-key')return res.status(503).json({code:'stripe_unavailable'});
+  const db=adminDb();
+  if(!db)return res.status(503).json({code:'no_admin_db'});
+  try{
+    const operator=await operatorRecord(req.uid);
+    if(!require('./connect-fee-consent').currentConnectFeeConsent(operator?.stripeFeeConsent))
+      return res.status(409).json({code:'payout_fee_consent_required'});
+    const setup=await startOperatorFeeBilling({uid:req.uid,email:req.email,
+      existingCustomerId:operator?.stripeOperatorFeeCustomerId||null});
+    await db.collection('users').doc(String(req.uid)).set(
+      {stripeOperatorFeeCustomerId:setup.customerId},{merge:true});
+    return res.json(setup);
+  }catch(e){return res.status(503).json({code:'operator_fee_setup_failed',
+    error:'Cannot prepare Operator-only fee authorization'});}
+});
+app.post('/connect/fees/confirm', requireAuth, LIMITS.connect, async(req,res)=>{
+  const db=adminDb();
+  if(!db)return res.status(503).json({code:'no_admin_db'});
+  try {
+    const op=await operatorRecord(req.uid);
+    if(!require('./connect-fee-consent').currentConnectFeeConsent(op?.stripeFeeConsent))
+      return res.status(409).json({code:'payout_fee_consent_required'});
+    const setupIntentId=String(req.body?.setupIntentId||'');
+    if(!/^seti_[A-Za-z0-9]+$/.test(setupIntentId)||
+       !/^cus_[A-Za-z0-9]+$/.test(op?.stripeOperatorFeeCustomerId||''))
+      return res.status(400).json({code:'invalid_operator_setup'});
+    const verified=await confirmOperatorFeeBilling({uid:req.uid,
+      customerId:op.stripeOperatorFeeCustomerId,setupIntentId});
+    await db.collection('users').doc(String(req.uid)).set(
+      {stripeOperatorFeeBilling:verified},{merge:true});
+    return res.json({ok:true,feeBillingReady:true});
+  }catch(e){return res.status(409).json({code:'operator_card_not_verified',
+    error:'Complete Operator fee card authorization in Stripe first'});}
+});
+
 // GET /connect/status — can this operator actually be paid?
 app.get('/connect/status', requireAuth, async (req, res) => {
   if (keyMode === 'no-key') return res.json({ exists: false, payoutsEnabled: false, due: [] });
@@ -1035,7 +1073,8 @@ app.get('/connect/status', requireAuth, async (req, res) => {
     const accountId = operator?.stripeAccountId || null;
     const status=await connectAccountStatus(accountId);
     const consent=operator?.stripeFeeConsent;
-    res.json({...status,feeConsentAccepted:require('./connect-fee-consent').currentConnectFeeConsent(consent)});
+    res.json({...status,feeConsentAccepted:require('./connect-fee-consent').currentConnectFeeConsent(consent),
+      feeBillingReady:require('./operator-fee-billing-guard').operatorBillingReady(operator)});
   } catch (e) {
     res.status(502).json({ error: e.message });
   }
