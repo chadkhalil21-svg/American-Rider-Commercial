@@ -117,7 +117,7 @@ export type Unavailable = {
 export const isUnavailable = (q: Quote | Unavailable | null): q is Unavailable =>
   !!q && 'unavailable' in q;
 
-export async function fetchQuote(args: {
+async function fetchQuoteUnshared(args: {
   pickup?: Coords | null;
   dest?: Coords | null;
   destination?: string | null;
@@ -213,6 +213,45 @@ export async function fetchQuote(args: {
     args.onFailure?.('network_unavailable');
     return null; // offline or unreachable server; never fabricate a price
   }
+}
+
+// One request per identical in-flight (user, route, class, journey). The Home
+// context and Travel Confirmation can otherwise send the same quote twice on a
+// pickup/class change, then race two independent routing/market-reference results.
+// Do NOT cache after completion: freshness, toll and card-country may change.
+// Subscribers retain their own typed failure feedback; no Firestore write here.
+type QuoteArgs = Parameters<typeof fetchQuoteUnshared>[0];
+type Flight = { promise: Promise<Quote | Unavailable | null>; listeners: Set<(code: QuoteFailureCode) => void> };
+const pendingQuotes = new Map<string, Flight>();
+export function fetchQuote(args: QuoteArgs): Promise<Quote | Unavailable | null> {
+  const effectiveRoute = args.pickup && args.dest
+    ? { pickup: args.pickup, dest: args.dest }
+    : { destination: args.destination ?? null };
+  const key = JSON.stringify({
+    uid: auth.currentUser?.uid ?? null,
+    route: effectiveRoute,
+    travelClass: args.travelClass ?? null,
+    journeyNo: args.journeyNo ?? null,
+  });
+  const previous = pendingQuotes.get(key);
+  if (previous) {
+    if (args.onFailure) previous.listeners.add(args.onFailure);
+    return previous.promise;
+  }
+  const listeners = new Set<(code: QuoteFailureCode) => void>();
+  if (args.onFailure) listeners.add(args.onFailure);
+  const promise = fetchQuoteUnshared({
+    ...args,
+    onFailure: code => {
+      for (const listener of listeners) {
+        try { listener(code); } catch { /* observer cannot affect authoritative quote */ }
+      }
+    },
+  }).finally(() => {
+    if (pendingQuotes.get(key)?.promise === promise) pendingQuotes.delete(key);
+  });
+  pendingQuotes.set(key, { promise, listeners });
+  return promise;
 }
 
 // The whole journey in one call: where is this place, and what does going there cost?
