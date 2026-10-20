@@ -117,5 +117,42 @@ class TestReadOnlyAudit(unittest.TestCase):
         self.assertTrue(risk)
 
 
+    def test_latest_failed_revision_is_reported_without_logs_or_payload(self):
+        v = service(stripe=True, flag="1", mode="production")
+        v["status"]["latestCreatedRevisionName"] = "american-rider-api-production-00007-test"
+        failed = {"status":{"conditions":[
+            {"type":"Ready","status":"False",
+             "reason":"SecretDenied",
+             "message":"SENSITIVE SECRET VALUE NEVER PRINT THIS"},
+        ]}}
+        with mock.patch.object(audit,"metadata",return_value=failed) as read:
+            rows = audit.summarize_candidate_revision(v)
+        self.assertIn(("Latest candidate readiness",
+                       "NOT READY (inspect this exact revision in Google Cloud Run)"),rows)
+        self.assertNotIn("SENSITIVE",str(rows))
+        self.assertNotIn("SecretDenied",str(rows))
+        read.assert_called_once()
+        self.assertEqual(read.call_args.args[0:4],
+                         ("run","revisions","describe","american-rider-api-production-00007-test"))
+
+    def test_candidate_ready_and_missing_revision_are_distinguished(self):
+        v=service(stripe=True, flag="1", mode="production")
+        v["status"]["latestCreatedRevisionName"]=v["status"]["latestReadyRevisionName"]
+        with mock.patch.object(audit,"metadata",side_effect=AssertionError("no extra cloud call")):
+            rows=audit.summarize_candidate_revision(v)
+        self.assertIn(("Latest candidate readiness",
+                       "READY (matches current ready revision)"),rows)
+        del v["status"]["latestCreatedRevisionName"]
+        self.assertIn("UNKNOWN",str(audit.summarize_candidate_revision(v)))
+
+    def test_unreadable_revision_is_unknown_not_certified(self):
+        v=service(stripe=True, flag="1", mode="production")
+        v["status"]["latestCreatedRevisionName"]="american-rider-api-production-00007-test"
+        with mock.patch.object(audit,"metadata",return_value=None):
+            rows=audit.summarize_candidate_revision(v)
+        self.assertIn(("Latest candidate readiness",
+                       "UNKNOWN (revision metadata unreadable)"),rows)
+
+
 if __name__ == "__main__":
     unittest.main()
