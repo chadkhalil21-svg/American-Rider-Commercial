@@ -125,6 +125,10 @@ function matchOperator(operators, pickup, travelClass = 'Standard', { requireScr
     if (o.currentRideId && !(allowQueued && o.queueEligible === true && !o.nextRideId)) continue;
     if (presenceStale(o, now) || o.screeningBlocked) continue;
     if (requireScreening && !o.screeningCheckedAt) continue;
+    // A historical connected payout account without current fee agreement
+    // must not consume new live paid offers. Past earnings remain accessible.
+    if (requireScreening && o.stripeAccountId &&
+        o.feeConsentVersion !== require('./connect-fee-consent').FEE_CONSENT_VERSION) continue;
     if (coverageLapsed(o, now) || coverageUnsafeForNewTravel(o.insuranceExpiry, now, travelMinutes)) continue;
     if (disclosureStale(o)) continue;
     if (o.commissioned !== true || o.documentBlocked) continue;
