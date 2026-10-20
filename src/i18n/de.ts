@@ -144,7 +144,7 @@ export default {
     econDisclaimer: "Diese Beispiele garantieren weder Travels noch Einkommen. Der Gesamtpreis für Traveler wird vor jeder Travel angezeigt.",
     econProjectionNote: "Die Schätzung wendet den 1-%-Anteil auf die Wochensumme an. Die tatsächliche Provision wird je Travel auf volle Cent abgerundet; deshalb kann der einbehaltene Betrag geringfügig abweichen. Monats- und Jahreswerte setzen 52 gleiche Wochen voraus. Ausgaben werden nicht abgezogen.",
     econCostsHeading: "Kontogebühren und Ausgaben",
-    econAccountCostNote: "Im Monat mit Bankauszahlung können Connect-, Standard-, Sofortauszahlungs- und Geldweiterleitungsgebühren anfallen. Eine zweite Zahlungskarte ist nicht nötig. Fahrzeug und Versicherung bezahlen Sie selbst.",
+    econAccountCostNote: "In einem Monat mit Bankauszahlung können gemäß Stripe-Preismodell 2 $ Kontogebühr sowie tatsächliche Gebühren für Standard-/Sofortauszahlungen und Geldweiterleitung anfallen. Keine zusätzliche Karte nötig. Versicherung, Kraftstoff und Fahrzeugkosten tragen Sie selbst.",
     econShowAccountTerms: "Aktuelle Kontobedingungen anzeigen",
     econHideAccountTerms: "Kontobedingungen ausblenden",
     econReviewRequirements: 'Qualifikationsanforderungen ansehen',
