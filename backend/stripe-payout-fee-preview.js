@@ -30,10 +30,15 @@ function previewPayoutFees(payouts,{fees=DEFAULTS,pricing='platform_handles'}={}
     if(!['standard','instant'].includes(payout.method))throw Error('unknown payout method');
     const fingerprint=[payout.amountCents,payout.currency,payout.method,payout.createdAt].join(':');
     if(seen.has(payout.id)){
-      if(seen.get(payout.id)!==fingerprint)throw Error('conflicting duplicate payout');
+      const prev=seen.get(payout.id);
+      // A provider payout changing from paid to failed (or vice versa) must
+      // be reconciled against the latest Stripe object, NOT billed from a
+      // possibly stale webhook event. This is a preview, never a money debit.
+      if(prev.fingerprint!==fingerprint || prev.status!==payout.status)
+        throw Error('payout changed; provider reconciliation required');
       continue;
     }
-    seen.set(payout.id,fingerprint);
+    seen.set(payout.id,{fingerprint,status:payout.status});
     if(payout.status!=='paid')continue;
     const month=monthOf(payout.createdAt);
     const m=months.get(month)||{month,payouts:0,amountCents:0,
