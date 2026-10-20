@@ -11,8 +11,7 @@ const { notify } = require('./push');
 const { postPlatformMessage } = require('./platforminbox');
 
 
-const ACCOUNT_COST_CENTS = 200;
-const FEE_CONSENT_VERSION = 'connect-fees-2026-10';
+const { ACCOUNT_COST_CENTS, FEE_CONSENT_VERSION, currentConnectFeeConsent } = require('./connect-fee-consent');
 const DOMESTIC_CARD_PCT = 0.029;
 const INTERNATIONAL_CARD_PCT = 0.044;
 const CARD_FIXED_CENTS = 30;
@@ -120,8 +119,7 @@ async function sweepOperatorAccountFees({ charge, cardCountryFor = async () => n
     // Consent must predate that month's actual payout. Never back-bill a consent.
     const user = await db.collection('users').doc(d.id).get();
     const consent = user.exists ? user.data()?.stripeFeeConsent : null;
-    if (consent?.version !== FEE_CONSENT_VERSION ||
-        !Number.isSafeInteger(consent.acceptedAt) ||
+    if (!currentConnectFeeConsent(consent, now) ||
         !Number.isSafeInteger(rec.firstPayoutAt) ||
         consent.acceptedAt > rec.firstPayoutAt) {
       if (rec.feeStatus !== 'consent_required')
