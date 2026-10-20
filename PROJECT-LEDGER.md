@@ -1,5 +1,16 @@
 # AMERICAN RIDER — CANONICAL PROJECT LEDGER
 
+## Payments toward store release | $2 Connect consent reconciled with current branch | 2026-10-19
+
+**Implement now without reopening policy:** Source PR based on latest `release/current` separately carries the exact tested Connect $2 monthly payout-active charge, **no 20-Travel waiver**, versioned server-stamped Operator consent before any new payout account, and no back-billing payouts recorded before consent. Payout collection stays separate from the contractual **99% of the Travel Fare**. Five native languages and payout screen disclose additional standard/instant costs. The actual standard/instant provider pass-through is **still awaiting Stripe account-plan verification and its own charged/waived-path tests**; do not claim all payout fees are recovered. The UI does not automatically enable funds or complete Stripe onboarding.
+
+**Payment hold plan** remains source-only in unmerged PR #143. No live changes to Stripe capture or scheduled authorization were made by the separate Connect consent correction. PR #151 is independently merged with a new computed GPS progress engine, kept OFF by default; the Boolean pickup progress proposal in old PR #143 must NOT override it. A future payment lifecycle change requires full authorized/deferred capture, recovery, refunds and dispatch tests before approval. *Do not merge old PR #143 or PR #144 over the newer ledger unreviewed.*
+
+**Release gate:** CI must pass on the exact new branch, source SHA must be deployed and measured in Cloud Run, and latest signed TestFlight and Android binaries must be built/tested before claiming public booking readiness. Existing repository workflows `submit-certified-ios-testflight.yml` and `build-certified-android-play.yml` accept exact current `release/current` SHA. Never expose Stripe/AWS/Apple secrets in code.
+
+---
+
+
 ## Verified en-route cancellation progress, no new recurring GPS database traffic | 2026-10-19
 
 **FOUNDER RULE (already decided):** Two-minute free cancellation period after acceptance, then a disclosed $3 only when a responsible Traveler cancels after verified Operator progress or server-recorded arrival. Reuse existing geolocation evidence and avoid paid HERE routing/database polling. **New focused source PR** adds a conservative first-principles geometry proof in `backend/pickup-progress-fee.js`: reuse Operator snapshot ALREADY retrieved by `acceptOffer` in the same Travel update to establish baseline, and Operator snapshot ALREADY read in `cancelTravel` to release their slot. Requires two fresh, distinct timestamps, at least 0.20 mile and 15% pickup-distance closure, directional efficiency >=55%, plausible speed <=75mph, correct active Travel, and no operator fault or excessive lateness. Under missing evidence the fee is $0, rather than inventing progress. This is a **directional GPS proxy**, not a real road-route efficiency engine or absolute spoof-proof truth. No new external routing provider, GPS-history collection, reads, per-90s writes or subscription. Test thresholds are provisional policy parameters for counsel/field review, not observed competitor algorithms.
