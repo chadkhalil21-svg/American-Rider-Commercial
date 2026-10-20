@@ -974,7 +974,6 @@ app.post('/connect/onboard', requireAuth, LIMITS.connect, requireActiveOperating
   }
   try {
     // Require Operator consent before creating a new Stripe payout account.
-    const consentVersion = require('./operatorfees').FEE_CONSENT_VERSION;
     const operator = await operatorRecord(req.uid);
     if (!require('./connect-fee-consent').currentConnectFeeConsent(operator?.stripeFeeConsent)) {
       return res.status(409).json({code:'payout_fee_consent_required',
