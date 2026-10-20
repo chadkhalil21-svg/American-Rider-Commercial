@@ -976,7 +976,7 @@ app.post('/connect/onboard', requireAuth, LIMITS.connect, requireActiveOperating
     // Require Operator consent before creating a new Stripe payout account.
     const consentVersion = require('./operatorfees').FEE_CONSENT_VERSION;
     const operator = await operatorRecord(req.uid);
-    if (operator?.stripeFeeConsent?.version !== consentVersion) {
+    if (!require('./connect-fee-consent').currentConnectFeeConsent(operator?.stripeFeeConsent)) {
       return res.status(409).json({code:'payout_fee_consent_required',
         error:'Review and agree to the separately billed Connect account and payout charges before opening the payout account.'});
     }
@@ -1015,7 +1015,7 @@ app.post('/connect/fee-consent', requireAuth, LIMITS.connect, async (req,res)=>{
     const result=await db.runTransaction(async tx=>{
       const snap=await tx.get(ref);
       const existing=snap.exists?snap.data()?.stripeFeeConsent:null;
-      if(existing?.version===version)return existing;
+      if(require('./connect-fee-consent').currentConnectFeeConsent(existing))return existing;
       const consent={version,acceptedAt:Date.now(),
         accountMonthlyUsd:2,approvedSeparatelyBilledFees:true};
       tx.set(ref,{stripeFeeConsent:consent},{merge:true});
@@ -1035,7 +1035,7 @@ app.get('/connect/status', requireAuth, async (req, res) => {
     const accountId = operator?.stripeAccountId || null;
     const status=await connectAccountStatus(accountId);
     const consent=operator?.stripeFeeConsent;
-    res.json({...status,feeConsentAccepted:consent?.version===require('./operatorfees').FEE_CONSENT_VERSION});
+    res.json({...status,feeConsentAccepted:require('./connect-fee-consent').currentConnectFeeConsent(consent)});
   } catch (e) {
     res.status(502).json({ error: e.message });
   }
