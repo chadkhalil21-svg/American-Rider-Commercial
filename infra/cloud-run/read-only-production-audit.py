@@ -79,8 +79,9 @@ def public_live_readonly():
                 body = json.loads(rsp.read(16384))
             except (ValueError, UnicodeError, TypeError):
                 return "HTTP 200 but health response invalid"
-            return "HTTP 200 healthy" if isinstance(body, dict) and body.get("ok") is True \\
-                else "HTTP 200 but live readiness not confirmed"
+            if isinstance(body, dict) and body.get("ok") is True:
+                return "HTTP 200 healthy"
+            return "HTTP 200 but live readiness not confirmed"
     except urllib.error.HTTPError as exc:
         return f"HTTP {exc.code} (public request denied or failed)"
     except (OSError, TimeoutError, ValueError):
@@ -255,8 +256,10 @@ def audit():
     results.append(("Private Google API /live", verify_http_through_proxy()))
     # An open IAM gate is not proof that the Internet or our mobile build can
     # reach the service. Probe public /live separately on activated services.
-    public_health = public_live_readonly() if exposed is True and summary["cutover"] == "1" \\
-        else "not probed (public access not established)"
+    if exposed is True and summary["cutover"] == "1":
+        public_health = public_live_readonly()
+    else:
+        public_health = "not probed (public access not established)"
     results.append(("Public Google API /live", public_health))
     # Preparation vs commercial launch are deliberately separate. We NEVER infer
     # working payment capture or an approved Operator from an env-variable name.
