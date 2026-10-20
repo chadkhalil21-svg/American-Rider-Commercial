@@ -69,7 +69,7 @@ export async function authorizeOperatorConnectFees(): Promise<{ok:boolean; cance
     });
     const setup=await res.json().catch(()=>({}));
     if(!res.ok || !setup?.clientSecret || !setup?.setupIntentId)
-      return {ok:false,error:setup?.error||'Operator billing authorization is unavailable'};
+      return {ok:false,error:setup?.error||t('operator.feeBillingRequired')};
     const init=await initPaymentSheet({
       merchantDisplayName:'American Rider',
       setupIntentClientSecret:setup.clientSecret,
@@ -86,9 +86,9 @@ export async function authorizeOperatorConnectFees(): Promise<{ok:boolean; cance
     });
     const r=await confirm.json().catch(()=>({}));
     return r.ok===true && confirm.ok ? {ok:true}:
-      {ok:false,error:r.error||'Card was not verified for Operator fees'};
+      {ok:false,error:r.error||t('operator.feeBillingRequired')};
   }catch{
-    return {ok:false,error:'Cannot connect to Stripe to authorize Operator fees'};
+    return {ok:false,error:t('operator.feeBillingRequired')};
   }
 }
 
