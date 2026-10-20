@@ -34,7 +34,11 @@ assert.ok(feeFn.includes("operator_fee_earnings_recovery_pending"));
 assert.ok(!feeFn.includes('stripe.paymentIntents.create'),'Never bill Operator from Traveler Wallet');
 assert.ok(!feeFn.includes('savedPaymentMethodFor'),'Never use Traveler saved card');
 const server=fs.readFileSync(require('node:path').join(__dirname,'server.js'),'utf8');
-assert.ok(server.includes("operatorFees: () => maintenanceSweep('operatorFees', () => listDueFeeObligations({db:adminDb()}))"));
+assert.ok(server.includes("process.env.OPERATOR_CONNECT_FEE_REVIEW_ENABLED === 'true'"),
+  'Firestore fee review must be off by default until provider pricing and index are verified');
+assert.ok(server.includes("maintenanceSweep('operatorFees', () => listDueFeeObligations({db:adminDb()}))"),
+  'only explicitly commissioned bounded read-only due queue may run');
+assert.ok(server.includes("fee_recovery_uncommissioned"), 'safe default does zero Firestore fee reads');
 assert.ok(!server.includes("sweepOperatorAccountFees({"), 'no full previous-month account collection scan');
 assert.ok(server.includes("sweepProviderEvents"),'Maintain payout provider event recovery');
 const operatorScreen=fs.readFileSync(require('node:path').join(__dirname,'../app/operator/payouts.tsx'),'utf8');
