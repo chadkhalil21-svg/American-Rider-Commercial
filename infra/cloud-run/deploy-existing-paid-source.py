@@ -78,6 +78,36 @@ def assert_live(service,scheduler):
         raise Stop("Production Scheduler is not on the authorized one-minute cadence.")
     return e
 
+def revision_env(revision):
+    """Revision-level immutable configuration, not mutable service template."""
+    c=(revision.get("spec",{}).get("containers") or [{}])[0]
+    return {x.get("name"):x for x in c.get("env",[])}
+
+def require_candidate_ready(revision, name, sha, previous_env):
+    """Cloud Run --no-traffic can RETIRE an otherwise READY revision.
+    Check the exact created revision rather than a service traffic pointer.
+    Public money health still MUST pass after explicit traffic promotion,
+    or the immediately previous traffic revision is restored.
+    """
+    if revision.get("metadata",{}).get("name")!=name:
+        raise Stop("Google returned the wrong Cloud Run candidate revision.")
+    if revision.get("metadata",{}).get("generation") and revision.get("status",{}).get("observedGeneration"):
+        if revision["metadata"]["generation"]!=revision["status"]["observedGeneration"]:
+            raise Stop("Cloud Run revision controller has not reconciled candidate generation.")
+    conditions=revision.get("status",{}).get("conditions") or []
+    ready=any(c.get("type")=="Ready" and str(c.get("status","")).lower()=="true" for c in conditions)
+    if not ready:
+        raise Stop("Newly created revision is NOT Ready; old traffic remains unchanged.")
+    now=revision_env(revision)
+    if now.get("AR_RELEASE_COMMIT",{}).get("value")!=sha:
+        raise Stop("New revision source SHA differs from approved release.")
+    for key,value in previous_env.items():
+        if key=="AR_RELEASE_COMMIT":
+            continue
+        if now.get(key)!=value:
+            raise Stop("New revision changed existing provider or runtime configuration; old traffic untouched.")
+    return True
+
 def public_readiness(sha=None):
     def read(route):
         try:
@@ -129,10 +159,19 @@ def main():
         raise Stop("New revision changed critical configuration; old traffic untouched.")
     if require_single_traffic(after)!=old_revision:
         raise Stop("Unexpected customer traffic shift during no-traffic deploy.")
-    new_revision=after.get("status",{}).get("latestReadyRevisionName")
-    if not new_revision or new_revision==old_revision:
-        raise Stop("New code revision not reported READY; old traffic untouched.")
-    print("New revision READY with original Stripe secret and provider bindings:",new_revision)
+    # With --no-traffic Google can mark a successfully built revision
+    # Ready=True, Active=False(Retired); latestReadyRevisionName may still
+    # refer to the old revision serving 100% of real customer traffic.
+    # The read-only Oct 19 audit established precisely that live state.
+    new_revision=after.get("status",{}).get("latestCreatedRevisionName")
+    if not isinstance(new_revision,str) or not re.fullmatch(
+            re.escape(SERVICE)+r"-[0-9]{5}-[a-z0-9]+",new_revision) or new_revision==old_revision:
+        raise Stop("New version was not identified as a distinct Google Cloud Run revision.")
+    candidate=meta("run","revisions","describe",new_revision,
+                   f"--project={PROJECT}",f"--region={REGION}")
+    require_candidate_ready(candidate,new_revision,sha,old_env)
+    print("New immutable revision reports Ready=True with original live Stripe/provider bindings:",new_revision)
+    print("Promoting controlled new revision only; public live-money health and exact SHA must pass or rollback.")
     try:
         cmd("run","services","update-traffic",SERVICE,f"--project={PROJECT}",
             f"--region={REGION}",f"--to-revisions={new_revision}=100",timeout=360)
