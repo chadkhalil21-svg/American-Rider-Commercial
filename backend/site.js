@@ -183,7 +183,20 @@ const SUPPORT_HTML = page(
   'Support',
   `
 <h1>Support</h1>
-<p class="lede">Reaching a person about a travel.</p>
+<p class="lede">Considered assistance for Travelers and Operators.</p>
+<section aria-label="Contact American Rider">
+  <h2>Contact</h2>
+  <p>For Travel, payment, account, qualification or general questions, write to
+  <a href="mailto:support@americanrider.app">support@americanrider.app</a>.</p>
+  <p>For Operator and business relationships, write to
+  <a href="mailto:relations@americanrider.app">relations@americanrider.app</a>.</p>
+  <p>For insurance coordination, use
+  <a href="mailto:insurance@americanrider.app">insurance@americanrider.app</a>.
+  Do not email identification documents, background reports, bank credentials or other sensitive records.
+  Use the secure process within the app or the authenticated channel requested by our team.</p>
+  <p>For an existing Travel, include your Travel number when available. Safety emergencies
+  require local emergency services, not email.</p>
+</section>
 
 <section>
   <h2>Emergencies</h2>
