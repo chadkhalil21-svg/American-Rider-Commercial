@@ -47,11 +47,26 @@ assert.match(english,/payoutTruthInstant:\s*["']Instant payout:/);
 assert.ok(!english.includes('weekly payday selection'));
 for(const language of ['en','es','fr','it','de']) {
   const translations=fs.readFileSync(require('node:path').join(__dirname,'../src/i18n/'+language+'.ts'),'utf8');
-  for(const key of ['payoutTruthBank','payoutTruthInstant','activeAccountCostBody','nothingDeducted','econAccountCostNote']) {
+  for(const key of ['payoutTruthBank','payoutTruthInstant','viewStripePayouts','activeAccountCostBody','nothingDeducted','econAccountCostNote']) {
     assert.ok(translations.includes(key+':'), language+' missing '+key);
   }
 }
 assert.ok(english.includes('Your gross share is 99%'), 'show gross vs net Operator earnings');
 assert.ok(english.includes('no second') || english.includes('No second'), 'no added fee-card gate');
 assert.ok(!operatorScreen.includes('payouts.create('), 'bank payout timing remains Stripe-owned');
+assert.ok(operatorScreen.includes("onPress={showStripeDashboard}"),
+  'payable Operator has a direct route to actual Stripe payout options');
+assert.ok(operatorScreen.includes("await Linking.openURL(result.url)"),
+  'Operator payout link opens returned provider URL');
+assert.ok(english.includes('already included in a Standard bank payout'),
+  'do not suggest in-transit Standard funds can be withdrawn twice');
+const payoutRoute=server.split("app.post('/connect/dashboard'")[1]?.split("app.get('/connect/done'")[0];
+assert.ok(payoutRoute && payoutRoute.includes('res.json({ url });'),
+  'Express payout dashboard must return the URL string, not undefined link.url');
+assert.ok(!payoutRoute.includes('res.json({ url: link.url })'),
+  'prevent recurrence of Stripe dashboard link shape bug');
+const payoutProvider=paymentSource.split('async function connectDashboardLink(')[1]?.split('// ---- PAYING THE OPERATOR')[0];
+assert.ok(payoutProvider && payoutProvider.includes('return link.url;'),
+  'Stripe provider function returns URL string, not login link object');
+
 console.log('PASS: 0 payout, standard vs instant, exact once-month fee, duplicate events, authorized-net preview and no card debits');
