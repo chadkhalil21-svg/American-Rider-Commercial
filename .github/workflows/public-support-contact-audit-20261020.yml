@@ -1,0 +1,36 @@
+name: One-time independent public support page verification
+on:
+  push:
+    branches: [audit/public-support-contact-20261020]
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Verify public URL content and bypass caches
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import urllib.request,urllib.error
+          urls=[
+            'https://americanrider.app/support',
+            'https://www.americanrider.app/support',
+            'https://american-rider-api-production-623854974930.us-east1.run.app/support'
+          ]
+          for url in urls:
+            try:
+              req=urllib.request.Request(url,headers={'User-Agent':'AmericanRiderSupportReadOnly/1.0','Cache-Control':'no-cache'})
+              with urllib.request.urlopen(req,timeout=12) as resp:
+                html=resp.read(140000).decode('utf-8','replace')
+                print('PUBLIC_SUPPORT_CHECK',url,'HTTP',resp.status,'final',resp.url,
+                  'support=', 'support@americanrider.app' in html,
+                  'relations=', 'relations@americanrider.app' in html,
+                  'insurance=', 'insurance@americanrider.app' in html,
+                  'cf-cache-status=',resp.headers.get('cf-cache-status','not set'))
+            except urllib.error.HTTPError as exc:
+              print('PUBLIC_SUPPORT_CHECK',url,'HTTP',exc.code)
+            except Exception as exc:
+              print('PUBLIC_SUPPORT_CHECK',url,'ERROR',type(exc).__name__,str(exc)[:120])
+          PY
