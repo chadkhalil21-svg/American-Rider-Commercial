@@ -1,6 +1,7 @@
 import importlib.util
 import pathlib
 import unittest
+from unittest import mock
 
 FILE=pathlib.Path(__file__).with_name("deploy-existing-paid-source.py")
 spec=importlib.util.spec_from_file_location("ar_paid_source",FILE)
@@ -59,6 +60,50 @@ class PaidSourceTest(unittest.TestCase):
             j=job()
             change(j)
             with self.assertRaises(m.Stop):m.assert_live(svc(),j)
+
+    def test_independently_ready_no_traffic_candidate_not_service_pointer(self):
+        x=svc()
+        x["status"]["latestCreatedRevisionName"]="american-rider-api-production-00007-test"
+        x["status"]["latestReadyRevisionName"]="prod-old"
+        new={"metadata":{"name":"american-rider-api-production-00007-test"},
+             "status":{"conditions":[{"type":"Ready","status":"True","reason":"Retired"}]}}
+        with mock.patch.object(m,"meta",side_effect=[x,new]) as called:
+            candidate,current=m.wait_for_created_ready_revision("prod-old", attempts=1)
+        self.assertEqual(candidate,"american-rider-api-production-00007-test")
+        self.assertEqual(current["status"]["traffic"][0]["percent"],100)
+        self.assertEqual(called.call_count,2)
+
+    def test_never_promote_revision_with_failed_or_missing_ready_condition(self):
+        for condition in ({"type":"Ready","status":"False"},
+                          {"type":"Ready","status":"Unknown"},
+                          {"type":"ResourcesAvailable","status":"True"}):
+            x=svc()
+            x["status"]["latestCreatedRevisionName"]="american-rider-api-production-00007-test"
+            new={"metadata":{"name":"american-rider-api-production-00007-test"},
+                 "status":{"conditions":[condition]}}
+            with mock.patch.object(m,"meta",side_effect=[x,new]):
+                with self.assertRaisesRegex(m.Stop,"NOT READY|Timed out"):
+                    m.wait_for_created_ready_revision("prod-old", attempts=1)
+
+    def test_never_promote_wrong_revision_or_changed_traffic(self):
+        x=svc()
+        x["status"]["latestCreatedRevisionName"]="american-rider-api-production-00007-test"
+        wrong={"metadata":{"name":"american-rider-api-production-OTHER"},
+               "status":{"conditions":[{"type":"Ready","status":"True"}]}}
+        with mock.patch.object(m,"meta",side_effect=[x,wrong]):
+            with self.assertRaisesRegex(m.Stop,"does not match"):
+                m.wait_for_created_ready_revision("prod-old", attempts=1)
+        x["status"]["traffic"]=[{"revisionName":"unexpected","percent":100}]
+        with mock.patch.object(m,"meta",return_value=x):
+            with self.assertRaisesRegex(m.Stop,"Live service traffic changed"):
+                m.wait_for_created_ready_revision("prod-old", attempts=1)
+
+    def test_zero_traffic_deploy_and_rollback_remain_protected(self):
+        text=FILE.read_text()
+        self.assertIn("wait_for_created_ready_revision(old_revision)",text)
+        self.assertIn("public_readiness(sha)",text)
+        self.assertIn('"--to-revisions={new_revision}=100"',text)
+        self.assertIn("ROLLBACK: restored",text)
 
     def test_never_clear_existing_secret_or_flip_payment_mode(self):
         text=FILE.read_text()
