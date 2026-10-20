@@ -1143,38 +1143,103 @@ async function operatorPayoutAccount(db, operatorId) {
   return { accountId: null, reason: 'that operator has no payout account' };
 }
 
+/** Authorize a dedicated fee card, never a Traveler's stored card. */
+async function startOperatorFeeBilling({uid,email,existingCustomerId}) {
+  const stripe=getStripe();
+  let customer;
+  if(existingCustomerId){
+    customer=await stripe.customers.retrieve(existingCustomerId);
+    if(customer.deleted || customer.metadata?.product!=='operator-connect-fees' ||
+       customer.metadata?.uid!==String(uid))throw new Error('Invalid Operator-only billing customer');
+  }else{
+    customer=await stripe.customers.create({
+      email:email||undefined,description:'American Rider — Operator Connect fees only',
+      metadata:{product:'operator-connect-fees',uid:String(uid)}
+    },{idempotencyKey:`operator-fee-customer-${uid}`});
+  }
+  const {FEE_CONSENT_VERSION}=require('./connect-fee-consent');
+  const [key,setup]=await Promise.all([
+    stripe.ephemeralKeys.create({customer:customer.id},{apiVersion:'2024-06-20'}),
+    stripe.setupIntents.create({customer:customer.id,usage:'off_session',
+      payment_method_types:['card'],metadata:{product:'operator-connect-fees',uid:String(uid),
+        feeConsentVersion:FEE_CONSENT_VERSION}})
+  ]);
+  return {customerId:customer.id,clientSecret:setup.client_secret,
+    setupIntentId:setup.id,ephemeralKeySecret:key.secret};
+}
+/** Stripe, not the phone, proves this account's consented SetupIntent succeeded. */
+async function confirmOperatorFeeBilling({uid,customerId,setupIntentId}) {
+  const stripe=getStripe();
+  const [customer,setup]=await Promise.all([
+    stripe.customers.retrieve(customerId),
+    stripe.setupIntents.retrieve(setupIntentId)
+  ]);
+  const {FEE_CONSENT_VERSION}=require('./connect-fee-consent');
+  if(customer.deleted||customer.metadata?.uid!==String(uid)||
+     customer.metadata?.product!=='operator-connect-fees'||
+     setup.status!=='succeeded'||setup.customer!==customerId||
+     setup.metadata?.uid!==String(uid)||
+     setup.metadata?.product!=='operator-connect-fees'||
+     setup.metadata?.feeConsentVersion!==FEE_CONSENT_VERSION||
+     !setup.payment_method)throw new Error('Operator-only card setup not verified');
+  const pm=await stripe.paymentMethods.retrieve(setup.payment_method);
+  if(pm.customer!==customerId||pm.type!=='card')throw new Error('Card is not attached to the Operator billing customer');
+  return {customerId,paymentMethodId:pm.id,setupIntentId:setup.id,
+    operatorOnly:true,feeConsentVersion:FEE_CONSENT_VERSION,authorizedAt:Date.now()};
+}
+
 /** Charge the separate monthly Operator active-account cost off-session.
  * The amount is already grossed up by operatorfees.js so the $2 Stripe Connect cost and only
  * its collection cost are recovered. This never touches the Operator's 99% Travel Fare. */
 async function chargeOperatorAccountFee({ uid, email, month, amountCents }) {
-  const stripe = getStripe();
-  const customer = await customerForTraveler({ uid, email });
-  const pm = await savedPaymentMethodFor(customer);
-  if (!pm) return { ok: false, code: 'no_payment_method', error: 'No saved payment method for the Operator account fee.' };
+  const {adminDb}=require('./firebase-admin');
+  const {operatorBillingReady,monthlyFeeKey}=require('./operator-fee-billing-guard');
+  const db=adminDb();
+  if(!db)return {ok:false,code:'no_operator_database'};
+  const user=await db.collection('users').doc(String(uid)).get();
+  const operator=user.exists ? user.data() : null;
+  if(!operatorBillingReady(operator))return {ok:false,code:'operator_billing_authorization_required',
+    error:'Operator must separately authorize billing for Connect fees'};
+  const amount=Math.trunc(Number(amountCents));
+  if(!Number.isSafeInteger(amount)||amount<200||amount>10000)
+    return {ok:false,code:'unexpected_monthly_fee_amount'};
+  const obligation=monthlyFeeKey(uid,month);
+  const billing=operator.stripeOperatorFeeBilling;
+  const stripe=getStripe();
   try {
-    const pi = await stripe.paymentIntents.create({
-      amount: Math.max(0, Math.trunc(Number(amountCents) || 0)),
-      currency: 'usd',
-      customer: customer.id,
-      payment_method: pm.id,
-      confirm: true,
-      off_session: true,
-      statement_descriptor_suffix: STATEMENT_DESCRIPTOR,
-      receipt_email: email || undefined,
-      description: `American Rider · Operator account cost · ${month}`,
-      metadata: {
-        product: 'American Rider operator account cost',
-        uid: String(uid || ''),
-        month: String(month || ''),
-        passThrough: 'true',
-      },
-    }, { idempotencyKey: `ar_operator_account_${uid}_${month}_${amountCents}` });
-    if (pi.status !== 'succeeded') {
-      return { ok: false, code: pi.status, error: `Payment is ${pi.status}`, paymentIntentId: pi.id };
+    // Fail closed if Stripe cannot verify which Customer and card are authorized.
+    const [customer,pm]=await Promise.all([
+      stripe.customers.retrieve(billing.customerId),
+      stripe.paymentMethods.retrieve(billing.paymentMethodId)
+    ]);
+    if(customer.deleted||customer.metadata?.uid!==String(uid)||
+       customer.metadata?.product!=='operator-connect-fees'||
+       pm.customer!==billing.customerId||pm.type!=='card')
+      return {ok:false,code:'operator_fee_card_unverified'};
+    // Stripe's 24-hour idempotency does not replace reconciling a prior outcome.
+    // An uncertain earlier attempt must not be followed by a second new debit.
+    const prior=await stripe.paymentIntents.search({query:`metadata['operator_fee_obligation']:'${obligation}'`,limit:5});
+    if(prior.data.length){
+      const successful=prior.data.find(p=>p.status==='succeeded');
+      if(successful)return {ok:true,paymentIntentId:successful.id,reconciled:true};
+      return {ok:false,code:'operator_fee_prior_attempt_requires_review',
+        paymentIntentId:prior.data[0].id,error:'Prior fee collection requires reconciliation'};
     }
-    return { ok: true, paymentIntentId: pi.id };
-  } catch (e) {
-    return { ok: false, code: e?.code || 'charge_failed', error: e?.message || String(e) };
+    const pi=await stripe.paymentIntents.create({
+      amount,currency:'usd',customer:billing.customerId,
+      payment_method:billing.paymentMethodId,
+      confirm:true,off_session:true,
+      receipt_email:email||undefined,
+      description:`American Rider Operator account cost ${month}`,
+      metadata:{product:'operator-connect-fees',uid:String(uid),month:String(month),
+        operator_fee_obligation:obligation}
+    },{idempotencyKey:`ar-${obligation}`});
+    return pi.status==='succeeded'?{ok:true,paymentIntentId:pi.id}:
+      {ok:false,code:'operator_fee_requires_action',paymentIntentId:pi.id,
+        error:`Payment is ${pi.status}`};
+  }catch(e){
+    return {ok:false,code:'operator_fee_reconciliation_required',
+      error:String(e?.message||'Cannot verify earlier Stripe collection')};
   }
 }
 
@@ -1185,6 +1250,7 @@ module.exports = {
   customerForTraveler, connectAccountFor, connectOnboardingLink, connectAccountStatus,
   transferToOperator, paidWithFromIntent, refundableFor, connectDashboardLink, pingStripe, probeNetwork,
   transferFixed, chargeScheduledTravel, createScreeningIntent, chargeOperatorAccountFee,
+  startOperatorFeeBilling, confirmOperatorFeeBilling,
   describePaymentMethod, listPaymentMethods, createSetupIntent, setDefaultPaymentMethod, detachPaymentMethod,
   // Exported under an underscored name for idempotency.test.js only. It is an internal detail
   // of how a charge is keyed, not part of the module's interface.
