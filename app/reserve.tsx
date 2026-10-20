@@ -362,7 +362,11 @@ export default function TravelConfirmation() {
       ? ride.quotedTotalCents/100 : null;
   const displayClassPrice = (key: string) => {
     const amount = allIn(key);
-    return amount == null ? '—' : fmt(amount);
+    if (amount != null) return fmt(amount);
+    // Other classes are unquoted, not necessarily unavailable. One quote at a
+    // time avoids multiple routed/paid provider calls for decorative prices.
+    if (key !== ride.travelClass) return t('traveler.select');
+    return (pricing || ride.repricing) ? t('traveler.calculating') : '—';
   };
 
   // `meta` carries the server's measured distance as "18.7 mi" once a quote has landed; a
