@@ -900,8 +900,11 @@ async function transferToOperator({
     operatorStripeAccount, chargeId, amountCents: q.operatorGets,
     platformTake: q.platformTake, paidWith,
     findTransfers: (group) => stripe.transfers.list({ transfer_group: group, limit: 2 }),
-    createTransfer: (group) => stripe.transfers.create({
-      amount: q.operatorGets, currency: 'usd',
+    // The gross 99% entitlement is computed above. Any verified, already
+    // accrued Connect fees are separately reserved by the durable transfer
+    // ledger; this value is its net provider transfer amount.
+    createTransfer: (group, transferAmountCents) => stripe.transfers.create({
+      amount: transferAmountCents, currency: 'usd',
       destination: operatorStripeAccount,
       source_transaction: chargeId,
       transfer_group: group,
