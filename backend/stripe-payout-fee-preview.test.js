@@ -47,7 +47,7 @@ assert.ok(!english.includes('weekly payday selection'));
 for(const language of ['en','es','fr','it','de']) {
   const translations=fs.readFileSync(require('node:path').join(__dirname,'../src/i18n/'+language+'.ts'),'utf8');
   for(const key of ['payoutTruthBank','payoutTruthInstant','activeAccountCostBody','nothingDeducted','econAccountCostNote']) {
-    assert.ok(new RegExp('\\\\b'+key+':').test(translations), language+' missing '+key);
+    assert.ok(translations.includes(key+':'), language+' missing '+key);
   }
 }
 assert.ok(english.includes('Your gross share is 99%'), 'show gross vs net Operator earnings');
