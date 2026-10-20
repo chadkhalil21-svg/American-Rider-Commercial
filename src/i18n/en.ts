@@ -156,7 +156,7 @@ export default {
     econDisclaimer: "These examples do not guarantee Travels or income. Actual Traveler Totals are quoted before each Travel.",
     econProjectionNote: "Estimates apply the 1% share to the weekly total. Actual commission is rounded down for each Travel, so your final retained amount can differ slightly. Monthly and annual figures assume 52 identical weeks. Expenses are not deducted.",
     econCostsHeading: "Account costs and expenses",
-    econAccountCostNote: "In months with a bank payout, the applicable Stripe Connect account, standard or instant payout, and routing fees may apply. There is no additional fee-collection card requirement. Vehicle and insurance expenses remain yours.",
+    econAccountCostNote: "In a month with a bank payout, a $2 active-account cost may apply under the current Stripe pricing model, along with actual standard or Instant and funds-routing fees. No extra billing card is required. Insurance, fuel and vehicle costs remain yours.",
     econShowAccountTerms: "Show current account terms",
     econHideAccountTerms: "Hide account terms",
     econReviewRequirements: 'Review qualification requirements',
