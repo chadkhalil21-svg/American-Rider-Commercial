@@ -1031,7 +1031,7 @@ app.post('/connect/fee-consent', requireAuth, LIMITS.connect, async (req,res)=>{
 
 // A separate Operator-only off-session card, expressly authorized for actual Connect costs.
 // No fee collection may use the Traveler wallet or an unverified consent checkbox.
-app.post('/connect/fees/setup', requireAuth, LIMITS.connect, async(req,res)=>{
+app.post('/connect/fees/setup', requireAuth, LIMITS.connect, requireActiveOperatingMarket, async(req,res)=>{
   if(keyMode==='no-key')return res.status(503).json({code:'stripe_unavailable'});
   const db=adminDb();
   if(!db)return res.status(503).json({code:'no_admin_db'});
@@ -1047,7 +1047,7 @@ app.post('/connect/fees/setup', requireAuth, LIMITS.connect, async(req,res)=>{
   }catch(e){return res.status(503).json({code:'operator_fee_setup_failed',
     error:'Cannot prepare Operator-only fee authorization'});}
 });
-app.post('/connect/fees/confirm', requireAuth, LIMITS.connect, async(req,res)=>{
+app.post('/connect/fees/confirm', requireAuth, LIMITS.connect, requireActiveOperatingMarket, async(req,res)=>{
   const db=adminDb();
   if(!db)return res.status(503).json({code:'no_admin_db'});
   try {
