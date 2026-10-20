@@ -17,7 +17,9 @@ jobs:
           urls=[
             'https://americanrider.app/support',
             'https://www.americanrider.app/support',
-            'https://american-rider-api-production-623854974930.us-east1.run.app/support'
+            'https://american-rider-api-production-623854974930.us-east1.run.app/support',
+            'https://american-rider-server-3d7x.onrender.com/support',
+            'https://american-rider-platform.onrender.com/support'
           ]
           for url in urls:
             try:
@@ -25,6 +27,10 @@ jobs:
               with urllib.request.urlopen(req,timeout=12) as resp:
                 html=resp.read(140000).decode('utf-8','replace')
                 print('PUBLIC_SUPPORT_CHECK',url,'HTTP',resp.status,'final',resp.url,
+                  'server=', resp.headers.get('server',''),
+                  'contenttype=', resp.headers.get('content-type',''),
+                  'looksHtml=', '<html' in html.lower(), 'has_app_wordmark=', 'NATIONAL TRANSPORTATION' in html,
+                  'main_title=', html[html.find('<title>'):html.find('</title>')+8][:130] if '<title>' in html else 'none',
                   'support=', 'support@americanrider.app' in html,
                   'relations=', 'relations@americanrider.app' in html,
                   'insurance=', 'insurance@americanrider.app' in html,
