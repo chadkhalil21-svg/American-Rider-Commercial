@@ -28,7 +28,7 @@ const {
   transferToOperator, refundableFor, connectDashboardLink, pingStripe, probeNetwork,
   transferFixed, operatorPayoutAccount,
   listPaymentMethods, createSetupIntent, setDefaultPaymentMethod, detachPaymentMethod,
-  defaultCardCountry, chargeOperatorAccountFee, startOperatorFeeBilling, confirmOperatorFeeBilling,
+  defaultCardCountry, chargeOperatorAccountFee, startOperatorFeeBilling, confirmOperatorFeeBilling, operatorFeeCardCountry,
 } = require('./payments');
 const { readKey } = require('./env');
 const { requireAuth, requireFreshAuth, attachAuth, requireVerifiedEmail } = require('./auth');
@@ -2158,7 +2158,7 @@ async function runAllSweeps({criticalOnly=false}={}) {
     operatorFees: () => maintenanceSweep('operatorFees', () => sweepOperatorAccountFees({
       charge: ({ uid, email, month, amountCents }) =>
         chargeOperatorAccountFee({ uid, email, month, amountCents }),
-      cardCountryFor: async (uid) => defaultCardCountry({ uid }),
+      cardCountryFor: async (uid) => operatorFeeCardCountry({ uid }),
     })),
     familyAgeOut: () => maintenanceSweep('familyAgeOut', () => family.sweepFamilyAgeOut()),
     insuranceMonitoring: () => maintenanceSweep('insuranceMonitoring', () => sweepInsuranceMonitoring({ db: adminDb(), requestConfirmation: issueInsuranceConfirmationRequest, notify })),
