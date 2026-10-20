@@ -60,6 +60,49 @@ class PaidSourceTest(unittest.TestCase):
             change(j)
             with self.assertRaises(m.Stop):m.assert_live(svc(),j)
 
+    def candidate(self):
+        old=m.env(svc())
+        values=list(old.values())+[{"name":"AR_RELEASE_COMMIT","value":"a"*40}]
+        return {"metadata":{"name":"american-rider-api-production-00007-xd5","generation":2},
+                "status":{"observedGeneration":2,"conditions":[
+                    {"type":"Ready","status":"True","reason":"Retired"},
+                    {"type":"Active","status":"False","reason":"Retired"},
+                    {"type":"ResourcesAvailable","status":"Unknown","reason":"Retired"}
+                ]},
+                "spec":{"containers":[{"env":values}]}}
+
+    def test_ready_true_retired_no_traffic_revision_is_accepted(self):
+        # Authenticated Oct 19 Google audit: Ready=True, Active=False(Retired),
+        # latest created != latest ready, and old revision serving all traffic.
+        candidate=self.candidate()
+        self.assertTrue(m.require_candidate_ready(
+            candidate,"american-rider-api-production-00007-xd5","a"*40,m.env(svc())))
+        self.assertEqual(m.require_single_traffic(svc()),"prod-old")
+
+    def test_unready_new_revision_never_promotes(self):
+        candidate=self.candidate()
+        candidate["status"]["conditions"][0]["status"]="False"
+        with self.assertRaisesRegex(m.Stop,"NOT Ready"):
+            m.require_candidate_ready(candidate,"american-rider-api-production-00007-xd5","a"*40,m.env(svc()))
+
+    def test_source_or_provider_bindings_changed_rejected(self):
+        candidate=self.candidate()
+        with self.assertRaisesRegex(m.Stop,"SHA differs"):
+            m.require_candidate_ready(candidate,"american-rider-api-production-00007-xd5","b"*40,m.env(svc()))
+        candidate=self.candidate()
+        candidate["spec"]["containers"][0]["env"][3]["valueFrom"]["secretKeyRef"]["name"]="WRONG_SECRET"
+        with self.assertRaisesRegex(m.Stop,"provider or runtime"):
+            m.require_candidate_ready(candidate,"american-rider-api-production-00007-xd5","a"*40,m.env(svc()))
+
+    def test_identity_and_generation_consistency_required(self):
+        candidate=self.candidate()
+        with self.assertRaisesRegex(m.Stop,"wrong Cloud Run candidate"):
+            m.require_candidate_ready(candidate,"american-rider-api-production-00008-abc","a"*40,m.env(svc()))
+        candidate=self.candidate()
+        candidate["status"]["observedGeneration"]=1
+        with self.assertRaisesRegex(m.Stop,"not reconciled"):
+            m.require_candidate_ready(candidate,"american-rider-api-production-00007-xd5","a"*40,m.env(svc()))
+
     def test_never_clear_existing_secret_or_flip_payment_mode(self):
         text=FILE.read_text()
         self.assertIn('"--no-traffic"',text)
