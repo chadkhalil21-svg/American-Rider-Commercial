@@ -8,6 +8,7 @@ import json
 import os
 import re
 import subprocess
+import time
 import urllib.request
 
 PROJECT="american-rider-35688"
@@ -100,6 +101,41 @@ def public_readiness(sha=None):
         raise Stop("Public API source SHA does not match approved GitHub release.")
     return True
 
+
+def wait_for_created_ready_revision(previous, attempts=16, delay_seconds=8):
+    """Google may retain the previously routed revision in latestReadyRevisionName.
+
+    A --no-traffic revision is eligible for promotion only when its OWN Cloud Run
+    Revision Ready condition is True. Neither latestCreated alone nor a build exit
+    code is sufficient proof. The old revision must retain 100% of traffic.
+    """
+    for attempt in range(attempts):
+        service = meta("run", "services", "describe", SERVICE,
+                       f"--project={PROJECT}", f"--region={REGION}")
+        if require_single_traffic(service) != previous:
+            raise Stop("Live service traffic changed during candidate startup; refuse promotion.")
+        created = str(service.get("status", {}).get("latestCreatedRevisionName") or "")
+        if created and created != previous:
+            if not re.fullmatch(re.escape(SERVICE)+r"-[a-z0-9-]+", created):
+                raise Stop("Google reported an unexpected revision name; no traffic change.")
+            candidate = meta("run", "revisions", "describe", created,
+                             f"--project={PROJECT}", f"--region={REGION}")
+            if candidate.get("metadata", {}).get("name") != created:
+                raise Stop("Google candidate revision metadata does not match the named revision.")
+            conditions = candidate.get("status", {}).get("conditions", [])
+            ready = next((c for c in conditions if c.get("type") == "Ready"), {})
+            state = str(ready.get("status", "")).lower()
+            if state == "true":
+                print("New Cloud Run revision itself verified READY (zero-traffic):", created)
+                return created, service
+            if state == "false":
+                # Condition messages and logs can contain configuration details. No payloads.
+                raise Stop("New Cloud Run revision reports NOT READY; inspect revision in Google console.")
+        if attempt + 1 < attempts:
+            time.sleep(delay_seconds)
+    raise Stop("Timed out waiting for a new, independently READY no-traffic revision; old traffic untouched.")
+
+
 def main():
     sha=os.environ.get("GITHUB_SHA","")
     if os.environ.get("FOUNDER_CONFIRM")!="DEPLOY_EXISTING_PAID_CODE_ONLY" or not re.fullmatch(r"[0-9a-f]{40}",sha):
@@ -119,7 +155,9 @@ def main():
         "--source=./backend","--no-traffic","--service-account=ar-production-live-runtime@american-rider-35688.iam.gserviceaccount.com",
         "--min-instances=0","--max-instances=2","--cpu=1","--memory=1Gi","--concurrency=20",
         f"--update-env-vars=AR_RELEASE_COMMIT={sha}",timeout=1800)
-    after=meta("run","services","describe",SERVICE,f"--project={PROJECT}",f"--region={REGION}")
+    # Do not compare only status.latestReadyRevisionName. The service's routed
+    # pointer may remain old for a READY candidate created with --no-traffic.
+    new_revision,after=wait_for_created_ready_revision(old_revision)
     assert_live(after,scheduler)
     now_env=env(after)
     if (now_env.get("STRIPE_SECRET_KEY",{}).get("valueFrom",{}).get("secretKeyRef") !=
@@ -129,9 +167,9 @@ def main():
         raise Stop("New revision changed critical configuration; old traffic untouched.")
     if require_single_traffic(after)!=old_revision:
         raise Stop("Unexpected customer traffic shift during no-traffic deploy.")
-    new_revision=after.get("status",{}).get("latestReadyRevisionName")
-    if not new_revision or new_revision==old_revision:
-        raise Stop("New code revision not reported READY; old traffic untouched.")
+    # The candidate's own immutable Revision status, not the service's last READY
+    # traffic pointer, was checked independently above. Rollback remains required
+    # if the post-promotion public money/Firestore health or SHA check fails.
     print("New revision READY with original Stripe secret and provider bindings:",new_revision)
     try:
         cmd("run","services","update-traffic",SERVICE,f"--project={PROJECT}",
