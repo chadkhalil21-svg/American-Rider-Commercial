@@ -1291,6 +1291,11 @@ app.post('/operator/online', requireAuth, requireFreshAuth, requireOperationalRe
         // Do not extend the cached attestation timestamp on GPS-only renewals.
         payoutsEnabled: true,
         stripeAccountId: rec.stripeAccountId || null,
+        // Dispatch must not offer a NEW paid Travel on an unconsented
+        // pre-existing Stripe account. Only server-authored current consent
+        // can stamp the fleet; a phone cannot forge this field.
+        feeConsentVersion: require('./connect-fee-consent').currentConnectFeeConsent(rec.stripeFeeConsent)
+          ? require('./connect-fee-consent').FEE_CONSENT_VERSION : null,
         stripeCheckedAt,
         // Stored on the fleet record so dispatch can drop an operator whose policy runs out
         // during a shift, without waiting for them to go off duty and back on.
