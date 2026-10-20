@@ -771,6 +771,15 @@ async function connectAccountFor({ uid, email, existingAccountId }) {
   });
 }
 
+/**
+ * Apply a founder-approved ordinary payout cadence only when explicitly enabled.
+ * A missing flag leaves Stripe's existing daily schedule untouched.
+ */
+async function configureConnectPayoutSchedule(account) {
+  const {applyAutomaticSchedule}=require('./connect-payout-schedule');
+  return applyAutomaticSchedule({stripe:getStripe(),account});
+}
+
 /** The Stripe-hosted onboarding link the operator completes. Single use, short lived. */
 async function connectOnboardingLink({ accountId, returnUrl, refreshUrl }) {
   return getStripe().accountLinks.create({
@@ -1160,7 +1169,7 @@ module.exports = {
   operatorPayoutAccount,
   quote, commissionCents, platformFeeCents, isDomesticCard, defaultCardCountry, journeyFeeCents, createPaymentIntent, resumePaymentIntent, verifiedTravelPayment, cancelUnpaidIntent, chargeRide, refundTravel,
   MIN_PLATFORM_FEE_CENTS,
-  customerForTraveler, connectAccountFor, connectOnboardingLink, connectAccountStatus,
+  customerForTraveler, connectAccountFor, configureConnectPayoutSchedule, connectOnboardingLink, connectAccountStatus,
   transferToOperator, paidWithFromIntent, refundableFor, connectDashboardLink, pingStripe, probeNetwork,
   transferFixed, chargeScheduledTravel, createScreeningIntent, chargeOperatorAccountFee,
   describePaymentMethod, listPaymentMethods, createSetupIntent, setDefaultPaymentMethod, detachPaymentMethod,
