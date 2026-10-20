@@ -1,5 +1,11 @@
 # AMERICAN RIDER — CANONICAL PROJECT LEDGER
 
+## Existing paid Cloud Run source updater: independently READY no-traffic revision | 2026-10-19
+
+**New authenticated Google diagnosis:** after the founder's failed rollout, `latestCreatedRevisionName=american-rider-api-production-00007-xd5` reports its own `Ready=True`, while the service reports `latestReadyRevisionName=american-rider-api-production-00006-6v7`. Existing 100%-traffic revision stays `00006-6v7`. The deploy script incorrectly equated the service's last READY pointer with readiness of the separately created zero-traffic revision. **Narrow source-only correction:** after `--no-traffic`, bounded polling must identify the exact new `latestCreatedRevisionName`, retrieve its own immutable revision, require `Ready=True`, preserve the previous 100% routing, unchanged live Stripe binding and all existing env names, then use the existing promotion/public-health-SHA/rollback logic. Unknown, nonready, altered traffic or wrong revision remain fail-closed. This is NOT evidence of a successful paid deployment; requires exact CI merge and founder-approved existing workflow, then verify live source SHA and current paid journeys. No new service, scheduler or payment provider.
+
+---
+
 ## Live Cloud Run deployment revision diagnostics (read only) | 2026-10-19
 
 Founder confirmed a second run of controlled source deployment. The existing paid Cloud Run service and single Scheduler passed preflight; previous 100% traffic revision `american-rider-api-production-00006-6v7` remained untouched. The update STOPPED: `New code revision not reported READY`. This does not yet prove whether the new revision failed to start or merely had delayed readiness metadata. Extend the already-connected read-only Google production audit to report `latestCreatedRevisionName`, whether its `Ready` condition is true/false/unknown, while never emitting logs, environment contents or secret messages. The existing GitHub audit runs automatically on `release/current` updates. Examine real audit evidence before further production deployment attempts. **No production mutation, new scheduler, Stripe charge or traffic switch from this diagnostic.**
