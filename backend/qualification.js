@@ -28,6 +28,7 @@
 // recorded beside the reading (never over it), is authenticated and audit-logged (see
 // resolveDocument / setSuspension), and still passes the same date and coverage checks.
 const { disclosureCurrent } = require('./disclosure');
+const { currentConnectFeeConsent } = require('./connect-fee-consent');
 const { screeningCurrent } = require('./screening');
 const { coverageLapsed } = require('./matching');
 const { continuingStatus } = require('./insurance-monitoring');
@@ -361,6 +362,14 @@ function assessOperator({ user, fleet = null, context = 'qualify', liveMoney = f
     }
     if (!payouts || payouts.enabled !== true || fleet?.payoutsEnabled === false) {
       add(D('payouts_not_ready', 'Stripe has not cleared this account for payouts.'));
+    }
+    // New paid work is conditional on prior explicit fee agreement. Existing
+    // earned money remains withdrawable/settleable through independent routes.
+    // Require only when live-money Stripe account exists; demo fixtures without
+    // a connected payout account are not evidence of an approved real Operator.
+    if (liveMoney && u?.stripeAccountId && !currentConnectFeeConsent(u.stripeFeeConsent, now)) {
+      add(D('payout_fee_consent_required',
+        'Review the separately billed Connect account and payout costs before accepting new Travel. Existing earnings remain payable.'));
     }
     // Duty and acceptance require coverage beyond the minimum advance margin.
     // Also check the server's routed trip duration if it exceeds the margin.
