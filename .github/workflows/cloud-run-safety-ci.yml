@@ -26,6 +26,11 @@ jobs:
           node --check backend/firebase-admin.js
           node --check backend/cloudrun-sweep-mode.js
           node --check backend/durable-maintenance.js
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verify safe no-traffic revision health and rollback gate
+        run: python3 -m unittest discover -s infra/cloud-run -p test_deploy_existing_paid_source.py
       - name: Verify scheduler fail-closed and durable cadence twice
         run: |
           node backend/cloudrun-sweep-mode.test.js
