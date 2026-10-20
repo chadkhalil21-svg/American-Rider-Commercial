@@ -44,7 +44,16 @@ def metadata(*args):
         return None
 
 
-def public_invoker(policy):
+def public_invoker(policy, service=None):
+    """Cloud Run permits public invocation via EITHER mechanism.
+
+    Ingress/network reachability is a separate proof. Never confuse absence of
+    allUsers bindings with private when invoker IAM enforcement is disabled.
+    """
+    if isinstance(service, dict):
+        ann = service.get("metadata", {}).get("annotations", {})
+        if str(ann.get("run.googleapis.com/invoker-iam-disabled", "")).lower() == "true":
+            return True
     if not isinstance(policy, dict):
         return None
     return any(
@@ -198,7 +207,7 @@ def audit():
 
     policy = metadata("run", "services", "get-iam-policy", SERVICE,
                       f"--project={PROJECT}", f"--region={REGION}")
-    exposed = public_invoker(policy)
+    exposed = public_invoker(policy, info)
     results.append(("Public invoker", {None: "UNKNOWN (missing audit permission)",
                                        False: "not configured", True: "configured"}[exposed]))
     if exposed and not summary["live_stripe_secret_bound"]:
