@@ -17,11 +17,13 @@ function decodePayoutEvent(event) {
   if (payout.method !== undefined && !['standard','instant'].includes(payout.method))
     throw Error('unknown payout method');
   const eventAt=Number(event.created)*1000;
-  if (!Number.isSafeInteger(eventAt) || eventAt<=0) throw Error('missing provider event time');
+  const payoutCreatedAt=Number(payout.created)*1000;
+  if (!Number.isSafeInteger(eventAt) || eventAt<=0 ||
+      !Number.isSafeInteger(payoutCreatedAt)||payoutCreatedAt<=0) throw Error('missing Stripe payout timestamps');
   const status=event.type==='payout.paid' ? 'paid' : 'failed';
   if (payout.status && payout.status!==status) throw Error('provider event and payout status disagree');
   return {payoutId:String(payout.id),accountId,status,amountCents:payout.amount,
-    method:payout.method||'unknown',eventAt,month:new Date(eventAt).toISOString().slice(0,7),
+    method:payout.method||'unknown',eventAt,payoutCreatedAt,month:new Date(payoutCreatedAt).toISOString().slice(0,7),
     eventId:String(event.id||'')};
 }
 function documentIdFor({accountId,payoutId}) {
