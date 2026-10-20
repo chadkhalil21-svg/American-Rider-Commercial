@@ -41,6 +41,7 @@ const { adminDb, adminStatus } = require('./firebase-admin');
 const { fileTicket } = require('./tickets');
 const { readKey } = require('./env');
 const { notify } = require('./push');
+const { shouldRecordUnanswered } = require('./assignment-write-policy');
 
 // A vehicle that has stayed inside this radius is "not moving". Wide enough to absorb GPS
 // drift at a standstill, tight enough that crawling traffic still reads as movement.
@@ -763,9 +764,13 @@ async function sweepAssignments({ now = Date.now(), checkMarket } = {}) {
       candidates = candidates.filter((o) => String(o.id) !== String(candidate.operator.id));
     }
     if (!next) {
-      // Nobody left. The travel stays with the operator it has rather than being cancelled
-      // out from under a traveler who has paid — but it is recorded, so the state is legible.
-      await write(db, ride.id, { unanswered: true, unansweredAt: now });
+      // No replacement yet. Re-run dispatch eligibility on every tick, but never
+      // rewrite the SAME stranded marker every minute; this is a costly indexed
+      // Firestore write and not needed to preserve owed-money or safety state.
+      // An old record without a timestamp is repaired once.
+      if (shouldRecordUnanswered(ride)) {
+        await write(db, ride.id, { unanswered: true, unansweredAt: now });
+      }
       out.stranded.push(ride.id);
       continue;
     }
