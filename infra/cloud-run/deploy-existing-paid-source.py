@@ -15,6 +15,7 @@ REGION="us-east1"
 SERVICE="american-rider-api-production"
 JOB="ar-production-minute-sweeps"
 URL="https://american-rider-api-production-623854974930.us-east1.run.app"
+EXPECTED_SCHEDULER_SA=f"ar-production-scheduler@{PROJECT}.iam.gserviceaccount.com"
 
 class Stop(RuntimeError):
     pass
@@ -55,9 +56,26 @@ def assert_live(service,scheduler):
         not e.get("STRIPE_SECRET_KEY",{}).get("valueFrom",{}).get("secretKeyRef") or
         not e.get("SCHEDULER_TOKEN")):
         raise Stop("Existing paid deployment is not fully configured; no changes made.")
-    if (scheduler.get("state")!="ENABLED" or
-        scheduler.get("httpTarget",{}).get("uri")!=URL+"/scheduled/sweep"):
-        raise Stop("Exactly one Google production dispatch clock must already be enabled.")
+    # The original scheduler activation permits either the canonical Cloud Run URL or
+    # the Google-reported service status.url, which identifies the same live service.
+    # Preserve those two exact alternatives; do not accept a wildcard destination.
+    service_url = str(service.get("status",{}).get("url") or "").rstrip("/")
+    accepted_urls = {URL+"/scheduled/sweep"}
+    if service_url.startswith("https://") and SERVICE in service_url:
+        accepted_urls.add(service_url+"/scheduled/sweep")
+    target = scheduler.get("httpTarget",{})
+    if scheduler.get("state")!="ENABLED":
+        raise Stop("Production Scheduler is not ENABLED; existing dispatch clock required.")
+    if target.get("uri") not in accepted_urls:
+        raise Stop("Production Scheduler destination differs from both approved Cloud Run URLs.")
+    if target.get("httpMethod") not in ("POST",1):
+        raise Stop("Production Scheduler must invoke the existing POST sweep.")
+    if target.get("oidcToken",{}).get("serviceAccountEmail")!=EXPECTED_SCHEDULER_SA:
+        raise Stop("Production Scheduler has an unapproved OIDC service account.")
+    if not target.get("headers",{}).get("x-scheduler-token"):
+        raise Stop("Production Scheduler request authentication header is absent.")
+    if scheduler.get("schedule")!="* * * * *":
+        raise Stop("Production Scheduler is not on the authorized one-minute cadence.")
     return e
 
 def public_readiness(sha=None):
