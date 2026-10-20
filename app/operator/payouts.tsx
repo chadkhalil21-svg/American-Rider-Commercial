@@ -124,7 +124,7 @@ export default function OperatorPayouts() {
               setFeeBusy(false);
             }}
           />
-
+        )}
         {status && status.feeConsentAccepted === true && (
           status.feeBillingReady === true
             ? <Text style={styles.accountBody}>{t('operator.feeBillingReady')}</Text>
@@ -141,7 +141,6 @@ export default function OperatorPayouts() {
                   else if(!r.canceled)setError(r.error||t('operator.feeBillingRequired'));
                 }}
               />
-        )}
         )}
       </Card>
       <Card style={styles.card}>
