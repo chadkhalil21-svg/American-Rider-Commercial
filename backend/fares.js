@@ -276,13 +276,24 @@ const TRAVEL_CLASSES = {
   pet: { mult: 1.0, extraCents: 300, label: 'Pet Friendly' },
 };
 
-// Applies a travel class to a base fare. Unknown/missing class = standard (never an error —
-// pricing must not fail because a client sent junk).
+// The quotation API receives class keys (large/pet); the Travel prepare API
+// receives the operator-facing display labels (Large Vehicle/Pet Friendly).
+// Both MUST select the same fare rule. This translation is server-owned, not
+// an authority for a phone to choose its own price or vehicle qualification.
+function normalizeTravelClassKey(value) {
+  if (typeof value !== 'string') return 'standard';
+  const requested = value.trim().toLowerCase();
+  if (Object.prototype.hasOwnProperty.call(TRAVEL_CLASSES, requested)) return requested;
+  for (const [key, spec] of Object.entries(TRAVEL_CLASSES)) {
+    if (spec.label.toLowerCase() === requested) return key;
+  }
+  // Preserve historical unknown/missing-class fallback. Eligibility is checked
+  // separately by the authoritative matcher; never infer a certified class here.
+  return 'standard';
+}
+
 function applyTravelClass(cents, travelClass) {
-  const cls =
-    typeof travelClass === 'string' && TRAVEL_CLASSES[travelClass]
-      ? TRAVEL_CLASSES[travelClass]
-      : TRAVEL_CLASSES.standard;
+  const cls = TRAVEL_CLASSES[normalizeTravelClassKey(travelClass)];
   return Math.round(cents * cls.mult) + cls.extraCents;
 }
 
@@ -297,5 +308,6 @@ module.exports = {
   PER_MILE_CENTS,
   MINIMUM_CENTS,
   TRAVEL_CLASSES,
+  normalizeTravelClassKey,
   applyTravelClass,
 };
