@@ -56,6 +56,30 @@ class TestReadOnlyAudit(unittest.TestCase):
             {"role": "roles/run.invoker", "members": ["allUsers"]}
         ]}))
 
+    def test_public_cloud_run_when_invoker_iam_check_disabled(self):
+        """A missing allUsers binding does NOT prove a service is IAM private."""
+        active = service(stripe=True, flag="1", mode="production")
+        active["metadata"] = {"annotations": {
+            "run.googleapis.com/invoker-iam-disabled": "true",
+        }}
+        self.assertTrue(audit.public_invoker({"bindings": []}, active))
+        self.assertTrue(audit.public_invoker(None, active))
+        active["metadata"]["annotations"]["run.googleapis.com/invoker-iam-disabled"] = "false"
+        self.assertFalse(audit.public_invoker({"bindings": []}, active))
+        self.assertIsNone(audit.public_invoker(None, active))
+        with mock.patch.object(audit, "metadata", side_effect=[
+            {**active, "metadata": {"annotations": {
+                "run.googleapis.com/invoker-iam-disabled": "true"}}},
+            {"bindings": []},
+            {"state": "ENABLED", "httpTarget": {
+                "uri": "https://american-rider-api-production-123.us-east1.run.app/scheduled/sweep"}},
+        ]), mock.patch.object(audit, "verify_http_through_proxy", return_value="unknown"), mock.patch.object(audit, "public_live_readonly", return_value="HTTP 200 healthy"):
+            rows, risk = audit.audit()
+        self.assertFalse(risk)
+        self.assertEqual(dict(rows)["Public Google API /live"], "HTTP 200 healthy")
+        self.assertEqual(dict(rows)["Public invoker"], "configured")
+        self.assertNotIn("public Google API not enabled", dict(rows)["First store launch infrastructure"])
+
     def test_safe_current_prelaunch_configuration(self):
         data = [
             service(), {"bindings": []},

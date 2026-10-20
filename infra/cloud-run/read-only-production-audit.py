@@ -44,7 +44,16 @@ def metadata(*args):
         return None
 
 
-def public_invoker(policy):
+def public_invoker(policy, service=None):
+    """Cloud Run permits public invocation via EITHER mechanism.
+
+    Ingress/network reachability is a separate proof. Never confuse absence of
+    allUsers bindings with private when invoker IAM enforcement is disabled.
+    """
+    if isinstance(service, dict):
+        ann = service.get("metadata", {}).get("annotations", {})
+        if str(ann.get("run.googleapis.com/invoker-iam-disabled", "")).lower() == "true":
+            return True
     if not isinstance(policy, dict):
         return None
     return any(
@@ -53,6 +62,30 @@ def public_invoker(policy):
              or "allAuthenticatedUsers" in b.get("members", []))
         for b in policy.get("bindings", [])
     )
+
+
+def public_live_readonly():
+    """Probe the same fixed HTTPS origin as the production mobile app.
+
+    Never print a response body, request metadata, token or user data. The
+    endpoint's existence and explicit ok=true are required for public readiness.
+    """
+    url = "https://american-rider-api-production-623854974930.us-east1.run.app/live"
+    try:
+        with urllib.request.urlopen(url, timeout=12) as rsp:
+            if rsp.status != 200:
+                return f"HTTP {rsp.status} (not healthy)"
+            try:
+                body = json.loads(rsp.read(16384))
+            except (ValueError, UnicodeError, TypeError):
+                return "HTTP 200 but health response invalid"
+            if isinstance(body, dict) and body.get("ok") is True:
+                return "HTTP 200 healthy"
+            return "HTTP 200 but live readiness not confirmed"
+    except urllib.error.HTTPError as exc:
+        return f"HTTP {exc.code} (public request denied or failed)"
+    except (OSError, TimeoutError, ValueError):
+        return "UNREACHABLE (public API not independently verified)"
 
 
 def summary_of_service(info):
@@ -198,7 +231,7 @@ def audit():
 
     policy = metadata("run", "services", "get-iam-policy", SERVICE,
                       f"--project={PROJECT}", f"--region={REGION}")
-    exposed = public_invoker(policy)
+    exposed = public_invoker(policy, info)
     results.append(("Public invoker", {None: "UNKNOWN (missing audit permission)",
                                        False: "not configured", True: "configured"}[exposed]))
     if exposed and not summary["live_stripe_secret_bound"]:
@@ -221,6 +254,13 @@ def audit():
         results.append(("Google Scheduler state", "UNKNOWN (missing audit permission)"))
 
     results.append(("Private Google API /live", verify_http_through_proxy()))
+    # An open IAM gate is not proof that the Internet or our mobile build can
+    # reach the service. Probe public /live separately on activated services.
+    if exposed is True and summary["cutover"] == "1":
+        public_health = public_live_readonly()
+    else:
+        public_health = "not probed (public access not established)"
+    results.append(("Public Google API /live", public_health))
     # Preparation vs commercial launch are deliberately separate. We NEVER infer
     # working payment capture or an approved Operator from an env-variable name.
     not_ready = []
@@ -232,6 +272,8 @@ def audit():
         not_ready.append("public Google API not enabled")
     elif exposed is None:
         not_ready.append("public Google API IAM state unknown")
+    if exposed is True and summary["cutover"] == "1" and public_health != "HTTP 200 healthy":
+        not_ready.append("public Google API live endpoint unverified")
     if not summary["account_webhook_secret_bound"] or not summary["connect_webhook_secret_bound"]:
         not_ready.append("signed Stripe webhook bindings incomplete")
     if summary["cutover"] != "1" or summary["mode"] != "production":
