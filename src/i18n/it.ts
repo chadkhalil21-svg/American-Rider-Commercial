@@ -143,7 +143,7 @@ export default {
     econDisclaimer: "Questi esempi non garantiscono Travel né redditi. Il totale per il Traveler viene comunicato prima di ogni Travel.",
     econProjectionNote: "La stima applica la quota dell’1% al totale settimanale. La commissione effettiva viene arrotondata per difetto per ogni Travel, quindi l’importo trattenuto può variare leggermente. Le proiezioni mensili e annuali ipotizzano 52 settimane identiche. Le spese non sono detratte.",
     econCostsHeading: "Costi del conto e altre spese",
-    econAccountCostNote: "Nei mesi con accredito bancario possono applicarsi costi Connect e dei pagamenti standard o istantanei. Non serve una seconda carta. Veicolo e assicurazione restano a Suo carico.",
+    econAccountCostNote: "In un mese con accredito bancario può applicarsi il costo di $2 per conto attivo secondo il piano Stripe, oltre ai costi reali di pagamento e trasferimento. Non serve un’altra carta. Assicurazione, carburante e veicolo restano a Suo carico.",
     econShowAccountTerms: "Mostra le condizioni attuali del conto",
     econHideAccountTerms: "Nascondi le condizioni del conto",
     econReviewRequirements: 'Consulta i requisiti di idoneità',
