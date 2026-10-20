@@ -17,7 +17,7 @@ import { Text } from '../../src/components/AppText';
 import { BadgeOk, OperatorBar, OperatorDrawer, OperatorScreen } from '../../src/components/operator';
 import { Card, PrimaryButton, SectionLabel, useNote } from '../../src/components/UI';
 import { useGoBack } from '../../src/components/nav';
-import { acceptConnectFees, connectStatus, startConnectOnboarding, type ConnectStatus } from '../../src/backend/connect';
+import { acceptConnectFees, authorizeOperatorConnectFees, connectStatus, startConnectOnboarding, type ConnectStatus } from '../../src/backend/connect';
 import { useOperator } from '../../src/state/OperatorContext';
 import { useLanguage } from '../../src/state/LanguageContext';
 import { colors } from '../../src/theme';
@@ -31,6 +31,7 @@ export default function OperatorPayouts() {
   const [status, setStatus] = useState<ConnectStatus | null>(null);
   const [busy, setBusy] = useState(false);
   const [feeBusy, setFeeBusy] = useState(false);
+  const [billingBusy, setBillingBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
@@ -79,6 +80,10 @@ export default function OperatorPayouts() {
       setError(t('operator.feeConsentRequired'));
       return;
     }
+    if (status?.feeBillingReady !== true) {
+      setError(t('operator.feeBillingRequired'));
+      return;
+    }
     setBusy(true);
     setError(null);
     const r = await startConnectOnboarding();
@@ -119,6 +124,24 @@ export default function OperatorPayouts() {
               setFeeBusy(false);
             }}
           />
+
+        {status && status.feeConsentAccepted === true && (
+          status.feeBillingReady === true
+            ? <Text style={styles.accountBody}>{t('operator.feeBillingReady')}</Text>
+            : <PrimaryButton
+                label={billingBusy ? t('traveler.busyChecking') : t('operator.feeBillingAdd')}
+                disabled={billingBusy}
+                style={{marginTop:12}}
+                onPress={async()=>{
+                  setBillingBusy(true);
+                  setError(null);
+                  const r=await authorizeOperatorConnectFees();
+                  setBillingBusy(false);
+                  if(r.ok)await refresh();
+                  else if(!r.canceled)setError(r.error||t('operator.feeBillingRequired'));
+                }}
+              />
+        )}
         )}
       </Card>
       <Card style={styles.card}>
