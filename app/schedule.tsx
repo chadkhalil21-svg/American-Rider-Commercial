@@ -283,7 +283,7 @@ export default function Schedule() {
             <Text style={{ fontWeight: '600', color: colors.ink }}>
               {doneInfo.when} · {doneInfo.time} {doneInfo.period}
             </Text>
-            {t('traveler.schedBookingNotice')}
+            {' '}{t('traveler.schedBookingNotice')}
           </Text>
           {ride.schedSaved === false && (
             <Text style={styles.splashWarn}>
