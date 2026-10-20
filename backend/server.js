@@ -24,7 +24,7 @@ const { corsOptionsFor } = require('./cors-policy');
 const { readinessForRoute } = require('./booking-readiness');
 const {
   quote, createPaymentIntent, resumePaymentIntent, verifiedTravelPayment, cancelUnpaidIntent, chargeRide, refundTravel,
-  connectAccountFor, connectOnboardingLink, connectAccountStatus,
+  connectAccountFor, configureConnectPayoutSchedule, connectOnboardingLink, connectAccountStatus,
   transferToOperator, refundableFor, connectDashboardLink, pingStripe, probeNetwork,
   transferFixed, operatorPayoutAccount,
   listPaymentMethods, createSetupIntent, setDefaultPaymentMethod, detachPaymentMethod,
@@ -990,6 +990,10 @@ app.post('/connect/onboard', requireAuth, LIMITS.connect, requireActiveOperating
       { stripeAccountId: account.id, stripeAccountAt: Date.now() },
       { merge: true },
     );
+    // Save the account ID BEFORE an optional schedule change. If Stripe refuses
+    // the update, retrying onboarding resumes this account, never creates a duplicate.
+    // Unconfigured deployments preserve the current provider payout cadence.
+    await configureConnectPayoutSchedule(account);
     const base = readKey('PUBLIC_APP_URL') || `${req.protocol}://${req.get('host')}`;
     const link = await connectOnboardingLink({
       accountId: account.id,
