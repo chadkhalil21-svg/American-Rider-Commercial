@@ -25,8 +25,9 @@ assert.deepEqual(previewNetEarnings({grossOperatorEarningsCents:1000,authorizedD
  {grossOperatorEarningsCents:1000,candidateDeductionCents:275,hypotheticalNetEarningsCents:725,
  unpaidFutureObligationCents:0,actualCollectionAuthorized:false});
 assert.equal(previewNetEarnings({grossOperatorEarningsCents:100,authorizedDueCents:275}).unpaidFutureObligationCents,175);
-assert.throws(()=>previewPayoutFees([pay('po_same'),{...pay('po_same'),amountCents:20000}]),/conflicting/);
+assert.throws(()=>previewPayoutFees([pay('po_same'),{...pay('po_same'),amountCents:20000}]),/provider reconciliation required/);
 assert.throws(()=>previewPayoutFees([pay('po_invalid','incorrect')]),/unknown payout/);
+assert.throws(()=>previewPayoutFees([pay('po_same','standard','paid'),pay('po_same','standard','failed')]),/provider reconciliation required/);
 const paymentSource=fs.readFileSync(require('node:path').join(__dirname,'payments.js'),'utf8');
 const feeFn=paymentSource.split('async function chargeOperatorAccountFee(')[1].split('\nmodule.exports')[0];
 assert.ok(feeFn.includes("operator_fee_earnings_recovery_pending"));
