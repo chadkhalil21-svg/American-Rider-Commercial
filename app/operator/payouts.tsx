@@ -17,7 +17,7 @@ import { Text } from '../../src/components/AppText';
 import { BadgeOk, OperatorBar, OperatorDrawer, OperatorScreen } from '../../src/components/operator';
 import { Card, PrimaryButton, SectionLabel, useNote } from '../../src/components/UI';
 import { useGoBack } from '../../src/components/nav';
-import { acceptConnectFees, connectStatus, startConnectOnboarding, type ConnectStatus } from '../../src/backend/connect';
+import { acceptConnectFees, connectStatus, openPayoutDashboard, startConnectOnboarding, type ConnectStatus } from '../../src/backend/connect';
 import { useOperator } from '../../src/state/OperatorContext';
 import { useLanguage } from '../../src/state/LanguageContext';
 import { colors } from '../../src/theme';
@@ -31,6 +31,7 @@ export default function OperatorPayouts() {
   const [status, setStatus] = useState<ConnectStatus | null>(null);
   const [busy, setBusy] = useState(false);
   const [feeBusy, setFeeBusy] = useState(false);
+  const [dashboardBusy, setDashboardBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
@@ -90,6 +91,24 @@ export default function OperatorPayouts() {
     Linking.openURL(r.url).catch(() => setError(t('traveler.onboardingPageFail')));
   };
 
+  const showStripeDashboard = async () => {
+    if (dashboardBusy) return;
+    setDashboardBusy(true);
+    setError(null);
+    try {
+      const result = await openPayoutDashboard();
+      if (!result.ok || !result.url) {
+        setError(result.error || t('traveler.errReachAR'));
+        return;
+      }
+      await Linking.openURL(result.url);
+    } catch {
+      setError(t('traveler.onboardingPageFail'));
+    } finally {
+      setDashboardBusy(false);
+    }
+  };
+
   const payable = status?.payoutsEnabled === true;
   const started = status?.exists === true;
 
@@ -132,6 +151,12 @@ export default function OperatorPayouts() {
             </Text>
             <Text style={styles.body}>{t('operator.payoutTruthBank')}</Text>
             <Text style={styles.body}>{t('operator.payoutTruthInstant')}</Text>
+            <PrimaryButton
+              label={dashboardBusy ? t('traveler.busyOpeningStripe') : t('operator.viewStripePayouts')}
+              onPress={showStripeDashboard}
+              disabled={dashboardBusy}
+              style={{ marginTop: 16 }}
+            />
           </>
         ) : started ? (
           <>
