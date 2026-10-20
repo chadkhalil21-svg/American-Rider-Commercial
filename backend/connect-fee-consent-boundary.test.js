@@ -47,9 +47,9 @@ for(let pass=0;pass<2;pass++){
   assert.equal(matchOperator([operator],origin,'Standard',{requireScreening:false,now})?.operator.id,'operator',
     'synthetic non-money match remains independently configurable');
   const server=fs.readFileSync(path.join(__dirname,'server.js'),'utf8');
-  assert.match(server,/app\\.post\\('\\/connect\\/dashboard'/,
+  assert(server.includes("app.post('/connect/dashboard'"),
     'connected account dashboard remains available without new-Travel consent');
-  assert.match(server,/app\\.post\\('\\/operator\\/settle-pending'/,
+  assert(server.includes("app.post('/operator/settle-pending'"),
     'existing payable funds remain separately recoverable');
 }
 console.log('PASS twice: legacy/declined Operator blocked for new live Travel, Stripe payout access and owed earnings left untouched, qualified demos unchanged.');
