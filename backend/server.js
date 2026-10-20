@@ -2124,7 +2124,12 @@ async function runAllSweeps({criticalOnly=false}={}) {
     // Only an indexed, bounded DUE queue is checked; the Stripe payout webhook
     // writes an event once. No old-account scan and NO money is collected here.
     // Actual Operator earnings recovery remains disabled until fees are verified.
-    operatorFees: () => maintenanceSweep('operatorFees', () => listDueFeeObligations({db:adminDb()})),
+    // No needless Firestore reads or missing-index queries until the fee
+    // obligation service is explicitly commissioned. This toggle ONLY enables
+    // READ-ONLY review and NEVER enables an Operator earnings deduction.
+    operatorFees: () => process.env.OPERATOR_CONNECT_FEE_REVIEW_ENABLED === 'true'
+      ? maintenanceSweep('operatorFees', () => listDueFeeObligations({db:adminDb()}))
+      : Promise.resolve({ok:true,disabled:true,reason:'fee_recovery_uncommissioned'}),
     familyAgeOut: () => maintenanceSweep('familyAgeOut', () => family.sweepFamilyAgeOut()),
     insuranceMonitoring: () => maintenanceSweep('insuranceMonitoring', () => sweepInsuranceMonitoring({ db: adminDb(), requestConfirmation: issueInsuranceConfirmationRequest, notify })),
     marketReference: () => maintenanceSweep('marketReference', async () => {
