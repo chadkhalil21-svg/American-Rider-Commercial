@@ -96,7 +96,7 @@ export type PaymentState = {
 };
 // How finding an operator is going: searching → matched, or none available / error (so the
 // live screen can offer a retry instead of spinning on "Finding your operator…" forever).
-export type DispatchState = 'idle' | 'searching' | 'matched' | 'none' | 'error' | 'price_changed' | 'update_required';
+export type DispatchState = 'idle' | 'preparing' | 'searching' | 'matched' | 'none' | 'error' | 'price_changed' | 'update_required';
 
 const DEFAULT_PREFS: Prefs = { quiet: true, charging: false, luggage: false, pet: false };
 
@@ -950,7 +950,9 @@ export function RideProvider({ children }: { children: React.ReactNode }) {
       if (!from || !dest) {
         setDispatchState('error'); confirmInFlightRef.current = false; return null;
       }
-      setMatchedOp(null); setDispatchState('searching');
+      // A Travel has not been prepared or charged yet. Do not tell the user
+      // we are searching the fleet until authoritative booking/payment pass.
+      setMatchedOp(null); setDispatchState('preparing');
       try {
         if (!preparedIdRef.current) {
           if (smartJourneyRef.current?.stage === 'leg2') {
@@ -1029,6 +1031,7 @@ export function RideProvider({ children }: { children: React.ReactNode }) {
             setLastTrip(lastTripRef.current);
           }
         }
+        setDispatchState('searching');
         const op = alreadyDispatched === undefined ? await dispatchRide(rideId) : alreadyDispatched;
         if (generation !== dispatchGenerationRef.current) return null;
         if (!op) {
@@ -1059,6 +1062,11 @@ export function RideProvider({ children }: { children: React.ReactNode }) {
             setRideActive(false);
             setPayment({status:'idle'});
             setDispatchState('update_required');
+          }else if(code==='no_operator' && paymentRef.current.status==='idle'){
+            // A fleet precheck failed BEFORE booking/payment; nothing to retry
+            // via a nonexistent Travel id. Offer an honest no-supply outcome.
+            setRideActive(false);
+            setDispatchState('none');
           }else setDispatchState('error');
           confirmInFlightRef.current=false;
         }

@@ -153,6 +153,7 @@ export default function RideScreen() {
   const subs = STATUS_SUBS(t);
   const complete = st >= 5;
   const canCancel = st <= 2;
+  const preparing = !ride.matchedOp && ride.dispatchState === 'preparing';
   const searching = !ride.matchedOp && ride.dispatchState === 'searching';
   const noOperator = !ride.matchedOp && (ride.dispatchState === 'none' || ride.dispatchState === 'error');
   const stepIdx = st <= 1 ? 0 : st === 2 ? 1 : st <= 4 ? 2 : 3;
@@ -208,19 +209,19 @@ export default function RideScreen() {
   }
 
   // ---- The demo's searching screen: centered radar, estimate, quiet cancel. ----
-  if (searching || noOperator) {
+  if (preparing || searching || noOperator) {
     return (
       <Screen>
         <LetterheadBar onMenu={() => router.navigate('/account')} />
         <View style={{ flex: 1 }} />
         <View style={{ alignItems: 'center' }}>
-          {searching && <Radar />}
+          {(preparing || searching) && <Radar />}
           <Text style={styles.searchTitle}>
-            {searching ? t('traveler.rideFindingBest') : t('traveler.rideNoMatchYet')}
+            {preparing ? t('traveler.rideStepPreparing') : searching ? t('traveler.rideFindingBest') : t('traveler.rideNoMatchYet')}
           </Text>
-          {searching ? (
+          {(preparing || searching) ? (
             <Text style={styles.searchSub}>
-              {t('traveler.matchingNearest')}
+              {preparing ? t('traveler.busyChecking') : t('traveler.matchingNearest')}
             </Text>
           ) : (
             <>

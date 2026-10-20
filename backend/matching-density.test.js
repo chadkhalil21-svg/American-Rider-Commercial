@@ -11,7 +11,8 @@ function valid(id,n=0){
     available:true,onlineAt:NOW,insuranceExpiry:'2099-12-31',
     disclosureVersion:DISCLOSURE_VERSION,commissioned:true,
     screeningCheckedAt:NOW,documentBlocked:false,screeningBlocked:false,
-    currentRideId:null,classes:['Standard','Large Vehicle']};
+    currentRideId:null,classes:['Standard','Large Vehicle'],
+    verifiedVehicleClasses:['Standard','Large Vehicle']}; // synthetic approved fleet evidence
 }
 // Simple independent oracle: filter using the documented eligibility checks and
 // sort for the smallest geographic distance. Production must avoid this sort.
@@ -21,7 +22,8 @@ function oracle(operators,{className='Standard',screening=true,queue=false}={}){
     && (!screening || !!o.screeningCheckedAt)
     && o.insuranceExpiry==='2099-12-31'
     && o.disclosureVersion===DISCLOSURE_VERSION && o.commissioned===true && !o.documentBlocked
-    && (className==='Standard'||(o.classes||[]).includes(className)))
+    && (className==='Standard'||((o.classes||[]).includes(className)
+      && (o.verifiedVehicleClasses||[]).includes(className))))
     .map(o=>({o,d:distanceMiles(pickup,o)}))
     .filter(x=>Number.isFinite(x.d))
     .sort((a,b)=>a.d-b.d)[0]?.o.id ?? null;
@@ -58,6 +60,9 @@ for(let pass=0;pass<2;pass++){
   assert.equal(matchOperator([valid('stale',0),valid('valid',9)].map((o,i)=>i===0?{...o,onlineAt:NOW-600000}:o),
     pickup,'Standard',{requireScreening:true,now:NOW}).operator.id,'valid');
   assert.equal(matchOperator([],pickup,'Standard',{requireScreening:true,now:NOW}),null);
+  assert.equal(matchOperator([{...valid('forged-special'),verifiedVehicleClasses:['Standard']}],
+    pickup,'Large Vehicle',{requireScreening:true,now:NOW}),null,
+    'client-declared class without independent server verification is never eligible');
   assert.equal(matchOperator([{...valid('invalid',0),lat:NaN}],pickup,'Standard',{requireScreening:true,now:NOW}),null);
   const queueFleet=[{...valid('queue',0),currentRideId:'active',queueEligible:true},valid('free',10)];
   assert.equal(matchOperator(queueFleet,pickup,'Standard',{requireScreening:true,allowQueued:false,now:NOW}).operator.id,'free');

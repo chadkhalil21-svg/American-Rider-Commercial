@@ -125,14 +125,17 @@ function matchOperator(operators, pickup, travelClass = 'Standard', { requireScr
     if (o.currentRideId && !(allowQueued && o.queueEligible === true && !o.nextRideId)) continue;
     if (presenceStale(o, now) || o.screeningBlocked) continue;
     if (requireScreening && !o.screeningCheckedAt) continue;
-    // Older connected accounts cannot receive NEW paid offers without the
-    // updated fee agreement. Never block a previously owed payout here.
+    // A historical connected payout account without current fee agreement
+    // must not consume new live paid offers. Past earnings remain accessible.
     if (requireScreening && o.stripeAccountId &&
         o.feeConsentVersion !== require('./connect-fee-consent').FEE_CONSENT_VERSION) continue;
     if (coverageLapsed(o, now) || coverageUnsafeForNewTravel(o.insuranceExpiry, now, travelMinutes)) continue;
     if (disclosureStale(o)) continue;
     if (o.commissioned !== true || o.documentBlocked) continue;
-    if (travelClass !== 'Standard' && !(o.classes || []).includes(travelClass)) continue;
+    if (travelClass !== 'Standard' && (
+      !(o.classes || []).includes(travelClass) ||
+      !(o.verifiedVehicleClasses || []).includes(travelClass)
+    )) continue; // historical/client-claimed classes never prove special eligibility
     const miles = distanceMiles(pickup, o);
     // Do not let an invalid coordinate displace a known eligible real position.
     if (!Number.isFinite(miles)) continue;
