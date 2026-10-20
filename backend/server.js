@@ -151,6 +151,7 @@ const { settleSweepJobs, createCriticalRecoveryGate } = require('./critical-swee
 const { createBackgroundReporter } = require('./workload-summary');
 const { sweepOperatorAccountFees } = require('./operatorfees');
 const { cachedPayoutStatus } = require('./stripe-duty-cache');
+const { shouldMarkOffDuty } = require('./operator-duty-write-policy');
 const { dutyCoverageExpiry } = require('./operator-duty-coverage');
 const crypto = require('node:crypto');
 const WORKER_ID = crypto.randomUUID();
@@ -1117,7 +1118,7 @@ app.post('/operator/online', requireAuth, requireFreshAuth, requireOperationalRe
         // Do not rewrite the same unavailable state on each rejected renewal.
         // Preserve an immediate write when an available Operator is disqualified
         // or the authoritative reason changes. The read existed before this fix.
-        if (prior.available !== false || prior.offDutyReason !== body.code) {
+        if (shouldMarkOffDuty(prior, body.code)) {
           await ref.set({ available: false, offDutyReason: body.code, offDutyAt: Date.now() }, { merge: true });
         }
       }
