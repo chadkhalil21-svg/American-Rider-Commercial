@@ -73,8 +73,7 @@ class TestReadOnlyAudit(unittest.TestCase):
             {"bindings": []},
             {"state": "ENABLED", "httpTarget": {
                 "uri": "https://american-rider-api-production-123.us-east1.run.app/scheduled/sweep"}},
-        ]), mock.patch.object(audit, "verify_http_through_proxy", return_value="unknown"), \\
-             mock.patch.object(audit, "public_live_readonly", return_value="HTTP 200 healthy"):
+        ]), mock.patch.object(audit, "verify_http_through_proxy", return_value="unknown"), mock.patch.object(audit, "public_live_readonly", return_value="HTTP 200 healthy"):
             rows, risk = audit.audit()
         self.assertFalse(risk)
         self.assertEqual(dict(rows)["Public Google API /live"], "HTTP 200 healthy")
