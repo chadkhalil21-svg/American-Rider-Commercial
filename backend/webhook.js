@@ -161,6 +161,7 @@ async function handleEvent(event) {
       // merely because American Rider transferred fare into the connected balance.
       // Connected account comes from Stripe's event.account, NOT payout.destination
       // (destination is usually the bank account ID, not the Operator account).
+      if (!event.account) return {ok:true,action:'platform bank payout is not an Operator Connect payout'};
       const activity = await recordOperatorPayoutEvent({db,event});
       return {ok:activity.ok,action:activity.ignored?'payout account not ours':
         activity.duplicate?'duplicate payout ignored':'operator payout activity recorded',
@@ -171,7 +172,7 @@ async function handleEvent(event) {
     case 'payout.failed': {
       // Reverse the paid-payout count when Stripe later fails the bank deposit.
       // Preserve the existing support escalation; do not silently count it paid.
-      if (event.type==='payout.failed') await recordOperatorPayoutEvent({db,event});
+      if (event.type==='payout.failed' && event.account) await recordOperatorPayoutEvent({db,event});
       const caseNo = await open(db, null, {
         kind: 'support',
         reason: event.type === 'payout.failed' ? 'Operator payout failed' : 'Transfer reversed',
