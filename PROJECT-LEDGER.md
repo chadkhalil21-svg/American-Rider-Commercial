@@ -1,5 +1,14 @@
 # AMERICAN RIDER — CANONICAL PROJECT LEDGER
 
+## Live Cloud Run deployment revision diagnostics (read only) | 2026-10-19
+
+Founder confirmed a second run of controlled source deployment. The existing paid Cloud Run service and single Scheduler passed preflight; previous 100% traffic revision `american-rider-api-production-00006-6v7` remained untouched. The update STOPPED: `New code revision not reported READY`. This does not yet prove whether the new revision failed to start or merely had delayed readiness metadata. Extend the already-connected read-only Google production audit to report `latestCreatedRevisionName`, whether its `Ready` condition is true/false/unknown, while never emitting logs, environment contents or secret messages. The existing GitHub audit runs automatically on `release/current` updates. Examine real audit evidence before further production deployment attempts. **No production mutation, new scheduler, Stripe charge or traffic switch from this diagnostic.**
+
+**Financial modeling:** PR #144 is a proposed internal scenario calculator only. The Founder has explicitly deferred it. Neither its speculative cost inputs nor forecasts are a prerequisite for paid bookings or release readiness; no application code, fare model or Stripe rules depend on merging PR #144.
+
+---
+
+
 ## Existing Cloud Run revision failure: read-only diagnosis before deployment retry | 2026-10-19
 
 **CURRENT OBSERVATION:** Founder retried the protected paid-source deployment after PR #154 merged. One existing enabled scheduler and the old public paid backend passed preflight; old traffic on `american-rider-api-production-00006-6v7` remained at 100%. The deployment command returned, but Google's subsequent `latestReadyRevisionName` was not newer, so the protected updater STOPPED without routing customers to unverified code. The cause is not established by that log and must not be guessed. **This change adds a purely READ-ONLY report** of `latestCreatedRevisionName`, `latestReadyRevisionName`, the active 100% traffic revision and at most six recent revisions' classified status/reason codes. It hides raw condition messages, private environment variables, keys and user data, and changes no Cloud Run traffic, Stripe configuration, Scheduler, billing or bookings. The existing production read-only GitHub workflow runs this report automatically on each future `release/current` push, and can be run manually if necessary. Diagnose first; only prepare the next controlled rollout after evidence identifies the cause.
