@@ -36,4 +36,12 @@ assert.ok(!feeFn.includes('savedPaymentMethodFor'),'Never use Traveler saved car
 const server=fs.readFileSync(require('node:path').join(__dirname,'server.js'),'utf8');
 assert.ok(server.includes("operatorFees: async () => ({ok:true,skipped:'operator_fee_earnings_recovery_pending'})"));
 assert.ok(server.includes("sweepProviderEvents"),'Maintain payout provider event recovery');
+const operatorScreen=fs.readFileSync(require('node:path').join(__dirname,'../app/operator/payouts.tsx'),'utf8');
+const english=fs.readFileSync(require('node:path').join(__dirname,'../src/i18n/en.ts'),'utf8');
+assert.ok(operatorScreen.includes("t('traveler.payoutTruthBank')"));
+assert.ok(operatorScreen.includes("t('traveler.payoutTruthInstant')"));
+assert.ok(!operatorScreen.includes('PayoutCalendar') && !operatorScreen.includes('payoutSchedulePicker'));
+assert.match(english,/payoutTruthBank:\s*["']Standard payout:/);
+assert.match(english,/payoutTruthInstant:\s*["']Instant payout:/);
+assert.ok(!english.includes('weekly payday selection'));
 console.log('PASS: 0 payout, standard vs instant, exact once-month fee, duplicate events, authorized-net preview and no card debits');
