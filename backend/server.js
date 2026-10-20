@@ -41,6 +41,7 @@ const quoteViewStore=require('./quote-view-store');
 const {distanceBand:quoteDistanceBand}=require('./market-reference-service');
 const { forMarket: insuranceForMarket, publicConfig: publicInsuranceConfig } = require('./insurance-jurisdictions');
 const { setGeographicFleetOnline, setFleetOnlineIfOpen } = require('./market-fleet');
+const { verifiedOperatorClasses } = require('./vehicle-class-verification');
 const { geographyMarketPage } = require('./market-readiness-ui');
 const { proposeMarket } = require('./market-expansion');
 const { disputePage } = require('./disputeevidence-ui');
@@ -1281,7 +1282,15 @@ app.post('/operator/online', requireAuth, requireFreshAuth, requireOperationalRe
     }
     if (b.car !== undefined) identity.car = String(b.car).slice(0, 60);
     if (b.plate !== undefined) identity.plate = String(b.plate).slice(0, 16);
-    if (Array.isArray(b.classes) && b.classes.length) identity.classes = b.classes.slice(0, 6);
+    // Never trust class declarations from the phone. The only route to a six-seat
+    // or pet promise is a server-written approval for THIS make/model and plate.
+    // Re-evaluate on every fresh duty/renewal; changes remove former approvals.
+    const verifiedClasses = verifiedOperatorClasses(rec, {
+      car: identity.car ?? fleetNow?.car ?? '',
+      plate: identity.plate ?? fleetNow?.plate ?? '',
+    });
+    identity.classes = verifiedClasses;
+    identity.verifiedVehicleClasses = verifiedClasses;
 
     const fleetUpdate = {
         uid: String(req.uid),
@@ -1290,9 +1299,7 @@ app.post('/operator/online', requireAuth, requireFreshAuth, requireOperationalRe
         // Do not extend the cached attestation timestamp on GPS-only renewals.
         payoutsEnabled: true,
         stripeAccountId: rec.stripeAccountId || null,
-        // Dispatch must not offer a NEW paid Travel on an unconsented
-        // pre-existing Stripe account. Only server-authored current consent
-        // can stamp the fleet; a phone cannot forge this field.
+        // Only server-stamped current fee consent permits NEW live paid offers.
         feeConsentVersion: require('./connect-fee-consent').currentConnectFeeConsent(rec.stripeFeeConsent)
           ? require('./connect-fee-consent').FEE_CONSENT_VERSION : null,
         stripeCheckedAt,
