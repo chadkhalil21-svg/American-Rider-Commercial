@@ -38,6 +38,10 @@ const ev=(type,fields={})=>({id:'evt-synthetic',type,data:{object:{
  const replayWrites=writes;
  await handleEvent(ev('payment_intent.succeeded',{status:'succeeded',amount_received:2500}));
  assert.equal(writes,replayWrites,'replayed success does not write to Firestore');
+ await handleEvent(ev('payment_intent.amount_capturable_updated'));
+ assert.equal(writes,replayWrites,'out-of-order authorization cannot undo captured Travel');
+ assert.equal(rows.T.authorizationState,'captured');
+
  // Independent synthetic cancellation case, resetting this fake payment state.
  rows.T.status='cancelled';rows.T.cancellationFeeCaptureCents=400;
  rows.T.authorizationState='held';rows.T.capturedCents=undefined;
@@ -48,6 +52,12 @@ const ev=(type,fields={})=>({id:'evt-synthetic',type,data:{object:{
  const feeWrites=writes;
  await handleEvent(ev('payment_intent.succeeded',{status:'succeeded',amount_received:400}));
  assert.equal(writes,feeWrites,'replayed fee capture creates no second write');
+ rows.T.authorizationState='released';rows.T.paidAt=undefined;
+ const releaseWrites=writes;
+ await handleEvent(ev('payment_intent.amount_capturable_updated'));
+ assert.equal(writes,releaseWrites,'stale authorization cannot re-open a released canceled Travel');
+ assert.equal(rows.T.authorizationState,'released');
+
  const caught=await handleEvent(ev('payment_intent.succeeded',
    {status:'succeeded',amount_received:399,metadata:{uid:'attacker',rideId:'T',capturePolicy:'manual_v1'}}));
  assert.equal(caught.action,'successful payment flagged for reconciliation');
