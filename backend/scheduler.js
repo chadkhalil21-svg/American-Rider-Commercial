@@ -128,6 +128,27 @@ async function sweepScheduled({ now = Date.now(), checkMarket } = {}) {
       continue;
     }
 
+    // An old reserved appointment can survive a payment-policy change. A manual
+    // authorization requires consent attached to THIS reservation before any
+    // Stripe request, not just consent from newly-created bookings.
+    if (process.env.AR_MANUAL_TRAVEL_CAPTURE==='true') {
+      const {assessScheduledManualConsent}=require('./scheduled-manual-consent');
+      const consent=assessScheduledManualConsent({manualMode:true,
+        consent:r.offSessionPaymentConsent===true &&
+          r.offSessionPaymentConsentVersion==='manual-scheduled-v1',
+        hasSavedCard:true});
+      if(!consent.ok) {
+        await close(db,id,'payment_failed',
+          'Saved-card authorization consent is needed before this scheduled Travel.');
+        await notify({uid:r.travelerUid,kind:'scheduled_failed',
+          title:'Scheduled Travel needs payment confirmation',
+          body:'Open American Rider to schedule again with your authorization consent.',
+          data:{screen:'/wallet',tripNo:r.tripNo||''}});
+        report.failed.push({id,reason:consent.code});
+        continue;
+      }
+    }
+
     let fleet = [];
     try {
       fleet = await nearbyOperatorCandidates(db, pickup, { excludeIds: taken });
