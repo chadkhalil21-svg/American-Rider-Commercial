@@ -1,5 +1,18 @@
 # AMERICAN RIDER — CANONICAL PROJECT LEDGER
 
+## 21 October 2026 | Five-minute Operator no-show candidate (PR #206; NOT DEPLOYED)
+
+**Founder decisions:** Ordinary adult Traveler identity confirmation is verbal, without mandatory PIN, an extra Traveler acknowledgement or a false-pickup prompt. Five minutes is the standard ordinary pickup wait. No Twilio/SMS provider; reuse existing real Firebase Travel messaging and existing arrived push, and do not add location-history writes, periodic queries or another vendor. Teen PIN remains mandatory. Operator may exceptionally select **Traveler Did Not Arrive** only after authentic server-recorded arrival, five full minutes, an actual sent Operator Travel message, fresh proximity evidence and unchanged assignment. Local countdown is display only; server sets outcome.
+
+**Source implementation proposed:** `backend/noshow.js` adds independent low-read eligibility (deny early/offsite/fault/no-contact/scheduled, no periodic writes); `backend/server.js` stamps only the *first* eligible pickup contact in the existing ride record and exposes gated `POST /travel/no-show`; `backend/travelmoney.js` reuses original payment, one transaction, strict actor, exactly-once $3 amount from original payment and safe refund/payout recovery; `src/backend/operatorInbox.ts`, `src/state/OperatorContext.tsx`, `app/operator/pickup.tsx` reuse the already-displayed Operator/Traveler chat and a local countdown. Tests cover negative conditions and provider outage.
+
+**Commercial boundary:** `AR_VERIFIED_NO_SHOW` is OFF by default, with **no live payout/fee or signed-device deployment** from this PR. Current Terms *separately* authorize a $3 fee when a Traveler cancels after arrival, even before five-minute waiting; changing that trigger requires an explicit policy/legal review and truthful pre-booking disclosure. Proposed new Operator-initiated no-show uses the same $3 maximum, not a second fee. Need real same-Travel Stripe refund/transfer sandbox evidence, genuine device/chat/GPS proof, counsel review, scheduled/Teen exception resolution before feature flag can be enabled. No TestFlight, EAS, App Store or production changes without fresh explicit Founder approval.
+
+Institutional guidance used as comparison (not counsel or historical personalities literally endorsing): [Lyft no-show](https://help.lyft.com/hc/en-us/all/articles/115012922847-Cancellation-and-no-show-fee-policy-for-drivers), [Apple HIG alerts](https://developer.apple.com/design/human-interface-guidelines/alerts), [Google Firestore reads/writes](https://firebase.google.com/docs/firestore/pricing), [Stripe refunds](https://docs.stripe.com/api/refunds). Related issues #205 and #203; PR #201 already confirms server-state, screening at acceptance and stable settlement.
+
+---
+
+
 ## 21 October 2026 | End-to-end Traveler/Operator lifecycle and pickup-proof review
 
 **FOUNDER REQUIREMENT:** End-to-end completeness must be verified across quote, payment, dispatch, eligibility, accept, arrive, boarded, destination, completion, refund, payout, receipt, scheduled cancellation, support and recovered failures. Follow Apple/Google design/engineering, Lyft/Uber real ride procedures, Google's reliable systems and Stripe official payments guidance; do not claim outside counsel/institutions personally approved implementation. Dedicated matrix: [21 Oct end-to-end journey completeness](docs/audits/2026-10-21-end-to-end-journey-completeness.md).
