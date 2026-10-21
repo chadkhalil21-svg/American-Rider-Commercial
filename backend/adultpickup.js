@@ -14,6 +14,19 @@ const mac = (message) => crypto.createHmac('sha256', secret()).update(message).d
 const codeFor = (id) => String(mac('adult-pickup:code:' + id).readUInt32BE(0) % 1_000_000).padStart(6, '0');
 const digest = (id, code) => mac('adult-pickup:verify:' + id + ':' + code).toString('hex');
 const denied = (status, code) => ({ok:false,status,code});
+// Enrollment happens at the server's acceptance boundary, not when a Traveler
+// happens to open the code screen. It is conditional on the EXISTING manual
+// rollout flag and uses the acceptance transaction's ride read/write; no extra
+// document operation, background check, or client-side authority is introduced.
+// No new adult Travel is accepted under an enabled-but-misconfigured rollout.
+function acceptanceProof({rideId,ride,operatorUid,now=Date.now()}) {
+  if (!enabled() || ride?.party?.teen === true) return {ok:true, field:null};
+  if (!ready()) return {ok:false, code:'pickup_verification_unavailable'};
+  if (!rideId || !operatorUid) return {ok:false, code:'pickup_verification_unavailable'};
+  const code=codeFor(String(rideId));
+  return {ok:true,field:{required:true,hash:digest(String(rideId),code),
+    verifiedAt:null,verifiedBy:null,failedAttempts:0,createdAt:now}};
+}
 const state = (ride) => ({enabled:enabled(),required:ride?.adultPickup?.required === true,
   verified: Number.isSafeInteger(ride?.adultPickup?.verifiedAt) && ride.adultPickup.verifiedAt > 0 &&
     String(ride?.adultPickup?.verifiedBy||'') === String(ride?.operatorId||'')});
@@ -88,4 +101,4 @@ async function verifyOperatorCode({db=adminDb(),rideId,operatorUid,pin,now=Date.
     return {ok:true,status:200,required:true,verified:true};
   });
 }
-module.exports={enabled,ready,codeFor,travelerCode,operatorStatus,verifyOperatorCode};
+module.exports={enabled,ready,codeFor,acceptanceProof,travelerCode,operatorStatus,verifyOperatorCode};
