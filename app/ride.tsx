@@ -257,7 +257,8 @@ export default function RideScreen() {
                 </Pressable>
               ) : null}
               {/* Leaving the view never tells the server to cancel an existing booking. */}
-              <Pressable accessibilityRole="button" onPress={() => router.dismissTo('/')} hitSlop={8}>
+              <Pressable accessibilityRole="button" onPress={() => router.dismissTo('/')} hitSlop={8}
+                style={{ minHeight: 44, justifyContent: 'center' }}>
                 <Text style={styles.retryLink}>{t('traveler.returnHome')}</Text>
               </Pressable>
             </>
