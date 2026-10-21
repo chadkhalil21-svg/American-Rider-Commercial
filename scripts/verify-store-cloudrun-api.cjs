@@ -20,8 +20,17 @@ function verifyProductionSource(root = path.resolve(__dirname, '..')) {
   return uri;
 }
 
-function verifyProductionResponses(live, health, config) {
+function verifyProductionResponses(live, health, config, { certifiedSha = null } = {}) {
   if (live?.ok !== true) throw Error('The public Google API /live endpoint did not confirm liveness.');
+  // The mobile binary must not silently point at a previous Cloud Run revision.
+  // /health exposes only a short hash, so compare the exact seven-character
+  // prefix of the certified source SHA. Fail closed if Cloud Run is stale.
+  if (certifiedSha !== null) {
+    if (!/^[0-9a-f]{40}$/.test(certifiedSha) ||
+        health?.commit !== certifiedSha.slice(0, 7)) {
+      throw Error('Production Cloud Run revision does not match the certified release SHA.');
+    }
+  }
   if (health?.deployment !== 'production' || health?.stripe !== 'live') {
     throw Error('The public Google API is not in real-money production mode.');
   }
@@ -63,7 +72,7 @@ async function main() {
     readJson(url, '/health'),
     readJson(url, '/config'),
   ]);
-  verifyProductionResponses(live, health, config);
+  verifyProductionResponses(live, health, config, {certifiedSha: process.env.CERTIFIED_SHA || null});
   console.log('PASS: Google Cloud Run production API publicly reachable, Stripe live,');
   console.log('Firestore connected, individual qualification enforced, scheduler verified. Safe to request certified store builds.');
 }
