@@ -478,7 +478,10 @@ export default function Home() {
               <Text style={styles.upcomingDest}>{ride.schedInfo.arr}</Text>
               <Text style={styles.upcomingWhen}>
                 {ride.schedInfo.when} {ride.schedInfo.time} {ride.schedInfo.period} ·{' '}
-                {fmt(ride.schedInfo.cost)}
+                {typeof ride.schedInfo.cost === 'number' &&
+                  Number.isFinite(ride.schedInfo.cost) && ride.schedInfo.cost > 0
+                    ? fmt(ride.schedInfo.cost)
+                    : t('traveler.schedNotQuoted')}
               </Text>
               {ride.schedState?.status === 'dispatched' && (
                 <Text style={styles.upcomingWhen}>
