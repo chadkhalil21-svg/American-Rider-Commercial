@@ -19,6 +19,7 @@ export function showScheduledOnHome(
 // The Home card must never say Upcoming Travel for a terminal failed request.
 export function scheduledHomeHeadingKey(status?: ScheduledRide['status']): string {
   switch (status) {
+    case 'dispatching': return 'traveler.rideFindingBest';
     case 'dispatched': return 'traveler.schedOperatorAssigned';
     case 'unmatched': return 'traveler.noOperatorAvailable';
     case 'payment_failed': return 'traveler.cardDeclined';
