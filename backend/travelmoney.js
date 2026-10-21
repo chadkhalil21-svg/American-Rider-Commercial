@@ -1,5 +1,6 @@
 const { randomUUID } = require('crypto');
 const { cancellationProgress } = require('./pickup-progress-fee');
+const { noShowEligibility, FEE_CENTS: NO_SHOW_FEE_CENTS } = require('./noshow');
 
 // Money on a travel: paying for it, cancelling it, settling it — each decided from the travel
 // RECORD, never from what a client names.
@@ -131,14 +132,18 @@ async function payForTravel({ db, uid, rideId, create, resume = null, now = Date
  * deps: { refundableFor, refundTravel, transferFixed, operatorPayoutAccount }
  */
 async function cancelTravel({ db, uid, rideId, deps, stripeConfigured = true, now = Date.now(),
-  enableVerifiedProgressFee = false }) {
+  enableVerifiedProgressFee = false, operatorNoShowUid = null }) {
   const id = String(rideId || '');
   if (!id) return fail(400, 'rideId is required');
   const rideRef = db.collection('rides').doc(id);
   const snap = await rideRef.get();
   if (!snap.exists) return fail(404, 'No such travel');
   const ride = snap.data();
-  if (String(ride.travelerUid) !== String(uid)) return fail(403, 'That travel belongs to another traveler');
+  const noShowOperator = operatorNoShowUid ? String(operatorNoShowUid) : null;
+  if (noShowOperator && noShowOperator !== String(uid))
+    return fail(403, 'Not the requesting Operator');
+  if (String(noShowOperator ? ride.operatorId : ride.travelerUid) !== String(uid))
+    return fail(403, 'Not a participant authorized to close this Travel');
   // Already refunded — say so rather than refunding twice.
   if (ride.refundId) {
     return { status: 200, body: { ok: true, alreadyRefunded: true, refundId: ride.refundId, amountCents: ride.refundedCents || 0 } };
@@ -159,7 +164,8 @@ async function cancelTravel({ db, uid, rideId, deps, stripeConfigured = true, no
     const currentSnap = await tx.get(rideRef);
     if (!currentSnap.exists) return fail(404, 'No such travel');
     const current = currentSnap.data();
-    if (String(current.travelerUid) !== String(uid)) return fail(403, 'That travel belongs to another traveler');
+    if (String(noShowOperator ? current.operatorId : current.travelerUid) !== String(uid))
+      return fail(403, 'Not a participant authorized to close this Travel');
     if (current.paymentClaim) return fail(409, 'Payment is still being prepared; retry cancellation shortly', 'payment_in_progress');
     if (['onboard', 'completed'].includes(current.status) || current.transferId) {
       return fail(409, 'This travel is underway or settled', 'travel_underway');
@@ -176,6 +182,15 @@ async function cancelTravel({ db, uid, rideId, deps, stripeConfigured = true, no
         tx.update(opRef, { currentRideId: null, reservedAt: null });
       }
     }
+    // A reported no-show is an exceptional Operator action. Use the same Operator
+    // snapshot this cancellation already reads, and reject without changing the
+    // paid Travel if the wait, contact or precise pickup evidence is absent.
+    const previousNoShow = noShowOperator && current.status === 'cancelled' &&
+      current.noShowBy === noShowOperator && Number.isSafeInteger(current.noShowAt);
+    if (noShowOperator && !previousNoShow) {
+      const allowed = noShowEligibility({ride:current,operator:op,rideId:id,uid:noShowOperator,now});
+      if (!allowed.ok) return fail(allowed.status, 'Cannot record a verified no-show yet.', allowed.code);
+    }
     // Evaluate with exactly the Operator snapshot ALREADY fetched to release
     // this reservation. No secondary query, route-service request or GPS writes.
     // OFF by default: final consumer fee terms and Stripe reconciliation must pass
@@ -189,12 +204,17 @@ async function cancelTravel({ db, uid, rideId, deps, stripeConfigured = true, no
       ? {feeCents:current.cancellationFeeCents,
         reason:String(current.cancellationFeeReason||'previously_recorded'),
         evidence:current.cancellationFeeEvidence||undefined} : null;
-    const feeDecision = enableVerifiedProgressFee
-      ? (priorDecision || cancellationProgress({ ride:current, operator:op, rideId:id, now })) : null;
+    const feeDecision = noShowOperator
+      ? {feeCents:NO_SHOW_FEE_CENTS, reason:'verified_five_minute_no_show'}
+      : enableVerifiedProgressFee
+        ? (priorDecision || cancellationProgress({ ride:current, operator:op, rideId:id, now })) : null;
     tx.update(rideRef, { status: 'cancelled', statusAt: now,
       cancelledFrom: current.cancelledFrom || current.status,
+      ...(noShowOperator ? { noShowBy:noShowOperator, noShowAt:current.noShowAt || now,
+        cancellationFeeCents:NO_SHOW_FEE_CENTS, cancellationFeeReason:'verified_five_minute_no_show',
+        cancellationReason:'traveler_no_show' } : {}),
       refundPending: !!current.paymentIntentId,
-      ...(enableVerifiedProgressFee ? {
+      ...(!noShowOperator && enableVerifiedProgressFee ? {
         cancellationFeeCents:feeDecision.feeCents,
         cancellationFeeReason:feeDecision.reason,
         cancellationFeeEvidence:feeDecision.evidence||null,
@@ -204,7 +224,7 @@ async function cancelTravel({ db, uid, rideId, deps, stripeConfigured = true, no
   });
   if (closed.status) return closed;
   const currentRide = closed.current;
-  const arrivalFee = enableVerifiedProgressFee
+  const arrivalFee = noShowOperator ? NO_SHOW_FEE_CENTS : enableVerifiedProgressFee
     ? closed.feeDecision.feeCents
     : (String(currentRide.cancelledFrom || currentRide.status || '') === 'arrived' ? ARRIVAL_FEE_CENTS : 0);
 
@@ -222,12 +242,12 @@ async function cancelTravel({ db, uid, rideId, deps, stripeConfigured = true, no
   if (!stripeConfigured) return pendingRefund('Stripe payment provider unavailable');
 
   let refundable, reason;
-  try { ({ cents: refundable, reason } = await deps.refundableFor({ paymentIntentId, expectUid: String(uid) })); }
+  try { ({ cents: refundable, reason } = await deps.refundableFor({ paymentIntentId, expectUid: String(currentRide.travelerUid) })); }
   catch (e) { return pendingRefund(e?.message || e); }
   if (refundable <= 0) {
     let canceled;
     try { canceled = deps.cancelUnpaidIntent
-      ? await deps.cancelUnpaidIntent({ paymentIntentId, uid: String(uid), rideId: id })
+      ? await deps.cancelUnpaidIntent({ paymentIntentId, uid: String(currentRide.travelerUid), rideId: id })
       : { ok: false, reason: reason || 'Payment status requires reconciliation' }; }
     catch (e) { return pendingRefund(e?.message || e); }
     if (canceled.ok) {
@@ -243,7 +263,7 @@ async function cancelTravel({ db, uid, rideId, deps, stripeConfigured = true, no
   try { out = await deps.refundTravel({
     paymentIntentId,
     amountCents: refundable - withheld,
-    expectUid: String(uid),
+    expectUid: String(currentRide.travelerUid),
     idempotencyKey: `ar_cancel_refund_${id}`,
   }); }
   catch (e) { return pendingRefund(e?.message || e); }
@@ -261,7 +281,7 @@ async function cancelTravel({ db, uid, rideId, deps, stripeConfigured = true, no
         paymentIntentId,
         operatorStripeAccount: accountId,
         amountCents: withheld,
-        reference: `${enableVerifiedProgressFee ? 'verified cancellation fee' : 'arrival fee'} ${currentRide.tripNo || id}`,
+        reference: `${noShowOperator ? 'verified no-show fee' : enableVerifiedProgressFee ? 'verified cancellation fee' : 'arrival fee'} ${currentRide.tripNo || id}`,
       });
       await rideRef.set(
         paid.ok
