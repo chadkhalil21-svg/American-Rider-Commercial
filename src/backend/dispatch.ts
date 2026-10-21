@@ -188,6 +188,7 @@ export async function returnOperator(args: {
 export type PrepareOptions = {
   bookingKey: string;
   agreedTotalCents?: number | null; // all-in amount the Traveler actually accepted
+  cancellationFeeDisclosureVersion?: string | null; // version visibly presented at confirm
   researchQuoteToken?: string | null; // research-only; never a fare input
   pickup: { lat: number; lng: number };
   destinationPoint: { lat: number; lng: number };
