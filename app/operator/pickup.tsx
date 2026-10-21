@@ -183,38 +183,38 @@ export default function OperatorPickup() {
         <View style={styles.waitArea}>
           <Text style={styles.waitText}>
             {waitSeconds === null
-              ? 'Waiting time is being confirmed.'
+              ? t('operatorNoShow.waitUnconfirmed')
               : waitSeconds > 0
-                ? `Waiting for Traveler · ${Math.floor(waitSeconds/60)}:${String(waitSeconds%60).padStart(2,'0')}`
-                : 'Traveler not here? Contact them before recording a no-show.'}
+                ? t('operatorNoShow.countdown',{time:`${Math.floor(waitSeconds/60)}:${String(waitSeconds%60).padStart(2,'0')}`})
+                : t('operatorNoShow.contactFirst')}
           </Text>
           {waitSeconds === 0 ? (
             <Pressable accessibilityRole="button"
               disabled={transitioning || pickupChecking}
-              onPress={() => Alert.alert('Traveler did not arrive',
-                'Confirm that you waited five minutes at pickup and sent the Traveler a message.',[
-                  {text:'Continue waiting',style:'cancel'},
-                  {text:'Record no-show',style:'destructive',onPress:async()=>{
+              onPress={() => Alert.alert(t('operatorNoShow.title'),
+                t('operatorNoShow.confirm'),[
+                  {text:t('operatorNoShow.continue'),style:'cancel'},
+                  {text:t('operatorNoShow.record'),style:'destructive',onPress:async()=>{
                     setTransitioning(true);setTransitionError(null);
                     try {
                       const result=await op.noShowOp();
                       if(result.ok) {
-                        Alert.alert('Travel closed',result.refundPending
-                          ? 'The Traveler refund is pending verification.'
-                          : 'The Traveler payment has been reconciled.');
+                        Alert.alert(t('operatorNoShow.closed'),result.refundPending
+                          ? t('operatorNoShow.refundPending')
+                          : t('operatorNoShow.paymentReconciled'));
                         router.replace('/operator');
                       } else {
                         setTransitionError(result.code==='operator_contact_required'
-                          ? 'Please message the Traveler using Contact first.'
+                          ? t('operatorNoShow.messageRequired')
                           : result.code==='no_show_not_commissioned'
-                            ? 'No-show settlement is not available yet. Please contact Patron Support.'
-                            : 'No-show could not be verified. Continue waiting or contact Patron Support.');
+                            ? t('operatorNoShow.unavailable')
+                            : t('operatorNoShow.unverified'));
                       }
                     } finally {setTransitioning(false);}
                   }},
                 ])}
               style={styles.noShowAction}>
-              <Text style={styles.noShowLabel}>Traveler Did Not Arrive</Text>
+              <Text style={styles.noShowLabel}>{t('operatorNoShow.action')}</Text>
             </Pressable>
           ) : null}
         </View>
