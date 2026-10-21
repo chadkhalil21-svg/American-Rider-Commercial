@@ -47,7 +47,7 @@ const body={pickup:{lat:25.7617,lng:-80.1918},dest:{lat:25.7701,lng:-80.1468}};
   routeMode='unmatched';hereAvailable=false;
   const three=await authority.authoritativeFare({body});
   assert.equal(three.tollStatus,'unknown','unverified physical route tolls must fail closed');
-  assert.equal(three.tollCents,null);
+  assert.equal(three.tollCents,0,'unverified amount must never become a collected toll; API blocks tollStatus unknown');
   assert.equal(three.routeProvider,'osrm');
   assert.ok(localCalls>=3);
   console.log('PASS: HERE fallback uses its own miles/time/toll, certified local route saved, unknown toll never billed');
