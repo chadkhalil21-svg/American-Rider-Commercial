@@ -1318,6 +1318,23 @@ export default {
     msgTravelUnavailable: "Non è disponibile alcun viaggio verificato per questa conversazione. Seleziona un viaggio registrato o contatta l’assistenza.",
   },
 
+  operatorNoShow: {
+    waitUnconfirmed: "Il tempo di attesa è in fase di verifica.",
+    countdown: "In attesa del Viaggiatore · {time}",
+    contactFirst: "Il Viaggiatore non è presente? Gli invii un messaggio prima di segnalare l’assenza.",
+    title: "Il Viaggiatore non si è presentato",
+    confirm: "Confermi di aver atteso cinque minuti al punto di prelievo e di aver inviato un messaggio al Viaggiatore.",
+    continue: "Continuare ad attendere",
+    record: "Segnalare l’assenza",
+    closed: "Viaggio chiuso",
+    refundPending: "Il rimborso al Viaggiatore è in attesa di verifica.",
+    paymentReconciled: "Il pagamento del Viaggiatore è stato riconciliato.",
+    messageRequired: "Invii prima un messaggio al Viaggiatore tramite Contatta.",
+    unavailable: "La gestione delle assenze non è ancora disponibile. Contatti l’assistenza.",
+    unverified: "L’assenza non è stata verificata. Continui ad attendere o contatti l’assistenza.",
+    action: "Il Viaggiatore Non Si È Presentato",
+  },
+
   legal: {
     termsTitle: 'Termini di Servizio',
     privacyTitle: 'Informativa sulla Privacy',
