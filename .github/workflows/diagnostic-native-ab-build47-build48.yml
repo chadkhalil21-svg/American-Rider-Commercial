@@ -74,3 +74,41 @@ jobs:
                       out.write('    '+l[:180]+'\n')
               out.write('\nNative parity on one runner is NOT evidence that the original remote EAS images were identical. Device iOS 18.4.1 runtime remains an independent gate.\n')
           PY
+
+      - name: Repeat known-good Build 47 in a third clean path to test checksum determinism
+        shell: bash
+        run: |
+          set -euo pipefail
+          sha=7289ee6fff8c9e8c75f9136a046f4868dfc13a86
+          dir="$RUNNER_TEMP/american-rider-build47-repeat"
+          git worktree add --detach "$dir" "$sha"
+          (
+            cd "$dir"
+            test "$(git rev-parse HEAD)" = "$sha"
+            npm ci --no-audit --no-fund --ignore-scripts > "$RUNNER_TEMP/npm47repeat.log" 2>&1 || { tail -n 30 "$RUNNER_TEMP/npm47repeat.log"; exit 1; }
+            CI=1 npx expo prebuild --platform ios --non-interactive --no-install > "$RUNNER_TEMP/prebuild47repeat.log" 2>&1 || { tail -n 50 "$RUNNER_TEMP/prebuild47repeat.log"; exit 1; }
+            (cd ios && pod install > "$RUNNER_TEMP/pods47repeat.log" 2>&1) || { tail -n 50 "$RUNNER_TEMP/pods47repeat.log"; exit 1; }
+          )
+          python3 - <<'PY'
+          import os,hashlib,difflib
+          root=os.environ['RUNNER_TEMP']
+          def read(name):
+              with open(f'{root}/{name}/ios/Podfile.lock','rb') as f:
+                  return f.read()
+          a=read('american-rider-build47')
+          b=read('american-rider-build47-repeat')
+          c=read('american-rider-build48')
+          print('REPEATED_SAME_SOURCE_BUILD47_PODLOCK_SHA',hashlib.sha256(b).hexdigest())
+          print('SAME_SOURCE_DIFFERENCE',a!=b)
+          print('47_TO_48_DIFFERENCE',a!=c)
+          delta=list(difflib.unified_diff(a.decode().splitlines(),b.decode().splitlines(),fromfile='47 first',tofile='47 repeat',lineterm=''))
+          print('REPEATED_47_DIFFERENCES_FIRST_35_LINES')
+          print('\n'.join(delta[:35]))
+          with open(os.environ['GITHUB_STEP_SUMMARY'],'a') as out:
+              out.write('\n## Does unchanged Build 47 regenerate identical Pods twice?\n\n')
+              out.write(f'- Build 47 first vs Build 47 repeat match: {a==b}\n')
+              out.write(f'- Build 47 first vs Build 48 match: {a==c}\n')
+              out.write('- The identical-source control distinguishes version changes from dynamic or path-dependent podspec checksums.\n')
+              for line in delta[:22]:
+                  out.write('    '+line[:180]+'\n')
+          PY
