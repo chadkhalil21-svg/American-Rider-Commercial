@@ -11,7 +11,7 @@ A next-day scheduled reservation is **cancelled in Scheduled Travel** but **appe
 - `watchScheduledRide()` updated `schedState` without dismissing the Home card; cancelling from `app/upcoming.tsx` did not synchronously reconcile RideContext, although the list correctly said cancelled.
 - Result: a cancellation one day ahead could still show in Home until **one hour after its booked pickup**. That is not an intentional product requirement.
 
-Proposed remedy: exclude cancelled records from the compact Home selector, dismiss on confirmed delete success or existing live snapshot, and keep their complete server record on the Scheduled Travel page. Reuse the existing listener; no polling, additional document write, new index, or billing work. Home must accurately distinguish other non-cancelled failure statuses.
+Proposed remedy: exclude cancelled records from the compact Home selector, dismiss on confirmed delete success or existing live snapshot, and keep the cancelled server record intact. The existing Scheduled Travel page is only a near-term window: its query excludes appointments more than 90 minutes past their pickup time. A permanent cancellation-history view is NOT yet evidenced. Reuse the existing listener; no polling, additional document write, new index, or billing work. Home must accurately distinguish other non-cancelled failure statuses. Separate remaining UX gap: urgent `needs_attention` (charged but Travel not created) can age out of both compact Home and the bounded Scheduled Travel list; permanent support-case visibility and refund reconciliation require a dedicated product review.
 
 ## On-demand Operator search, acceptance and completion: audited contract
 
