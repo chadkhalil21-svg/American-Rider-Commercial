@@ -103,6 +103,7 @@ async function payForTravel({ db, uid, rideId, create, resume = null, now = Date
       tx.update(rideRef, {
         paymentIntentId: result.paymentIntentId,
         paymentIntentCreatedAt: now,
+        paymentCapturePolicy:result.capturePolicy||'captured_legacy',
         governmentFeeCents: result.breakdown?.governmentFeeCents ?? 0,
         feeLines: result.breakdown?.feeLines ?? [],
         paymentClaim: null,
