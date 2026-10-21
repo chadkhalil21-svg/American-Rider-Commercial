@@ -213,6 +213,128 @@ const rides = (over = {}) => ({
       st.log.transfers.length===1);
   }
 
+  // ——— Manual HOLD cancellations: no Refund object, original PaymentIntent only ———
+  {
+    const at=2_000_000_000_000;
+    const db=fakeDb(rides({A:{status:'accepted',acceptedAt:at,
+      paymentCapturePolicy:'manual_v1',authorizationState:'held'}}));
+    const st=stripe(),events=[];
+    st.settleUncapturedTravel=async args=>{
+      events.push(args);
+      return {manual:true,ok:true,status:'released',captureCents:0};
+    };
+    const out=await cancelTravel({db,uid:'alice',rideId:'A',deps:st,now:at+60_000,
+      enableManualCancellationFee:true,enableVerifiedProgressFee:true});
+    check('held card fee-free cancellation voids original authorization with NO refund',out.status===200&&
+      out.body.authorizationReleased===true&&events[0].action==='cancel'&&
+      st.log.refunds.length===0&&st.log.transfers.length===0&&
+      db.data.rides.A.authorizationState==='released');
+  }
+  {
+    const at=2_000_000_000_000;
+    const db=fakeDb(rides({A:{status:'arrived',acceptedAt:at,
+      arrivedAt:at+120000,paymentCapturePolicy:'manual_v1',authorizationState:'held',
+      cancellationFeeDisclosureVersion:'net3-allin400-v1'}}));
+    const st=stripe(),events=[];
+    st.settleUncapturedTravel=async args=>{
+      events.push(args);return {manual:true,ok:true,status:'captured',captureCents:400};
+    };
+    const first=await cancelTravel({db,uid:'alice',rideId:'A',deps:st,now:at+360_000,
+      enableManualCancellationFee:true,enableVerifiedProgressFee:true});
+    check('disclosed $4 fee captures only 400 cents from a held fare and no refund',first.status===200&&
+      first.body.capturedCents===400&&first.body.operatorNetCents===300&&
+      events[0].action==='fee'&&events[0].verifiedFeeCents===400&&
+      st.log.refunds.length===0&&st.log.transfers[0]?.amountCents===300);
+    const again=await cancelTravel({db,uid:'alice',rideId:'A',deps:st,now:at+370_000,
+      enableManualCancellationFee:true,enableVerifiedProgressFee:true});
+    check('replay freezes the same $4 gross fee despite an already released Operator',
+      again.status===200&&events.length===2&&events[1].action==='fee'&&
+      events[1].verifiedFeeCents===400&&db.data.rides.A.cancellationFeeCaptureCents===400);
+  }
+  {
+    const at=2_000_000_000_000;
+    const db=fakeDb(rides({A:{status:'arrived',acceptedAt:at,arrivedAt:at+120000,
+      paymentCapturePolicy:'manual_v1',authorizationState:'held'}}));
+    const st=stripe(),events=[];
+    st.settleUncapturedTravel=async args=>{events.push(args);return {manual:true,ok:true,status:'released'};};
+    const out=await cancelTravel({db,uid:'alice',rideId:'A',deps:st,now:at+360_000,
+      enableManualCancellationFee:true,enableVerifiedProgressFee:true});
+    check('arrival alone without upfront $4 fee disclosure cannot take funds',out.status===200&&
+      events[0].action==='cancel'&&st.log.transfers.length===0&&st.log.refunds.length===0);
+  }
+  {
+    const at=2_000_000_000_000;
+    const db=fakeDb(rides({A:{status:'completed',paymentCapturePolicy:'manual_v1',
+      authorizationState:'held'}}));
+    const st=stripe(),events=[];
+    st.settleUncapturedTravel=async args=>{
+      events.push(args);return {manual:true,ok:true,status:'captured',captureCents:1950};
+    };
+    st.operatorPayoutAccount=async()=>({accountId:null,reason:'Connect delayed'});
+    const out=await settleTravel({db,uid:'alice',rideId:'A',deps:st,now:at});
+    check('completed Travel collects held fare even when Connect is unavailable',
+      out.status===200&&events.length===1&&events[0].action==='complete'&&
+      events[0].totalCents===1950&&db.data.rides.A.authorizationState==='captured'&&
+      db.data.rides.A.payoutPending===true&&st.log.transfers.length===0);
+  }
+
+  // ——— Same-Travel 5-minute Operator no-show: strict proof, $4/$3 capture ———
+  {
+    const at=1790390000000;
+    const ride={status:'arrived',paymentCapturePolicy:'manual_v1',
+      cancellationFeeDisclosureVersion:'net3-allin400-v1',
+      acceptedAt:at-540000,arrivedAt:at-360000,pickupContactAt:at-60000,
+      pickupContactBy:'op1',pickupLat:25.7617,pickupLng:-80.1918};
+    const op={currentRideId:'A',lat:25.7617,lng:-80.1918,onlineAt:at-1000};
+    const db=fakeDb({...rides({A:ride}),operators:{op1:op}});
+    const st=stripe(),calls=[];
+    st.settleUncapturedTravel=async args=>{
+      calls.push(args);return {manual:true,ok:true,status:'captured',captureCents:400};
+    };
+    const result=await cancelTravel({db,uid:'op1',operatorNoShowUid:'op1',
+      rideId:'A',deps:st,now:at,enableManualCancellationFee:true});
+    check('no-show: only 5-minute present Operator with contact can close Travel',
+      result.status===200&&db.data.rides.A.status==='cancelled'&&
+      db.data.rides.A.noShowBy==='op1'&&
+      db.data.operators.op1.currentRideId===null);
+    check('no-show: exactly one $4 partial capture and a $3 Operator transfer, zero refund',
+      result.body.capturedCents===400&&result.body.operatorNetCents===300&&
+      calls.length===1&&calls[0].action==='fee'&&
+      calls[0].uid==='alice'&&calls[0].verifiedFeeCents===400&&
+      st.log.refunds.length===0&&st.log.transfers[0]?.amountCents===300);
+    const again=await cancelTravel({db,uid:'op1',operatorNoShowUid:'op1',
+      rideId:'A',deps:st,now:at+1000,enableManualCancellationFee:true});
+    check('no-show repeat keeps frozen $4 and original Traveler/Travel ownership',
+      again.status===200&&calls[1]?.verifiedFeeCents===400&&calls[1]?.uid==='alice');
+  }
+  {
+    const at=1790390000000;
+    const base={status:'arrived',paymentCapturePolicy:'manual_v1',
+      cancellationFeeDisclosureVersion:'net3-allin400-v1',
+      acceptedAt:at-540000,arrivedAt:at-60000,
+      pickupContactAt:at-30000,pickupContactBy:'op1',
+      pickupLat:25.7617,pickupLng:-80.1918};
+    for(const [label,delta] of [
+      ['too early',{}],
+      ['missing contact',{arrivedAt:at-360000,pickupContactAt:null}],
+      ['already boarded',{arrivedAt:at-360000,status:'onboard'}],
+      ['remote GPS',{arrivedAt:at-360000,remote:true}],
+      ['scheduled',{arrivedAt:at-360000,scheduledFor:at+600000}],
+      ['teen',{arrivedAt:at-360000,party:{teen:true}}],
+    ]) {
+      const operator={currentRideId:'A',lat:delta.remote?25.80:25.7617,
+        lng:-80.1918,onlineAt:at-1000};
+      const db=fakeDb({...rides({A:{...base,...delta}}),operators:{op1:operator}});
+      const st=stripe(),capture=[];
+      st.settleUncapturedTravel=async args=>{capture.push(args);return {manual:true,ok:true,status:'captured',captureCents:400};};
+      const out=await cancelTravel({db,uid:'op1',operatorNoShowUid:'op1',
+        rideId:'A',deps:st,now:at,enableManualCancellationFee:true});
+      check('no-show refused: '+label,
+        out.status!==200&&db.data.rides.A.status!=='cancelled'&&
+        db.data.operators.op1.currentRideId==='A'&&capture.length===0);
+    }
+  }
+
   // ——— 2. /create-payment-intent proves the ride before anything is charged ——————————————————
   {
     const db = fakeDb(rides());

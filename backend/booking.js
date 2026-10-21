@@ -71,14 +71,26 @@ async function prepareBooking({ db, uid, key, fingerprint, record, now = Date.no
 }
 
 /** A Stripe success is necessary but not sufficient: the PI must belong to this exact priced Travel. */
-function paymentMatches(ride, payment, uid, rideId) {
-  return !!payment && payment.status === 'succeeded' &&
-    payment.metadata?.uid === String(uid) &&
-    payment.metadata?.rideId === String(rideId) &&
-    payment.id === String(ride.paymentIntentId || '') &&
-    Number(payment.amount_received) === Number(ride.costCents) &&
-    Number(payment.amount_received) > 0 &&
-    payment.currency === 'usd';
+function paymentMatches(ride, payment, uid, rideId, now=Date.now()) {
+  if(!payment||!ride||payment.metadata?.uid!==String(uid)||
+     payment.metadata?.rideId!==String(rideId)||
+     payment.id!==String(ride.paymentIntentId||'')||
+     payment.currency!=='usd')return false;
+  if(payment.status==='succeeded')
+    return Number(payment.amount_received)===Number(ride.costCents)&&
+      Number(payment.amount_received)>0;
+  // Phase II manual authorized bookings. A hold is NOT a charge: the authenticated
+  // server verifies the provider's capture deadline and original Travel total.
+  if(payment.status==='requires_capture'&&payment.capture_method==='manual'&&
+     payment.metadata?.capturePolicy==='manual_v1') {
+    const { verifyHold }=require('./payment-hold-policy');
+    const routeMs=Math.max(30,Math.min(24*60,Number(ride.routedMinutes)||90))*60_000;
+    const departAt=Number(ride.scheduledFor)||now;
+    const requiredUntil=Math.max(now,departAt)+routeMs;
+    return verifyHold({intent:payment,uid,rideId,totalCents:Number(ride.costCents),
+      now,requiredUntil}).ok;
+  }
+  return false;
 }
 
 /**
@@ -118,19 +130,22 @@ async function assignPaidTravel({ db, uid, rideId, payment, candidate, now = Dat
       }
     }
     if (ride.status === 'assigned' && ride.operatorId && !ride.releasedAt) {
-      if (!paymentMatches(ride, payment, uid, rideId)) return deny(409, 'payment_unconfirmed', 'Payment is not confirmed for this Travel');
+      if (!paymentMatches(ride, payment, uid, rideId, now)) return deny(409, 'payment_unconfirmed', 'Payment is not confirmed for this Travel');
       return { status: 200, body: { rideId, tripNo: ride.tripNo, matched: operatorView(ride), reused: true } };
     }
     const released = ride.status === 'assigned' && !!ride.releasedAt;
     if (!released && !['awaiting_payment', 'awaiting_assignment'].includes(ride.status)) {
       return deny(409, 'travel_not_dispatchable', 'This Travel cannot be dispatched');
     }
-    if (!paymentMatches(ride, payment, uid, rideId)) {
+    if (!paymentMatches(ride, payment, uid, rideId, now)) {
       return deny(409, 'payment_unconfirmed', 'Payment is not confirmed for this Travel');
     }
     if (!candidate) {
       if (released) return deny(409, 'reoffer_pending', 'A released offer awaits another Operator');
-      tx.update(ref, { status: 'awaiting_assignment', paidAt: ride.paidAt || now, statusAt: now });
+      tx.update(ref,{status:'awaiting_assignment',statusAt:now,
+        ...(payment.status==='requires_capture'
+          ?{authorizedAt:ride.authorizedAt||now,authorizationState:'held'}
+          :{paidAt:ride.paidAt||now})});
       return { status: 200, body: { rideId, tripNo: ride.tripNo, matched: null, paymentConfirmed: true } };
     }
     const opSnap = await tx.get(opRef);
@@ -158,7 +173,10 @@ async function assignPaidTravel({ db, uid, rideId, payment, candidate, now = Dat
       return deny(409, 'operator_unavailable', 'That Operator is no longer available');
     }
     const fields = {
-      status: 'assigned', statusAt: now, paidAt: ride.paidAt || now,
+      status:'assigned',statusAt:now,
+      ...(payment.status==='requires_capture'
+        ?{authorizedAt:ride.authorizedAt||now,authorizationState:'held'}
+        :{paidAt:ride.paidAt||now}),
       operatorId: opRef.id, operatorName: op.name || '', operatorCar: op.car || '',
       operatorPlate: op.plate || '', operatorLat: Number(op.lat), operatorLng: Number(op.lng),
       operatorEtaMin: valid.etaMin, operatorMiles: valid.miles, operatorDemo: false,

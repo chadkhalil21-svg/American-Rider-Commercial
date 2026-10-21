@@ -3,7 +3,7 @@
 // ("You retain final discretion"), Confirm Arrival → Commence Travel.
 import { useRouter } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
-import { Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { Alert, Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { Text } from '../../src/components/AppText';
 import { OperatorMap } from '../../src/components/operator';
 import { Avatar, Card, Mono, Num, PrimaryButton, Screen, SectionLabel } from '../../src/components/UI';
@@ -24,6 +24,14 @@ export default function OperatorPickup() {
   const [codeRequired, setCodeRequired] = useState(false);
   const [codeVerified, setCodeVerified] = useState(false);
   const [pickupChecking, setPickupChecking] = useState(false);
+  // This is a DISPLAY timer only. Eligibility and payments are always decided
+  // from the server arrival stamp, not this device's clock or UI countdown.
+  const [clock, setClock] = useState(Date.now());
+  useEffect(() => {
+    if (!op.arrived) return;
+    const timer=setInterval(()=>setClock(Date.now()),1000);
+    return ()=>clearInterval(timer);
+  },[op.arrived]);
 
   // Cold-open guard only: cancelling clears `op` while its own navigation runs —
   // don't race it.
@@ -33,6 +41,9 @@ export default function OperatorPickup() {
     if (!active && !hadOp.current) router.replace('/operator');
   }, [active, router]);
   const arrived = op.arrived;
+  const waitMs = active?.arrivedAt
+    ? Math.max(0, 5*60*1000 - (clock - active.arrivedAt)) : null;
+  const waitSeconds=waitMs===null ? null : Math.ceil(waitMs/1000);
   useEffect(() => {
     let live=true;
     setPickupEntry('');setCodeRequired(false);setCodeVerified(false);
@@ -168,6 +179,46 @@ export default function OperatorPickup() {
       ) : null}
 
       <View style={{ flex: 1 }} />
+      {arrived && active.rideId && !active.teen ? (
+        <View style={styles.waitArea}>
+          <Text style={styles.waitText}>
+            {waitSeconds === null
+              ? t('operatorNoShow.waitUnconfirmed')
+              : waitSeconds > 0
+                ? t('operatorNoShow.countdown',{time:`${Math.floor(waitSeconds/60)}:${String(waitSeconds%60).padStart(2,'0')}`})
+                : t('operatorNoShow.contactFirst')}
+          </Text>
+          {waitSeconds === 0 ? (
+            <Pressable accessibilityRole="button"
+              disabled={transitioning || pickupChecking}
+              onPress={() => Alert.alert(t('operatorNoShow.title'),
+                t('operatorNoShow.confirm'),[
+                  {text:t('operatorNoShow.continue'),style:'cancel'},
+                  {text:t('operatorNoShow.record'),style:'destructive',onPress:async()=>{
+                    setTransitioning(true);setTransitionError(null);
+                    try {
+                      const result=await op.noShowOp();
+                      if(result.ok) {
+                        Alert.alert(t('operatorNoShow.closed'),result.refundPending
+                          ? t('operatorNoShow.refundPending')
+                          : t('operatorNoShow.paymentReconciled'));
+                        router.replace('/operator');
+                      } else {
+                        setTransitionError(result.code==='operator_contact_required'
+                          ? t('operatorNoShow.messageRequired')
+                          : result.code==='no_show_not_commissioned'
+                            ? t('operatorNoShow.unavailable')
+                            : t('operatorNoShow.unverified'));
+                      }
+                    } finally {setTransitioning(false);}
+                  }},
+                ])}
+              style={styles.noShowAction}>
+              <Text style={styles.noShowLabel}>{t('operatorNoShow.action')}</Text>
+            </Pressable>
+          ) : null}
+        </View>
+      ) : null}
       {transitionError ? <Text style={styles.error}>{transitionError}</Text> : null}
       {!arrived ? (
         <PrimaryButton label={transitioning ? t('traveler.pleaseWait') : t('operator.confirmArrival')} disabled={transitioning} onPress={async () => { setTransitioning(true); setTransitionError(null); const ok = await op.confirmArrival(); setTransitioning(false); if (!ok) setTransitionError(t('traveler.errGeneric')); }} style={{ marginTop: 24 }} />
@@ -229,6 +280,10 @@ const styles = StyleSheet.create({
   travelerName: { fontSize: 16, fontWeight: '600', color: colors.ink },
   travelerSub: { fontSize: 12.5, color: colors.muted, marginTop: 2 },
   contact: { fontSize: 14, fontWeight: '500', color: colors.blue },
+  waitArea:{marginTop:20,gap:12},
+  waitText:{fontSize:12.5,color:colors.muted,lineHeight:19},
+  noShowAction:{alignSelf:'flex-start',minHeight:44,justifyContent:'center',paddingVertical:8},
+  noShowLabel:{fontSize:14,fontWeight:'500',color:colors.ink},
   codeCard: { marginTop: 12, paddingVertical: 16, paddingHorizontal: 18 },
   codeBody: { fontSize: 12.5, color: colors.muted, marginTop: 8, lineHeight: 18 },
   prefsCard: { marginTop: 12, paddingHorizontal: 18, paddingVertical: 1 },

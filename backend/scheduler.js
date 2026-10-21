@@ -315,7 +315,8 @@ async function sweepScheduled({ now = Date.now(), checkMarket } = {}) {
       if (Number(paid.chargedCents) !== billed) throw new Error('Provider amount differs from reserved price');
       // If this write fails, Stripe's payment_intent.succeeded webhook uses rideId metadata to
       // attach the charge to this already-existing ride; booking recovery then refunds it.
-      await rideRef.set({ paymentIntentId: paid.paymentIntentId }, { merge: true });
+      await rideRef.set({ paymentIntentId: paid.paymentIntentId,
+        paymentCapturePolicy:paid.capturePolicy||'captured_legacy' }, { merge: true });
       if (!await admitted(pickup) || !await stillClaimed(db,id,claimed,r.party)) {
         throw new Error('Reservation, Family authorization or market admission changed after charge; refund is owed');
       }
@@ -521,7 +522,7 @@ const RESERVED_SCAN_LIMIT = 100;
 async function sweepSettlements({ now = Date.now(), limit = 25 } = {}) {
   const db = adminDb();
   if (!db) return { ok: false, reason: 'no database' };
-  const { transferToOperator } = require('./payments');
+  const { transferToOperator, settleUncapturedTravel } = require('./payments');
 
   let settled = 0;
   let centsPaid = 0;
@@ -578,12 +579,35 @@ async function sweepSettlements({ now = Date.now(), limit = 25 } = {}) {
 
     const {deferAccountLookup,CODE:CONNECT_UNAVAILABLE}=require('./payout-account-backoff');
     for (const ride of owed.slice(0, limit)) {
-      // A verified failed Connect lookup is exceptional. Skip repeating the
-      // identical user/Operator reads and Firestore writes every minute; retry
-      // automatically after 15 minutes. Never cache a positive payout result.
+      // Capture the completed authorized fare exactly once even when the Operator
+      // cannot yet be paid. Do not leave a finished Travel to lose its card hold
+      // while waiting for Connect approval. Never capture a noncompleted Travel.
+      if(ride.paymentCapturePolicy==='manual_v1'&&
+         (ride.authorizationState!=='captured'||!ride.capturedAt)) {
+        let done;
+        try {done=await settleUncapturedTravel({
+          paymentIntentId:ride.paymentIntentId,uid:String(ride.travelerUid),
+          rideId:ride.rideId,totalCents:Number(ride.costCents),
+          action:'complete',now,
+        });}
+        catch(e){done={ok:false,code:String(e.message||e)};}
+        if(!done?.manual||!done?.ok) {
+          blocked.push({tripNo:ride.tripNo||ride.rideId,
+            reason:done?.code||'manual capture needs reconciliation'});
+          // Keep needsPayout set so durable reconciliation can retry; no payout
+          // and no fake paid receipt until provider confirms captured funds.
+          continue;
+        }
+        await db.collection('rides').doc(ride.rideId).set({
+          authorizationState:'captured',capturedCents:done.captureCents,capturedAt:now,
+          capturePending:false,
+        },{merge:true});
+      }
+      // Capture happens above BEFORE this 15-minute negative Connect cooldown.
+      // An expired payout account must never consume our authorization deadline.
       if (deferAccountLookup(ride, now)) {
-        blocked.push({ tripNo:ride.tripNo||ride.rideId,
-          reason:ride.payoutBlockedReason||'Operator payout account unavailable' });
+        blocked.push({tripNo:ride.tripNo||ride.rideId,
+          reason:ride.payoutBlockedReason||'Operator payout account unavailable'});
         continue;
       }
       // An operator with no payout account yet is RECORDED as owed, never dropped. They
@@ -625,7 +649,7 @@ async function sweepSettlements({ now = Date.now(), limit = 25 } = {}) {
         blocked.push({ tripNo: ride.tripNo || ride.rideId, reason: out.error || out.code });
         await db.collection('rides').doc(ride.rideId).set(
           { payoutPending: true, payoutBlockedReason: out.error || out.code,
-            payoutBlockedCode:null,
+            payoutBlockedCode: null,
             payoutCheckedAt: now,
             // A provider-ambiguous or legacy payout must not be re-attempted
             // every minute. Human reconciliation remains visible through

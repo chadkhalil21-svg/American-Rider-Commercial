@@ -63,6 +63,7 @@ import { fetchRoute, Route } from '../backend/route';
 import { getCabinPrefs } from './cabinPrefs';
 import { submitIssue, type SupportOutcome, type SupportTrip } from '../backend/support';
 import { t as tr } from '../i18n';
+import { usePaymentConfig } from './PaymentConfigContext';
 
 export type Prefs = { quiet: boolean; charging: boolean; luggage: boolean; pet: boolean };
 export type PayKey = 'ach' | 'apple' | 'gpay' | 'card';
@@ -89,6 +90,7 @@ export type PaymentState = {
   status: 'idle' | 'processing' | 'paid' | 'failed';
   amountCents?: number;
   paymentIntentId?: string;
+  authorizationOnly?: boolean;
   // WHICH TRAVEL THIS PAYMENT IS FOR. Patron Support can refund against a PaymentIntent, and
   // this store only ever holds the most recent one — so a complaint about last week's travel
   // would have refunded today's charge. The id is only ever sent for its own travel.
@@ -320,6 +322,13 @@ const OPERATOR_STEP: Record<string, number> = {
 const RideContext = createContext<RideStore | null>(null);
 
 export function RideProvider({ children }: { children: React.ReactNode }) {
+  // Stable ref avoids additional config reads when Retry Dispatch reuses the
+  // same prepared ride. The server validates the version before recording it.
+  const providerPaymentConfig=usePaymentConfig();
+  const feeDisclosureVersionRef=useRef<string|null>(null);
+  feeDisclosureVersionRef.current=providerPaymentConfig.manualTravelAuthorization===true &&
+    providerPaymentConfig.cancellationFeeGrossCents===400
+      ? 'net3-allin400-v1' : null;
   const [defaultPrefs, setDefaultPrefs] = useState<Prefs>(DEFAULT_PREFS);
   const [tripPrefs, setTripPrefs] = useState<Prefs>({ ...DEFAULT_PREFS });
   const [pay, setPay] = useState<PayKey>('ach');
@@ -878,6 +887,7 @@ export function RideProvider({ children }: { children: React.ReactNode }) {
           paidIntentRef.current = live.paymentIntentId || null;
           if (live.paidAt || live.status === 'awaiting_assignment') {
             const restoredPayment = { status: 'paid' as const, amountCents: live.totalCents,
+              authorizationOnly:live.authorizationState==='held',
               paymentIntentId: live.paymentIntentId, tripNo: live.tripNo };
             paymentRef.current = restoredPayment; setPayment(restoredPayment);
           } else if (live.status === 'awaiting_payment') {
@@ -967,6 +977,7 @@ export function RideProvider({ children }: { children: React.ReactNode }) {
           const prepared = await prepareRide({
             bookingKey: bookingKeyRef.current, pickup: from, destinationPoint: dest,
             agreedTotalCents:quotedTotalRef.current,
+            cancellationFeeDisclosureVersion:feeDisclosureVersionRef.current,
             researchQuoteToken:researchQuoteRef.current,
             dep: departure.short, dest: arrival.short,
             cls: operatorClassFor(travelClassRef.current),
@@ -1027,8 +1038,9 @@ export function RideProvider({ children }: { children: React.ReactNode }) {
             return null;
           }
           paidIntentRef.current = result.paymentIntentId ?? null;
-          const paid = { status: 'paid' as const, amountCents: result.amountCents,
-            paymentIntentId: result.paymentIntentId, tripNo: lastTripRef.current.no };
+          const paid={status:'paid' as const,amountCents:result.amountCents,
+            paymentIntentId:result.paymentIntentId,
+            authorizationOnly:result.authorizationOnly===true,tripNo:lastTripRef.current.no};
           paymentRef.current = paid; setPayment(paid);
           if (result.methodLabel) {
             lastTripRef.current = { ...lastTripRef.current, pay: result.methodLabel };

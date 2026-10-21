@@ -35,6 +35,32 @@ async function handleEvent(event) {
   const obj = event.data?.object || {};
 
   switch (event.type) {
+    case 'payment_intent.amount_capturable_updated': {
+      // A hold has no captured funds. Never mark paid or transfer earnings.
+      if (obj.status !== 'requires_capture' || obj.capture_method !== 'manual' ||
+          obj.metadata?.capturePolicy !== 'manual_v1') return { ok: true, action:'not a Travel hold' };
+      const rideId=String(obj.metadata?.rideId||'');
+      if (!rideId) return {ok:true,action:'hold without Travel metadata'};
+      const ref=db.collection('rides').doc(rideId);
+      const outcome=await db.runTransaction(async tx=>{
+        const snap=await tx.get(ref);
+        if(!snap.exists)return 'hold Travel missing';
+        const ride=snap.data();
+        if(String(ride.travelerUid)!==String(obj.metadata?.uid)||
+           ride.paymentIntentId&&ride.paymentIntentId!==obj.id||
+           Number(ride.costCents)!==Number(obj.amount)||
+           Number(obj.amount_capturable)!==Number(obj.amount)||
+           String(obj.currency||'').toLowerCase()!=='usd')
+             return 'hold binding mismatch';
+        // One existing ride write only on first event; repeat delivery costs a read.
+        if(ride.authorizationState==='held'&&ride.paymentIntentId===obj.id)return 'already recorded';
+        tx.update(ref,{paymentIntentId:obj.id,authorizationState:'held',
+          authorizedAmountCents:obj.amount,authorizedAt:Date.now()});
+        return 'authorization recorded';
+      });
+      // No paid receipt, capture or payout occurs in this webhook branch.
+      return {ok:true,action:outcome};
+    }
     case 'payment_intent.succeeded': {
       // Operators also pay a separate account cost. Those charges deliberately
       // have no Travel id, and must not be misclassified as Traveler payments.
@@ -50,12 +76,18 @@ async function handleEvent(event) {
           const snap = await tx.get(ref);
           if (!snap.exists) return 'booking not found';
           const ride = snap.data();
+          const manual=obj.metadata?.capturePolicy==='manual_v1';
+          const authorizedFee=manual&&ride.status==='cancelled'&&
+            Number(ride.cancellationFeeCaptureCents)===Number(obj.amount_received)&&
+            Number(obj.amount_received)===400;
+          const fullAmount=Number(ride.costCents)===Number(obj.amount_received);
           if (String(ride.travelerUid) !== String(obj.metadata?.uid) ||
-              Number(ride.costCents) !== Number(obj.amount_received) ||
+              (!fullAmount && !authorizedFee) ||
               String(obj.currency || '').toLowerCase() !== 'usd' ||
               (ride.paymentIntentId && ride.paymentIntentId !== obj.id)) return 'booking mismatch';
           tx.update(ref, { paymentIntentId: obj.id, paidAt: ride.paidAt || Date.now(),
-            ...(ride.status === 'cancelled' ? { refundPending: true } : {}) });
+            ...(manual?{authorizationState:'captured', capturedCents:obj.amount_received}
+                      :(ride.status === 'cancelled' ? { refundPending: true } : {})) });
           return 'booking reconciled';
         });
       }

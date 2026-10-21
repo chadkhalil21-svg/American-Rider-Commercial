@@ -926,6 +926,11 @@ export default {
     cancelThisTravel: 'Cancel this travel?',
     notCharged: 'You have not been charged for this travel.',
     chargedAwaitingOperator: 'Payment was confirmed, but no Operator is assigned. You can retry or cancel and request a full refund.',
+    authorizationAwaitingOperator: 'Payment authorized, not charged. No Operator is assigned. You may retry or cancel.',
+    authorizationAmount: '%{amount} authorized. Not charged.',
+    authorizationFreeCancel: 'If no cancellation fee applies, the bank releases the full payment hold.',
+    authorizationPossibleFee: 'A disclosed $4.00 cancellation fee may apply after verified Operator arrival. The remainder of the hold is released.',
+    cancellationFeeNet3Disclosure: 'A $4.00 cancellation or no-show fee may apply when eligible; $3.00 goes to your Operator. Otherwise, the payment hold is released.',
     paymentStatusUnverified: 'Payment status is not yet confirmed. Cancel Travel to have the server resolve the payment before you leave.',
     keepTravel: 'Keep travel',
     yesCancel: 'Yes, cancel',
@@ -1347,6 +1352,23 @@ export default {
   // The documents themselves are served by the backend and translated there. This is the
   // notice that appears above a translated one, and it is not boilerplate: it is what makes a
   // convenience translation safe to offer at all.
+  operatorNoShow: {
+    waitUnconfirmed: "Waiting time is being confirmed.",
+    countdown: "Waiting for Traveler · {time}",
+    contactFirst: "Traveler not here? Contact them before recording a no-show.",
+    title: "Traveler did not arrive",
+    confirm: "Confirm you waited five minutes at pickup and sent the Traveler a message.",
+    continue: "Continue waiting",
+    record: "Record no-show",
+    closed: "Travel closed",
+    refundPending: "The Traveler refund is pending verification.",
+    paymentReconciled: "The Traveler payment has been reconciled.",
+    messageRequired: "Please message the Traveler using Contact first.",
+    unavailable: "No-show settlement is not available yet. Please contact Patron Support.",
+    unverified: "No-show could not be verified. Continue waiting or contact Patron Support.",
+    action: "Traveler Did Not Arrive",
+  },
+
   legal: {
     termsTitle: 'Terms of Service',
     privacyTitle: 'Privacy Policy',

@@ -32,6 +32,7 @@ export type PaymentResult = {
   ok: boolean;
   paymentIntentId?: string;
   amountCents?: number;
+  authorizationOnly?: boolean; // manual Stripe hold, not a captured charge
   error?: string;
   /** True when the traveler closed the sheet themselves — not a failure, and not an error to show. */
   canceled?: boolean;
@@ -93,6 +94,8 @@ export type PaymentConfig = {
   canManagePaymentMethods: boolean;
   /** The platform is operationally ready to create a Travel payment. */
   canTakePayment: boolean;
+  manualTravelAuthorization?:boolean;
+  cancellationFeeGrossCents?:number|null;
 };
 
 /**
@@ -112,6 +115,8 @@ export async function fetchPaymentConfig(): Promise<PaymentConfig> {
       mode: d?.mode === 'live' ? 'live' : d?.mode === 'test' ? 'test' : 'no-key',
       canManagePaymentMethods: d?.canManagePaymentMethods === true,
       canTakePayment: d?.canTakePayment === true,
+      manualTravelAuthorization:d?.manualTravelAuthorization===true,
+      cancellationFeeGrossCents:Number(d?.cancellationFeeGrossCents)===400?400:null,
     };
   } catch {
     return { stripePublishableKey: null, mode: 'no-key', canManagePaymentMethods: false, canTakePayment: false };
@@ -154,6 +159,7 @@ export async function payForRide(opts: {
     mode?: 'live' | 'test' | 'no-key';
     customerId?: string;
     ephemeralKeySecret?: string;
+    capturePolicy?: 'manual_v1' | 'captured_legacy';
     breakdown?: { travelerPays?: number };
   };
   try {
@@ -228,6 +234,7 @@ export async function payForRide(opts: {
     ok: true,
     paymentIntentId: intent.paymentIntentId,
     amountCents: intent.breakdown?.travelerPays,
+    authorizationOnly:intent.capturePolicy==='manual_v1',
     methodLabel: await methodLabelFor(intent.clientSecret),
   };
   } catch {

@@ -26,7 +26,7 @@ const {
   quote, createPaymentIntent, resumePaymentIntent, verifiedTravelPayment, cancelUnpaidIntent, chargeRide, refundTravel,
   connectAccountFor, configureConnectPayoutSchedule, connectOnboardingLink, connectAccountStatus,
   transferToOperator, refundableFor, connectDashboardLink, pingStripe, probeNetwork,
-  transferFixed, operatorPayoutAccount,
+  transferFixed, operatorPayoutAccount, settleUncapturedTravel,
   listPaymentMethods, createSetupIntent, setDefaultPaymentMethod, detachPaymentMethod,
   defaultCardCountry, chargeOperatorAccountFee,
 } = require('./payments');
@@ -579,6 +579,10 @@ app.get('/config', async (req, res) => {
   res.json({
     stripePublishableKey: readKey('STRIPE_PUBLISHABLE_KEY') || null,
     mode: keyMode,
+    manualTravelAuthorization:process.env.AR_MANUAL_TRAVEL_CAPTURE==='true',
+    cancellationFeeGrossCents:
+      process.env.AR_MANUAL_TRAVEL_CAPTURE==='true'&&
+      process.env.AR_MANUAL_CANCELLATION_FEE==='true'?400:null,
     // Managing a saved method is a Stripe capability, not a whole-platform capability.
     // Screening, HERE, scheduler, market-reference and Ops readiness must never disable Wallet.
     // A Travel charge remains stricter: create-payment-intent is still protected by
@@ -1468,7 +1472,9 @@ app.post('/travel/cancel', requireAuth, LIMITS.payments, requireFreshAuth, async
       // Never enable via a native flag or GitHub merge. Requires explicit paid
       // deployment configuration after fee disclosure and synthetic Stripe tests.
       enableVerifiedProgressFee: process.env.AR_VERIFIED_ENROUTE_CANCEL_FEE === 'true',
-      deps: { refundableFor, refundTravel, cancelUnpaidIntent, transferFixed, operatorPayoutAccount },
+      enableManualCancellationFee: process.env.AR_MANUAL_CANCELLATION_FEE === 'true',
+      deps: { refundableFor, refundTravel, cancelUnpaidIntent,
+        transferFixed, operatorPayoutAccount, settleUncapturedTravel },
     });
     res.status(out.status).json(out.body);
   } catch (e) {
@@ -1476,6 +1482,27 @@ app.post('/travel/cancel', requireAuth, LIMITS.payments, requireFreshAuth, async
   }
 });
 
+
+// Five-minute no-show is a separate Operator-authorized terminal state, not a
+// fake completed ride. All three payment flags default OFF until published
+// disclosure, signed clients and actual Stripe sandbox evidence are verified.
+app.post('/travel/no-show', requireAuth, LIMITS.payments, requireFreshAuth, async(req,res)=>{
+  if(process.env.AR_VERIFIED_NO_SHOW!=='true'||
+     process.env.AR_MANUAL_TRAVEL_CAPTURE!=='true'||
+     process.env.AR_MANUAL_CANCELLATION_FEE!=='true')
+    return res.status(503).json({ok:false,code:'no_show_not_commissioned'});
+  const db=adminDb();
+  if(!db)return res.status(503).json({ok:false,code:'no_admin_db'});
+  try{
+    const outcome=await cancelTravelFor({
+      db,uid:req.uid,operatorNoShowUid:req.uid,rideId:req.body?.rideId,
+      stripeConfigured:keyMode!=='no-key',enableManualCancellationFee:true,
+      deps:{refundableFor,refundTravel,cancelUnpaidIntent,transferFixed,
+        operatorPayoutAccount,settleUncapturedTravel},
+    });
+    return res.status(outcome.status).json(outcome.body);
+  }catch(e){return res.status(502).json({ok:false,code:'no_show_reconciliation_pending'});}
+});
 
 // GET /operator/me — what the platform believes about the signed-in operator.
 //
@@ -2121,7 +2148,7 @@ async function runAllSweeps({criticalOnly=false}={}) {
     settlements: () => sweepSettlements(),
     bookingRecovery: () => sweepBookingRecovery({ db: adminDb(), stripeConfigured: keyMode !== 'no-key',
       deps: { refundableFor, refundTravel, cancelUnpaidIntent, verifiedTravelPayment,
-        transferFixed, operatorPayoutAccount } }),
+        transferFixed, operatorPayoutAccount, settleUncapturedTravel } }),
     providerEvents: () => sweepProviderEvents({ handlers: PROVIDER_HANDLERS, workerId: WORKER_ID }),
     // Only an indexed, bounded DUE queue is checked; the Stripe payout webhook
     // writes an event once. No old-account scan and NO money is collected here.
@@ -3754,6 +3781,20 @@ app.post('/travel/prepare', requireAuth, LIMITS.dispatch, requireFreshAuth, requ
       return res.status(409).json({error:'The Travel Total changed. Review the current price before confirming.',
         code:'travel_total_changed',currentTotalCents:priced.travelerPays});
     }
+    // Booking confirmation and payment feature flags must describe precisely the
+    // same fee policy. Old app builds may not silently accept new charges.
+    const manualFeeOffered=process.env.AR_MANUAL_TRAVEL_CAPTURE==='true'&&
+      process.env.AR_MANUAL_CANCELLATION_FEE==='true';
+    if(manualFeeOffered && b.cancellationFeeDisclosureVersion!=='net3-allin400-v1')
+      return res.status(428).json({
+        error:'Update American Rider to review the cancellation fee before booking.',
+        code:'cancellation_fee_disclosure_required',
+      });
+    if(!manualFeeOffered && b.cancellationFeeDisclosureVersion)
+      return res.status(409).json({
+        error:'Cancellation terms have changed. Review your booking.',
+        code:'cancellation_fee_terms_changed',
+      });
     const partyResult = priced.journey?.party
       ? { ok: true, party: priced.journey.party }
       : await normalizeParty(b, { uid: req.uid, name: req.name || b.bookerName || b.travelerName || '' });
@@ -3790,6 +3831,11 @@ app.post('/travel/prepare', requireAuth, LIMITS.dispatch, requireFreshAuth, requ
       tollCents: Math.max(0, Number(priced.tollCents) || 0), feeLines: priced.feeLines,
       pricedBy: priced.pricedBy, cardCountry: priced.cardCountry,
       journey: priced.journey || null, cabinPreferences,
+      ...(manualFeeOffered ? {
+        cancellationFeeDisclosureVersion:'net3-allin400-v1',
+        cancellationFeeDisclosureAt:Date.now(),
+        cancellationFeeGrossCents:400,operatorCancellationNetCents:300,
+      } : {}),
     } });
     if (party.teen && [200,201].includes(outcome.status)) {
       await provisionTeenPin({ rideRef: db.collection('rides').doc(id), rideId: id, party });
@@ -4129,7 +4175,20 @@ app.post('/travel/message', requireAuth, LIMITS.message, async (req,res)=>{
  try { permission=await authorizeTravelMessage({db,ride:r,uid,lostItemId:req.body?.lostItemId||null}); }
  catch { return res.status(503).json({error:'Conversation authorization could not be verified'}); }
  if(!permission.ok) return res.status(permission.status).json({error:'This Travel conversation is unavailable',code:permission.code});
- await db.collection('messages').add({rideId,tripNo:r.tripNo||rideId,from:permission.from,travelerUid:r.travelerUid||null,operatorId:r.operatorId||null,guardianUid:r.party?.teen?r.party.guardianUid||null:null,lostItemId:permission.lostItemId,text,createdAt:Date.now()});return res.json({ok:true});
+ await db.collection('messages').add({rideId,tripNo:r.tripNo||rideId,from:permission.from,travelerUid:r.travelerUid||null,operatorId:r.operatorId||null,guardianUid:r.party?.teen?r.party.guardianUid||null:null,lostItemId:permission.lostItemId,text,createdAt:Date.now()});
+ // Stamp only the first actual Operator Travel message after verified pickup,
+ // only for no-show evidence. Ordinary conversation adds no reads/writes.
+ if(permission.from==='operator'&&r.status==='arrived'&&!r.pickupContactAt){
+   try{
+     const ref=db.collection('rides').doc(rideId);
+     await db.runTransaction(async tx=>{
+       const latest=await tx.get(ref),state=latest.exists?latest.data():null;
+       if(state?.status==='arrived'&&!state.pickupContactAt&&String(state.operatorId||'')===uid)
+         tx.update(ref,{pickupContactAt:Date.now(),pickupContactBy:uid});
+     });
+   }catch{/* Message stays delivered, but no unverified contact earns a fee. */}
+ }
+ return res.json({ok:true});
 });
 
 // POST /travel/accept { rideId } — the operator accepts the travel offered to them.

@@ -36,12 +36,12 @@ function run() {
     settlementPlan({...opts(),travelState:'completed'}),
     {action:'capture',amountCents:2500,reason:'verified_completion'});
   assert.equal(settlementPlan({...opts(),travelState:'accepted'}).action,'wait');
-  assert.equal(settlementPlan({...opts(),travelState:'cancelled',acceptedAt:now-30000,verifiedCancellationFeeCents:300}).action,'void_authorization');
+  assert.equal(settlementPlan({...opts(),travelState:'cancelled',acceptedAt:now-30000,verifiedCancellationFeeCents:400}).action,'void_authorization');
   assert.equal(settlementPlan({...opts(),travelState:'cancelled',acceptedAt:now-180000,verifiedCancellationFeeCents:0}).action,'void_authorization');
-  assert.equal(settlementPlan({...opts(),travelState:'cancelled',acceptedAt:now-180000,verifiedCancellationFeeCents:300,operatorAtFault:true}).action,'void_authorization');
-  assert.equal(settlementPlan({...opts(),travelState:'cancelled',acceptedAt:now-180000,verifiedCancellationFeeCents:301}).action,'void_authorization');
-  assert.deepEqual(settlementPlan({...opts(),travelState:'cancelled',acceptedAt:now-180000,verifiedCancellationFeeCents:300}),
-    {action:'capture',amountCents:300,reason:'server_verified_cancellation_fee'});
+  assert.equal(settlementPlan({...opts(),travelState:'cancelled',acceptedAt:now-180000,verifiedCancellationFeeCents:400,operatorAtFault:true}).action,'void_authorization');
+  assert.equal(settlementPlan({...opts(),travelState:'cancelled',acceptedAt:now-180000,verifiedCancellationFeeCents:401}).action,'void_authorization');
+  assert.deepEqual(settlementPlan({...opts(),travelState:'cancelled',acceptedAt:now-180000,verifiedCancellationFeeCents:400}),
+    {action:'capture',amountCents:400,reason:'server_verified_cancellation_fee'});
   // Synthetic, deterministic stress: unknown or near-expiring capture deadlines
   // always DENY dispatch; otherwise validate amount and ownership.
   for(let i=0;i<20000;i++){
@@ -53,8 +53,12 @@ function run() {
   // Deployment isolation: imported policy MUST NOT be enabled by importing it.
   const payments=fs.readFileSync(path.join(__dirname,'payments.js'),'utf8');
   const booking=fs.readFileSync(path.join(__dirname,'booking.js'),'utf8');
-  assert(!payments.slice(payments.indexOf('async function createPaymentIntent('),payments.indexOf('async function resumePaymentIntent(')).includes("capture_method: 'manual'"));
-  assert(booking.includes("payment.status === 'succeeded'"));
+  assert(payments.includes("process.env.AR_MANUAL_TRAVEL_CAPTURE==='true'"),
+    'capture_method change remains OFF unless deliberately enabled in deployment');
+  assert(payments.includes("capture_method:'manual'"),
+    'the only eligible manual card authorization is explicitly configured');
+  assert(booking.includes("payment.status==='succeeded'")&&booking.includes("payment.status==='requires_capture'"),
+    'captured legacy and provider-verified manual holds both remain supported');
 }
 run();run();
 console.log('PASS twice: PR143 future authorization/capture/void policy + 40,000 synthetic hold conditions; production auto-capture unchanged.');

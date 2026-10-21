@@ -12,6 +12,8 @@
 //   e.g.  STRIPE_SECRET_KEY=sk_test_...   (test)   →   sk_live_...   (real, much later)
 
 const Stripe = require('stripe');
+const {executeManualSettlement}=require('./manual-capture');
+const manualCaptureEnabled=()=>process.env.AR_MANUAL_TRAVEL_CAPTURE==='true';
 const { readKey, hasInvalidHeaderChars, describeInvalidChars } = require('./env');
 const {
   MIN_PLATFORM_FEE_CENTS,
@@ -457,7 +459,9 @@ async function createPaymentIntent({ travelCostCents, uid, email, tripNo, rideId
     amount: q.travelerPays, // traveler is charged the all-in price
     currency: 'usd',
     customer: customer.id,
-    automatic_payment_methods: { enabled: true },
+    ...(manualCaptureEnabled()
+      ? { capture_method:'manual', payment_method_types:['card'] }
+      : { automatic_payment_methods:{enabled:true} }),
     // STRIPE SENDS THE RECEIPT. Free, no vendor, no domain, no signup — and until this line
     // existed a traveler completed a journey, was charged, and received nothing they could
     // keep. It is a payment receipt rather than a Travel Receipt: it carries the amount, the
@@ -485,6 +489,7 @@ async function createPaymentIntent({ travelCostCents, uid, email, tripNo, rideId
     // cannot be talked into a different number by whatever calls /travel/settle.
     metadata: {
       product: 'American Rider travel',
+      ...(manualCaptureEnabled()?{capturePolicy:'manual_v1'}:{}),
       uid: uid || '',
       tripNo: tripNo || '',
       // The travel record this pays for, from the server's own lookup (travelmoney.js).
@@ -531,6 +536,7 @@ async function createPaymentIntent({ travelCostCents, uid, email, tripNo, rideId
     customerId: customer.id,
     ephemeralKeySecret: ephemeralKey.secret,
     breakdown: q,
+    capturePolicy:manualCaptureEnabled()?'manual_v1':'captured_legacy',
   };
 }
 
@@ -562,6 +568,7 @@ async function resumePaymentIntent({ paymentIntentId, uid, rideId, email, travel
     customerId: customer.id,
     ephemeralKeySecret: ephemeralKey.secret,
     breakdown: q,
+    capturePolicy:pi.metadata?.capturePolicy==='manual_v1'?'manual_v1':'captured_legacy',
     resumed: true,
   };
 }
@@ -569,7 +576,7 @@ async function resumePaymentIntent({ paymentIntentId, uid, rideId, email, travel
 /** Never offer a paid Travel on a phone's assertion. Retrieve the exact intent from Stripe. */
 async function verifiedTravelPayment(paymentIntentId) {
   if (!paymentIntentId || typeof paymentIntentId !== 'string') return null;
-  return getStripe().paymentIntents.retrieve(paymentIntentId);
+  return getStripe().paymentIntents.retrieve(paymentIntentId,{expand:['latest_charge']});
 }
 
 async function cancelUnpaidIntent({ paymentIntentId, uid, rideId }) {
@@ -883,6 +890,27 @@ async function transferToOperator({
   if (expectedTripNo && pi.metadata?.tripNo && pi.metadata.tripNo !== String(expectedTripNo)) {
     return { ok: false, code: 'wrong_travel', error: 'That payment belongs to another travel' };
   }
+  if (pi.status==='requires_capture'&&pi.metadata?.capturePolicy==='manual_v1'){
+    // A completed paid Travel authorizes capture; the Operator cannot trigger
+    // it by sending a payment ID. Verify the exact server record before a charge.
+    if(!rideId)return {ok:false,code:'missing_travel'};
+    const {adminDb}=require('./firebase-admin');
+    const db=adminDb();
+    if(!db)return {ok:false,code:'no_db_for_completion'};
+    const snap=await db.collection('rides').doc(String(rideId)).get();
+    const ride=snap.exists?snap.data():null;
+    if(!ride||ride.status!=='completed'||String(ride.paymentIntentId||'')!==pi.id||
+       String(ride.travelerUid||'')!==String(expectedUid||'')||
+       Number(ride.costCents)!==Number(pi.amount))
+       return {ok:false,code:'completion_not_verified'};
+    try{
+      const done=await executeManualSettlement({stripe,paymentIntentId:pi.id,
+        uid:expectedUid,rideId,totalCents:Number(ride.costCents),
+        action:'complete',now:Date.now(),requiredUntil:Date.now()});
+      if(!done.ok)return {ok:false,code:done.code,retryable:true};
+      pi=await stripe.paymentIntents.retrieve(pi.id,{expand:['latest_charge']});
+    }catch(e){return {ok:false,code:'capture_reconciliation_pending',error:String(e.message||e),retryable:true};}
+  }
   if (pi.status !== 'succeeded') {
     // Includes ACH still clearing. Not an error — settle again once it lands.
     return { ok: false, code: 'not_settled', error: `Payment is ${pi.status}`, retryable: true };
@@ -934,6 +962,21 @@ async function transferToOperator({
       },
     }, { idempotencyKey: `ar_transfer_${rideId}` }),
   });
+}
+
+/**
+ * Manual hold settlement is wholly separate from the legacy refund path.
+ * No Refund object is created when releasing or partially capturing a hold.
+ * Return manual:false for old already-captured payment versions ONLY.
+ */
+async function settleUncapturedTravel({paymentIntentId,uid,rideId,totalCents,action,
+  verifiedFeeCents=0,now=Date.now()}={}){
+  const pi=await verifiedTravelPayment(paymentIntentId);
+  if(!pi)return {manual:true,ok:false,code:'payment_unavailable'};
+  if(pi.metadata?.capturePolicy!=='manual_v1')return {manual:false};
+  const out=await executeManualSettlement({stripe:getStripe(),paymentIntentId,uid,rideId,
+    totalCents,action,verifiedFeeCents,now,requiredUntil:now});
+  return {manual:true,...out};
 }
 
 /**
@@ -1056,6 +1099,7 @@ async function chargeScheduledTravel({ travelCostCents, uid, email, tripNo, rese
         payment_method: pm.id,
         off_session: true,
         confirm: true,
+        ...(manualCaptureEnabled()?{capture_method:'manual'}:{}),
         statement_descriptor_suffix: STATEMENT_DESCRIPTOR,
         receipt_email: email || undefined,
         description: ['American Rider', dep && dest ? `${dep} to ${dest}` : null, tripNo || null]
@@ -1074,6 +1118,7 @@ async function chargeScheduledTravel({ travelCostCents, uid, email, tripNo, rese
           governmentFeeCents: String(q.governmentFeeCents),
           tollCents: String(q.tollCents),
           scheduled: 'true',
+          ...(manualCaptureEnabled()?{capturePolicy:'manual_v1'}:{}),
         },
       },
       { idempotencyKey: `ar_sched_${reservationId}` },
@@ -1081,7 +1126,7 @@ async function chargeScheduledTravel({ travelCostCents, uid, email, tripNo, rese
     // A card that needs the traveler present (3-D Secure) returns requires_action here. That
     // is not a failure of ours and must not be reported as one: the reservation is held and
     // the traveler is asked to confirm, rather than being told their card was declined.
-    if (pi.status !== 'succeeded') {
+    if (pi.status !== (manualCaptureEnabled()?'requires_capture':'succeeded')) {
       return {
         ok: false,
         code: pi.status === 'requires_action' ? 'requires_action' : pi.status,
@@ -1091,7 +1136,9 @@ async function chargeScheduledTravel({ travelCostCents, uid, email, tripNo, rese
         paymentIntentId: pi.id,
       };
     }
-    return { ok: true, paymentIntentId: pi.id, chargedCents: q.travelerPays, breakdown: q };
+    return { ok: true, paymentIntentId: pi.id,
+      chargedCents: q.travelerPays, breakdown: q,
+      capturePolicy:manualCaptureEnabled()?'manual_v1':'captured_legacy' };
   } catch (e) {
     return { ok: false, code: e.code || 'charge_failed', error: e.message };
   }
@@ -1193,7 +1240,7 @@ module.exports = {
   MIN_PLATFORM_FEE_CENTS,
   customerForTraveler, connectAccountFor, configureConnectPayoutSchedule, connectOnboardingLink, connectAccountStatus,
   transferToOperator, paidWithFromIntent, refundableFor, connectDashboardLink, pingStripe, probeNetwork,
-  transferFixed, chargeScheduledTravel, createScreeningIntent, chargeOperatorAccountFee,
+  transferFixed, settleUncapturedTravel, chargeScheduledTravel, createScreeningIntent, chargeOperatorAccountFee,
   describePaymentMethod, listPaymentMethods, createSetupIntent, setDefaultPaymentMethod, detachPaymentMethod,
   // Exported under an underscored name for idempotency.test.js only. It is an internal detail
   // of how a charge is keyed, not part of the module's interface.

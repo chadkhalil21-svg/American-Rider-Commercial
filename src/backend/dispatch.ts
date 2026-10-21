@@ -188,6 +188,7 @@ export async function returnOperator(args: {
 export type PrepareOptions = {
   bookingKey: string;
   agreedTotalCents?: number | null; // all-in amount the Traveler actually accepted
+  cancellationFeeDisclosureVersion?: string | null; // version visibly presented at confirm
   researchQuoteToken?: string | null; // research-only; never a fare input
   pickup: { lat: number; lng: number };
   destinationPoint: { lat: number; lng: number };
@@ -283,6 +284,7 @@ export type RideRecord = {
   createdAt: number;
   paymentIntentId?: string;
   paidAt?: number;
+  authorizationState?: 'held' | 'captured' | 'released';
   refundPending?: boolean;
   /** Road miles recorded at dispatch; absent on travels before 9 Sept 2026. */
   miles?: number;
@@ -336,6 +338,8 @@ function rideFromSnapshot(d: QueryDocumentSnapshot<DocumentData>): RideRecord {
     createdAt: x.createdAt ?? 0,
     paymentIntentId: typeof x.paymentIntentId === 'string' ? x.paymentIntentId : undefined,
     paidAt: typeof x.paidAt === 'number' ? x.paidAt : undefined,
+    authorizationState:['held','captured','released'].includes(String(x.authorizationState))
+      ? x.authorizationState as 'held' | 'captured' | 'released' : undefined,
     refundPending: x.refundPending === true,
     miles: typeof x.miles === 'number' ? x.miles : undefined,
     onboardAt: typeof x.onboardAt === 'number' ? x.onboardAt : undefined,
