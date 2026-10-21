@@ -1347,6 +1347,23 @@ export default {
   // The documents themselves are served by the backend and translated there. This is the
   // notice that appears above a translated one, and it is not boilerplate: it is what makes a
   // convenience translation safe to offer at all.
+  operatorNoShow: {
+    waitUnconfirmed: "Waiting time is being confirmed.",
+    countdown: "Waiting for Traveler · {time}",
+    contactFirst: "Traveler not here? Contact them before recording a no-show.",
+    title: "Traveler did not arrive",
+    confirm: "Confirm you waited five minutes at pickup and sent the Traveler a message.",
+    continue: "Continue waiting",
+    record: "Record no-show",
+    closed: "Travel closed",
+    refundPending: "The Traveler refund is pending verification.",
+    paymentReconciled: "The Traveler payment has been reconciled.",
+    messageRequired: "Please message the Traveler using Contact first.",
+    unavailable: "No-show settlement is not available yet. Please contact Patron Support.",
+    unverified: "No-show could not be verified. Continue waiting or contact Patron Support.",
+    action: "Traveler Did Not Arrive",
+  },
+
   legal: {
     termsTitle: 'Terms of Service',
     privacyTitle: 'Privacy Policy',
