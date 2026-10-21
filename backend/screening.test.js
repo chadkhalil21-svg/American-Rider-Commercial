@@ -158,7 +158,8 @@ const reviewMobile = fs.readFileSync(path.join(__dirname,'../app/operator/review
 check('pending qualification refreshes on phone resume without 30-second background polling',
  reviewMobile.includes('useFocusEffect(useCallback(') &&
  reviewMobile.includes("AppState.addEventListener('change'") &&
- reviewMobile.includes('}, 120_000)') &&
+ reviewMobile.includes('}, 10 * 60_000)') &&
+ reviewMobile.includes('checkingRef.current') &&
  !reviewMobile.includes('setInterval(check, 30000)'));
 let bad = 0;
 for (const r of R) { if (!r.ok) bad++; console.log(`${r.ok ? 'PASS' : 'FAIL'}  ${r.l}${r.ok ? '' : '  <-- ' + r.d}`); }

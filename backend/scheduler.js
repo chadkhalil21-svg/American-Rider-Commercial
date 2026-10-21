@@ -577,6 +577,7 @@ async function sweepSettlements({ now = Date.now(), limit = 25 } = {}) {
       );
     }
 
+    const {deferAccountLookup,CODE:CONNECT_UNAVAILABLE}=require('./payout-account-backoff');
     for (const ride of owed.slice(0, limit)) {
       // Capture the completed authorized fare exactly once even when the Operator
       // cannot yet be paid. Do not leave a finished Travel to lose its card hold
@@ -602,13 +603,21 @@ async function sweepSettlements({ now = Date.now(), limit = 25 } = {}) {
           capturePending:false,
         },{merge:true});
       }
+      // Capture happens above BEFORE this 15-minute negative Connect cooldown.
+      // An expired payout account must never consume our authorization deadline.
+      if (deferAccountLookup(ride, now)) {
+        blocked.push({tripNo:ride.tripNo||ride.rideId,
+          reason:ride.payoutBlockedReason||'Operator payout account unavailable'});
+        continue;
+      }
       // An operator with no payout account yet is RECORDED as owed, never dropped. They
       // finish onboarding, and the next sweep pays them for work already done.
       const { accountId, reason } = await operatorPayoutAccount(db, ride.operatorId);
       if (!accountId) {
         blocked.push({ tripNo: ride.tripNo || ride.rideId, reason });
         await db.collection('rides').doc(ride.rideId).set(
-          { payoutPending: true, payoutBlockedReason: reason, payoutCheckedAt: now },
+          { payoutPending: true, payoutBlockedReason: reason, payoutCheckedAt: now,
+            payoutBlockedCode:CONNECT_UNAVAILABLE },
           { merge: true },
         );
         continue;
@@ -629,6 +638,7 @@ async function sweepSettlements({ now = Date.now(), limit = 25 } = {}) {
             operatorPaidCents: out.amountCents,
             payoutPending: false,
             payoutBlockedReason: null,
+            payoutBlockedCode: null,
             settledAt: now,
             settledBy: 'sweep',
             needsPayout: false,
@@ -639,6 +649,7 @@ async function sweepSettlements({ now = Date.now(), limit = 25 } = {}) {
         blocked.push({ tripNo: ride.tripNo || ride.rideId, reason: out.error || out.code });
         await db.collection('rides').doc(ride.rideId).set(
           { payoutPending: true, payoutBlockedReason: out.error || out.code,
+            payoutBlockedCode: null,
             payoutCheckedAt: now,
             // A provider-ambiguous or legacy payout must not be re-attempted
             // every minute. Human reconciliation remains visible through
