@@ -22,6 +22,11 @@ const fake={
 const refund=vm.runInNewContext(raw+'; refundTravel',{
   getStripe:()=>fake,
   refundBalanceFromVerifiedIntent:()=>({ok:true,cents:5000,alreadyRefunded:0}),
+  // This isolated extraction explicitly injects the existing provider guard.
+  // Production imports it from payment-exception-policy; assertions there test
+  // failed, disputed, and successful captured charge statuses independently.
+  refundableChargeSafety:pi=>pi.status==='succeeded'?
+    {ok:true}:{ok:false,reason:'not_captured'},
   String,Number,Math,
 });
 (async()=>{
