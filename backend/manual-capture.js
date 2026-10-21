@@ -36,15 +36,18 @@ async function executeManualSettlement({
    return action==='cancel'?{ok:true,status:'released',captureCents:0,reused:true,paymentIntentId:pi.id}:
      reject('already_released');
  }
- if(pi.status!=='requires_capture')return reject('intent_not_authorized');
- // Stripe cancellation of a confirmed but uncaptured intent does NOT incur
- // an ordinary card refund. It needs no capture window once canceled.
+ // A Travel may be canceled before PaymentSheet confirms a card or 3DS.
+ // Those intents may be canceled with no charge and no refund.
+ if(action==='cancel'&&!['requires_payment_method','requires_confirmation',
+   'requires_action','requires_capture'].includes(pi.status))
+   return reject('intent_not_cancelable');
  if(action==='cancel') {
    const canceled=await stripe.paymentIntents.cancel(pi.id,{cancellation_reason:'requested_by_customer'},
       {idempotencyKey:`ar_hold_void_${rideId}`});
    return canceled.status==='canceled'?{ok:true,status:'released',captureCents:0,
       paymentIntentId:pi.id}:reject('void_not_confirmed');
  }
+ if(pi.status!=='requires_capture')return reject('intent_not_authorized');
  // Dispatch needs >= one hour AFTER projected route end; at verified final
  // settlement use the actual Stripe deadline with a short operational margin.
  // Reject a nearly expired hold, but do not decline legitimate completion
