@@ -418,13 +418,25 @@ async function assessAndRecord({ db, uid, checks, context = 'qualify', liveMoney
   const ext = await checks(uid, user);
   const a = assessOperator({ user, fleet, context, liveMoney, account: ext.account, payouts: ext.payouts, now });
   const prev = user?.qualification || {};
-  if (user) {
+  const blockers = a.blockers.filter((b) => b.gate === 'qualification');
+  // /operator/qualification is a STATUS VIEW, not a document-renewal event.
+  // Keep the reply fresh on every request but avoid rewriting the same state
+  // (and waking listeners / reindexing the account) on every foreground poll.
+  // Periodic six-hour snapshots preserve a bounded diagnostic last-seen time;
+  // a refusal, expired check or newly cleared Operator is written immediately.
+  const evaluated = Number(prev.evaluatedAt);
+  const oldBlockers = Array.isArray(prev.blockers) ? prev.blockers : [];
+  const changed = prev.status !== a.status || prev.qualified !== a.qualified ||
+    JSON.stringify(oldBlockers) !== JSON.stringify(blockers);
+  const snapshotDue = !Number.isFinite(evaluated) || evaluated <= 0 ||
+    evaluated > now || now - evaluated >= 6 * 60 * 60_000;
+  if (user && (changed || snapshotDue)) {
     await userRef.set(
       {
         qualification: {
           status: a.status,
           qualified: a.qualified,
-          blockers: a.blockers.filter((b) => b.gate === 'qualification'),
+          blockers,
           evaluatedAt: now,
           qualifiedAt: a.qualified ? prev.qualifiedAt || now : null,
         },
@@ -432,9 +444,16 @@ async function assessAndRecord({ db, uid, checks, context = 'qualify', liveMoney
       { merge: true },
     );
   }
-  // LOSS IS IMMEDIATE. An operator who stops qualifying leaves dispatch now, not at the next
-  // renewal. Gaining it puts nobody on duty — only /operator/online does that.
-  if (!a.qualified && fleet) await opRef.set({ available: false, commissioned: false, offDutyReason: a.blockers[0]?.code || null, offDutyAt: now }, { merge: true });
+  // Loss is immediate and enforced from CURRENT evidence on every call.
+  // Avoid multiple identical off-duty writes while an Operator remains blocked.
+  if (!a.qualified && fleet) {
+    const reason = a.blockers[0]?.code || null;
+    if (fleet.available !== false || fleet.commissioned !== false ||
+        String(fleet.offDutyReason || '') !== String(reason || '')) {
+      await opRef.set({ available: false, commissioned: false,
+        offDutyReason: reason, offDutyAt: now }, { merge: true });
+    }
+  }
   return a;
 }
 
