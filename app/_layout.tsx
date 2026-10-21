@@ -37,7 +37,7 @@ function BootFailure({ error, onRetry }: { error: unknown; onRetry: () => void }
       <Text style={styles.brand}>AMERICAN RIDER</Text>
       <Text style={styles.title}>{copy.title}</Text>
       <Text style={styles.body}>{copy.body}</Text>
-      <Text selectable style={styles.code}>AR-BOOT  ·  {info.title}</Text>
+      <Text selectable style={styles.code}>{'AR-BOOT · '}{info.title}</Text>
       <Text selectable style={styles.detail}>{info.diagnostic}</Text>
       <Pressable onPress={onRetry} accessibilityRole="button" style={styles.button}>
         <Text style={styles.buttonText}>{copy.tryAgain}</Text>
