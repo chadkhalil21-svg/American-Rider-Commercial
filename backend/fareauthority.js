@@ -80,11 +80,9 @@ async function authoritativeFare({ body, uid = null, email = null, db = null, ca
       // even with a working HERE key. HERE's same response now proves road
       // distance, time AND tolls without inventing a straight-line fare.
       if (selectedRoute && selectedRoute.provider !== 'here') {
-        // Reuse the selected OSM/OSRM route when its exact toll price is already
-        // certified. Otherwise do NOT attach a separately routed HERE toll price
-        // to an OSRM-priced fare. Instead, use ONE independently verified HERE
-        // response as the authority for BOTH road metrics and applicable tolls.
-        // This is transitional until the official/OSM gantry matcher is commissioned.
+        // An OSRM/OTP fare must not inherit a differently routed HERE toll.
+        // If the exact local route has no certified tariff, use ONE HERE route
+        // answer for both driven distance/time and its own priced tolls.
         const localTolls = await resolveTollsCostAware(body.pickup, body.dest,
           { route: selectedRoute, routeAttempted: true });
         if (localTolls.reason === 'unmatched_toll_route') {
@@ -104,8 +102,14 @@ async function authoritativeFare({ body, uid = null, email = null, db = null, ca
   const referencePromise = body?.pickup && body?.dest && route.miles && route.minutes
     ? referenceForQuote({ pickup: body.pickup, dest: body.dest, serviceClass: normalizeTravelClassKey(body?.travelClass || body?.cls), routedMiles: route.miles, routedMinutes: route.minutes })
     : Promise.resolve({ ok: false, reason: 'route conditions unavailable' });
-  const [cardCountry, journey, toll, marketReference] = await Promise.all([
-    uid && cardCountryFor ? cardCountryFor({ uid, email }) : null,
+  // The Traveler can select any saved card, a new card, Apple Pay or Google Pay
+  // INSIDE Stripe PaymentSheet, after the quote is accepted. The default saved
+  // card country does not identify the card actually charged. Costing a default
+  // US card as domestic could underfund a foreign-card charge and invalidate the
+  // quote shown before checkout. Unknown = international-safe in economics.js.
+  // Avoid an unnecessary Stripe Customer + PaymentMethod read on every quote.
+  const cardCountry = null;
+  const [journey, toll, marketReference] = await Promise.all([
     journeyFor({ db, uid, journeyNo: requestedJourneyNo }),
     tollPromise,
     referencePromise,
