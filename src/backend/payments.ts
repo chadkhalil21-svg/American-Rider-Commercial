@@ -32,6 +32,7 @@ export type PaymentResult = {
   ok: boolean;
   paymentIntentId?: string;
   amountCents?: number;
+  authorizationOnly?: boolean; // manual Stripe hold, not a captured charge
   error?: string;
   /** True when the traveler closed the sheet themselves — not a failure, and not an error to show. */
   canceled?: boolean;
@@ -154,6 +155,7 @@ export async function payForRide(opts: {
     mode?: 'live' | 'test' | 'no-key';
     customerId?: string;
     ephemeralKeySecret?: string;
+    capturePolicy?: 'manual_v1' | 'captured_legacy';
     breakdown?: { travelerPays?: number };
   };
   try {
@@ -228,6 +230,7 @@ export async function payForRide(opts: {
     ok: true,
     paymentIntentId: intent.paymentIntentId,
     amountCents: intent.breakdown?.travelerPays,
+    authorizationOnly:intent.capturePolicy==='manual_v1',
     methodLabel: await methodLabelFor(intent.clientSecret),
   };
   } catch {
