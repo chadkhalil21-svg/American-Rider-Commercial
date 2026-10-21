@@ -148,7 +148,12 @@ async function authoritativeFare({ body, uid = null, email = null, db = null, ca
     marketPricing={applied:false,reason:!selectedRoute?'route not verified':'toll not resolved'};
   } else if(journey) marketPricing={applied:false,reason:'smart-journey combined economics'};
   const breakdown = quote(route.travelCostCents,journey,route.governmentFees,cardCountry,tollForQuote);
-  return { ...route, ...breakdown, marketPricing, journey, cardCountry: cardCountry || null };
+  // Unknown is distinct from free: the money calculator uses zero only as an
+  // internal placeholder while the booking path rejects unknown tolls. Never
+  // return a public-looking $0 toll for an unverified physical route.
+  return { ...route, ...breakdown,
+    tollCents: toll.status === 'unknown' ? null : breakdown.tollCents,
+    marketPricing, journey, cardCountry: cardCountry || null };
 }
 
 module.exports = { priceRoute, authoritativeFare, journeyFor };
