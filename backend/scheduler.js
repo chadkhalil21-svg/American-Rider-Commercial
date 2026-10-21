@@ -315,7 +315,8 @@ async function sweepScheduled({ now = Date.now(), checkMarket } = {}) {
       if (Number(paid.chargedCents) !== billed) throw new Error('Provider amount differs from reserved price');
       // If this write fails, Stripe's payment_intent.succeeded webhook uses rideId metadata to
       // attach the charge to this already-existing ride; booking recovery then refunds it.
-      await rideRef.set({ paymentIntentId: paid.paymentIntentId }, { merge: true });
+      await rideRef.set({ paymentIntentId: paid.paymentIntentId,
+        paymentCapturePolicy:paid.capturePolicy||'captured_legacy' }, { merge: true });
       if (!await admitted(pickup) || !await stillClaimed(db,id,claimed,r.party)) {
         throw new Error('Reservation, Family authorization or market admission changed after charge; refund is owed');
       }
