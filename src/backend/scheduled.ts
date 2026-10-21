@@ -28,8 +28,7 @@ import { PAYMENT_SERVER_URL } from '../config';
 
 /** Where a reservation has got to. Written by the sweep, never by the app. */
 export type SchedStatus =
-  | 'reserved'
-  | 'dispatching' // reserved by the scheduler while assignment is in progress // waiting for its hour
+  | 'reserved' // waiting for its hour
   | 'dispatched' // an operator has been sent
   | 'unmatched' // nobody was available, and the hour has passed
   | 'payment_failed' // the card on file was declined
