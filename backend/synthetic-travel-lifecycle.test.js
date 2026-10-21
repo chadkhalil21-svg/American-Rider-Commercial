@@ -264,6 +264,68 @@ async function continuousJourney(teen, protectedAdult = false) {
   return { teen, protectedAdult, transitions: ['assigned', 'accepted', 'arrived', 'onboard', 'completed'] };
 }
 
+async function canceledAndRefundedJourney() {
+  const fixture=memoryDb(initialData());
+  const {db,data}=fixture;
+  const ride=data.rides.ride1;
+  const refunds=[];
+  const outage=await cancelTravel({
+    db,uid:'traveler',rideId:'ride1',stripeConfigured:false,now:NOW,
+    deps:{}, // provider deliberately unavailable; cancellation must still commit
+  });
+  check(outage.status===202 && outage.body.refundPending===true &&
+    ride.status==='cancelled' && ride.refundPending===true &&
+    data.operators.op.currentRideId===null,
+    'provider outage still cancels Travel, frees slot, and records refund obligation');
+  const deps={
+    refundableFor:async ({paymentIntentId,expectUid})=>{
+      check(paymentIntentId==='pi_synthetic_does_not_exist'&&expectUid==='traveler',
+        'refund uses the owned Travel charge only');
+      return {cents:1825};
+    },
+    refundTravel:async args=>{
+      refunds.push(args);
+      return {ok:true,refundId:'re_fixture',amountCents:args.amountCents,status:'succeeded'};
+    },
+  };
+  let out=await cancelTravel({db,uid:'traveler',rideId:'ride1',deps,now:NOW+1000});
+  check(out.status===200&&ride.status==='cancelled'&&ride.refundPending===false&&
+    ride.refundId==='re_fixture'&&ride.refundedCents===1825&&
+    refunds.length===1&&refunds[0].idempotencyKey==='ar_cancel_refund_ride1',
+    'refund recovery is bound to original cancellation and idempotent provider key');
+  out=await cancelTravel({db,uid:'traveler',rideId:'ride1',deps,now:NOW+2000});
+  check(out.body.alreadyRefunded===true&&refunds.length===1,
+    'late retry does not issue a duplicate refund');
+  out=await settleTravel({db,uid:'traveler',rideId:'ride1',deps:{
+    operatorPayoutAccount:async()=>({accountId:'acct_fixture'}),
+    transferToOperator:async()=>{throw Error('refund path must never transfer');},
+  },now:NOW+3000});
+  check(out.status===409,'a cancelled ride cannot trigger the normal payout');
+}
+
+async function operatorDeclinesReoffer() {
+  const fixture=memoryDb(initialData());
+  const {db,data}=fixture;
+  let out=await progress(db,'declined');
+  check(out.status===200&&data.rides.ride1.status==='assigned'&&
+    !!data.rides.ride1.releasedAt&&data.operators.op.currentRideId===null,
+    'Operator declines the unaccepted offer; original paid Travel remains reusable');
+  // Model the dispatch service's reassignment decision without generating another
+  // payment. Dedicated matching/booking suites exercise how a candidate is chosen.
+  data.users.op2=operatorUser();
+  data.operators.op2={...data.operators.op, currentRideId:'ride1'};
+  data.rides.ride1.operatorId='op2';
+  data.rides.ride1.releasedAt=null;
+  const newAccept=await acceptOffer({db,uid:'op2',rideId:'ride1',
+    liveMoney:true,externals:externals(),now:()=>NOW+1000});
+  check(newAccept.status===200&&data.rides.ride1.status==='accepted'&&
+    data.rides.ride1.operatorId==='op2'&&
+    data.rides.ride1.paymentIntentId==='pi_synthetic_does_not_exist',
+    'accepted reassignment retains original paid Travel and makes no new payment');
+  out=await progress(db,'arrived',NOW+1000,'op');
+  check(out.status===403,'declining Operator can never mutate reassigned Travel');
+}
+
 async function adverseBeforeAcceptance(kind) {
   const { db, data } = memoryDb(initialData());
   if (kind === 'insurance_cancelled') {
@@ -338,6 +400,8 @@ async function triCountyGeography() {
     if(oldKey===undefined)delete process.env.TEEN_PIN_SECRET;
     else process.env.TEEN_PIN_SECRET=oldKey;
   }
+  await canceledAndRefundedJourney();
+  await operatorDeclinesReoffer();
   for (const type of [
     'insurance_cancelled', 'insurance_unverified', 'insurance_expired',
     'screening_expired', 'screening_missing',
