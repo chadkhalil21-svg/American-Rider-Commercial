@@ -522,7 +522,7 @@ const RESERVED_SCAN_LIMIT = 100;
 async function sweepSettlements({ now = Date.now(), limit = 25 } = {}) {
   const db = adminDb();
   if (!db) return { ok: false, reason: 'no database' };
-  const { transferToOperator } = require('./payments');
+  const { transferToOperator, settleUncapturedTravel } = require('./payments');
 
   let settled = 0;
   let centsPaid = 0;
@@ -578,6 +578,30 @@ async function sweepSettlements({ now = Date.now(), limit = 25 } = {}) {
     }
 
     for (const ride of owed.slice(0, limit)) {
+      // Capture the completed authorized fare exactly once even when the Operator
+      // cannot yet be paid. Do not leave a finished Travel to lose its card hold
+      // while waiting for Connect approval. Never capture a noncompleted Travel.
+      if(ride.paymentCapturePolicy==='manual_v1'&&
+         (ride.authorizationState!=='captured'||!ride.capturedAt)) {
+        let done;
+        try {done=await settleUncapturedTravel({
+          paymentIntentId:ride.paymentIntentId,uid:String(ride.travelerUid),
+          rideId:ride.rideId,totalCents:Number(ride.costCents),
+          action:'complete',now,
+        });}
+        catch(e){done={ok:false,code:String(e.message||e)};}
+        if(!done?.manual||!done?.ok) {
+          blocked.push({tripNo:ride.tripNo||ride.rideId,
+            reason:done?.code||'manual capture needs reconciliation'});
+          // Keep needsPayout set so durable reconciliation can retry; no payout
+          // and no fake paid receipt until provider confirms captured funds.
+          continue;
+        }
+        await db.collection('rides').doc(ride.rideId).set({
+          authorizationState:'captured',capturedCents:done.captureCents,capturedAt:now,
+          capturePending:false,
+        },{merge:true});
+      }
       // An operator with no payout account yet is RECORDED as owed, never dropped. They
       // finish onboarding, and the next sweep pays them for work already done.
       const { accountId, reason } = await operatorPayoutAccount(db, ride.operatorId);
