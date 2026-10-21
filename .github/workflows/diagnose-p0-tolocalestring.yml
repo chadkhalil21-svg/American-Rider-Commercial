@@ -1,0 +1,34 @@
+name: P0 inspect caught startup TypeError
+on:
+  push:
+    branches: [fix/p0-boot-tolocalestring-20261021]
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Find every application toLocaleString use with surrounding source
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "=== APPLICATION LOCALE CALLS ==="
+          grep -RInE 'toLocaleString|toLocaleDateString|toLocaleTimeString' --include='*.ts' --include='*.tsx' --include='*.js' app src || true
+          echo "=== SOURCE IMPORTS AND KNOWN ROOT MODULES ==="
+          sed -n '1,100p' app/_layout.tsx
+          sed -n '1,100p' src/boot/FullRoot.tsx
+          echo "=== LOCKED NPM VERSIONS ==="
+          node -e "for(const p of ['expo','react','react-native','expo-router','i18n-js','firebase','@stripe/stripe-react-native']){console.log(p,require('./node_modules/'+p+'/package.json').version)}" || true
+          echo "=== NOTES ==="
+          echo "Read-only inspection. No signed binary, payment, or production deployment."
+      - name: Install locked dependencies and verify actual iOS import bundle
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          node -e "for(const p of ['expo','react','react-native','expo-router','i18n-js','firebase','@stripe/stripe-react-native']){console.log(p,require('./node_modules/'+p+'/package.json').version)}"
+          npx expo export --platform ios --output-dir dist-diagnostics-ios
+          echo "IOS_EXPORT_PASS"
