@@ -589,7 +589,6 @@ export default {
     rideStepApproaching: 'In avvicinamento alla sua destinazione.',
     rideStepComplete: 'Viaggio completato.',
     rideFindingBest: 'Ricerca del miglior operatore disponibile',
-    rideNoMatchYet: "Stiamo ancora organizzando il suo Operator",
     rideAwaitingAcceptance: "In attesa della conferma dell’operatore",
     rideOfferPendingBody: "Questo viaggio è stato proposto a un operatore. La avviseremo quando verrà accettato.",
     ridePaymentIncomplete: 'Il pagamento non è andato a buon fine',
