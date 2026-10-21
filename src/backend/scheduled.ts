@@ -158,6 +158,49 @@ export async function fetchScheduledRidesPage(
 }
 
 /**
+ * Historical reservations remain accessible indefinitely through a deliberate
+ * month-by-month view. Reuse the EXISTING travelerUid/atMs ascending index,
+ * never a full-account scan or a new composite index.
+ * Month grouping is UTC so cursor windows remain deterministic after travel.
+ * Future or cancelled reservations in the selected month retain their accurate
+ * server status, rather than vanishing or being falsely labelled completed.
+ */
+export function scheduledHistoryMonth(offset: number, now = Date.now()): {fromMs:number;toMs:number} {
+  const safeOffset = Math.max(0, Math.min(2400, Math.trunc(Number.isFinite(offset) ? offset : 0)));
+  const d = new Date(now);
+  const fromMs=Date.UTC(d.getUTCFullYear(),d.getUTCMonth()-safeOffset,1);
+  const toMs=Date.UTC(d.getUTCFullYear(),d.getUTCMonth()-safeOffset+1,1);
+  return {fromMs,toMs};
+}
+
+export async function fetchScheduledHistoryPage(
+  offset: number,
+  after?: QueryDocumentSnapshot<DocumentData> | null,
+): Promise<ScheduledPage | null> {
+  const uid=auth.currentUser?.uid;
+  if(!uid) return null;
+  const {fromMs,toMs}=scheduledHistoryMonth(offset);
+  try {
+    const filters=[
+      where('travelerUid','==',uid),
+      where('atMs','>=',fromMs),
+      where('atMs','<',toMs),
+      orderBy('atMs','asc'),
+    ];
+    const q=after
+      ? query(collection(db,'scheduled_rides'),...filters,startAfter(after),limit(21))
+      : query(collection(db,'scheduled_rides'),...filters,limit(21));
+    const snap=await getDocs(q);
+    const shown=snap.docs.slice(0,20);
+    return {
+      rides:shown.map(d=>({id:d.id,...(d.data() as Omit<ScheduledRide,'id'>)})),
+      nextCursor:shown.length===20?shown[19]:null,
+      hasMore:snap.docs.length>20,
+    };
+  } catch {return null;}
+}
+
+/**
  * The traveler's next reservation, or null.
  *
  * "Next" now includes one that is already underway: a travel dispatched at 6:22 for a 6:30
