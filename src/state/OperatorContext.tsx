@@ -23,6 +23,7 @@ import {
   markArrived,
   markCompleted,
   markOnboard,
+  markNoShow,
   watchAssignedTravel,
   type AssignedTravel,
 } from '../backend/operatorInbox';
@@ -121,6 +122,8 @@ export type SimRequest = {
   tollReimbursementCents?: number;
   /** Set when this is a real dispatched travel. Absent on the test-program script. */
   rideId?: string;
+  /** Actual arrival timestamp; server confirms eligibility again on every no-show. */
+  arrivedAt?: number | null;
   /** The travel number, which is what the message thread is keyed by. */
   tripNo?: string;
   /** The traveler's uid, so the operator can write into the thread. */
@@ -289,6 +292,7 @@ type OperatorState = {
   acceptRequest: (r: SimRequest) => Promise<boolean>;
   confirmArrival: () => Promise<boolean>;
   cancelOp: () => void;
+  noShowOp: () => Promise<{ok:boolean;code?:string;refundPending?:boolean}>;
   completeOp: () => Promise<boolean>;
   lastCompleted: CompletedOp | null;
   msgs: OpMsg[];
@@ -854,6 +858,7 @@ export function OperatorProvider({ children }: { children: React.ReactNode }) {
           ...(prices || {}),
           rideId: underway.rideId,
           tripNo: underway.tripNo,
+          arrivedAt: underway.arrivedAt || (underway.status === 'arrived' ? underway.statusAt : null),
           travelerUid: underway.travelerUid,
           traveler: underway.travelerName,
           bookedForAnother: underway.bookedForAnother,
@@ -990,6 +995,7 @@ export function OperatorProvider({ children }: { children: React.ReactNode }) {
     if (!rideId) return false;
     if (!(await markArrived(rideId))) return false;
     setArrived(true);
+    setOp(current => current?.rideId === rideId ? {...current,arrivedAt:Date.now()} : current);
     // The traveler may not be looking at their phone. Being outside is the one moment where
     // that matters most, and it is the notification every rideshare has and we did not.
     announceTravel(rideId, 'arrived');
@@ -1015,6 +1021,18 @@ export function OperatorProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   opRef.current = op;
+
+  const noShowOp = useCallback(async () => {
+    const rideId=opRef.current?.rideId;
+    if(!rideId) return {ok:false,code:'no_real_travel'};
+    const result=await markNoShow(rideId);
+    if(result.ok) {
+      setOp(null);
+      setArrived(false);
+      setCheckIn(null);
+    }
+    return result;
+  },[]);
 
   const completeOp = useCallback(async () => {
     if (!op) return false;
@@ -1520,6 +1538,7 @@ tr('traveler.gateLocation'),
     acceptRequest,
     confirmArrival,
     cancelOp,
+    noShowOp,
     completeOp,
     lastCompleted,
     msgs,
