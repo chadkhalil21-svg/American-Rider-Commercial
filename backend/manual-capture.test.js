@@ -27,6 +27,13 @@ function setup(opts={}){
  assert.equal(paid.captureCents,2500);assert.equal(paid.status,'captured');
  assert.equal((await a.run('complete')).reused,true);assert.equal(a.calls.capture,1);
  assert.equal((await a.run('cancel')).code,'already_captured_requires_refund_or_review');
+ for(const pending of ['requires_payment_method','requires_confirmation','requires_action']){
+   const pendingSheet=setup({status:pending});
+   const canceled=await pendingSheet.run('cancel');
+   assert.equal(canceled.status,'released','canceled '+pending+' without a refund');
+   assert.equal(pendingSheet.calls.cancel,1);
+   assert.equal(pendingSheet.calls.capture,0);
+ }
  const b=setup(),voided=await b.run('cancel');
  assert.equal(voided.status,'released');assert.equal(b.calls.capture,0);assert.equal(b.calls.cancel,1);
  assert.equal((await b.run('cancel')).reused,true);assert.equal(b.calls.cancel,1);
