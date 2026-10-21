@@ -16,6 +16,13 @@ for(let i=0;i<2;i++){
  assert(server.includes('await listPaymentMethods({uid:req.uid,email:req.email})'));
  const dispatch=fs.readFileSync(path.join(__dirname,'scheduler.js'),'utf8');
  const payments=fs.readFileSync(path.join(__dirname,'payments.js'),'utf8');
+ assert(dispatch.includes('offSessionPaymentConsentVersion===\'manual-scheduled-v1\''),
+   'Existing reservation must carry current consent version before off-session Stripe request');
+ assert(dispatch.indexOf("offSessionPaymentConsentVersion==='manual-scheduled-v1'")<
+   dispatch.indexOf('chargeScheduledTravel({'),
+   'Consent guard must run before Stripe authorization');
+ assert(dispatch.includes("await close(db,id,'payment_failed'"),
+   'Unconsented old appointment must be closed without charging, with Traveler notice');
  assert(dispatch.includes('chargeScheduledTravel({')&&dispatch.includes('assignPaidTravel({'));
  assert(payments.includes("off_session: true")&&payments.includes("capture_method:'manual'"),
   'scheduled Travel must authorize off-session in new mode; old mode unchanged');
