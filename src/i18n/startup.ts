@@ -39,7 +39,9 @@ const COPY = {
   },
 } as const;
 
-export function getStartupCopy(): typeof COPY.en {
+type StartupCopy = { title: string; body: string; tryAgain: string; note: string; generic: string };
+
+export function getStartupCopy(): StartupCopy {
   let language = 'en';
   try {
     language = Intl.DateTimeFormat().resolvedOptions().locale.split('-')[0].toLowerCase();
