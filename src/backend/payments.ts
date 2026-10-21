@@ -186,9 +186,13 @@ export async function payForRide(opts: {
 
   // PaymentIntent and mode come from the SAME authenticated server response.
   // A second /config request may fail and must never flip a live Google Pay sheet into test.
-  if (intent.mode !== 'live' && intent.mode !== 'test')
+  // Backward-compatible with a still-running older Cloud Run revision.
+  // Only fall back to /config when the specific intent response lacks its mode.
+  const intentMode = (intent.mode === 'live' || intent.mode === 'test')
+    ? intent.mode : (await fetchPaymentConfig()).mode;
+  if (intentMode !== 'live' && intentMode !== 'test')
     return { ok: false, error: t('traveler.errPaymentUnavailableNoCharge') };
-  const walletTestEnv = intent.mode === 'test';
+  const walletTestEnv = intentMode === 'test';
   try {
   const init = await initPaymentSheet({
     merchantDisplayName: 'American Rider',
@@ -342,9 +346,11 @@ export async function addPaymentMethod(): Promise<{ ok: boolean; canceled?: bool
   if (!setup.clientSecret) return { ok: false, error: t('traveler.couldNotAddMethod') };
   // The SetupIntent endpoint now includes Stripe's mode; no redundant /config round-trip.
   // If an older backend omits the field, refuse ambiguous wallet configuration.
-  if (setup.mode !== 'live' && setup.mode !== 'test')
+  const setupMode = (setup.mode === 'live' || setup.mode === 'test')
+    ? setup.mode : (await fetchPaymentConfig()).mode;
+  if (setupMode !== 'live' && setupMode !== 'test')
     return { ok: false, error: t('traveler.errPaymentUnavailableNoCharge') };
-  const walletTestEnv = setup.mode === 'test';
+  const walletTestEnv = setupMode === 'test';
   try {
   const init = await initPaymentSheet({
     merchantDisplayName: 'American Rider',
