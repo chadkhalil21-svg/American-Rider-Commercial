@@ -42,7 +42,7 @@ console.log('PASS all three sign-in paths exchange credentials into Firebase aut
 console.log('NOTE source coherence is not live authentication proof: provider console configuration, API-key restrictions, native provider callbacks, token exchange, and restored sessions remain commissioning evidence');
 
 // One session authority must drive navigation for every provider.
-const layout = fs.readFileSync('app/_layout.tsx','utf8');
+const layout = fs.readFileSync('src/boot/FullRoot.tsx','utf8');
 assert.match(layout, /const \{ user, initializing, onboarding \} = useAuth\(\)/,
   'application gate must consume the shared Firebase-backed auth context');
 assert.match(layout, /\(!user \|\| onboarding\)/,

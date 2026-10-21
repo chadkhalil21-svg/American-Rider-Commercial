@@ -2,7 +2,7 @@ const fs = require('node:fs');
 const assert = require('node:assert/strict');
 
 const push = fs.readFileSync('src/backend/push.ts', 'utf8');
-const layout = fs.readFileSync('app/_layout.tsx', 'utf8');
+const layout = fs.readFileSync('src/boot/FullRoot.tsx', 'utf8');
 const auth = fs.readFileSync('src/state/AuthContext.tsx', 'utf8');
 const serverPush = fs.readFileSync('backend/push.js', 'utf8');
 

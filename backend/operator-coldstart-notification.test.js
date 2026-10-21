@@ -4,7 +4,7 @@ const fs=require('node:fs');
 const path=require('node:path');
 const root=path.resolve(__dirname,'..');
 const push=fs.readFileSync(path.join(root,'src/backend/push.ts'),'utf8');
-const layout=fs.readFileSync(path.join(root,'app/_layout.tsx'),'utf8');
+const layout=fs.readFileSync(path.join(root,'src/boot/FullRoot.tsx'),'utf8');
 assert.match(push,/getLastNotificationResponseAsync\(/,'recover taps on process cold start');
 assert.match(push,/clearLastNotificationResponseAsync\(/,'discard stale response after recovery');
 assert.match(push,/navigatedNotificationIds\.has\(id\)/,'dedupe concurrent listener and cold-start replay');
