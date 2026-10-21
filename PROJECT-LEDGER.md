@@ -1,5 +1,16 @@
 # AMERICAN RIDER — CANONICAL PROJECT LEDGER
 
+## Traveler Payment Method User Journey | 20 October 2026 | Synthetic regression, not a device charge
+
+**Founder request:** Exercise a Traveler's complete payment-method journey and repair launch-blocking defects. A two-pass, entirely offline native/HTTP simulator in `backend/payment-user-journey.test.js` now runs: empty Wallet, authenticated SetupIntent, save a card, list, set default, pay a synthetic $21 Travel through PaymentSheet, remove card, verify empty Wallet, both Apple Pay and Google Pay setup, live/test mode, native rejection, unknown mode, missing intent identity and user cancellation. A separate `backend/payment-customer-race.test.js` simulates parallel new-Traveler requests with an out-of-date Stripe Customer search index; no Stripe requests or actual funds.
+
+**Defects and remedies:** `/create-payment-intent` already returned the verified Stripe mode, but the app ignored it and re-fetched `/config` for PaymentSheet. If the second request failed, live Google Pay could accidentally receive `testEnv:true`; use the PaymentIntent's authoritative mode. Return the same mode on `/payment-methods/setup-intent` and consume it to avoid a redundant network call on every new card. Require a recognized PaymentIntent ID before opening a charge sheet. Catch thrown native PaymentSheet initialization/presentation promises rather than leaving Add Method or checkout stuck. Coalesce in-flight Stripe Customer searches for the same Firebase UID and use a stable, hashed Stripe v1 idempotency key when creating an absent customer; this reduces duplicate wallets during search-index lag, though v1 idempotency retention is not permanent. Preserve current ownership, authenticated, server-priced charge, delayed-payment refusal, cancellation handling, and server-side refund/transfer gates.
+
+**Release boundary:** Tests are synthetic. The source change is **not** a user-device walkthrough, real Apple Pay or Google Pay verification, a live card charge or confirmed App Store release. The branch must pass Release Gate and synthetic tests before merge, and live Cloud Run / physical-device parity must still be confirmed. Do not put a genuine card, real payment details, or auth token in CI. Reference: https://docs.stripe.com/error-low-level ; https://docs.stripe.com/search .
+
+---
+
+
 ## FOUNDER EXECUTION DECISION | 20 OCT 2026 | DEFAULT FRIDAY STANDARD, INSTANT ON DEMAND, LIVE LAUNCH
 
 **Final provider cadence:** Founder approves **weekly automatic Standard bank payouts on FRIDAY** plus eligible **Instant Payouts throughout the week**. This is not a new Operator payday/calendar feature. `backend/connect-payout-schedule.js` now defaults to Stripe `interval=weekly,weekly_anchor=friday` for newly onboarded connected accounts; it updates and rechecks Stripe before stating completion. `CONNECT_STANDARD_PAYOUT_INTERVAL=daily` remains emergency rollback only. Stripe's separate two-day settlement/availability delay is unchanged. Previously created connected accounts require explicit migration; latest live account query returned ZERO connected Operators, so none needs retroactive migration today. User's platform account weekly schedule is not to be changed.
