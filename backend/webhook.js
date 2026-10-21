@@ -23,6 +23,7 @@ const { readKey } = require('./env');
 const { money } = require('./email');
 const { recordOperatorPayoutEvent } = require('./operator-payout-event-ledger');
 const { saveDisputeEvidence } = require('./disputeevidence');
+const { assessCapturedPayment,reviewDisputeClose } = require('./payment-exception-policy');
 
 /**
  * Handle one verified event. Provider-queue failures retry with a lease and end in an
@@ -76,22 +77,20 @@ async function handleEvent(event) {
           const snap = await tx.get(ref);
           if (!snap.exists) return 'booking not found';
           const ride = snap.data();
+          const verified=assessCapturedPayment({ride,intent:obj});
+          if(!verified.ok)return verified.reason;
           const manual=obj.metadata?.capturePolicy==='manual_v1';
-          const authorizedFee=manual&&ride.status==='cancelled'&&
-            Number(ride.cancellationFeeCaptureCents)===Number(obj.amount_received)&&
-            Number(obj.amount_received)===400;
-          const fullAmount=Number(ride.costCents)===Number(obj.amount_received);
-          if (String(ride.travelerUid) !== String(obj.metadata?.uid) ||
-              (!fullAmount && !authorizedFee) ||
-              String(obj.currency || '').toLowerCase() !== 'usd' ||
-              (ride.paymentIntentId && ride.paymentIntentId !== obj.id)) return 'booking mismatch';
-          tx.update(ref, { paymentIntentId: obj.id, paidAt: ride.paidAt || Date.now(),
-            ...(manual?{authorizationState:'captured', capturedCents:obj.amount_received}
-                      :(ride.status === 'cancelled' ? { refundPending: true } : {})) });
+          if(ride.paymentIntentId===obj.id&&ride.paidAt&&
+             (!manual || (ride.authorizationState==='captured'&&
+               Number(ride.capturedCents)===verified.amountCents)))
+            return 'already reconciled'; // replay: one read, zero writes
+          tx.update(ref, { paymentIntentId:obj.id,paidAt:ride.paidAt||Date.now(),
+            ...(manual?{authorizationState:'captured',capturedCents:verified.amountCents}
+              :(ride.status==='cancelled'?{refundPending:true}:{}))});
           return 'booking reconciled';
         });
       }
-      if (outcome === 'booking reconciled') return { ok: true, action: outcome };
+      if (outcome === 'booking reconciled'||outcome==='already reconciled') return {ok:true,action:outcome};
 
       // Stripe has recorded money, but we cannot safely identify its Travel.
       // Do not discard the event, invent a Travel, pay an Operator, or refund
@@ -127,9 +126,24 @@ async function handleEvent(event) {
     }
 
     case 'charge.dispute.closed': {
-      const ride = await rideByPaymentIntent(db, obj.payment_intent);
-      if (ride) await mark(db, ride.id, { disputeStatus: obj.status, disputeClosedAt: Date.now() });
-      return { ok: true, action: `dispute ${obj.status}` };
+      const ride=await rideByPaymentIntent(db,obj.payment_intent);
+      const result=reviewDisputeClose({status:obj.status,amount:Number(obj.amount),
+        hadOperatorTransfer:!!ride?.transferId});
+      if(ride) {
+        // A lost bank dispute is NOT a second Traveler refund. Stripe/network
+        // already adjust funds. Operator recovery needs evidence and human review.
+        // Do not charge, refund or reverse the Operator automatically.
+        const needsReview=result.kind!=='provider_won';
+        if(ride.disputeId!==obj.id||ride.disputeStatus!==obj.status||
+           (needsReview&&ride.financialReviewRequired!==true)) {
+          await mark(db,ride.id,{disputeId:obj.id,disputeStatus:obj.status,
+            disputeClosedAt:Date.now(),disputeLossCents:result.lossCents||0,
+            ...(needsReview?{financialReviewRequired:true,
+              operatorTransferReviewRequired:!!ride.transferId}:{}),
+          });
+        }
+      }
+      return {ok:true,action:`dispute ${obj.status}`,reviewRequired:result.kind!=='provider_won'};
     }
 
     // Stripe can accept a refund request and then fail it asynchronously.
