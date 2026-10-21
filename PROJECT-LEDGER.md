@@ -1,5 +1,18 @@
 # AMERICAN RIDER — CANONICAL PROJECT LEDGER
 
+## 21 October 2026 | Manual-capture recovery after interrupted mobile checkout (PR #212, source-only)
+
+**Founder intent:** Stripe authorizes the all-in Travel at confirmation; cash is captured only at server-verified completion. Normal free cancellation cancels the original authorization, not a Stripe Refund. Existing already-captured Trips must retain their genuine refund path. A scheduled reservation placed beyond the card authorization window saves a consented method and authorizes near dispatch, subject to authentication; it cannot claim an indefinite card hold.
+
+**Recovered-payment safety correction:** On return after PaymentSheet confirms an uncaptured PI but before the phone dispatched, `payForTravel` previously refused the recorded PI as `already_paid` because `resumePaymentIntent` only admitted `requires_action/confirmation/payment_method`. PR #212 reads the original Stripe PaymentIntent with `latest_charge`, validates server-stamped uid/ride ID, manual policy, exact USD authorized/capturable amount, route duration and Stripe `capture_before`. Only then it sends `alreadyAuthorized`, and the app skips PaymentSheet to dispatch the **same** hold. A foreign/expired/missing/partial authorization is not silently reused or charged anew. No new Firestore collection, polling, external vendor or capture path. Regression tests added.
+
+**Not yet certified:** Source PR and checks must pass before merge. Connected Stripe sandbox read of the six most recent requested PaymentIntents returned one `succeeded` `automatic_async` example, not a proven manual capture. Independent sandbox manual authorize/release/full/partial capture tests, 3DS, signed Apple Pay and Google Pay, late scheduled assignment failure/void recovery, real Stripe/Connect cost evidence and qualified Florida terms approval remain mandatory before setting `AR_MANUAL_TRAVEL_CAPTURE=true`. The proposed cancellation/no-show $4/$3 policy stays independently OFF. No real Stripe money moved by this review.
+
+**Cloud Run:** Existing production revision was healthy/public/Stripe-enabled and had its own scheduler; its prelaunch one-time ACTIVATION checks are obsolete for source-only updates. Keep secrets, invoker, environment and scheduler unchanged; use `cloud-run-update-paid-source.yml` with exact confirmation `DEPLOY_EXISTING_PAID_CODE_ONLY` only after the release branch head is certified. No GitHub workflow dispatch or native Cloud Run deployment was available in the current tool connection; do not call manual update complete until the workflow run and revision/traffic SHA are verified. Render auto-deploy is a distinct runtime, not proof that Cloud Run is synchronized.
+
+---
+
+
 ## 21 October 2026 | Verified source merge and infrastructure audit (latest authoritative status)
 
 **Merged into `release/current`:** PR #209 (`032e1f2`) and PR #211 (`18660b7`), following PR #210 (`56c8ffc`). PR #209 exact-head 8/8 checks GREEN; PR #211 exact-head Release Gate and Cloud Run scheduling safety GREEN; post-merge Release Gate, deterministic commissioning, adversarial trace, scale stress and Auth commissioning also GREEN on `18660b7` (exhaustive release campaign was still running at last inspection). The integration preserved 10-minute foreground Operator review checks, single-flight dedupe, 15-minute **negative-only** Connect payout retry, and **completed-Travel authorization capture BEFORE that retry**. The payment corrections reconcile historical captured refunds, duplicate/foreign payments, disputes, and $3 fixed transfers without blanket automatic refund or Operator clawback. Prior headings below document development history and are superseded by this status.
