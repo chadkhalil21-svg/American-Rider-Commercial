@@ -230,6 +230,9 @@ export default function RideScreen() {
               {ride.dispatchState === 'none' && (
                 <Text style={styles.searchSub}>{t('traveler.noOperatorsNearby')}</Text>
               )}
+              {ride.payment.status === 'idle' && ride.dispatchState === 'none' && (
+                <Text style={styles.searchSub}>{t('traveler.noChargeMade')}</Text>
+              )}
               {ride.payment.status === 'paid' ? (
                 <Text style={styles.searchSub}>{t('traveler.chargedAwaitingOperator')}</Text>
               ) : ride.payment.status === 'processing' || ride.payment.status === 'failed' ? (
