@@ -242,7 +242,16 @@ async function customerForTraveler({ uid, email }) {
     limit: 1,
   });
   if (found.data[0]) return found.data[0];
-  return stripe.customers.create({ email: email || undefined, metadata: { uid: String(uid) } });
+  // Two simultaneous Wallet/checkout requests can both observe a missing Customer:
+  // Stripe Search is eventually consistent. A stable provider idempotency key
+  // ensures those concurrent creations attach cards to the SAME Customer.
+  // Hash the Firebase uid: never put identity or PII into Stripe's request key.
+  const key = 'ar_traveler_' + require('node:crypto').createHash('sha256')
+    .update(String(uid)).digest('hex').slice(0, 40);
+  return stripe.customers.create(
+    { email: email || undefined, metadata: { uid: String(uid) } },
+    { idempotencyKey: key },
+  );
 }
 
 // ——— THE TRAVELER'S SAVED PAYMENT METHODS ———————————————————————————————————————————

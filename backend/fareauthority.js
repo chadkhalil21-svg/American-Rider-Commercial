@@ -91,8 +91,14 @@ async function authoritativeFare({ body, uid = null, email = null, db = null, ca
   const referencePromise = body?.pickup && body?.dest && route.miles && route.minutes
     ? referenceForQuote({ pickup: body.pickup, dest: body.dest, serviceClass: normalizeTravelClassKey(body?.travelClass || body?.cls), routedMiles: route.miles, routedMinutes: route.minutes })
     : Promise.resolve({ ok: false, reason: 'route conditions unavailable' });
-  const [cardCountry, journey, toll, marketReference] = await Promise.all([
-    uid && cardCountryFor ? cardCountryFor({ uid, email }) : null,
+  // The Traveler can select any saved card, a new card, Apple Pay or Google Pay
+  // INSIDE Stripe PaymentSheet, after the quote is accepted. The default saved
+  // card country does not identify the card actually charged. Costing a default
+  // US card as domestic could underfund a foreign-card charge and invalidate the
+  // quote shown before checkout. Unknown = international-safe in economics.js.
+  // Avoid an unnecessary Stripe Customer + PaymentMethod read on every quote.
+  const cardCountry = null;
+  const [journey, toll, marketReference] = await Promise.all([
     journeyFor({ db, uid, journeyNo: requestedJourneyNo }),
     tollPromise,
     referencePromise,
