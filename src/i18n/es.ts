@@ -926,6 +926,7 @@ export default {
     authorizationAmount: '%{amount} autorizados. Sin cargo.',
     authorizationFreeCancel: 'Si no se aplica una tarifa de cancelación, el banco libera la retención completa.',
     authorizationPossibleFee: 'Puede aplicarse una tarifa de cancelación de $4.00 previamente informada tras la llegada verificada del Operador. Se libera el resto de la retención.',
+    cancellationFeeNet3Disclosure: 'Puede aplicarse una tarifa de $4.00 por cancelación o ausencia cuando corresponda; $3.00 se destinan al Operador. De lo contrario, se libera la retención.',
     paymentStatusUnverified: 'El estado del pago aún no está confirmado. Cancele el Viaje para que el servidor resuelva el pago antes de salir.',
     keepTravel: 'Mantener el viaje',
     yesCancel: 'Sí, cancelar',
