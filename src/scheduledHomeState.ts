@@ -24,7 +24,6 @@ export function scheduledHomeHeadingKey(status?: ScheduledRide['status']): strin
     case 'payment_failed': return 'traveler.cardDeclined';
     case 'needs_attention': return 'traveler.chargedNotCreated';
     case 'price_changed': return 'traveler.schedNeedsReview';
-    case 'dispatching': return 'traveler.rideFindingBest';
     default: return 'traveler.scheduledTravel';
   }
 }
