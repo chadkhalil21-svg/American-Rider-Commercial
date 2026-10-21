@@ -1,0 +1,41 @@
+'use strict';
+const assert=require('node:assert/strict');
+const fs=require('node:fs');
+const ts=require('typescript');
+const scheduled=fs.readFileSync('src/backend/scheduled.ts','utf8');
+const ui=fs.readFileSync('app/upcoming.tsx','utf8');
+const match=scheduled.match(/export function scheduledHistoryMonth\([\s\S]*?^}/m);
+assert(match,'bounded pure history-month helper must be present');
+const mod={exports:{}};
+const code=ts.transpileModule(match[0],{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;
+new Function('module','exports',code)(mod,mod.exports);
+const month=mod.exports.scheduledHistoryMonth;
+const now=Date.UTC(2026,9,21,14,0);
+assert.deepEqual(month(0,now),{fromMs:Date.UTC(2026,9,1),toMs:Date.UTC(2026,10,1)});
+assert.deepEqual(month(1,now),{fromMs:Date.UTC(2026,8,1),toMs:Date.UTC(2026,9,1)});
+assert.deepEqual(month(10,now),{fromMs:Date.UTC(2025,11,1),toMs:Date.UTC(2026,0,1)});
+assert.deepEqual(month(1,Date.UTC(2024,2,1)),{fromMs:Date.UTC(2024,1,1),toMs:Date.UTC(2024,2,1)});
+assert.deepEqual(month(-1,now),month(0,now));
+assert.deepEqual(month(Number.NaN,now),month(0,now));
+assert.match(scheduled,/export async function fetchScheduledHistoryPage/);
+assert.match(scheduled,/where\('travelerUid','==',uid\)/);
+assert.match(scheduled,/where\('atMs','>=',fromMs\)/);
+assert.match(scheduled,/where\('atMs','<',toMs\)/);
+assert.match(scheduled,/orderBy\('atMs','asc'\)/);
+assert.match(scheduled,/startAfter\(after\),limit\(21\)/);
+assert.match(scheduled,/shown=snap\.docs\.slice\(0,20\)/);
+const historySource=scheduled.slice(scheduled.indexOf('export async function fetchScheduledHistoryPage'),scheduled.indexOf('/**\n * The traveler'));
+assert(!/where\('status',/.test(historySource), 'history cannot silently exclude cancelled or failed reservations');
+assert.match(ui,/showHistory\s*\? await fetchScheduledHistoryPage\(historyOffset, after\)/);
+assert.match(ui,/pageRequest\.current/);
+assert.match(ui,/ride\.dismissCancelledScheduled\(id\)/);
+assert.match(ui,/schedHistoryEmpty/);
+assert.match(ui,/schedHistoryPrevious/);
+assert.match(ui,/schedHistoryNext/);
+assert.match(ui,/minHeight:44/);
+for(const lang of ['en','es','fr','de','it']) {
+ const text=fs.readFileSync('src/i18n/'+lang+'.ts','utf8');
+ for(const key of ['schedUpcomingTab','schedHistoryTab','schedHistoryPrevious','schedHistoryNext','schedHistoryEmpty','schedHistoryMore'])
+   assert(text.includes(key+':'), lang+' is missing '+key);
+}
+console.log('PASS: month-window archive, cancellation accessibility, existing indexed 21-doc paging, stale response protection, five locales, no new Firestore polls');

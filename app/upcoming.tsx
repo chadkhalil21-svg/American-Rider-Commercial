@@ -1,14 +1,14 @@
 // Traveler's authenticated, bounded scheduled Travel list.
 // No whole-history scan, fake appointments, or client-side cancellation writes.
 import { useFocusEffect, useRouter } from 'expo-router';
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { Text } from '../src/components/AppText';
 import {
   Card, LetterheadBar, Num, PrimaryButton, Screen, SectionLabel, Title,
 } from '../src/components/UI';
 import {
-  deleteScheduledRide, fetchScheduledRidesPage,
+  deleteScheduledRide, fetchScheduledRidesPage, fetchScheduledHistoryPage, scheduledHistoryMonth,
   type ScheduledRide, type ScheduledPage,
 } from '../src/backend/scheduled';
 import { useLanguage } from '../src/state/LanguageContext';
@@ -33,6 +33,9 @@ export default function UpcomingTravel() {
   const { t, language } = useLanguage();
   const ride = useRide();
   const [rides, setRides] = useState<ScheduledRide[]>([]);
+  const [showHistory, setShowHistory] = useState(false);
+  const [historyOffset, setHistoryOffset] = useState(0);
+  const pageRequest = useRef(0);
   const [cursor, setCursor] = useState<ScheduledPage['nextCursor']>(null);
   const [more, setMore] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -42,9 +45,15 @@ export default function UpcomingTravel() {
   const [cancelErrorId, setCancelErrorId] = useState<string | null>(null);
 
   const load = useCallback(async (after: ScheduledPage['nextCursor'] = null) => {
+    // A late request from another month or tab must not overwrite this view.
+    const request = ++pageRequest.current;
     setLoading(true);
     setError(false);
-    const page = await fetchScheduledRidesPage(after);
+    if (!after) { setRides([]); setCursor(null); setMore(false); }
+    const page = showHistory
+      ? await fetchScheduledHistoryPage(historyOffset, after)
+      : await fetchScheduledRidesPage(after);
+    if (request !== pageRequest.current) return;
     if (!page) {
       setError(true);
     } else {
@@ -53,7 +62,7 @@ export default function UpcomingTravel() {
       setMore(page.hasMore);
     }
     setLoading(false);
-  }, []);
+  }, [showHistory, historyOffset]);
 
   useFocusEffect(useCallback(() => {
     void load(null);
@@ -78,6 +87,9 @@ export default function UpcomingTravel() {
     setCancellingId(null);
   };
 
+  const monthStart = scheduledHistoryMonth(historyOffset).fromMs;
+  const monthName = new Intl.DateTimeFormat(language, {month:'long',year:'numeric',timeZone:'UTC'}).format(new Date(monthStart));
+
   const statusLabel = (r: ScheduledRide) => {
     switch (r.status ?? 'reserved') {
       case 'reserved': return t('traveler.scheduledTravel');
@@ -95,13 +107,32 @@ export default function UpcomingTravel() {
     <Screen>
       <LetterheadBar onBack={() => router.back()} />
       <Title>{t('traveler.scheduledTravel')}</Title>
+      <View style={styles.modeRow}>
+        <Pressable accessibilityRole="button" accessibilityState={{selected:!showHistory}}
+          onPress={() => { setShowHistory(false); setCancelId(null); }} style={styles.modeButton}>
+          <Text style={showHistory ? styles.modeText : styles.activeModeText}>{t('traveler.schedUpcomingTab')}</Text>
+        </Pressable>
+        <Pressable accessibilityRole="button" accessibilityState={{selected:showHistory}}
+          onPress={() => { setShowHistory(true); setCancelId(null); }} style={styles.modeButton}>
+          <Text style={showHistory ? styles.activeModeText : styles.modeText}>{t('traveler.schedHistoryTab')}</Text>
+        </Pressable>
+      </View>
+      {showHistory && <View style={styles.monthRow}>
+        <Pressable accessibilityRole="button" style={styles.action} onPress={() => setHistoryOffset(n => Math.min(2400,n+1))}>
+          <Text style={styles.link}>{t('traveler.schedHistoryPrevious')}</Text>
+        </Pressable>
+        <Text style={styles.monthName}>{monthName}</Text>
+        <Pressable accessibilityRole="button" disabled={historyOffset===0} style={styles.action} onPress={() => setHistoryOffset(n => Math.max(0,n-1))}>
+          <Text style={historyOffset===0?styles.disabledText:styles.link}>{t('traveler.schedHistoryNext')}</Text>
+        </Pressable>
+      </View>}
       {error && <Card><Text style={styles.help}>{t('traveler.schedListUnavailable')}</Text>
         <Pressable onPress={() => void load(null)} style={styles.action}>
           <Text style={styles.link}>{t('traveler.tryAgain')} ›</Text>
         </Pressable>
       </Card>}
       {!error && !loading && rides.length === 0 &&
-        <Text style={styles.help}>{t('traveler.schedNoUpcoming')}</Text>}
+        <Text style={styles.help}>{t(showHistory ? 'traveler.schedHistoryEmpty' : 'traveler.schedNoUpcoming')}</Text>}
       {rides.map((r) => {
         const status = r.status ?? 'reserved';
         const total = scheduledDisplayTotal(r);
@@ -152,7 +183,7 @@ export default function UpcomingTravel() {
       })}
       {!error && loading && <Text style={styles.help}>{t('traveler.familyWorking')}</Text>}
       {!error && !loading && more && !!cursor && (
-        <PrimaryButton label={t('traveler.schedMoreUpcoming')}
+        <PrimaryButton label={t(showHistory ? 'traveler.schedHistoryMore' : 'traveler.schedMoreUpcoming')}
           onPress={() => void load(cursor)} />
       )}
     </Screen>
@@ -160,6 +191,13 @@ export default function UpcomingTravel() {
 }
 
 const styles = StyleSheet.create({
+  modeRow: {flexDirection:'row',gap:16,marginTop:12,marginBottom:6},
+  modeButton: {minHeight:44,justifyContent:'center',paddingHorizontal:5},
+  modeText: {fontSize:14,fontWeight:'500',color:colors.ink2},
+  activeModeText: {fontSize:14,fontWeight:'700',color:colors.ink},
+  monthRow: {flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:6,flexWrap:'wrap',marginTop:8},
+  monthName: {fontSize:13,fontWeight:'600',color:colors.ink},
+  disabledText: {fontSize:13,color:colors.muted},
   travelCard: { marginTop: 18, paddingHorizontal: 18, paddingVertical: 16 },
   destination: { fontSize: 16, fontWeight: '600', color: colors.ink, marginTop: 7 },
   detail: { fontSize: 13.5, color: colors.ink2, marginTop: 7, lineHeight: 20 },
