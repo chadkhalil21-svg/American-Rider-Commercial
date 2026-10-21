@@ -1,0 +1,85 @@
+name: Reproduce Build 48 JavaScript startup on iOS Simulator (no TestFlight)
+on:
+  push:
+    branches: [diagnostic/build48-react-native-startup-20261021]
+    paths: ['.github/workflows/diagnose-build48-ios-simulator.yml']
+permissions:
+  contents: read
+jobs:
+  native-cold-launch:
+    runs-on: macos-26
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check out exact Build 48 Commercial source for reproduction
+        run: |
+          git checkout --detach e6a6a6a4ba4289887de54018578161e25e8d99b8
+          test "$(git rev-parse HEAD)" = e6a6a6a4ba4289887de54018578161e25e8d99b8
+          echo "Checked out exact source used for Build 48; this is a simulator-only run."
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Show simulator toolchain and choose available iPhone
+        id: phone
+        shell: bash
+        run: |
+          set -euo pipefail
+          xcodebuild -version
+          xcrun simctl list devices available -j > /tmp/available-devices.json
+          python3 - <<'PY'
+          import json,os
+          j=json.load(open('/tmp/available-devices.json'))
+          sims=[]
+          for runtime,devs in j['devices'].items():
+            for d in devs:
+              if d.get('isAvailable') and d.get('name','').startswith('iPhone'):
+                sims.append((int('iOS-18' in runtime),int('iOS-26' in runtime),d['name'],d['udid'],runtime))
+          if not sims:
+            raise SystemExit('NO_IPHONE_SIMULATOR_INSTALLED')
+          sims.sort(reverse=True)
+          _,_,name,udid,runtime=sims[0]
+          print('SIMULATOR',name,runtime)
+          with open(os.environ['GITHUB_OUTPUT'],'a') as f:
+            f.write('udid='+udid+'\n')
+          PY
+      - name: Install exact Build 48 dependencies and start iPhone simulator
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm ci --no-audit --no-fund
+          xcrun simctl boot "${{ steps.phone.outputs.udid }}"
+          xcrun simctl bootstatus "${{ steps.phone.outputs.udid }}" -b
+      - name: Compile and cold-launch iOS Release in simulator (not TestFlight)
+        env:
+          CI: "1"
+          EXPO_NO_TELEMETRY: "1"
+          EXPO_PUBLIC_API_URL: https://american-rider-api-production-623854974930.us-east1.run.app
+          EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID: 623854974930-4muug9hi3jjrml3tokaqh3n2tbd0h2ms.apps.googleusercontent.com
+          EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID: 623854974930-4t4u62mvkeopvlrm6ne15eq6rubn25r9.apps.googleusercontent.com
+        shell: bash
+        run: |
+          set -uo pipefail
+          set +e
+          npx expo run:ios --configuration Release --device "${{ steps.phone.outputs.udid }}" --no-bundler > /tmp/native-build48.log 2>&1
+          status=$?
+          set -e
+          echo "NATIVE_RELEASE_BUILD_EXIT_STATUS=$status"
+          if [ "$status" -ne 0 ]; then
+             grep -E -i 'error:|error |failed|Unable to|SDK|Provisioning|simulator|fatal|missing|unsupported' /tmp/native-build48.log | tail -n 55 | cut -c1-270 || true
+             exit "$status"
+          fi
+          echo "Release native simulator build succeeded."
+          xcrun simctl get_app_container "${{ steps.phone.outputs.udid }}" com.americanrider.app app
+          (xcrun simctl spawn "${{ steps.phone.outputs.udid }}" log stream --style compact --level info --predicate 'process CONTAINS[c] "AmericanRider" OR eventMessage CONTAINS[c] "Unhandled JS Exception" OR eventMessage CONTAINS[c] "RCTFatal"' > /tmp/app-startup-console.log 2>&1) &
+          logger_pid=$!
+          sleep 4
+          xcrun simctl terminate "${{ steps.phone.outputs.udid }}" com.americanrider.app || true
+          xcrun simctl launch "${{ steps.phone.outputs.udid }}" com.americanrider.app || true
+          sleep 16
+          kill "$logger_pid" || true
+          echo "REDACTED_JS_STARTUP_ERRORS:"
+          grep -Ei 'Unhandled JS Exception|RCTFatal|firebase/native-persistence|Component auth|INTERNAL ASSERTION|Fatal|TypeError|ReferenceError|Invariant' /tmp/app-startup-console.log | sed -E 's/(AIza|sk_live_|pk_live_)[^ ]+/[REDACTED]/g' | tail -n 35 | cut -c1-280 || true
+          echo "RECENT_SIMULATOR_CRASH_REPORTS:"
+          find "$HOME/Library/Logs/DiagnosticReports" -maxdepth 1 -iname '*AmericanRider*' -type f -mmin -10 -print 2>/dev/null | sed 's@.*/@@' | head -n 12 || true
+          echo "Simulator-only run; no EAS, signing, paid booking, TestFlight, or App Store submission."
