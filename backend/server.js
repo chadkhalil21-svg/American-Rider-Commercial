@@ -26,7 +26,7 @@ const {
   quote, createPaymentIntent, resumePaymentIntent, verifiedTravelPayment, cancelUnpaidIntent, chargeRide, refundTravel,
   connectAccountFor, configureConnectPayoutSchedule, connectOnboardingLink, connectAccountStatus,
   transferToOperator, refundableFor, connectDashboardLink, pingStripe, probeNetwork,
-  transferFixed, operatorPayoutAccount,
+  transferFixed, operatorPayoutAccount, settleUncapturedTravel,
   listPaymentMethods, createSetupIntent, setDefaultPaymentMethod, detachPaymentMethod,
   defaultCardCountry, chargeOperatorAccountFee,
 } = require('./payments');
@@ -1468,7 +1468,9 @@ app.post('/travel/cancel', requireAuth, LIMITS.payments, requireFreshAuth, async
       // Never enable via a native flag or GitHub merge. Requires explicit paid
       // deployment configuration after fee disclosure and synthetic Stripe tests.
       enableVerifiedProgressFee: process.env.AR_VERIFIED_ENROUTE_CANCEL_FEE === 'true',
-      deps: { refundableFor, refundTravel, cancelUnpaidIntent, transferFixed, operatorPayoutAccount },
+      enableManualCancellationFee: process.env.AR_MANUAL_CANCELLATION_FEE === 'true',
+      deps: { refundableFor, refundTravel, cancelUnpaidIntent,
+        transferFixed, operatorPayoutAccount, settleUncapturedTravel },
     });
     res.status(out.status).json(out.body);
   } catch (e) {
