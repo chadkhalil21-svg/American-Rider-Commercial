@@ -579,6 +579,10 @@ app.get('/config', async (req, res) => {
   res.json({
     stripePublishableKey: readKey('STRIPE_PUBLISHABLE_KEY') || null,
     mode: keyMode,
+    manualTravelAuthorization:process.env.AR_MANUAL_TRAVEL_CAPTURE==='true',
+    cancellationFeeGrossCents:
+      process.env.AR_MANUAL_TRAVEL_CAPTURE==='true'&&
+      process.env.AR_MANUAL_CANCELLATION_FEE==='true'?400:null,
     // Managing a saved method is a Stripe capability, not a whole-platform capability.
     // Screening, HERE, scheduler, market-reference and Ops readiness must never disable Wallet.
     // A Travel charge remains stricter: create-payment-intent is still protected by
