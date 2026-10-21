@@ -1,5 +1,11 @@
 # AMERICAN RIDER — CANONICAL PROJECT LEDGER
 
+## 20 Oct 2026 | Tolled-road launch safety
+
+New source PR fixes a potential toll overcharge in current release: different ways of paying one toll must not be added together; tolls must be priced for the same physical route as the quoted Fare. When a certified local price is unavailable, a single HERE response must supply both the road metrics and toll. Unknown costs remain unavailable rather than assumed zero. Includes synthetic routing regression and preserves geohash dispatch. Cloud Run and physical booking validation remain separate.
+
+---
+
 ## PR #187 | Payment method journey regression | 2026-10-20
 
 Added two synthetic Wallet and checkout tests, including Apple Pay, Google Pay, cancellation, default card, and old server response compatibility. The release retains PR #186 pricing and Stripe Customer idempotency. Changes to src/backend/payments.ts, backend/payments.js and backend/server.js improve wallet failures and prevent repeated config requests. No live card has been used. Stripe account profile text says flat $1.50 but the actual release dynamically calculates a minimum $2.50.
