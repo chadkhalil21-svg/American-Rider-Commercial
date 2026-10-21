@@ -2148,7 +2148,7 @@ async function runAllSweeps({criticalOnly=false}={}) {
     settlements: () => sweepSettlements(),
     bookingRecovery: () => sweepBookingRecovery({ db: adminDb(), stripeConfigured: keyMode !== 'no-key',
       deps: { refundableFor, refundTravel, cancelUnpaidIntent, verifiedTravelPayment,
-        transferFixed, operatorPayoutAccount } }),
+        transferFixed, operatorPayoutAccount, settleUncapturedTravel } }),
     providerEvents: () => sweepProviderEvents({ handlers: PROVIDER_HANDLERS, workerId: WORKER_ID }),
     // Only an indexed, bounded DUE queue is checked; the Stripe payout webhook
     // writes an event once. No old-account scan and NO money is collected here.
