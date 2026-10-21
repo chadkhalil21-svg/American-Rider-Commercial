@@ -81,6 +81,7 @@ export default function UpcomingTravel() {
   const statusLabel = (r: ScheduledRide) => {
     switch (r.status ?? 'reserved') {
       case 'reserved': return t('traveler.scheduledTravel');
+      case 'dispatching': return t('traveler.rideFindingBest');
       case 'dispatched': return t('traveler.schedOperatorAssigned');
       case 'unmatched': return t('traveler.noOperatorAvailable');
       case 'payment_failed': return t('traveler.cardDeclined');
