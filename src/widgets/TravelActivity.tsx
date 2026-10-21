@@ -34,33 +34,9 @@ export type TravelActivityProps = {
   tripNo: string;
 };
 
-const MUTED = '#8A8A82'; // src/theme.ts, hex for hex
-const INK = '#14171F';
-
-const mins = (p: TravelActivityProps) =>
-  typeof p.minutes === 'number' && p.minutes > 0 ? p.minutes : null;
-
-// NOT TRANSLATED, AND THAT IS A LIMITATION RATHER THAN AN OVERSIGHT.
-// This file carries 'use widget': expo-widgets compiles it into a native SwiftUI widget
-// extension, so the i18n-js runtime the rest of the app uses does not exist here. Importing
-// it type-checks and then fails in the widget target, which is worse than English.
-// Localising the Live Activity means passing already-translated strings in as props from the
-// app side (or a native string catalogue) — a native change that needs a prebuild to verify.
-/** What each stage is called, in the traveler's words rather than the operator's. */
-function headline(p: TravelActivityProps): string {
-  if (p.stage === 'arrived') return 'Your operator has arrived';
-  if (p.stage === 'onboard') return `To ${p.destination}`;
-  return 'Your operator is on the way';
-}
-
-/** The one line beneath it. Never a name with nothing to say, never a bare number. */
-function detail(p: TravelActivityProps): string {
-  const m = mins(p);
-  const who = p.operator || '';
-  if (p.stage === 'onboard') return m ? `${m} min remaining` : p.tripNo;
-  if (who && m) return `${who} · ${m} min`;
-  return who || (m ? `${m} min` : p.tripNo);
-}
+// In Expo's isolated widget runtime, the layout function may not close over
+// module-level values or helper functions. Keep display helpers local to the
+// function marked 'widget' so its serialized bundle is self-contained.
 
 // THE DIRECTIVE GOES INSIDE THE FUNCTION, and it is 'widget' — not 'use widget' at the top of
 // the file. I wrote the latter, which is not a directive expo-widgets recognises, so the layout
@@ -74,6 +50,24 @@ function detail(p: TravelActivityProps): string {
 // the import.
 function TravelActivityLayout(props: TravelActivityProps): LiveActivityLayout {
   'widget';
+  // The extension runs this function in isolation from the app's React Native
+  // runtime; globals, module-level constants and functions are not available.
+  const MUTED = '#8A8A82';
+  const INK = '#14171F';
+  const mins = (p: TravelActivityProps) =>
+    typeof p.minutes === 'number' && p.minutes > 0 ? p.minutes : null;
+  const headline = (p: TravelActivityProps): string => {
+    if (p.stage === 'arrived') return 'Your operator has arrived';
+    if (p.stage === 'onboard') return `To ${p.destination}`;
+    return 'Your operator is on the way';
+  };
+  const detail = (p: TravelActivityProps): string => {
+    const m = mins(p);
+    const who = p.operator || '';
+    if (p.stage === 'onboard') return m ? `${m} min remaining` : p.tripNo;
+    if (who && m) return `${who} · ${m} min`;
+    return who || (m ? `${m} min` : p.tripNo);
+  };
   return {
     // The lock screen: the letterhead's own hierarchy — the eyebrow, the fact, the detail.
     banner: (
