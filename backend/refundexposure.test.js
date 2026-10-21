@@ -23,17 +23,22 @@ const read = (f) => fs.readFileSync(path.join(__dirname, f), 'utf8');
 const usd = (c) => `$${(c / 100).toFixed(2)}`;
 const payments = read('payments.js');
 const server = read('server.js');
+const exceptions=read('payment-exception-policy.js');
 
 // ---- The guards that were already there, asserted rather than assumed -------------------
 for (const [label, re] of [
   ['a refund cannot exceed what remains refundable', /only \$\{?balance\.cents\}?c of that payment remains refundable|amountCents > balance\.cents/],
   ['a refund cannot touch another account\'s payment', /that payment belongs to a different account/],
-  ['a refund cannot be issued against an uncompleted charge', /not a completed charge/],
+  ['a refund cannot be issued against an uncompleted charge', /refundableChargeSafety\(pi\)/],
   ['a refund must be a positive whole number of cents', /must be a positive whole number of cents/],
 ]) {
   check(label, re.test(payments));
 }
 
+check('provider guard checks succeeded status before any refund',
+ /pi\.status!=='succeeded'/.test(exceptions));
+check('provider guard prevents double-refunding a disputed charge',
+ /disputed_charge_requires_provider_reconciliation/.test(exceptions));
 // ---- The cost is now measured, and stamped where it can be audited ----------------------
 check('the true cost of a refund is computed from what we still hold',
   /const outOfPocketCents = Math.max\(0, amountCents - stillOurs\)/.test(payments));
