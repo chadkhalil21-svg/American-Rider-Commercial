@@ -18,6 +18,11 @@ async function executeManualSettlement({
  if(!pi||pi.metadata?.uid!==String(uid)||pi.metadata?.rideId!==String(rideId)||
     pi.id!==String(paymentIntentId)||pi.currency!=='usd'||pi.amount!==totalCents)
    return reject('wrong_payment_or_travel');
+ if(pi.metadata?.capturePolicy!=='manual_v1'||pi.capture_method!=='manual') 
+   return reject('not_a_manual_travel_authorization');
+ // No client may instruct a capture of an unrelated legacy charge, even if the
+ // quoted amount and Traveler match.
+
  const captureCents=action==='complete'?totalCents:
    action==='fee'?STANDARD_CANCELLATION_GROSS_CENTS:0;
  if(action==='fee'&&totalCents<captureCents) return reject('hold_too_small');
@@ -40,7 +45,12 @@ async function executeManualSettlement({
    return canceled.status==='canceled'?{ok:true,status:'released',captureCents:0,
       paymentIntentId:pi.id}:reject('void_not_confirmed');
  }
- const v=verifyHold({intent:pi,uid,rideId,totalCents,now,requiredUntil});
+ // Dispatch needs >= one hour AFTER projected route end; at verified final
+ // settlement use the actual Stripe deadline with a short operational margin.
+ // Reject a nearly expired hold, but do not decline legitimate completion
+ // simply because the extra dispatch safety hour has elapsed.
+ const v=verifyHold({intent:pi,uid,rideId,totalCents,now,requiredUntil,
+   minCaptureHeadroomMs:30000});
  if(!v.ok)return reject(v.reason);
  const captured=await stripe.paymentIntents.capture(pi.id,{amount_to_capture:captureCents},
    {idempotencyKey:`ar_hold_${action}_${rideId}_${captureCents}`});
