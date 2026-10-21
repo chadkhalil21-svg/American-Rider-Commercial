@@ -296,15 +296,17 @@ const RECHECK_WARN_MS = 30 * 24 * 60 * 60 * 1000;
  *   - inside the 30-day window and not yet warned  → push, once, marked so it stays once
  *   - within 24h of deadline and not yet acted on  → dispatch flag set, push, case filed
  *
- * Both writes are idempotent by marker (recheckWarnedAt / recheckExpiredAt), so the sweep
- * can run every minute without repeating itself.
+ * Both writes are idempotent by marker (recheckWarnedAt / recheckExpiredAt).
+ * This six-hour renewal sweep sends reminders and cases; it never orders a new
+ * provider background report. Real-time paid eligibility independently checks
+ * screeningCurrent() and the 24-hour advance lockout at each acceptance.
  */
 // A durable rotating scan prevents old screening records from occupying the first
 // page forever. Only the screening evidence/current time determine eligibility; the
 // cursor is an operational checkpoint, never an authorization.
 async function sweepScreening({
   now = Date.now(), db = adminDb(), notify: sendNotice, fileTicket: createTicket = fileTicket,
-  limit = 200,
+  limit = 500, // bounded throughput despite less frequent reminder polling
 } = {}) {
   if (!db) return { ok: false, reason: 'no database' };
   const send = sendNotice || require('./push').notify;
