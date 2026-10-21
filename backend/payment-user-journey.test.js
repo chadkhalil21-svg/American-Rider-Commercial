@@ -64,8 +64,8 @@ async function mockFetch(url,opts={}){
   }
   throw Error('unexpected route '+suffix);
 }
-const module={exports:{}};
-const context={module,exports:module.exports,fetch:mockFetch,console,
+const simulatedModule={exports:{}};
+const context={module:simulatedModule,exports:simulatedModule.exports,fetch:mockFetch,console,
   require(name){
     if(name==='@stripe/stripe-react-native')return stripeNative;
     if(name==='react-native')return {Platform:{get OS(){return os;}}};
@@ -75,7 +75,7 @@ const context={module,exports:module.exports,fetch:mockFetch,console,
     throw Error('unexpected module '+name);
   }};
 vm.runInNewContext(js,context);
-const p=module.exports;
+const p=simulatedModule.exports;
 const lastSheet=()=>events.filter(e=>e.kind==='sheet-init').at(-1)?.settings;
 const reset=()=>{events.length=0;methods.length=0;mode='live';initFailure=null;presentFailure=null;
   throwInit=false;throwPresent=false;missingMode=false;missingIntentId=false;
