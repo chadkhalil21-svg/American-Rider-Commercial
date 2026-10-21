@@ -109,6 +109,10 @@ const { normalizeSuggestion,normalizePhoton,privatePhotonEndpoint,selectedPrimar
     };
     results=await searchPlaces('Photon Down HERE q52',null);
     assert.equal(results[0]?.source,'here');
+    const callsAfterFirstBridge=calls.length;
+    assert.equal((await searchPlaces('Photon Down HERE q52',null))[0]?.source,'here');
+    assert.equal(calls.length,callsAfterFirstBridge,
+      'the same Photon-outage query reuses a short-lived, attributed HERE answer');
     for(let i=0;i<20;i++)await searchPlaces('New Photon Failure '+i,null);
     assert.equal(hereFallbacks,10,'exceptional HERE capped per instance');
 
