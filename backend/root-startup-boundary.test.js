@@ -68,8 +68,8 @@ assert.equal(invalid.imports(), 1);
 assert.equal(recovered.type.name, 'BootFailure', 'module evaluation throw must render recovery');
 const screen = recovered.type(recovered.props);
 const printed = JSON.stringify(screen);
-assert.match(printed, /firebase\\/native-persistence-unavailable/);
-assert.match(printed, /Try Again/);
+assert.ok(printed.includes('firebase/native-persistence-unavailable'));
+assert.ok(printed.includes('Try Again'));
 
 const secrets = loadRuntime(() => {
   throw new Error('Failed for user@example.com https://private.example.com sk_live_secret');
@@ -79,7 +79,7 @@ const rendered = JSON.stringify(fail.type(fail.props));
 assert.ok(!rendered.includes('user@example.com'));
 assert.ok(!rendered.includes('private.example.com'));
 assert.ok(!rendered.includes('sk_live_secret'));
-assert.match(rendered, /\\[REDACTED\\]/);
+assert.ok(rendered.includes('[REDACTED]'));
 
 const healthy = loadRuntime(() => ({ default: function FullRoot() {} }));
 const tree = healthy.root();
