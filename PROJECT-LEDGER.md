@@ -1,5 +1,18 @@
 # AMERICAN RIDER — CANONICAL PROJECT LEDGER
 
+## 21 October 2026 | P0 physical iPhone crash: confirmed scheduled-total restore mismatch (PR #196)
+
+**Actual signed iPhone diagnostic evidence:** After Builds 48/49 terminated before the home screen, the Founder installed diagnostic Build 50 (`cd5b5d9f`) over the existing app and supplied the on-device screen: `AR-BOOT · TypeError`, `Cannot read property 'toLocaleString' of undefined`. This proves a JavaScript exception is visible to the PR #195 boundary; it does NOT independently prove native-only crashes or make Build 50 a repair.
+
+**Reproducible source-level cause:** `backend/server.js` writes scheduled reservations with authoritative `costCents: priced.travelerPays` (positive integer cents), **not a `cost` field**. The in-memory initial POST return in `src/backend/scheduled.ts` reconstructs `cost`, so the booking initially appears correct. But on cold launch `fetchScheduledRide()` retrieves the unaltered Firestore document and `src/state/RideContext.tsx` previously copied `cost: r.cost` (undefined) to `schedInfo`. `app/index.tsx` rendered `fmt(ride.schedInfo.cost)`; `src/theme.ts` invokes `n.toLocaleString()` without an unknown-value guard. This matches the exact error observed and requires no new provider, polling, or database migration. Build 47 was known-good on the founder's iPhone; source history between 47/48 is still text-only, so **the date the incompatible reservation was created/loaded is not independently established**.
+
+**Proposed limited repair in PR #196 (source only):** Pure `scheduledDisplayTotal` restores the saved integer cents / 100, honors finite positive legacy-dollar records only when cents are unavailable, and returns `null` if both are missing/invalid. Home conditionally shows the existing translated unavailable-quote message and never calls the money formatter on unknown; Upcoming uses the same decoder. `ScheduledRide.cost` is correctly optional for raw Firestore documents, while a new booking requires a valid positive quote. Synthetic behavioral test `backend/scheduled-boot-price.test.js` reproduces the server's `costCents`-only record and covers missing, malformed, and legacy prices. No money, production backend, Firestore reads/writes, payout or scheduling cadence changes.
+
+**Release gate:** Finish CI, merge verified repair, produce one exact-SHA signed TestFlight, and verify actual startup with the Founder's existing scheduled record on iOS 18.4.1 before considering App Review or marking issue #192 resolved. PR #195 is diagnostic containment only. Do not claim full real-device resolution yet.
+
+---
+
+
 ## 21 Oct 2026 | Build 49 still crashes on physical iPhone, P0 PR #195 boot containment
 
 **Latest real device evidence:** Founder reports Build 49 (signed exact Commercial `2209e97f`, submitted 21 October 2026) still crashes on opening their iPhone. Earlier optional Live Activity correction PR #193 did not resolve this incident. The original Build 48 `.ips` reported `EXC_CRASH/SIGABRT` via `RCTExceptionsManager`, but neither it nor the successful iOS 26 simulator captures the **Build 49 original JS exception**. Authenticated read-only Apple Build 49 feedback query returned zero submissions (reporting delay/absence, **not** evidence of no crash). This P0 remains open [#192](https://github.com/chadkhalil21-svg/American-Rider-Commercial/issues/192).
