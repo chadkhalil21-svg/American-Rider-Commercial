@@ -1325,6 +1325,23 @@ export default {
     msgTravelUnavailable: "Aucun voyage vérifié n’est disponible pour cette conversation. Sélectionnez un voyage enregistré ou contactez l’assistance.",
   },
 
+  operatorNoShow: {
+    waitUnconfirmed: "Le temps d’attente est en cours de vérification.",
+    countdown: "En attente du Voyageur · {time}",
+    contactFirst: "Le Voyageur n’est pas là ? Envoyez-lui un message avant de signaler son absence.",
+    title: "Le Voyageur ne s’est pas présenté",
+    confirm: "Confirmez avoir attendu cinq minutes au point de prise en charge et envoyé un message au Voyageur.",
+    continue: "Continuer à attendre",
+    record: "Signaler l’absence",
+    closed: "Voyage clôturé",
+    refundPending: "Le remboursement du Voyageur est en attente de vérification.",
+    paymentReconciled: "Le paiement du Voyageur a été rapproché.",
+    messageRequired: "Envoyez d’abord un message au Voyageur via Contacter.",
+    unavailable: "La gestion des absences n’est pas encore disponible. Contactez l’assistance.",
+    unverified: "L’absence n’a pas pu être vérifiée. Continuez à attendre ou contactez l’assistance.",
+    action: "Le Voyageur Ne S’est Pas Présenté",
+  },
+
   legal: {
     termsTitle: 'Conditions d’Utilisation',
     privacyTitle: 'Politique de Confidentialité',
