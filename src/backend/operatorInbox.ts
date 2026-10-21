@@ -59,6 +59,8 @@ export type AssignedTravel = {
   /** When the status last changed. Distinguishes a journey underway from one that never
    *  closed — see ACTIVE_RESTORE_MAX_MS in OperatorContext. */
   statusAt: number;
+  /** Existing server arrival stamp, reused for a local countdown. */
+  arrivedAt?: number | null;
   /** Raised by route monitoring when this vehicle has stopped for longer than a long light.
    *  Written only by the server; answered through POST /travel/check-in. */
   monitor?: {
@@ -155,6 +157,7 @@ export function watchAssignedTravel(
               releasedAt: Number(x.releasedAt) || null,
               createdAt: Number(x.createdAt ?? 0),
               statusAt: Number(x.statusAt ?? 0),
+              arrivedAt: Number(x.arrivedAt) || null,
               monitor: (x.monitor as AssignedTravel['monitor']) ?? null,
             };
           })
@@ -255,3 +258,22 @@ export async function markOnboard(rideId: string, teenPickupCode?: string): Prom
   return setStatus(rideId, 'onboard');
 }
 export const markCompleted = (rideId: string) => setStatus(rideId, 'completed');
+
+// An exceptional Operator action. No charge, refund or terminal status is
+// written by the phone. The authenticated server decides eligibility and money.
+export async function markNoShow(rideId: string): Promise<{ok:boolean;code?:string;refundPending?:boolean}> {
+  if (!rideId) return {ok:false,code:'missing_travel'};
+  try {
+    const token=await auth.currentUser?.getIdToken();
+    if (!token) return {ok:false,code:'not_authenticated'};
+    const res=await fetch(`${PAYMENT_SERVER_URL}/travel/no-show`,{
+      method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},
+      body:JSON.stringify({rideId}),
+    });
+    const out=await res.json().catch(()=>({}));
+    return {ok:res.ok && out.ok===true,
+      code:res.ok?undefined:String(out.code||'no_show_unavailable'),
+      refundPending:out.refundPending===true};
+  } catch { return {ok:false,code:'network_unavailable'}; }
+}
+
