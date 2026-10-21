@@ -213,7 +213,8 @@ async function continuousJourney(teen, protectedAdult = false) {
     check(out.status === 409 && out.body.code === 'adult_pickup_unverified',
       'Operator cannot claim adult pickup before authenticated private handoff');
     const fetched = await travelerCode({db,rideId:'ride1',travelerUid:'traveler',now:NOW});
-    check(fetched.status === 200 && /^\d{6}$/.test(fetched.pin), 'Traveler can access private code');
+    check(fetched.status === 200 && /^\d{6}$/.test(fetched.pin),
+      'Traveler can access private code (status='+fetched.status+', reason='+String(fetched.code||'none')+', enabled='+String(fetched.enabled)+', required='+String(fetched.required)+', pinLength='+String(fetched.pin||'').length+')');
     out = await verifyOperatorCode({db,rideId:'ride1',operatorUid:'intruder',pin:fetched.pin,now:NOW});
     check(out.status === 403, 'unassigned Operator cannot present pickup proof');
     out = await verifyOperatorCode({db,rideId:'ride1',operatorUid:'op',pin:'abcdef',now:NOW});
