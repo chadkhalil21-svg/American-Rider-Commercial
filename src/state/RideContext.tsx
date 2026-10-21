@@ -89,6 +89,7 @@ export type PaymentState = {
   status: 'idle' | 'processing' | 'paid' | 'failed';
   amountCents?: number;
   paymentIntentId?: string;
+  authorizationOnly?: boolean;
   // WHICH TRAVEL THIS PAYMENT IS FOR. Patron Support can refund against a PaymentIntent, and
   // this store only ever holds the most recent one — so a complaint about last week's travel
   // would have refunded today's charge. The id is only ever sent for its own travel.
@@ -878,6 +879,7 @@ export function RideProvider({ children }: { children: React.ReactNode }) {
           paidIntentRef.current = live.paymentIntentId || null;
           if (live.paidAt || live.status === 'awaiting_assignment') {
             const restoredPayment = { status: 'paid' as const, amountCents: live.totalCents,
+              authorizationOnly:live.authorizationState==='held',
               paymentIntentId: live.paymentIntentId, tripNo: live.tripNo };
             paymentRef.current = restoredPayment; setPayment(restoredPayment);
           } else if (live.status === 'awaiting_payment') {
@@ -1027,8 +1029,9 @@ export function RideProvider({ children }: { children: React.ReactNode }) {
             return null;
           }
           paidIntentRef.current = result.paymentIntentId ?? null;
-          const paid = { status: 'paid' as const, amountCents: result.amountCents,
-            paymentIntentId: result.paymentIntentId, tripNo: lastTripRef.current.no };
+          const paid={status:'paid' as const,amountCents:result.amountCents,
+            paymentIntentId:result.paymentIntentId,
+            authorizationOnly:result.authorizationOnly===true,tripNo:lastTripRef.current.no};
           paymentRef.current = paid; setPayment(paid);
           if (result.methodLabel) {
             lastTripRef.current = { ...lastTripRef.current, pay: result.methodLabel };
