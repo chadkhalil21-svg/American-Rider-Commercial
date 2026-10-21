@@ -5,6 +5,7 @@
 // React ErrorBoundary. Load the unchanged full root *inside* a try/catch.
 // A failed boot shows an actionable on-device error instead of a blank splash.
 import React from 'react';
+import { getStartupCopy } from '../src/i18n/startup';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 type Failure = { title: string; diagnostic: string };
@@ -16,7 +17,7 @@ function describeFailure(error: unknown): Failure {
   const name = typeof source?.name === 'string' ? source.name : 'StartupError';
   const code = typeof source?.code === 'string' ? source.code : '';
   const message = typeof source?.message === 'string' ? source.message
-    : typeof error === 'string' ? error : 'Unable to finish application initialization';
+    : typeof error === 'string' ? error : getStartupCopy().generic;
   // Display only short, locally visible diagnostics. No network telemetry, API
   // keys, credentials or personal information. The original exception remains
   // accessible through the device's Apple diagnostics when available.
@@ -30,23 +31,18 @@ function describeFailure(error: unknown): Failure {
 
 function BootFailure({ error, onRetry }: { error: unknown; onRetry: () => void }) {
   const info = describeFailure(error);
+  const copy = getStartupCopy();
   return (
     <View style={styles.page}>
       <Text style={styles.brand}>AMERICAN RIDER</Text>
-      <Text style={styles.title}>Unable to open American Rider</Text>
-      <Text style={styles.body}>
-        An application component could not initialize. No Travel was requested
-        and no payment was made by this screen.
-      </Text>
+      <Text style={styles.title}>{copy.title}</Text>
+      <Text style={styles.body}>{copy.body}</Text>
       <Text selectable style={styles.code}>AR-BOOT  ·  {info.title}</Text>
       <Text selectable style={styles.detail}>{info.diagnostic}</Text>
       <Pressable onPress={onRetry} accessibilityRole="button" style={styles.button}>
-        <Text style={styles.buttonText}>Try Again</Text>
+        <Text style={styles.buttonText}>{copy.tryAgain}</Text>
       </Pressable>
-      <Text style={styles.note}>
-        Please share a screenshot of this screen with American Rider Support.
-        You do not need to uninstall the app.
-      </Text>
+      <Text style={styles.note}>{copy.note}</Text>
     </View>
   );
 }
