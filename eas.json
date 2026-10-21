@@ -38,7 +38,7 @@
         "ascApiKeyIssuerId": "2fa282d5-2b2c-4820-8fe9-6928ac1e8d33"
       },
       "android": {
-        "track": "internal"
+        "track": "production"
       }
     }
   }
