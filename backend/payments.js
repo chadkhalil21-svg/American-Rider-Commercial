@@ -554,13 +554,28 @@ async function createPaymentIntent({ travelCostCents, uid, email, tripNo, rideId
  * different amount — in which case the caller refuses.
  */
 const RESUMABLE = ['requires_payment_method', 'requires_confirmation', 'requires_action'];
-async function resumePaymentIntent({ paymentIntentId, uid, rideId, email, travelCostCents, journey, governmentFees, cardCountry, tollCents = 0 }) {
+async function resumePaymentIntent({ paymentIntentId, uid, rideId, email, travelCostCents, journey, governmentFees, cardCountry, tollCents = 0, routedMinutes = 90, scheduledFor = null }) {
   const stripe = getStripe();
-  const pi = await stripe.paymentIntents.retrieve(paymentIntentId);
+  const pi = await stripe.paymentIntents.retrieve(paymentIntentId,{expand:['latest_charge']});
   if (!pi || pi.metadata?.uid !== String(uid) || pi.metadata?.rideId !== String(rideId)) return null;
-  if (!RESUMABLE.includes(pi.status)) return null;
   const q = quote(travelCostCents, journey, governmentFees, cardCountry, tollCents);
   if (pi.amount !== q.travelerPays) return null;
+  if (pi.status === 'requires_capture') {
+    // Restore the already-authorized ORIGINAL Stripe hold after a phone crash.
+    // Never create or present another PaymentIntent for the same Travel.
+    if (pi.capture_method !== 'manual' || pi.metadata?.capturePolicy !== 'manual_v1')
+      return null;
+    const { verifyHold } = require('./payment-hold-policy');
+    const mins = Math.max(30,Math.min(1440,Number(routedMinutes)||90));
+    const now = Date.now();
+    const departure = Number(scheduledFor);
+    const requiredUntil = Math.max(now,Number.isFinite(departure) && departure>now ? departure : now) + mins*60000;
+    const verified = verifyHold({intent:pi,uid,rideId,totalCents:q.travelerPays,now,requiredUntil});
+    if (!verified.ok) return null;
+    return {paymentIntentId:pi.id,breakdown:q,capturePolicy:'manual_v1',
+      alreadyAuthorized:true,authorizationExpiresAt:verified.expires};
+  }
+  if (!RESUMABLE.includes(pi.status)) return null;
   const customer = await customerForTraveler({ uid, email });
   const ephemeralKey = await stripe.ephemeralKeys.create({ customer: customer.id }, { apiVersion: '2024-06-20' });
   return {

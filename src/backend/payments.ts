@@ -160,6 +160,7 @@ export async function payForRide(opts: {
     customerId?: string;
     ephemeralKeySecret?: string;
     capturePolicy?: 'manual_v1' | 'captured_legacy';
+    alreadyAuthorized?: boolean;
     breakdown?: { travelerPays?: number };
   };
   try {
@@ -185,6 +186,17 @@ export async function payForRide(opts: {
     intent = data;
   } catch {
     return { ok: false, error: t('traveler.paymentServerUnreachable') };
+  }
+
+  // Resumed Stripe authorization is already confirmed by the provider and server.
+  // Presenting PaymentSheet again could open an unnecessary second hold.
+  if (intent.alreadyAuthorized === true) {
+    if (intent.capturePolicy !== 'manual_v1' ||
+        !/^pi_[A-Za-z0-9]+$/.test(intent.paymentIntentId || '') ||
+        !Number.isSafeInteger(intent.breakdown?.travelerPays))
+      return {ok:false,error:t('traveler.errPaymentNotStarted')};
+    return {ok:true,paymentIntentId:intent.paymentIntentId,
+      amountCents:intent.breakdown?.travelerPays,authorizationOnly:true};
   }
 
   if (!intent.clientSecret || !/^pi_[A-Za-z0-9]+$/.test(intent.paymentIntentId || ''))
