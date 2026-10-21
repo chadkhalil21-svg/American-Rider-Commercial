@@ -332,8 +332,10 @@ for (let pass = 1; pass <= 2; pass++) {
     'the scheduled return button requires server quote and route, not live payment acceptance');
   assert.match(confirmation, /selectingScheduledTravel\s*\? \(\) => \{ if \(canContinueScheduling\) router\.navigate\('\/schedule'\); \}/,
     'schedule-first button returns to selected pickup, never confirms now');
-  assert.match(confirmation, /!selectingScheduledTravel && \(/,
-    'immediate departure cancellation terms do not mislead future reservation');
+  assert.match(confirmation, /!selectingScheduledTravel && payConfig\.cancellationFeeGrossCents/,
+    'immediate booking fee terms remain hidden on schedule-first confirmation');
+  assert.match(confirmation, /cancellationFeeNet3Disclosure/,
+    'when active, $4 cancellation terms are visible before immediate booking');
 
   assert.match(screen, /const selectedPickupDate = pickupZone \? ride\.schedPickupDate : null/,
     'the picked calendar date survives midnight and destination-search navigation');
