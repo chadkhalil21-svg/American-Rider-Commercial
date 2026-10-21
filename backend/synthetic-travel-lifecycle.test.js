@@ -6,6 +6,8 @@
 const assert = require('node:assert/strict');
 const { acceptOffer } = require('./eligibility');
 const { progressTravel } = require('./travelprogress');
+const { travelerCode, verifyOperatorCode } = require('./adultpickup');
+const { settleTravel, cancelTravel } = require('./travelmoney');
 const { initialMonitoringFromDocument, applyIndependentConfirmation } = require('./insurance-monitoring');
 const { DISCLOSURE_VERSION } = require('./disclosure');
 const { readinessForRoute } = require('./booking-readiness');
@@ -25,7 +27,15 @@ function memoryDb(initial) {
   const data = clone(initial);
   let lock = Promise.resolve();
   let writes = 0;
-  const ref = (collection, id) => ({ collection, id: String(id) });
+  const ref = (collection, id) => ({ collection, id: String(id),
+    get: async () => snapshot({collection,id:String(id)}),
+    set: async (fields,options={}) => {
+      if (!data[collection]) data[collection]={};
+      data[collection][String(id)] = options.merge
+        ? {...data[collection][String(id)],...clone(fields)} : clone(fields);
+      writes++;
+    },
+  });
   const snapshot = r => {
     const value = data[r.collection]?.[r.id];
     return { exists: value !== undefined, data: () => clone(value) };
@@ -134,9 +144,11 @@ const accept = (db, overrides = {}) => acceptOffer({
 const progress = (db, status, timestamp = NOW, uid = 'op') =>
   progressTravel({ db, uid, rideId: 'ride1', status, now: timestamp });
 
-async function continuousJourney(teen) {
+async function continuousJourney(teen, protectedAdult = false) {
   const simulation = memoryDb(initialData({ teen }));
   const { db, data } = simulation;
+  if (protectedAdult) check(data.rides.ride1.adultPickup === undefined,
+    'synthetic adult pickup begins without client-created verification');
 
   // A wrong party cannot accept a reserved paid Travel.
   let out = await accept(db, { uid: 'intruder' });
@@ -184,11 +196,31 @@ async function continuousJourney(teen) {
   out = await progress(db, 'arrived', NOW);
   check(out.status === 200 && data.rides.ride1.status === 'arrived', 'arrival commits');
 
+  if (protectedAdult) {
+    check(data.rides.ride1.adultPickup?.required === true &&
+      data.rides.ride1.adultPickup?.verifiedAt === null,
+      'server acceptance itself must arm adult verification without opening a Traveler screen');
+  }
+
   if (teen) {
     out = await progress(db, 'onboard', NOW + 1);
     check(out.body.code === 'teen_pickup_unverified',
       'unverified teen must not board');
     data.rides.ride1.teenPickup = { verifiedAt: NOW, verifiedBy: 'op' };
+  }
+  if (protectedAdult) {
+    out = await progress(db, 'onboard', NOW + 1);
+    check(out.status === 409 && out.body.code === 'adult_pickup_unverified',
+      'Operator cannot claim adult pickup before authenticated private handoff');
+    const fetched = await travelerCode({db,rideId:'ride1',travelerUid:'traveler',now:NOW});
+    check(fetched.status === 200 && /^\\d{6}$/.test(fetched.pin), 'Traveler can access private code');
+    out = await verifyOperatorCode({db,rideId:'ride1',operatorUid:'intruder',pin:fetched.pin,now:NOW});
+    check(out.status === 403, 'unassigned Operator cannot present pickup proof');
+    out = await verifyOperatorCode({db,rideId:'ride1',operatorUid:'op',pin:'abcdef',now:NOW});
+    check(out.status === 403, 'invalid code is rejected');
+    out = await verifyOperatorCode({db,rideId:'ride1',operatorUid:'op',pin:fetched.pin,now:NOW});
+    check(out.verified === true && data.rides.ride1.adultPickup.verifiedBy === 'op',
+      'actual server-stamped handoff evidence permits boarding');
   }
   out = await progress(db, 'onboard', NOW + 1);
   check(out.status === 200 && data.rides.ride1.status === 'onboard', 'boarding commits');
@@ -211,7 +243,25 @@ async function continuousJourney(teen) {
     'duplicate completion cannot change the completion timestamp');
   check(simulation.getWrites() === completedWrites,
     'duplicate completion cannot schedule another payout write');
-  return { teen, transitions: ['assigned', 'accepted', 'arrived', 'onboard', 'completed'] };
+  const transferCalls=[];const receiptCalls=[];
+  const deps={operatorPayoutAccount:async()=>({accountId:'acct_fixture'}),
+    transferToOperator:async args=>{
+      transferCalls.push(args);
+      return {ok:true,transferId:'tr_fixture',amountCents:1752,platformTake:73};
+    },
+    sendReceipt:async ride=>{receiptCalls.push(ride.tripNo);return {ok:true};},
+  };
+  out = await settleTravel({db,uid:'intruder',rideId:'ride1',deps,now:NOW+3});
+  check(out.status === 403,'only Traveler can request settlement');
+  out = await settleTravel({db,uid:'traveler',rideId:'ride1',deps,now:NOW+3});
+  check(out.status===200 && transferCalls.length===1 && receiptCalls.length===1 &&
+    transferCalls[0].paymentIntentId==='pi_synthetic_does_not_exist' &&
+    data.rides.ride1.transferId==='tr_fixture',
+    'completed Travel settles only its original payment and sends one receipt');
+  out = await settleTravel({db,uid:'traveler',rideId:'ride1',deps,now:NOW+4});
+  check(out.body.alreadySettled===true && transferCalls.length===1 && receiptCalls.length===1,
+    'settlement replay does not pay or email twice');
+  return { teen, protectedAdult, transitions: ['assigned', 'accepted', 'arrived', 'onboard', 'completed'] };
 }
 
 async function adverseBeforeAcceptance(kind) {
@@ -273,14 +323,27 @@ async function triCountyGeography() {
 }
 
 (async () => {
-  await continuousJourney(false);
-  await continuousJourney(true);
+  const oldMode=process.env.ADULT_PICKUP_VERIFICATION;
+  const oldKey=process.env.TEEN_PIN_SECRET;
+  try {
+    delete process.env.ADULT_PICKUP_VERIFICATION;
+    await continuousJourney(false);
+    await continuousJourney(true);
+    process.env.ADULT_PICKUP_VERIFICATION='on';
+    process.env.TEEN_PIN_SECRET='synthetic-teen-and-adult-pickup-secret-longer-than-32-characters';
+    await continuousJourney(false,true);
+  } finally {
+    if(oldMode===undefined)delete process.env.ADULT_PICKUP_VERIFICATION;
+    else process.env.ADULT_PICKUP_VERIFICATION=oldMode;
+    if(oldKey===undefined)delete process.env.TEEN_PIN_SECRET;
+    else process.env.TEEN_PIN_SECRET=oldKey;
+  }
   for (const type of [
     'insurance_cancelled', 'insurance_unverified', 'insurance_expired',
     'screening_expired', 'screening_missing',
     'account_disabled', 'disclosure_stale', 'payout_blocked',
   ]) await adverseBeforeAcceptance(type);
   await triCountyGeography();
-  console.log('PASS synthetic continuous Traveler/Operator Travel, Teen pickup, paid-receipt gate, 8 adverse cases, three-county geography');
+  console.log('PASS synthetic continuous Traveler/Operator Travel, teen/adult pickup proof, server completion/one-time settlement/receipt, 8 adverse cases, three-county geography');
   console.log('PASS ' + assertions + ' deterministic assertions, in-memory only; no provider or real-device certification');
 })().catch(error => { console.error(error); process.exitCode = 1; });
