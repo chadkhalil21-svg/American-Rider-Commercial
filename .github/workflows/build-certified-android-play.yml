@@ -55,6 +55,8 @@ jobs:
           if (eas.build?.production?.distribution === 'internal') throw Error('Not a store build.');
           if (eas.build?.production?.android?.buildType === 'apk') throw Error('Google Play requires an app bundle.');
           if (!eas.build?.production) throw Error('Production build profile is missing.');
+          if (eas.submit?.production?.android?.track !== 'production') throw Error('Public Android submission must use production track.');
+          if (eas.submit?.internal?.android?.track !== 'internal') throw Error('Internal Android submission must remain on internal track.');
           console.log('Verified current Android app identity and store build profile.');
           NODE
 
@@ -95,5 +97,5 @@ jobs:
           test -n "${EAS_BUILD_ID:-}" || { echo "::error::Exact Android build ID missing."; exit 1; }
           # Expo needs a Google Play service account assigned to the application.
           # This does NOT submit to public production or approve store listing.
-          npx --yes eas-cli@latest submit --platform android --id "$EAS_BUILD_ID" --profile production --non-interactive --wait
+          npx --yes eas-cli@latest submit --platform android --id "$EAS_BUILD_ID" --profile internal --non-interactive --wait
           echo "Android uploaded to Google Play INTERNAL testing only. Public Play rollout requires Play Console setup and review." >> "$GITHUB_STEP_SUMMARY"
