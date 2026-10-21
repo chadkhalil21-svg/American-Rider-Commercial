@@ -25,7 +25,8 @@ function captureDeadlineMs(intent) {
   return Number.isSafeInteger(secs) && secs > 0 ? secs * 1000 : null;
 }
 
-function verifyHold({intent,uid,rideId,totalCents,now,requiredUntil} = {}) {
+function verifyHold({intent,uid,rideId,totalCents,now,requiredUntil,
+                     minCaptureHeadroomMs=MIN_CAPTURE_HEADROOM_MS} = {}) {
   const denied=(reason)=>({ok:false,reason});
   if (!intent || intent.status!=='requires_capture') return denied('not_authorized');
   if (String(intent.metadata?.uid||'')!==String(uid||'') ||
@@ -36,9 +37,12 @@ function verifyHold({intent,uid,rideId,totalCents,now,requiredUntil} = {}) {
     return denied('amount_or_currency_mismatch');
   if (!Number.isFinite(now)||!Number.isFinite(requiredUntil)||requiredUntil<now)
     return denied('invalid_time');
+  if(!Number.isSafeInteger(minCaptureHeadroomMs)||minCaptureHeadroomMs<30000||
+      minCaptureHeadroomMs>MIN_CAPTURE_HEADROOM_MS)
+    return denied('invalid_capture_safety_window');
   const expires=captureDeadlineMs(intent);
   if (!Number.isFinite(expires) ||
-      expires <= Math.max(now,requiredUntil) + MIN_CAPTURE_HEADROOM_MS)
+      expires <= Math.max(now,requiredUntil) + minCaptureHeadroomMs)
     return denied('capture_window_not_verified');
   return {ok:true,expires,reason:null};
 }
