@@ -142,7 +142,10 @@ async function assignPaidTravel({ db, uid, rideId, payment, candidate, now = Dat
     }
     if (!candidate) {
       if (released) return deny(409, 'reoffer_pending', 'A released offer awaits another Operator');
-      tx.update(ref, { status: 'awaiting_assignment', paidAt: ride.paidAt || now, statusAt: now });
+      tx.update(ref,{status:'awaiting_assignment',statusAt:now,
+        ...(payment.status==='requires_capture'
+          ?{authorizedAt:ride.authorizedAt||now,authorizationState:'held'}
+          :{paidAt:ride.paidAt||now})});
       return { status: 200, body: { rideId, tripNo: ride.tripNo, matched: null, paymentConfirmed: true } };
     }
     const opSnap = await tx.get(opRef);
@@ -170,7 +173,10 @@ async function assignPaidTravel({ db, uid, rideId, payment, candidate, now = Dat
       return deny(409, 'operator_unavailable', 'That Operator is no longer available');
     }
     const fields = {
-      status: 'assigned', statusAt: now, paidAt: ride.paidAt || now,
+      status:'assigned',statusAt:now,
+      ...(payment.status==='requires_capture'
+        ?{authorizedAt:ride.authorizedAt||now,authorizationState:'held'}
+        :{paidAt:ride.paidAt||now}),
       operatorId: opRef.id, operatorName: op.name || '', operatorCar: op.car || '',
       operatorPlate: op.plate || '', operatorLat: Number(op.lat), operatorLng: Number(op.lng),
       operatorEtaMin: valid.etaMin, operatorMiles: valid.miles, operatorDemo: false,
