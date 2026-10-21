@@ -47,7 +47,7 @@ finally { Module._load = realLoad; }
     assert.equal(again.id,clients[0].id,'idempotent create retry resolves same Customer');
     assert.equal(createCalls,pass*2+2);
   }
-  await assert.rejects(payments.customerForTraveler({uid:''}),/authenticated Traveler/);
+  await assert.rejects(payments.customerForTraveler({uid:''}),/authenticated Traveler/i);
   assert.equal(keys.size,2,'separate identities cannot be joined to the same Customer');
   console.log('PASS TWICE: concurrency coalesced; stable Stripe idempotency across search lag; different Travelers isolated; no live money');
 })().catch(e=>{console.error(e);process.exitCode=1}).finally(()=>{
