@@ -235,14 +235,35 @@ function quote(travelCostCents, journey, governmentFees, cardCountry, tollCents)
  * Keyed on the Firebase uid in metadata rather than on email: an email can change hands, a
  * uid cannot, and this is the record a refund's ownership check ultimately rests on.
  */
+// Multiple Wallet/booking requests can arrive together before Stripe Customer search is
+// indexed. Coalesce concurrent lookups and use a stable Stripe idempotency key for the
+// create attempt (including requests handled on different server instances).
+const pendingTravelerCustomers = new Map();
 async function customerForTraveler({ uid, email }) {
-  const stripe = getStripe();
-  const found = await stripe.customers.search({
-    query: `metadata['uid']:'${String(uid).replace(/'/g, '')}'`,
-    limit: 1,
-  });
-  if (found.data[0]) return found.data[0];
-  return stripe.customers.create({ email: email || undefined, metadata: { uid: String(uid) } });
+  const id = String(uid || '').trim();
+  if (!id) throw Error('An authenticated Traveler is required for Stripe Customer access');
+  const existing = pendingTravelerCustomers.get(id);
+  if (existing) return existing;
+  const task = (async () => {
+    const stripe = getStripe();
+    const found = await stripe.customers.search({
+      query: `metadata['uid']:'${id.replace(/'/g, '')}'`,
+      limit: 1,
+    });
+    if (found.data[0]) return found.data[0];
+    // Stripe API v1 retains POST idempotency keys for at least 24 hours. This
+    // protects a concurrent retry while the asynchronous search index catches up.
+    // Never reuse an email-derived key: changing email must not create a new wallet.
+    const { createHash } = require('node:crypto');
+    const uidHash = createHash('sha256').update(id).digest('hex');
+    return stripe.customers.create(
+      { email: email || undefined, metadata: { uid: id } },
+      { idempotencyKey: `ar_customer_v1_${uidHash}` },
+    );
+  })();
+  pendingTravelerCustomers.set(id, task);
+  try { return await task; }
+  finally { if (pendingTravelerCustomers.get(id) === task) pendingTravelerCustomers.delete(id); }
 }
 
 // ——— THE TRAVELER'S SAVED PAYMENT METHODS ———————————————————————————————————————————
