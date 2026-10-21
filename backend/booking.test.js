@@ -60,6 +60,22 @@ async function main() {
   assert(!paymentMatches(db.data.get(`rides/${id}`), provider(id, 'attacker'), 'traveler-1', id));
   assert(!paymentMatches(db.data.get(`rides/${id}`), provider(id, 'traveler-1', 999), 'traveler-1', id));
   assert(!paymentMatches(db.data.get(`rides/${id}`), { ...provider(id, 'traveler-1'), status: 'processing' }, 'traveler-1', id));
+  // An authenticated manual hold is dispatchable but must never be confused
+  // with a captured fare. Verify expiry, owner and exact amount at server time.
+  const hold={id:`pi_${id}`,status:'requires_capture',capture_method:'manual',amount:2350,
+    amount_capturable:2350,amount_received:0,currency:'usd',
+    metadata:{uid:'traveler-1',rideId:id,capturePolicy:'manual_v1'},
+    latest_charge:{payment_method_details:{card:{capture_before:Math.floor((now+4*60*60_000)/1000)}}}};
+  assert(paymentMatches(db.data.get(`rides/${id}`),hold,'traveler-1',id,now),
+    'fresh card hold valid for route + safety buffer, without capturing any money');
+  assert(!paymentMatches(db.data.get(`rides/${id}`),{...hold,amount_capturable:2000},'traveler-1',id,now));
+  assert(!paymentMatches(db.data.get(`rides/${id}`),{...hold,metadata:{...hold.metadata,uid:'intruder'}},'traveler-1',id,now));
+  assert(!paymentMatches(db.data.get(`rides/${id}`),{...hold,latest_charge:null},'traveler-1',id,now));
+  assert(!paymentMatches(db.data.get(`rides/${id}`),{...hold,
+    latest_charge:{payment_method_details:{card:{capture_before:Math.floor((now+20*60_000)/1000)}}}},'traveler-1',id,now),
+    'expiry inside estimated route is not safe to assign');
+  assert(!paymentMatches({...db.data.get(`rides/${id}`),scheduledFor:now+30*86400000},
+    hold,'traveler-1',id,now),'do not authorize a card a month before scheduled dispatch');
   assert.equal((await assignPaidTravel({ db, uid: 'traveler-2', rideId: id, payment: provider(id, 'traveler-1'), candidate: null, now })).status, 403);
   assert.equal((await assignPaidTravel({ db, uid: 'traveler-1', rideId: id, payment: provider(id, 'attacker'), candidate: null, now })).status, 409);
   const noSupply = await assignPaidTravel({ db, uid: 'traveler-1', rideId: id, payment: provider(id, 'traveler-1'), candidate: null, now });
