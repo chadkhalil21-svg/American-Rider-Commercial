@@ -134,6 +134,18 @@ async function handleEvent(event) {
       const ride=await rideByPaymentIntent(db,obj.payment_intent);
       const result=reviewDisputeClose({status:obj.status,amount:Number(obj.amount),
         hadOperatorTransfer:!!ride?.transferId});
+      // Provider event ordering is not guaranteed; if a lost dispute's "created"
+      // event never arrived, the Founder still needs a durable review case.
+      // This is an exceptional event-only write, never an ongoing scan.
+      let reviewCaseNo=ride?.financialReviewCaseNo||null;
+      if(result.kind==='provider_loss'&&!reviewCaseNo) {
+        reviewCaseNo=await open(db,ride,{
+          kind:'support',reason:'Closed payment dispute: verified bank loss',
+          description:`Stripe closed dispute ${obj.id} as lost on PaymentIntent ${obj.payment_intent||'unknown'}. `
+            +`Provider amount ${Number(obj.amount)} cents. Reconcile bank funds, existing refunds `
+            +'and any Operator transfer before taking further financial action.',
+        },event,{dedupeIdentity:`closed-dispute-loss:${String(obj.id)}`});
+      }
       if(ride) {
         // A lost bank dispute is NOT a second Traveler refund. Stripe/network
         // already adjust funds. Operator recovery needs evidence and human review.
@@ -143,6 +155,7 @@ async function handleEvent(event) {
            (needsReview&&ride.financialReviewRequired!==true)) {
           await mark(db,ride.id,{disputeId:obj.id,disputeStatus:obj.status,
             disputeClosedAt:Date.now(),disputeLossCents:result.lossCents||0,
+            ...(reviewCaseNo?{financialReviewCaseNo:reviewCaseNo}:{}),
             ...(needsReview?{financialReviewRequired:true,
               operatorTransferReviewRequired:!!ride.transferId}:{}),
           });
