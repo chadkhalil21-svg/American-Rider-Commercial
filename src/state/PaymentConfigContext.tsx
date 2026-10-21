@@ -32,17 +32,26 @@ export function PaymentConfigProvider({ children }: { children: React.ReactNode 
 
   useEffect(() => {
     let live = true;
-    fetchPaymentConfig().then((c) => {
+    fetchPaymentConfig().then(async (c) => {
       if (!live) return;
-      setConfig(c);
-      if (c.stripePublishableKey) {
-        initStripe({
+      if (!c.stripePublishableKey) {
+        setConfig(c);
+        return;
+      }
+      // Do not enable Add Payment or booking merely because /config answered.
+      // The native Stripe SDK must also have finished initializing. Previously
+      // its promise ran in the background while Wallet became clickable, so a
+      // fast tap could open a PaymentSheet with no initialized Stripe key.
+      try {
+        await initStripe({
           publishableKey: c.stripePublishableKey,
-          merchantIdentifier: 'merchant.com.americanrider.app', // Apple Pay, when enabled
+          merchantIdentifier: 'merchant.com.americanrider.app',
           urlScheme: 'americanrider',
-        }).catch(() => {
-          // The sheet will report its own error at the moment of payment; nothing is
-          // claimed here that has not happened.
+        });
+        if (live) setConfig(c);
+      } catch {
+        if (live) setConfig({
+          ...c, canManagePaymentMethods: false, canTakePayment: false,
         });
       }
     });
