@@ -1477,6 +1477,24 @@ app.post('/travel/cancel', requireAuth, LIMITS.payments, requireFreshAuth, async
 });
 
 
+// A verified five-minute passenger no-show. Reuses the travel's already-paid
+// PaymentIntent and the existing Stripe cancellation/refund/fee recovery path.
+// OFF until fee disclosures, signed devices and Stripe sandbox are proven.
+app.post('/travel/no-show', requireAuth, LIMITS.payments, requireFreshAuth, async (req,res)=>{
+  if(process.env.AR_VERIFIED_NO_SHOW!=='true')
+    return res.status(503).json({ok:false,code:'no_show_not_commissioned'});
+  const db=adminDb();
+  if(!db)return res.status(503).json({ok:false,code:'no_admin_db'});
+  try{
+    const out=await cancelTravelFor({
+      db,uid:req.uid,operatorNoShowUid:req.uid,rideId:req.body?.rideId,
+      stripeConfigured:keyMode!=='no-key',
+      deps:{refundableFor,refundTravel,cancelUnpaidIntent,transferFixed,operatorPayoutAccount},
+    });
+    return res.status(out.status).json(out.body);
+  }catch(e){return res.status(502).json({ok:false,code:'no_show_reconciliation_failed'});}
+});
+
 // GET /operator/me — what the platform believes about the signed-in operator.
 //
 // Exists because an operator on duty seeing no travel has three very different causes that
@@ -4129,7 +4147,21 @@ app.post('/travel/message', requireAuth, LIMITS.message, async (req,res)=>{
  try { permission=await authorizeTravelMessage({db,ride:r,uid,lostItemId:req.body?.lostItemId||null}); }
  catch { return res.status(503).json({error:'Conversation authorization could not be verified'}); }
  if(!permission.ok) return res.status(permission.status).json({error:'This Travel conversation is unavailable',code:permission.code});
- await db.collection('messages').add({rideId,tripNo:r.tripNo||rideId,from:permission.from,travelerUid:r.travelerUid||null,operatorId:r.operatorId||null,guardianUid:r.party?.teen?r.party.guardianUid||null:null,lostItemId:permission.lostItemId,text,createdAt:Date.now()});return res.json({ok:true});
+ await db.collection('messages').add({rideId,tripNo:r.tripNo||rideId,from:permission.from,travelerUid:r.travelerUid||null,operatorId:r.operatorId||null,guardianUid:r.party?.teen?r.party.guardianUid||null:null,lostItemId:permission.lostItemId,text,createdAt:Date.now()});
+ // Only the first real Operator message at pickup is stamped as contact evidence.
+ // No read/write on ordinary message sends, and no polling or SMS vendor.
+ if(permission.from==='operator'&&r.status==='arrived'&&!r.pickupContactAt){
+   try{
+     const ref=db.collection('rides').doc(rideId);
+     await db.runTransaction(async tx=>{
+       const latest=await tx.get(ref);
+       const state=latest.exists?latest.data():null;
+       if(state?.status==='arrived'&&!state.pickupContactAt&&String(state.operatorId||'')===uid)
+         tx.update(ref,{pickupContactAt:Date.now(),pickupContactBy:uid});
+     });
+   }catch{/* Message stays delivered, but an unverified contact cannot earn a fee. */}
+ }
+ return res.json({ok:true});
 });
 
 // POST /travel/accept { rideId } — the operator accepts the travel offered to them.
