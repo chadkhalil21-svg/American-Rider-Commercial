@@ -13,7 +13,7 @@ assert.equal(deferAccountLookup({...base,needsPayout:false},now),false);
 assert.equal(deferAccountLookup({...base,payoutCheckedAt:now+1},now),false);
 assert.equal(deferAccountLookup({...base,payoutCheckedAt:null},now),false);
 for(let minute=0;minute<1440;minute++){
- const last=Math.floor(minute/15)*15;
+ const last=Math.floor((minute-1)/15)*15; // previous check; the due minute is not cached
  const record={...base,payoutCheckedAt:now+last*60000};
  assert.equal(deferAccountLookup(record,now+minute*60000),minute%15!==0);
 }
