@@ -196,11 +196,16 @@ async function cancelTravel({ db, uid, rideId, deps, stripeConfigured = true, no
     // Fee paid from a manual hold is not today's legacy $3 refund withholding.
     // The new $4 all-in service fee is possible only after BOTH verified evidence
     // and a genuine, upfront Traveler disclosure were already stored.
-    const grossManual= current.paymentCapturePolicy==='manual_v1' &&
-      enableManualCancellationFee===true &&
-      current.cancellationFeeDisclosureVersion==='net3-allin400-v1' &&
-      feeDecision?.feeCents===300
-        ? STANDARD_CANCELLATION_GROSS_CENTS : 0;
+    // Once closed, retry the ORIGINAL frozen fee. Never re-price after the
+    // Operator slot has been released, GPS has aged, or a later flag changes.
+    const grossManual=current.status==='cancelled' &&
+      Number.isSafeInteger(current.cancellationFeeCaptureCents)
+      ? current.cancellationFeeCaptureCents
+      : current.paymentCapturePolicy==='manual_v1' &&
+        enableManualCancellationFee===true &&
+        current.cancellationFeeDisclosureVersion==='net3-allin400-v1' &&
+        feeDecision?.feeCents===300
+          ? STANDARD_CANCELLATION_GROSS_CENTS : 0;
     tx.update(rideRef, { status: 'cancelled', statusAt: now,
       ...(current.paymentCapturePolicy==='manual_v1'
         ? {cancellationFeeCaptureCents:grossManual}:{}),
