@@ -109,6 +109,15 @@ const { normalizeSuggestion,normalizePhoton,privatePhotonEndpoint,selectedPrimar
     };
     results=await searchPlaces('Photon Down HERE q52',null);
     assert.equal(results[0]?.source,'here');
+    const callsAfterFirstFallback=calls.length;
+    const countAfterFirstFallback=hereFallbacks;
+    assert.equal((await searchPlaces('Photon Down HERE q52',null))[0]?.source,'here');
+    assert.equal(calls.length,callsAfterFirstFallback,'short fallback cache avoids redundant Photon and paid HERE calls');
+    assert.equal(hereFallbacks,countAfterFirstFallback,'repeated query is not charged twice');
+    process.env.AR_HERE_AUTOCOMPLETE_FALLBACK='0';
+    assert.deepEqual(await searchPlaces('Photon Down HERE q52',null),[],
+      'disabling optional paid fallback ignores cached paid search result');
+    process.env.AR_HERE_AUTOCOMPLETE_FALLBACK='1';
     for(let i=0;i<20;i++)await searchPlaces('New Photon Failure '+i,null);
     assert.equal(hereFallbacks,10,'exceptional HERE capped per instance');
 
