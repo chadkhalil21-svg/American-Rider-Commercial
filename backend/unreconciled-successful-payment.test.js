@@ -80,9 +80,13 @@ async function run(){
 
   const variants=[
    {id:'pi_no_ride',rideId:'not_existing',expected:'booking not found'},
-   {id:'pi_wrong_uid',rideId:'r1',uid:'intruder',expected:'booking mismatch'},
-   {id:'pi_wrong_amount',rideId:'r1',amount:2500,expected:'booking mismatch'},
-   {id:'pi_wrong_currency',rideId:'r1',currency:'eur',expected:'booking mismatch'},
+   {id:'pi_wrong_uid',rideId:'r1',uid:'intruder',expected:'owner_mismatch'},
+   // Each of these also presents a SECOND provider payment ID for a Travel
+   // already holding pi_matched; the strict binding rejects that first.
+   // Separate payment-exception-policy tests prove amount/currency validation
+   // for the correct original PaymentIntent.
+   {id:'pi_wrong_amount',rideId:'r1',amount:2500,expected:'duplicate_or_foreign_payment_intent'},
+   {id:'pi_wrong_currency',rideId:'r1',currency:'eur',expected:'duplicate_or_foreign_payment_intent'},
   ];
   for(const v of variants){
     const response=await service.handleEvent(event(v));
