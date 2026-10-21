@@ -36,6 +36,15 @@ function loadRuntime(appModule) {
         View: 'View', Text: 'Text', Pressable: 'Pressable',
         StyleSheet: { create: (x) => x },
       };
+      if (id === '../src/i18n/startup') return {
+        getStartupCopy: () => ({
+          title: 'Unable to open American Rider',
+          body: 'The application could not initialize.',
+          tryAgain: 'Try Again',
+          note: 'Please share a screenshot.',
+          generic: 'Unable to finish application initialization',
+        }),
+      };
       if (id === '../src/boot/FullRoot') {
         loaded++;
         return appModule();
