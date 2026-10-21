@@ -349,7 +349,7 @@ const rides = (over = {}) => ({
       s.log.transfers.length===1&&s.log.transfers[0].amountCents===300&&
       db.data.rides.A.noShowBy==='op1'&&db.data.rides.A.cancellationReason==='traveler_no_show');
     check('no-show releases the assigned Operator only after server proof succeeds',
-      fleet.op1.currentRideId===null&&db.data.rides.A.status==='cancelled');
+      db.data.operators.op1.currentRideId===null&&db.data.rides.A.status==='cancelled');
     const again=await cancelTravel({db,uid:'op1',operatorNoShowUid:'op1',rideId:'A',deps:s,now:now+1000});
     check('repeated no-show does not double-refund or double-pay',again.body.alreadyRefunded===true&&
       s.log.refunds.length===1&&s.log.transfers.length===1);
