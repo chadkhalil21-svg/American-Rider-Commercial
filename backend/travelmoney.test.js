@@ -333,6 +333,59 @@ const rides = (over = {}) => ({
     check("another traveler's travel cannot be settled", out.status === 403);
   }
 
+  // ——— Operator no-show: real server proof and the ORIGINAL Stripe refund —————
+  {
+    const now=1790390000000;
+    const proof={status:'arrived',arrivedAt:now-360000,pickupContactAt:now-60000,
+      pickupContactBy:'op1',pickupLat:25.7617,pickupLng:-80.1918};
+    const fleet={op1:{currentRideId:'A',lat:25.7617,lng:-80.1918,onlineAt:now-1000}};
+    const db=fakeDb({...rides({A:proof}),operators:fleet});
+    const s=stripe();
+    const out=await cancelTravel({db,uid:'op1',operatorNoShowUid:'op1',rideId:'A',deps:s,now});
+    check('verified five-minute no-show closes the same paid Travel and refunds the remainder',
+      out.status===200&&out.body.refunded===true&&out.body.arrivalFeeCents===300&&
+      out.body.amountCents===1644&&s.log.refunds[0]?.paymentIntentId==='pi_A');
+    check('no-show pays exactly the one agreed $3, not the full fare or a second fee',
+      s.log.transfers.length===1&&s.log.transfers[0].amountCents===300&&
+      db.data.rides.A.noShowBy==='op1'&&db.data.rides.A.cancellationReason==='traveler_no_show');
+    check('no-show releases the assigned Operator only after server proof succeeds',
+      fleet.op1.currentRideId===null&&db.data.rides.A.status==='cancelled');
+    const again=await cancelTravel({db,uid:'op1',operatorNoShowUid:'op1',rideId:'A',deps:s,now:now+1000});
+    check('repeated no-show does not double-refund or double-pay',again.body.alreadyRefunded===true&&
+      s.log.refunds.length===1&&s.log.transfers.length===1);
+  }
+  {
+    const now=1790390000000;
+    const base={status:'arrived',arrivedAt:now-60000,pickupContactAt:now-50000,
+      pickupContactBy:'op1',pickupLat:25.7617,pickupLng:-80.1918};
+    for(const [name,patch] of [['too early',{}],
+      ['no real contact',{arrivedAt:now-360000,pickupContactAt:null}],
+      ['wrong operator',{arrivedAt:now-360000,pickupContactBy:'intruder'}],
+      ['already boarded',{status:'onboard',arrivedAt:now-360000}],
+      ['scheduled journey',{arrivedAt:now-360000,scheduledFor:now+360000}]]) {
+      const operator={currentRideId:'A',lat:25.7617,lng:-80.1918,onlineAt:now};
+      const db=fakeDb({...rides({A:{...base,...patch}}),operators:{op1:operator}});
+      const s=stripe();
+      const out=await cancelTravel({db,uid:'op1',operatorNoShowUid:'op1',rideId:'A',deps:s,now});
+      check('no-show rejected: '+name,out.status===409&&db.data.rides.A.status!== 'cancelled'&&
+        db.data.operators.op1.currentRideId==='A'&&s.log.refunds.length===0);
+    }
+  }
+  {
+    const now=1790390000000;
+    const proof={status:'arrived',arrivedAt:now-360000,pickupContactAt:now-60000,
+      pickupContactBy:'op1',pickupLat:25.7617,pickupLng:-80.1918};
+    const db=fakeDb({...rides({A:proof}),operators:{op1:{currentRideId:'A',lat:25.7617,lng:-80.1918,onlineAt:now}}});
+    const s=stripe();
+    const intermittent={...s,refundableFor:async()=>{throw Error('provider offline')}};
+    const pending=await cancelTravel({db,uid:'op1',operatorNoShowUid:'op1',rideId:'A',deps:intermittent,now});
+    check('Stripe interruption preserves no-show closure and refund debt',pending.status===202&&
+      pending.body.refundPending&&db.data.rides.A.refundPending&&db.data.rides.A.noShowAt===now);
+    const retry=await cancelTravel({db,uid:'op1',operatorNoShowUid:'op1',rideId:'A',deps:s,now:now+60000});
+    check('same-key retry settles no-show once after provider recovery',retry.status===200&&
+      s.log.refunds.length===1&&s.log.transfers.length===1);
+  }
+
   // ——— the routes use these, and ignore the request's payment ————————————————————————————
   const server = fs.readFileSync(path.join(__dirname, 'server.js'), 'utf8');
   const route = (p) => (server.match(new RegExp(`app\\.post\\('${p.replace(/\//g, '\\/')}'[\\s\\S]*?\\n\\}\\);`)) || [''])[0];
