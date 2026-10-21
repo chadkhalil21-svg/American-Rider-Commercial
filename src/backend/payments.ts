@@ -151,6 +151,7 @@ export async function payForRide(opts: {
   let intent: {
     clientSecret?: string;
     paymentIntentId?: string;
+    mode?: 'live' | 'test' | 'no-key';
     customerId?: string;
     ephemeralKeySecret?: string;
     breakdown?: { travelerPays?: number };
@@ -180,13 +181,19 @@ export async function payForRide(opts: {
     return { ok: false, error: t('traveler.paymentServerUnreachable') };
   }
 
-  if (!intent.clientSecret) return { ok: false, error: t('traveler.errPaymentNotStarted') };
+  if (!intent.clientSecret || !/^pi_[A-Za-z0-9]+$/.test(intent.paymentIntentId || ''))
+    return { ok: false, error: t('traveler.errPaymentNotStarted') };
 
-  // ---- 2. Stripe's own sheet, on the phone ----
-  // Wallet environment must follow the same authoritative server mode as Stripe. A test
-  // backend must never initialize Google Pay as production, and a live backend must never
-  // silently remain in Google's test environment.
-  const walletTestEnv = (await fetchPaymentConfig()).mode !== 'live';
+  // PaymentIntent and mode come from the SAME authenticated server response.
+  // A second /config request may fail and must never flip a live Google Pay sheet into test.
+  // Backward-compatible with a still-running older Cloud Run revision.
+  // Only fall back to /config when the specific intent response lacks its mode.
+  const intentMode = (intent.mode === 'live' || intent.mode === 'test')
+    ? intent.mode : (await fetchPaymentConfig()).mode;
+  if (intentMode !== 'live' && intentMode !== 'test')
+    return { ok: false, error: t('traveler.errPaymentUnavailableNoCharge') };
+  const walletTestEnv = intentMode === 'test';
+  try {
   const init = await initPaymentSheet({
     merchantDisplayName: 'American Rider',
     paymentIntentClientSecret: intent.clientSecret,
@@ -223,6 +230,11 @@ export async function payForRide(opts: {
     amountCents: intent.breakdown?.travelerPays,
     methodLabel: await methodLabelFor(intent.clientSecret),
   };
+  } catch {
+    // A native Stripe module or wallet can reject its Promise, not only return {error}.
+    // Never let it strand the booking flow with an uncaught exception.
+    return { ok: false, error: t('traveler.errPaymentUnavailableNoCharge') };
+  }
 }
 
 /**
@@ -319,7 +331,7 @@ export async function fetchPaymentMethods(): Promise<{ methods: SavedMethod[]; u
 
 /** Stripe's sheet in setup mode: the card is saved to the traveler's record and nothing is charged. */
 export async function addPaymentMethod(): Promise<{ ok: boolean; canceled?: boolean; error?: string }> {
-  let setup: { clientSecret?: string; customerId?: string; ephemeralKeySecret?: string };
+  let setup: { clientSecret?: string; customerId?: string; ephemeralKeySecret?: string; mode?: 'live' | 'test' | 'no-key' };
   try {
     const res = await fetch(`${PAYMENT_SERVER_URL}/payment-methods/setup-intent`, {
       method: 'POST',
@@ -332,7 +344,14 @@ export async function addPaymentMethod(): Promise<{ ok: boolean; canceled?: bool
     return { ok: false, error: t('traveler.paymentServerUnreachable') };
   }
   if (!setup.clientSecret) return { ok: false, error: t('traveler.couldNotAddMethod') };
-  const walletTestEnv = (await fetchPaymentConfig()).mode !== 'live';
+  // The SetupIntent endpoint now includes Stripe's mode; no redundant /config round-trip.
+  // If an older backend omits the field, refuse ambiguous wallet configuration.
+  const setupMode = (setup.mode === 'live' || setup.mode === 'test')
+    ? setup.mode : (await fetchPaymentConfig()).mode;
+  if (setupMode !== 'live' && setupMode !== 'test')
+    return { ok: false, error: t('traveler.errPaymentUnavailableNoCharge') };
+  const walletTestEnv = setupMode === 'test';
+  try {
   const init = await initPaymentSheet({
     merchantDisplayName: 'American Rider',
     setupIntentClientSecret: setup.clientSecret,
@@ -352,6 +371,9 @@ export async function addPaymentMethod(): Promise<{ ok: boolean; canceled?: bool
     return { ok: false, canceled, error: canceled ? undefined : travelerFacing(presented.error.message) };
   }
   return { ok: true };
+  } catch {
+    return { ok: false, error: t('traveler.errPaymentUnavailableNoCharge') };
+  }
 }
 
 export async function setDefaultPaymentMethod(paymentMethodId: string): Promise<{ ok: boolean; methods?: SavedMethod[] }> {
