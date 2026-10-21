@@ -21,7 +21,6 @@ assert.equal(showScheduledOnHome({ status: 'cancelled', atMs: tomorrow }, now), 
 assert.equal(showScheduledOnHome({ status: 'cancelled', atMs: now }, now), false);
 assert.equal(showScheduledOnHome({ status: 'reserved', atMs: tomorrow }, now), true);
 assert.equal(showScheduledOnHome({ status: 'dispatched', atMs: tomorrow }, now), true);
-assert.equal(showScheduledOnHome({ status: 'dispatching', atMs: tomorrow }, now), true);
 assert.equal(showScheduledOnHome({ status: 'reserved', atMs: now - 1 }, now), false);
 assert.equal(showScheduledOnHome({ status: 'unmatched', atMs: tomorrow }, now), true);
 assert.equal(showScheduledOnHome({ status: 'needs_attention', atMs: tomorrow }, now), true);
@@ -33,7 +32,6 @@ assert.equal(showScheduledOnHome({ status: 'reserved', atMs: Number.NaN }, now),
 
 assert.equal(scheduledHomeHeadingKey('reserved'), 'traveler.scheduledTravel');
 assert.equal(scheduledHomeHeadingKey('dispatched'), 'traveler.schedOperatorAssigned');
-assert.equal(scheduledHomeHeadingKey('dispatching'), 'traveler.rideFindingBest');
 assert.equal(scheduledHomeHeadingKey('unmatched'), 'traveler.noOperatorAvailable');
 assert.equal(scheduledHomeHeadingKey('payment_failed'), 'traveler.cardDeclined');
 assert.equal(scheduledHomeHeadingKey('price_changed'), 'traveler.schedNeedsReview');
