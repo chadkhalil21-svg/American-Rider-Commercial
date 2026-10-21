@@ -246,11 +246,13 @@ export default function RideScreen() {
                   Change Travel keeps the booking and returns to the destination screen.
                   Cancel remains, at the bottom, unchanged and still confirmed — the heaviest
                   action stays the least prominent. */}
-              <Pressable onPress={ride.retryDispatch} hitSlop={8}>
+              <Pressable accessibilityRole="button" onPress={ride.retryDispatch} hitSlop={8}
+                style={{ minHeight: 44, justifyContent: 'center' }}>
                 <Text style={styles.retryLink}>{t('traveler.tryAgain')}</Text>
               </Pressable>
               {ride.payment.status === 'idle' ? (
-                <Pressable onPress={() => router.replace('/reserve')} hitSlop={8}>
+                <Pressable accessibilityRole="button" onPress={() => router.replace('/reserve')} hitSlop={8}
+                  style={{ minHeight: 44, justifyContent: 'center' }}>
                   <Text style={styles.retryLink}>{t('traveler.changeTravel')}</Text>
                 </Pressable>
               ) : null}
@@ -709,7 +711,8 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     paddingHorizontal: 10,
     fontWeight: '500',
-    color: colors.muted,
+    // Enabled cancellation must not look like a disabled control.
+    color: colors.ink2,
     fontSize: 15,
   },
   // ---- enroute ----
