@@ -178,9 +178,9 @@ async function cancelTravel({ db, uid, rideId, deps, stripeConfigured = true, no
     if (opRef) {
       const opSnap = await tx.get(opRef);
       op = opSnap.exists ? opSnap.data() : null;
-      if (op && String(op.currentRideId || '') === id) {
-        tx.update(opRef, { currentRideId: null, reservedAt: null });
-      }
+      // Release only AFTER every eligibility check passes. An early no-show
+      // must never drop a paying Traveler's accepted Operator slot.
+    }
     }
     // A reported no-show is an exceptional Operator action. Use the same Operator
     // snapshot this cancellation already reads, and reject without changing the
@@ -190,6 +190,9 @@ async function cancelTravel({ db, uid, rideId, deps, stripeConfigured = true, no
     if (noShowOperator && !previousNoShow) {
       const allowed = noShowEligibility({ride:current,operator:op,rideId:id,uid:noShowOperator,now});
       if (!allowed.ok) return fail(allowed.status, 'Cannot record a verified no-show yet.', allowed.code);
+    }
+    if (opRef && op && String(op.currentRideId || '') === id) {
+      tx.update(opRef, { currentRideId: null, reservedAt: null });
     }
     // Evaluate with exactly the Operator snapshot ALREADY fetched to release
     // this reservation. No secondary query, route-service request or GPS writes.
