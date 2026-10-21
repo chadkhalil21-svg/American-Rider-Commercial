@@ -12,6 +12,7 @@ import {
   type ScheduledRide, type ScheduledPage,
 } from '../src/backend/scheduled';
 import { useLanguage } from '../src/state/LanguageContext';
+import { scheduledDisplayTotal } from '../src/scheduledMoney';
 import { colors, fmt } from '../src/theme';
 
 function bookedDate(r: ScheduledRide, language: string): string {
@@ -97,9 +98,7 @@ export default function UpcomingTravel() {
         <Text style={styles.help}>{t('traveler.schedNoUpcoming')}</Text>}
       {rides.map((r) => {
         const status = r.status ?? 'reserved';
-        const total = Number.isSafeInteger(r.costCents)
-          ? (r.costCents as number) / 100
-          : typeof r.cost === 'number' && Number.isFinite(r.cost) ? r.cost : null;
+        const total = scheduledDisplayTotal(r);
         return (
           <Card key={r.id} style={styles.travelCard}>
             <SectionLabel>{statusLabel(r)}</SectionLabel>

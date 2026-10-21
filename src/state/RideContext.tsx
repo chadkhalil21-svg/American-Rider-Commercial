@@ -1,5 +1,6 @@
 import type { SmartPlan } from '../backend/smart';
 import { DEFAULT_DEPARTURE } from '../location';
+import { scheduledDisplayTotal } from '../scheduledMoney';
 import { smartSecondCarKey } from '../smartBookingKey';
 import { SMART_TRAVEL_NEW_BOOKINGS_ENABLED } from '../config';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -77,7 +78,7 @@ export type SchedInfo = {
   time: string;
   period: string;
   arr: string;
-  cost: number;
+  cost: number | null;
   /** The instant the travel is due. Without it a reservation cannot be read back as
    *  upcoming, which is why a scheduled travel used to vanish on the next launch. */
   atMs: number;
@@ -1693,6 +1694,11 @@ export function RideProvider({ children }: { children: React.ReactNode }) {
   // `schedSaved` records whether it will still be there tomorrow, and the screen says so.
   const scheduleRide = useCallback(
     async (info: SchedInfo): Promise<boolean> => {
+      // Do not submit an unknown restored price as a new booking quote.
+      if (typeof info.cost !== 'number' || !Number.isFinite(info.cost) || info.cost <= 0) {
+        setSchedSaved(false);
+        return false;
+      }
       // A reservation is a server fact. Do not display "Scheduled" before the server has
       // accepted the exact journey; a failed or stale write must never become local truth.
       setSchedSaved(null);
@@ -1771,7 +1777,8 @@ export function RideProvider({ children }: { children: React.ReactNode }) {
       schedIdRef.current = r.id;
       setSchedId(r.id);
       setSchedState(r);
-      setSchedInfo({ when: r.when, time: r.time, period: r.period, arr: r.arr, cost: r.cost,
+      setSchedInfo({ when: r.when, time: r.time, period: r.period, arr: r.arr,
+        cost: scheduledDisplayTotal(r),
         atMs: r.atMs, pickupDate: r.pickupDate || '', pickupTimeZone: r.pickupTimeZone || '' });
       setScheduled(true);
       setSchedSaved(true);

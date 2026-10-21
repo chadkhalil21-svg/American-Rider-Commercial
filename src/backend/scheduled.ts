@@ -41,7 +41,8 @@ export type ScheduledRide = {
   time: string; // '6:00'
   period: 'AM' | 'PM';
   arr: string;
-  cost: number;
+  /** Legacy dollar display amount. New server records persist costCents only. */
+  cost?: number;
   /** When the travel is due, as a real instant — what decides whether it is still upcoming. */
   atMs: number;
   pickupDate?: string;
@@ -81,8 +82,8 @@ export type ScheduledRide = {
 
 /** Save the reservation. Returns the stored record, or null when nothing was written. */
 export async function saveScheduledRide(
-  info: Omit<ScheduledRide, 'id'>,
-): Promise<ScheduledRide | null> {
+  info: Omit<ScheduledRide, 'id'> & { cost: number },
+): Promise<(ScheduledRide & { cost: number }) | null> {
   const uid = auth.currentUser?.uid;
   if (!uid) return null;
   try {
@@ -108,7 +109,7 @@ export async function saveScheduledRide(
     });
     if (!res.ok) return null;
     const saved = await res.json();
-    return { ...info, ...saved, cost: typeof saved.costCents === 'number' ? saved.costCents / 100 : info.cost } as ScheduledRide;
+    return { ...info, ...saved, cost: typeof saved.costCents === 'number' ? saved.costCents / 100 : info.cost } as ScheduledRide & { cost: number };
   } catch {
     return null;
   }
