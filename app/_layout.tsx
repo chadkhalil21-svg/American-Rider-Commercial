@@ -21,8 +21,8 @@ function describeFailure(error: unknown): Failure {
   // keys, credentials or personal information. The original exception remains
   // accessible through the device's Apple diagnostics when available.
   const safe = (value: string) => value
-    .replace(/https?:\\/\\/[^\\s]+/gi, '[URL]')
-    .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\\.[A-Z]{2,}/gi, '[EMAIL]')
+    .replace(/https?:[^ ]+/gi, '[URL]')
+    .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+[.][A-Z]{2,}/gi, '[EMAIL]')
     .replace(/(?:sk_live_|pk_live_|AIza)[a-zA-Z0-9_-]+/g, '[REDACTED]')
     .slice(0, 180);
   return { title: safe(code || name), diagnostic: safe(message) };
