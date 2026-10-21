@@ -289,8 +289,8 @@ async function canceledAndRefundedJourney() {
     },
   };
   let out=await cancelTravel({db,uid:'traveler',rideId:'ride1',deps,now:NOW+1000});
-  check(out.status===200&&ride.status==='cancelled'&&ride.refundPending===false&&
-    ride.refundId==='re_fixture'&&ride.refundedCents===1825&&
+  check(out.status===200&&data.rides.ride1.status==='cancelled'&&data.rides.ride1.refundPending===false&&
+    data.rides.ride1.refundId==='re_fixture'&&data.rides.ride1.refundedCents===1825&&
     refunds.length===1&&refunds[0].idempotencyKey==='ar_cancel_refund_ride1',
     'refund recovery is bound to original cancellation and idempotent provider key');
   out=await cancelTravel({db,uid:'traveler',rideId:'ride1',deps,now:NOW+2000});
