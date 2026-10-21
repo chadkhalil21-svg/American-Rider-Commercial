@@ -536,6 +536,7 @@ async function createPaymentIntent({ travelCostCents, uid, email, tripNo, rideId
     customerId: customer.id,
     ephemeralKeySecret: ephemeralKey.secret,
     breakdown: q,
+    capturePolicy:manualCaptureEnabled()?'manual_v1':'captured_legacy',
   };
 }
 
@@ -567,6 +568,7 @@ async function resumePaymentIntent({ paymentIntentId, uid, rideId, email, travel
     customerId: customer.id,
     ephemeralKeySecret: ephemeralKey.secret,
     breakdown: q,
+    capturePolicy:pi.metadata?.capturePolicy==='manual_v1'?'manual_v1':'captured_legacy',
     resumed: true,
   };
 }
@@ -1134,7 +1136,9 @@ async function chargeScheduledTravel({ travelCostCents, uid, email, tripNo, rese
         paymentIntentId: pi.id,
       };
     }
-    return { ok: true, paymentIntentId: pi.id, chargedCents: q.travelerPays, breakdown: q };
+    return { ok: true, paymentIntentId: pi.id,
+      chargedCents: q.travelerPays, breakdown: q,
+      capturePolicy:manualCaptureEnabled()?'manual_v1':'captured_legacy' };
   } catch (e) {
     return { ok: false, code: e.code || 'charge_failed', error: e.message };
   }
