@@ -11,7 +11,7 @@ async function onePass(){
  const ctx=read('src/state/RideContext.tsx');
  assert(app.includes('Leaving the view never tells the server to cancel an existing booking'),
    'unavailable dispatch has a distinct non-cancelling Home exit');
- assert(app.includes('<Pressable accessibilityRole="button" onPress={() => router.dismissTo(\'/\')} hitSlop={8}>'),
+ assert(app.includes('<Pressable accessibilityRole="button" onPress={() => router.dismissTo(\'/\')} hitSlop={8}'),
    'return Home must work before opening Cancel confirmation');
  assert.equal((app.match(/accessibilityRole="button" onPress=\{\(\) => router\.dismissTo\('\/'\)\}/g)||[]).length,3,
    'pre-cancel dispatch failure and both post-failure states each offer Return Home');
