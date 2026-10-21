@@ -79,8 +79,8 @@ for (let pass = 1; pass <= 2; pass++) {
 
   assert.match(screen, /const schedInvalid = scheduleStatus !== 'ready'/,
     'Schedule control uses reason-specific readiness');
-  assert.match(screen, /disabled=\{saving \|\| \(schedInvalid &&/,
-    'invalid times block final Schedule Travel but missing itinerary allows completion');
+  assert.match(screen, /disabled=\{saving \|\| manualCaptureMode === null \|\|[\s\S]{0,130}\(schedInvalid &&/,
+    'invalid time, unknown payment terms and missing payment consent block final scheduling without blocking itinerary completion');
   assert.match(screen, /scheduleStatus !== 'destination_required' && scheduleStatus !== 'quote_required'/,
     'missing destination and quote must not disable the route-completion action');
   assert.match(screen, /scheduleStatus !== 'ready' \|\| !resolved\.ok/,

@@ -49,6 +49,8 @@ export type ScheduledRide = {
   atMs: number;
   pickupDate?: string;
   pickupTimeZone?: string;
+  /** Affirmative authorization consent for future off-session Travel. */
+  offSessionPaymentConsent?: boolean;
 
   // ---- What the dispatcher needs. -------------------------------------------------------
   /** Pickup and destination as the traveler will read them. */

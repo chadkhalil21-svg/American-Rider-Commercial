@@ -1,0 +1,40 @@
+name: Manual Stripe TEST authorization/capture acceptance
+on:
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: 'Type STRIPE_TEST_ONLY to run with TEST keys (never live)'
+        required: true
+        type: string
+permissions:
+  contents: read
+jobs:
+  stripe-test-only:
+    if: ${{ github.ref == 'refs/heads/release/current' && inputs.confirmation == 'STRIPE_TEST_ONLY' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      STRIPE_TEST_SECRET_KEY: ${{ secrets.STRIPE_TEST_SECRET_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify exact current release and explicit TEST only
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin release/current --depth=1
+          test "$(git rev-parse HEAD)" = "$(git rev-parse FETCH_HEAD)"
+          test -n "$STRIPE_TEST_SECRET_KEY" || { echo "::error::Missing STRIPE_TEST_SECRET_KEY"; exit 1; }
+          case "$STRIPE_TEST_SECRET_KEY" in
+            sk_test_*) ;;
+            *) echo "::error::Live or invalid key refused"; exit 1 ;;
+          esac
+      - name: Install already-pinned backend Stripe SDK
+        run: npm ci --prefix backend --omit=dev
+      - name: Actual Stripe TEST card authorize, full capture, cancel and partial capture
+        run: node backend/stripe-manual-sandbox-acceptance.cjs
+      - name: Explain omitted live acceptance
+        run: |
+          echo "TEST verified only; does not assert native Apple Pay/Google Pay, Connect transfers, production activation, or independent counsel approval." >> "$GITHUB_STEP_SUMMARY"

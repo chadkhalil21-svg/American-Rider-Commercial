@@ -16,6 +16,7 @@ import {
 } from '../src/components/UI';
 import { classNameKey } from '../src/data';
 import { publicPickupMarket } from '../src/backend/markets';
+import { fetchPaymentConfig } from '../src/backend/payments';
 import { pickupDate, pickupMinutes, nextDate, resolvePickupWall, scheduleReadiness } from '../backend/scheduleclock';
 import { SchedInfo, useRide } from '../src/state/RideContext';
 import { useLanguage } from '../src/state/LanguageContext';
@@ -72,6 +73,16 @@ export default function Schedule() {
   const [doneInfo, setDoneInfo] = useState<SchedInfo | null>(null);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState(false);
+  const [manualCaptureMode, setManualCaptureMode] = useState<boolean | null>(null);
+  const [futurePaymentConsent, setFuturePaymentConsent] = useState(false);
+  // One provider configuration read on mount; unavailable terms are not guessed.
+  useEffect(() => {
+    let active=true;
+    fetchPaymentConfig().then(c=>{
+      if(active)setManualCaptureMode(c.mode==='no-key'?null:c.manualTravelAuthorization===true);
+    }).catch(()=>{if(active)setManualCaptureMode(null);});
+    return ()=>{active=false;};
+  },[]);
   const [pickupZone, setPickupZone] = useState<string | null>(null);
   const [zoneChecking, setZoneChecking] = useState(true);
   const [zoneRetry, setZoneRetry] = useState(0);
@@ -728,16 +739,34 @@ export default function Schedule() {
       )}
       {scheduleStatus === 'ready' && (
         <>
-          <Text style={styles.bookingNotice}>{t('traveler.schedBookingNotice')}</Text>
+          <Text style={styles.bookingNotice}>{t(manualCaptureMode===true
+            ? 'traveler.schedManualAuthorizationNotice':'traveler.schedBookingNotice')}</Text>
           <Text style={styles.bookingNotice}>{t('traveler.schedManageNotice')}</Text>
         </>
+      )}
+      {manualCaptureMode === true && scheduleStatus === 'ready' && (
+        <Pressable
+          accessibilityRole="checkbox"
+          accessibilityState={{ checked: futurePaymentConsent }}
+          onPress={() => setFuturePaymentConsent(v => !v)}
+          style={{flexDirection:'row',alignItems:'flex-start',gap:10,minHeight:50,paddingVertical:8}}
+        >
+          <Text style={{color:colors.ink,fontSize:22}}>{futurePaymentConsent ? '☑' : '☐'}</Text>
+          <Text style={{color:colors.ink,flex:1,fontSize:14,lineHeight:21}}>
+            {t('traveler.schedManualAuthorizationConsent')}
+          </Text>
+        </Pressable>
+      )}
+      {manualCaptureMode === true && (
+        <Text style={styles.bookingNotice}>{t('traveler.schedManualCardHint')}</Text>
       )}
       {saveError ? <Text style={styles.splashWarn}>{t('traveler.schedSaveReview')}</Text> : null}
       <PrimaryButton
         label={t(scheduleStatus === 'destination_required' ? 'traveler.schedChooseDestination'
           : scheduleStatus === 'quote_required' ? 'traveler.schedReviewFare'
           : 'traveler.scheduleTravel')}
-        disabled={saving || (schedInvalid &&
+        disabled={saving || manualCaptureMode === null ||
+          (manualCaptureMode===true && !futurePaymentConsent) || (schedInvalid &&
           scheduleStatus !== 'destination_required' && scheduleStatus !== 'quote_required')}
         onPress={async () => {
           if (scheduleStatus === 'destination_required' || scheduleStatus === 'quote_required') {
@@ -758,6 +787,7 @@ export default function Schedule() {
             atMs: resolved.atMs,
             pickupDate: selectedPickupDate,
             pickupTimeZone: pickupZone,
+            offSessionPaymentConsent:futurePaymentConsent,
           };
           setSaving(true);
           setSaveError(false);

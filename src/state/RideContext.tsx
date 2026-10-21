@@ -85,6 +85,8 @@ export type SchedInfo = {
   atMs: number;
   pickupDate: string; // YYYY-MM-DD in the pickup market, not on the device
   pickupTimeZone: string; // IANA timezone confirmed by server market bootstrap
+  /** Explicit permission to authorize saved card at dispatch, capture after Travel. */
+  offSessionPaymentConsent?: boolean;
 };
 export type PaymentState = {
   status: 'idle' | 'processing' | 'paid' | 'failed';
@@ -1733,6 +1735,7 @@ export function RideProvider({ children }: { children: React.ReactNode }) {
         atMs: info.atMs,
         pickupDate: info.pickupDate,
         pickupTimeZone: info.pickupTimeZone,
+        offSessionPaymentConsent: info.offSessionPaymentConsent === true,
         dep: departure.short,
         dest: arrival.short,
         // The map pin is the Traveler's authoritative selected pickup. If it has

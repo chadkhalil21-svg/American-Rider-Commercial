@@ -3987,6 +3987,26 @@ app.post('/travel/schedule', requireAuth, LIMITS.dispatch, requireFreshAuth, req
       return res.json({id:reservation.id,...existing});
     }
   } catch { return res.status(503).json({code:'reservation_check_unavailable'}); }
+  // A future reservation is not a card authorization. Before allowing the new
+  // manual-capture model to promise an off-session authorization near dispatch,
+  // record explicit consent and verify a stored eligible payment method.
+  // Legacy automatically captured reservations remain unchanged.
+  const manualScheduled=process.env.AR_MANUAL_TRAVEL_CAPTURE==='true';
+  if(manualScheduled) {
+    const {assessScheduledManualConsent}=require('./scheduled-manual-consent');
+    const consent=assessScheduledManualConsent({manualMode:true,
+      consent:b.offSessionPaymentConsent===true,hasSavedCard:true});
+    if(!consent.ok)return res.status(428).json({code:consent.code,
+      error:'Confirm saved-card authorization terms before scheduling Travel.'});
+    let methods;
+    try {methods=await listPaymentMethods({uid:req.uid,email:req.email});}
+    catch {return res.status(503).json({code:'scheduled_payment_method_unavailable',
+      error:'Your payment method could not be verified. Try again.'});}
+    const ready=assessScheduledManualConsent({manualMode:true,consent:true,
+      hasSavedCard:Array.isArray(methods)&&methods.some(p=>p.type==='card')});
+    if(!ready.ok)return res.status(428).json({code:ready.code,
+      error:'Add a card in Payment Methods before scheduling Travel.'});
+  }
   const priced = await authoritativeFare({
     body: { pickup, dest: destinationPoint, destination: b.dest, travelClass: b.travelClass },
     uid: req.uid, email: req.email, db, cardCountryFor: defaultCardCountry,
@@ -4022,6 +4042,9 @@ app.post('/travel/schedule', requireAuth, LIMITS.dispatch, requireFreshAuth, req
       miles: priced.miles, governmentFeeCents: priced.governmentFeeCents,
       tollCents: Math.max(0, Number(priced.tollCents) || 0),
       feeLines: priced.feeLines, cardCountry: priced.cardCountry, tripNo,
+      ...(manualScheduled?{offSessionPaymentConsent:true,
+        offSessionPaymentConsentVersion:'manual-scheduled-v1',
+        offSessionPaymentConsentAt:Date.now()}:{}),
       status: 'reserved', createdAt: Date.now(),
     };
     const created=await db.runTransaction(async(tx)=>{
