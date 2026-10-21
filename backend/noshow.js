@@ -13,6 +13,7 @@ function noShowEligibility({ride,operator,rideId,uid,now=Date.now()}) {
   if (!ride || String(ride.operatorId || '') !== String(uid || '') || !uid)
     return deny('not_assigned_operator',403);
   if (ride.status !== 'arrived') return deny('travel_not_waiting');
+  if (ride.party?.teen===true) return deny('teen_no_show_requires_review');
   // Scheduled arrivals can precede a scheduled pickup. Its separate policy must
   // be commissioned before charging based only on arrival time.
   if (ride.scheduledFor || ride.reservationId) return deny('scheduled_wait_requires_review');
