@@ -128,7 +128,14 @@ const sweep = now => sweepScreening({
   assert.equal(failed.ok,false);
   assert.match(failed.reason,/checkpoint/);
 
-  assert.equal(RECHECK_WARN_MS,30*DAY);
+  // Default scan capacity is 500 per 6-hour tick; at 4 ticks/day this
+  // preserves high-volume renewal throughput without 48 reminder sweeps/day.
+  cursorFailures=false; cursor.clear();
+  const bounded=await sweepScreening({db,now:NOW+202,
+    notify:async()=>({ok:true}),
+    fileTicket:async()=>({ok:true,stored:true,caseNo:'AR-C-TEST'})});
+  assert.equal(bounded.scanned,500,'500 default page bounds the 6-hour batch');
+    assert.equal(RECHECK_WARN_MS,30*DAY);
   assert.equal(SCREENING_ADVANCE_MARGIN_MS,DAY);
   const passing={decision:'pass',recheckDue:NOW+DAY+1};
   assert.equal(screeningCurrent(passing,NOW),true,'outside the 24h window remains valid');
