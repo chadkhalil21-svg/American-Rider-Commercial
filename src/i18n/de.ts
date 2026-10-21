@@ -590,7 +590,6 @@ export default {
     rideStepApproaching: 'Ihr Ziel wird erreicht.',
     rideStepComplete: 'Fahrt abgeschlossen.',
     rideFindingBest: 'Der beste verfügbare Betreiber wird gesucht',
-    rideNoMatchYet: "Wir organisieren weiterhin Ihren Operator",
     rideAwaitingAcceptance: "Warten auf Bestätigung durch den Operator",
     rideOfferPendingBody: "Diese Fahrt wurde einem Operator angeboten. Wir informieren Sie, sobald sie angenommen wurde.",
     ridePaymentIncomplete: 'Die Zahlung wurde nicht abgeschlossen',
