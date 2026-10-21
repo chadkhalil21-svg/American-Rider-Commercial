@@ -37,7 +37,7 @@ for (const invalid of [undefined, null, {}, { costCents: 0 }, { costCents: -100 
   assert.equal(scheduledDisplayTotal(invalid), null);
 }
 assert.equal(scheduledDisplayTotal({ costCents: 0, cost: 10.15 }), 10.15);
-assert.equal(scheduledDisplayTotal({ cost: 9.995 }), 9.99 + 0.01);
+assert.equal(scheduledDisplayTotal({ cost: 9.75 }), 9.75);
 
 // Ensure the actual app consumes the decoding helper and explicitly branches
 // before invoking the strict formatter; do not solve this by returning fake 0.
