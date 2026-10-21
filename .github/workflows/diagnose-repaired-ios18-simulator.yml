@@ -81,8 +81,9 @@ jobs:
             -derivedDataPath "$RUNNER_TEMP/ARBuild48Derived" CODE_SIGNING_ALLOWED=NO \
             build > /tmp/native-repaired-xcode.log 2>&1 || {
               echo 'NATIVE_COMPILE_ERROR_LINES'
-              grep -E 'error:|BUILD FAILED|fatal error:|** BUILD' /tmp/native-repaired-xcode.log | tail -n 75 | cut -c1-340 || true
-              tail -n 35 /tmp/native-repaired-xcode.log | cut -c1-340
+              grep -Ein -e 'error:' -e 'BUILD FAILED' -e 'fatal error' -e 'PhaseScriptExecution' -e 'ExpoModulesJSI' -e 'script execution failed' -e 'not found' /tmp/native-repaired-xcode.log | tail -n 110 | cut -c1-500 || true
+              echo NATIVE_BUILD_FAILURE_FULL_CONTEXT_TAIL
+              tail -n 210 /tmp/native-repaired-xcode.log | cut -c1-500
               exit 1
             }
           echo NATIVE_RELEASE_BUILD_PASSED
@@ -110,3 +111,11 @@ jobs:
           grep -Ei 'Unhandled JS Exception|RCTFatal|firebase/native-persistence|TypeError|ReferenceError|Invariant Violation|Terminating app' /tmp/native-launch-console.log | \
             sed -E 's/(AIza|sk_live_|pk_live_)[^ ]+/[REDACTED]/g' | tail -n 36 | cut -c1-310 || true
           echo 'SIMULATOR_ONLY_NO_TESTFLIGHT_NO_CHARGE_NO_RELEASE_UPDATE'
+      - name: Upload complete native Xcode compiler failure log for diagnosis
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: repaired-ios18-xcode-compiler-failure
+          path: /tmp/native-repaired-xcode.log
+          if-no-files-found: warn
+          retention-days: 3
