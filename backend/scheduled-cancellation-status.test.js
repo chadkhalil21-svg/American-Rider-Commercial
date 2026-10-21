@@ -55,4 +55,11 @@ assert.match(ride, /const stepIdx = st === 0 \? -1/);
 assert.match(ride, /ride\.matchedOp && st >= 1 && !complete/);
 assert.match(server, /tx\.update\(ref, \{ status: 'cancelled', closedReason:/);
 assert.match(server, /if \(status !== 'reserved'\) return \{ status: 409/);
+assert.match(ride, /st === 0 && ride\.matchedOp \? t\('traveler\.rideAwaitingAcceptance'\)/);
+assert.match(ride, /st === 0 && ride\.matchedOp \? t\('traveler\.rideOfferPendingBody'\)/);
+for (const language of ['en','es','fr','de','it']) {
+  const file = fs.readFileSync('src/i18n/' + language + '.ts', 'utf8');
+  assert.match(file, /rideAwaitingAcceptance:/);
+  assert.match(file, /rideOfferPendingBody:/);
+}
 console.log('PASS: server-confirmed cancellation clears Home, history preserved, dispatch status is truthful');
