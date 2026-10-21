@@ -53,6 +53,11 @@ async function handleEvent(event) {
            Number(obj.amount_capturable)!==Number(obj.amount)||
            String(obj.currency||'').toLowerCase()!=='usd')
              return 'hold binding mismatch';
+        // Provider events can arrive OUT OF ORDER. A stale hold must never
+        // undo a capture, confirmed cancellation, or completed Travel.
+        if(['captured','released'].includes(ride.authorizationState) ||
+           ride.paidAt || ['cancelled','completed'].includes(ride.status))
+          return 'terminal Travel cannot return to held';
         // One existing ride write only on first event; repeat delivery costs a read.
         if(ride.authorizationState==='held'&&ride.paymentIntentId===obj.id)return 'already recorded';
         tx.update(ref,{paymentIntentId:obj.id,authorizationState:'held',
