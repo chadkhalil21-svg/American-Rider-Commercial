@@ -235,23 +235,33 @@ function quote(travelCostCents, journey, governmentFees, cardCountry, tollCents)
  * Keyed on the Firebase uid in metadata rather than on email: an email can change hands, a
  * uid cannot, and this is the record a refund's ownership check ultimately rests on.
  */
+// Within one server process, all simultaneous Wallet/checkout calls for the
+// same authenticated Traveler share one Stripe request, rather than racing the
+// provider's eventually consistent Customer Search. The existing provider key
+// remains unchanged so in-flight retries across deployments still deduplicate.
+const pendingTravelerCustomers = new Map();
 async function customerForTraveler({ uid, email }) {
-  const stripe = getStripe();
-  const found = await stripe.customers.search({
-    query: `metadata['uid']:'${String(uid).replace(/'/g, '')}'`,
-    limit: 1,
-  });
-  if (found.data[0]) return found.data[0];
-  // Two simultaneous Wallet/checkout requests can both observe a missing Customer:
-  // Stripe Search is eventually consistent. A stable provider idempotency key
-  // ensures those concurrent creations attach cards to the SAME Customer.
-  // Hash the Firebase uid: never put identity or PII into Stripe's request key.
-  const key = 'ar_traveler_' + require('node:crypto').createHash('sha256')
-    .update(String(uid)).digest('hex').slice(0, 40);
-  return stripe.customers.create(
-    { email: email || undefined, metadata: { uid: String(uid) } },
-    { idempotencyKey: key },
-  );
+  const id = String(uid || '').trim();
+  if (!id) throw Error('Authenticated Traveler identity required');
+  const current = pendingTravelerCustomers.get(id);
+  if (current) return current;
+  const task = (async () => {
+    const stripe = getStripe();
+    const found = await stripe.customers.search({
+      query: `metadata['uid']:'${id.replace(/'/g, '')}'`,
+      limit: 1,
+    });
+    if (found.data[0]) return found.data[0];
+    const key = 'ar_traveler_' + require('node:crypto').createHash('sha256')
+      .update(id).digest('hex').slice(0, 40);
+    return stripe.customers.create(
+      { email: email || undefined, metadata: { uid: id } },
+      { idempotencyKey: key },
+    );
+  })();
+  pendingTravelerCustomers.set(id, task);
+  try { return await task; }
+  finally { if (pendingTravelerCustomers.get(id) === task) pendingTravelerCustomers.delete(id); }
 }
 
 // ——— THE TRAVELER'S SAVED PAYMENT METHODS ———————————————————————————————————————————
