@@ -13,6 +13,7 @@ jobs:
       - uses: actions/checkout@v4
       - name: Check out exact Build 48 Commercial source for reproduction
         run: |
+          git fetch --depth=1 origin e6a6a6a4ba4289887de54018578161e25e8d99b8
           git checkout --detach e6a6a6a4ba4289887de54018578161e25e8d99b8
           test "$(git rev-parse HEAD)" = e6a6a6a4ba4289887de54018578161e25e8d99b8
           echo "Checked out exact source used for Build 48; this is a simulator-only run."
