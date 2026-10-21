@@ -909,6 +909,7 @@ export default {
     authorizationAmount: '%{amount} autorizzati. Non addebitati.',
     authorizationFreeCancel: 'Se non è prevista una tariffa di annullamento, la banca rilascia l’intero importo trattenuto.',
     authorizationPossibleFee: 'Dopo l’arrivo verificato dell’Operatore può applicarsi una tariffa di annullamento di $4,00 comunicata in anticipo. Il resto dell’importo trattenuto viene rilasciato.',
+    cancellationFeeNet3Disclosure: 'Per annullamento o mancata presentazione, ove previsto, possono essere addebitati $4.00; $3.00 spettano all\'Operatore. Altrimenti l\'importo trattenuto viene rilasciato.',
     paymentStatusUnverified: 'Lo stato del pagamento non è ancora confermato. Annulli il Viaggio affinché il server verifichi il pagamento prima di uscire.',
     keepTravel: 'Mantenere il viaggio',
     yesCancel: 'Sì, annullare',
