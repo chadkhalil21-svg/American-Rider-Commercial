@@ -1,0 +1,25 @@
+# DRAFT FOR COUNSEL — Cancellation and authorization terms (21 Oct 2026)
+
+**Do not publish or activate automatically.** Source-only redline for a qualified Florida attorney and platform consumer-protection review. The existing public Terms in backend/legal*.js and generated legal/terms/index.html still describe legacy captured payments and a $3 arrival deduction. The new $4 all-in cancellation service fee and manual authorization must not go live until Terms, translated pages, app booking confirmation, wallet sheet, receipts, and provider behavior are version-consistent.
+
+## Suggested plain-English replacement, Section 4 (after counsel review)
+
+At booking, American Rider asks your payment provider to authorize a hold for the clearly displayed Travel Total. A hold is not a completed charge. If your Travel is completed, the platform captures the agreed Travel Total, then settles the Operator's fare share. If you cancel before any cancellation fee becomes due, American Rider cancels the hold without capturing the fare. Your bank, not American Rider, controls when a released pending hold disappears from your balance.
+
+**When a fee may apply:** If you cancel after the assigned Operator has made independently verified progress toward pickup, or after their independently verified arrival, American Rider may capture **one $4.00 all-in cancellation fee**, subject to the free cancellation window and exceptions below. An eligible adult **no-show** may also incur the same single $4.00 fee, but only after the Operator is verified near the pickup, waits at least **five full minutes after server-confirmed arrival**, and attempts contact through American Rider's Travel messages. The remaining authorization is released; no separate card-processing surcharge or additional no-show fee is charged. Of the $4 fee, American Rider pays the Operator **$3.00 net** and absorbs payment costs and the remainder.
+
+**No fee:** A cancellation within the existing two-minute post-acceptance grace window; before verified earned pickup progress; or when the Operator is responsible for the failure. Teen no-shows and Scheduled Travel use their own policy and are **not automatically charged under the adult five-minute no-show rule** until expressly validated and disclosed. Where location, contact, timing, or Operator fault cannot be proven, the fee is not automatically collected. An ordinary Traveler may not cancel after boarding through the cancellation feature; genuine disputes are handled by Patron Support.
+
+**Older Travels and corrections:** Payments already captured under earlier terms may require a full or partial Stripe refund. Incorrect and duplicate captured charges will be verified against the original Travel and provider payment history. Bank disputes follow the card network process; the platform must not send a second refund for amounts the bank already returned. A fixed Operator payment is never reversed automatically based only on the Traveler's allegation.
+
+## Counsel and engineering acceptance matrix (all required before activation)
+
+- Verify Florida §627.748 consumer fare transparency and §501.0117 card-specific surcharge restrictions; a uniform service cancellation fee is **not** described as a payment-card surcharge.
+- Confirm charging a cancellation/no-show service fee when no transportation completed is contractually and geographically permitted, including disability, safety, Operator fault and accessibility exceptions.
+- Confirm the applicable card-network and Stripe merchant category/authorization windows; no claim that every card hold survives a week.
+- Verify actual account-specific domestic, international, Connect and refund fees, and whether $4 covers the ordinary margin while protecting $3 Operator net. Platform absorbs outlier card costs.
+- Stripe API versions earlier than 2025-03-31.basil may record authorization-release accounting differently; test with account's actual API version. Never presume "no Stripe Refund object" purely from our application code.
+- Show this fee and eligibility **before booking** in English, Spanish, French, German and Italian, with language parity, plain wording, accessible contrast and a direct Terms link. A changed fee needs fresh versioned acceptance.
+- Test native PaymentSheet/Apple Pay/Google Pay and off-session consent for scheduled Travels. Preserve existing paid Travelers and historical Terms version. Do not enable any rollout flag before signed-client + server + external provider acceptance evidence.
+
+Sources: https://www.leg.state.fl.us/Statutes/index.cfm/Ch0828/index.cfm?App_mode=Display_Statute&Search_String=&URL=0600-0699%2F0627%2FSections%2F0627.748.html ; https://www.flsenate.gov/Laws/Statutes/2026/501.0117 ; https://developer.apple.com/design/human-interface-guidelines/apple-pay ; https://support.google.com/googleplay/android-developer/answer/10281818 ; https://support.stripe.com/questions/changes-to-balance-transaction-behavior-for-partial-capture-and-payment-cancellation-flows .

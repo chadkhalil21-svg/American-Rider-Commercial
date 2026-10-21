@@ -284,10 +284,12 @@ async function cancelTravel({ db, uid, rideId, deps, stripeConfigured = true, no
       if(accountId) {
         const paid=await deps.transferFixed({paymentIntentId,
           operatorStripeAccount:accountId,amountCents:OPERATOR_NET_CENTS,
+          rideId:id,expectedUid:String(uid),
           reference:`verified service cancellation ${currentRide.tripNo||id}`});
-        await rideRef.set(paid.ok
-          ? {arrivalFeeTransferId:paid.transferId,arrivalFeePaidAt:now,arrivalFeePending:false}
-          : {arrivalFeePending:true,arrivalFeeBlockedReason:paid.error||'transfer_failed'},
+        // The durable transfer guard writes success to the same Travel.
+        // Only persist a pending exception here; do not repeat a success write.
+        if(!paid.ok)await rideRef.set({arrivalFeePending:true,
+          arrivalFeeBlockedReason:paid.code||paid.error||'transfer_failed'},
           {merge:true});
       } else await rideRef.set({
         arrivalFeePending:true,arrivalFeeBlockedReason:'no payout account',
