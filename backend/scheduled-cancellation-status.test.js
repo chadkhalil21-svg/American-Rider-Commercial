@@ -20,6 +20,7 @@ const tomorrow = now + 24 * 3600_000;
 assert.equal(showScheduledOnHome({ status: 'cancelled', atMs: tomorrow }, now), false);
 assert.equal(showScheduledOnHome({ status: 'cancelled', atMs: now }, now), false);
 assert.equal(showScheduledOnHome({ status: 'reserved', atMs: tomorrow }, now), true);
+assert.equal(showScheduledOnHome({ status: 'dispatching', atMs: tomorrow }, now), true);
 assert.equal(showScheduledOnHome({ status: 'dispatched', atMs: tomorrow }, now), true);
 assert.equal(showScheduledOnHome({ status: 'reserved', atMs: now - 1 }, now), false);
 assert.equal(showScheduledOnHome({ status: 'unmatched', atMs: tomorrow }, now), true);
@@ -31,6 +32,7 @@ assert.equal(showScheduledOnHome(null, now), false);
 assert.equal(showScheduledOnHome({ status: 'reserved', atMs: Number.NaN }, now), false);
 
 assert.equal(scheduledHomeHeadingKey('reserved'), 'traveler.scheduledTravel');
+assert.equal(scheduledHomeHeadingKey('dispatching'), 'traveler.rideFindingBest');
 assert.equal(scheduledHomeHeadingKey('dispatched'), 'traveler.schedOperatorAssigned');
 assert.equal(scheduledHomeHeadingKey('unmatched'), 'traveler.noOperatorAvailable');
 assert.equal(scheduledHomeHeadingKey('payment_failed'), 'traveler.cardDeclined');
@@ -48,6 +50,8 @@ assert.match(scheduled, /page\.rides\.find\(\(r\) => showScheduledOnHome\(r, now
 assert.match(context, /if \(!r \|\| r\.status === 'cancelled'\)/);
 assert.match(context, /dismissCancelledScheduled\(schedId\)/);
 assert.match(upcoming, /if \(confirmed\) \{[\s\S]{0,260}ride\.dismissCancelledScheduled\(id\)/);
+assert.match(upcoming, /case 'dispatching': return t\('traveler\.rideFindingBest'\)/);
+assert.match(scheduled, /\| 'dispatching' \/\/ scheduler's temporary claimed state/);
 assert.match(home, /ride\.schedState\?\.status !== 'cancelled'/);
 assert.match(home, /scheduledHomeHeadingKey\(ride\.schedState\?\.status\)/);
 assert.match(ride, /ride\.dispatchState === 'none' \? t\('traveler\.noOperatorAvailable'\)/);
