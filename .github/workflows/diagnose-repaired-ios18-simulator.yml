@@ -48,7 +48,11 @@ jobs:
           devices=json.loads(subprocess.check_output(['xcrun','simctl','list','devicetypes','-j']))['devicetypes']
           validtypes=[x for x in devices if 'iPhone' in x.get('name','')]
           if not validtypes:raise SystemExit('BLOCKED_NO_IPHONE_DEVICE_TYPE')
-          d=next((x for x in validtypes if '17 Pro' in x['name']), validtypes[0])
+          # iOS 18 cannot boot a newer iPhone 17 simulator: pick 16 Pro or earlier.
+          compat=next((x for x in validtypes if x.get('name')=='iPhone 16 Pro'),None)
+          if compat is None: compat=next((x for x in validtypes if x.get('name')=='iPhone 15 Pro'),None)
+          if compat is None: raise SystemExit('BLOCKED_NO_COMPATIBLE_IOS18_IPHONE_TYPE')
+          d=compat
           udid=subprocess.check_output(['xcrun','simctl','create','AmericanRiderColdLaunchCI',d['identifier'],runtime],text=True).strip()
           print('FRESH_SIMULATOR',d['name'],runtime)
           try:
