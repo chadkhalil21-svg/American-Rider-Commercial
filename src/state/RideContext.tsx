@@ -290,6 +290,8 @@ export type RideStore = {
   schedState: ScheduledRide | null;
   scheduleRide: (info: SchedInfo) => Promise<boolean>;
   cancelScheduled: () => Promise<boolean>;
+  /** Locally dismiss an existing reservation only after a confirmed server cancellation. */
+  dismissCancelledScheduled: (id: string) => void;
 
   // audio
   share: boolean;
@@ -644,6 +646,7 @@ export function RideProvider({ children }: { children: React.ReactNode }) {
   // null while the write is in flight; false means it exists on this screen only.
   const [schedSaved, setSchedSaved] = useState<boolean | null>(null);
   const schedIdRef = useRef<string | null>(null);
+  const dismissedScheduledIdRef = useRef<string | null>(null);
   const schedLoadRef = useRef<'idle' | 'loading' | 'done'>('idle');
   // The id as STATE as well as a ref: the ref is what cancelling deletes, and the state is
   // what the watcher below subscribes to. A ref cannot start an effect.
@@ -1748,20 +1751,26 @@ export function RideProvider({ children }: { children: React.ReactNode }) {
     [arrival, departure, pickupPin, travelClass, tripCoords, travelParty],
   );
 
+  const dismissCancelledScheduled = useCallback((id: string) => {
+    if (!id || schedIdRef.current !== id) return;
+    dismissedScheduledIdRef.current = id;
+    schedLoadRef.current = 'done';
+    schedIdRef.current = null;
+    setSchedId(null);
+    setScheduled(false);
+    setSchedInfo(null);
+    setSchedSaved(null);
+    setSchedState(null);
+  }, []);
+
   const cancelScheduled = useCallback(async () => {
     const id = schedIdRef.current;
     if (!id) return false;
     // Keep the reservation visible unless the server atomically accepted cancellation.
     if (!(await deleteScheduledRide(id))) return false;
-    setScheduled(false);
-    setSchedInfo(null);
-    setSchedSaved(null);
-    setSchedState(null);
-    setSchedId(null);
-    schedLoadRef.current = 'done';
-    schedIdRef.current = null;
+    dismissCancelledScheduled(id);
     return true;
-  }, []);
+  }, [dismissCancelledScheduled]);
 
   // Read the reservation back once the traveler's own travel has loaded — which is what
   // makes "scheduled" survive a force-quit rather than being a card that disappears. Runs
@@ -1773,7 +1782,7 @@ export function RideProvider({ children }: { children: React.ReactNode }) {
     let live = true;
     fetchScheduledRide().then((r) => {
       schedLoadRef.current = 'done';
-      if (!live || !r) return;
+      if (!live || !r || dismissedScheduledIdRef.current === r.id) return;
       schedIdRef.current = r.id;
       setSchedId(r.id);
       setSchedState(r);
@@ -1794,12 +1803,15 @@ export function RideProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!schedId) return;
     return watchScheduledRide(schedId, (r) => {
-      if (!r) return;
+      if (!r || r.status === 'cancelled') {
+        dismissCancelledScheduled(schedId);
+        return;
+      }
       setSchedState(r);
       // A dispatched reservation has become a real travel; the Travel Log should have it.
       if (r.status === 'dispatched') refreshMyRides();
     });
-  }, [schedId, refreshMyRides]);
+  }, [schedId, refreshMyRides, dismissCancelledScheduled]);
 
 
   const pastTrips = useMemo(() => {
@@ -1917,6 +1929,7 @@ export function RideProvider({ children }: { children: React.ReactNode }) {
     schedSaved,
     scheduleRide,
     cancelScheduled,
+    dismissCancelledScheduled,
     share,
     toggleShare: () => setShare((s) => !s),
     stmtDone,
