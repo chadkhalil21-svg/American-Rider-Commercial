@@ -1,0 +1,76 @@
+name: Read-only native dependency A/B 47 vs 48
+
+on:
+  push:
+    branches:
+      - diagnostics/build47-build48-native-ab-20261021
+
+permissions:
+  contents: read
+
+jobs:
+  native-pod-diff:
+    runs-on: macos-26
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Compare exact historical native generation on one clean Xcode host
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "XCODE_AND_COCOAPODS"
+          xcodebuild -version
+          pod --version
+          for spec in "47 7289ee6fff8c9e8c75f9136a046f4868dfc13a86" "48 e6a6a6a4ba4289887de54018578161e25e8d99b8"; do
+            set -- $spec
+            n="$1"; sha="$2"
+            dir="$RUNNER_TEMP/american-rider-build$n"
+            git worktree add --detach "$dir" "$sha"
+            (
+              cd "$dir"
+              test "$(git rev-parse HEAD)" = "$sha"
+              npm ci --no-audit --no-fund --ignore-scripts > "$RUNNER_TEMP/npm$n.log" 2>&1 || { tail -n 30 "$RUNNER_TEMP/npm$n.log"; exit 1; }
+              CI=1 npx expo prebuild --platform ios --non-interactive --no-install > "$RUNNER_TEMP/prebuild$n.log" 2>&1 || { tail -n 50 "$RUNNER_TEMP/prebuild$n.log"; exit 1; }
+              (
+                cd ios
+                pod install > "$RUNNER_TEMP/pods$n.log" 2>&1 || { tail -n 50 "$RUNNER_TEMP/pods$n.log"; exit 1; }
+              )
+              test -f ios/Podfile.lock
+              echo "EXACT_BUILD_SOURCE_PREBUILD_SUCCEEDED: $n"
+            )
+          done
+          python3 - <<'PY'
+          import os,hashlib,difflib,json
+          root=os.environ['RUNNER_TEMP']
+          def blob(n,p):
+              return open(f'{root}/american-rider-build{n}/{p}','rb').read()
+          files=('package-lock.json','package.json','eas.json','app.json','ios/Podfile.lock','ios/Podfile','ios/Podfile.properties.json')
+          data={}
+          for path in files:
+              try:
+                  a,b=blob(47,path),blob(48,path)
+              except FileNotFoundError:
+                  data[path]={'status':'not-present-in-at-least-one'}
+                  continue
+              item={'equal':a==b,'sha47':hashlib.sha256(a).hexdigest(),'sha48':hashlib.sha256(b).hexdigest()}
+              if a!=b and path.startswith('ios/'):
+                  delta=list(difflib.unified_diff(a.decode('utf8','replace').splitlines(),b.decode('utf8','replace').splitlines(),fromfile='47',tofile='48',lineterm=''))
+                  item['diff_first_60_lines']=delta[:60]
+              data[path]=item
+          print('SAME_RUNNER_EXACT_SOURCE_REGENERATED_NATIVE_DIFFERENCES')
+          print(json.dumps(data,indent=2)[:16000])
+          with open(os.environ['GITHUB_STEP_SUMMARY'],'a') as out:
+              out.write('## Build 47 vs Build 48 native dependency regeneration\n\n')
+              out.write('Both historical commits checked out into isolated worktrees on the SAME macOS/Xcode runner. No EAS/Apple signing or deployment.\n\n')
+              for path,item in data.items():
+                  out.write(f'- {path}: {item.get("equal","unavailable")} (47 SHA256 {item.get("sha47","")[:14]}; 48 SHA256 {item.get("sha48","")[:14]})\n')
+                  for l in item.get('diff_first_60_lines',[])[:25]:
+                      out.write('    '+l[:180]+'\n')
+              out.write('\nNative parity on one runner is NOT evidence that the original remote EAS images were identical. Device iOS 18.4.1 runtime remains an independent gate.\n')
+          PY
