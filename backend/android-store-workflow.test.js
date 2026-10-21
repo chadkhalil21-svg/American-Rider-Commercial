@@ -13,11 +13,12 @@ assert.match(file, /--platform android --profile production --non-interactive --
 assert.match(file, /Not approved for public Google Play/);
 assert.match(file, /submit_to_google_play_internal:/);
 assert.match(file, /if: \$\{\{ inputs\.submit_to_google_play_internal == true \}\}/);
-assert.match(file, /submit --platform android --id "\$EAS_BUILD_ID" --profile production --non-interactive --wait/);
+assert.match(file, /submit --platform android --id "\$EAS_BUILD_ID" --profile internal --non-interactive --wait/);
 assert.doesNotMatch(file, /auto-submit|--platform all|--track production/);
-assert.equal(eas.submit.production.android.track, 'internal');
+assert.equal(eas.submit.production.android.track, 'production');
+assert.equal(eas.submit.internal.android.track, 'internal');
 assert.equal(app.android.package, 'com.americanrider.app');
 assert.ok(eas.build.production, 'production EAS build configuration exists');
 assert.notEqual(eas.build.production.distribution, 'internal');
 assert.notEqual(eas.build.production.android?.buildType, 'apk');
-console.log('Android exact-release store bundle verified (optional internal Play submission only).');
+console.log('Android exact-release store bundle verified: internal testing isolated from production submission.');
