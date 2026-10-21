@@ -25,7 +25,7 @@ function cents(price) {
   return Number.isSafeInteger(n) && n >= 0 ? n : null;
 }
 
-function parseHereTolls(data) {
+function parseHereTolls(data, { paymentMethod = null } = {}) {
   const route = Array.isArray(data?.routes) ? data.routes[0] : null;
   if (!route || !Array.isArray(route.sections)) return { status: 'unknown', tollCents: null, reason: 'no_route' };
   const notices = route.sections.flatMap((s) => Array.isArray(s?.notices) ? s.notices : []);
@@ -36,14 +36,29 @@ function parseHereTolls(data) {
   let total = 0;
   for (const section of route.sections) {
     for (const toll of (Array.isArray(section?.tolls) ? section.tolls : [])) {
-      for (const fare of (Array.isArray(toll?.fares) ? toll.fares : [])) {
+      const fares = Array.isArray(toll?.fares) ? toll.fares : [];
+      if (!fares.length) return { status: 'unknown', tollCents: null, reason: 'missing_toll_fare' };
+      // HERE fares within ONE toll can be alternative payment methods, NOT separate
+      // charges. A transponder, cash and card price must never be added together.
+      const eligible = paymentMethod
+        ? fares.filter(f => Array.isArray(f?.paymentMethods) && f.paymentMethods.includes(paymentMethod))
+        : fares;
+      const unique = new Map();
+      for (const fare of eligible) {
         const id = String(fare?.id || '');
-        if (id && seen.has(id)) continue;
-        const amount = cents(fare?.convertedPrice) ?? cents(fare?.price);
-        if (amount == null) return { status: 'unknown', tollCents: null, reason: 'unpriced_toll' };
-        if (id) seen.add(id);
-        total += amount;
+        if (!id) return { status: 'unknown', tollCents: null, reason: 'missing_fare_identity' };
+        if (!unique.has(id)) unique.set(id, fare);
       }
+      if (unique.size !== 1) {
+        return { status: 'unknown', tollCents: null, reason: 'ambiguous_toll_payment_method' };
+      }
+      const fare = unique.values().next().value;
+      const id = String(fare.id);
+      if (seen.has(id)) continue;
+      const amount = cents(fare?.convertedPrice) ?? cents(fare?.price);
+      if (amount == null) return { status: 'unknown', tollCents: null, reason: 'unpriced_toll' };
+      seen.add(id);
+      total += amount;
     }
   }
   return { status: total > 0 ? 'tolled' : 'clear', tollCents: total, provider: 'here' };
@@ -183,6 +198,15 @@ async function resolveTollsCostAware(from, to, opts = {}) {
   if (official) {
     recordTollDecision('verified_official', { route, outcome: official });
     return official;
+  }
+  // HERE can choose different streets for the same endpoints than OSRM/OTP.
+  // Without certified route matching, a separate HERE toll quote must not be
+  // attached to an OSRM/OTP-priced fare. A same-response HERE route is handled
+  // above; otherwise return UNKNOWN until official crossings are commissioned.
+  if (route && route.provider !== 'here') {
+    const outcome = { status: 'unknown', tollCents: null, reason: 'unmatched_toll_route' };
+    recordTollDecision('route_unknown', { route, outcome });
+    return outcome;
   }
   const outcome = await resolveTolls(from, to, opts);
   recordTollDecision('here', { route, outcome });
