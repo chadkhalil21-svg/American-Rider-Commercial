@@ -156,7 +156,8 @@ export default function RideScreen() {
   const preparing = !ride.matchedOp && ride.dispatchState === 'preparing';
   const searching = !ride.matchedOp && ride.dispatchState === 'searching';
   const noOperator = !ride.matchedOp && (ride.dispatchState === 'none' || ride.dispatchState === 'error');
-  const stepIdx = st <= 1 ? 0 : st === 2 ? 1 : st <= 4 ? 2 : 3;
+  // Assignment alone is not Operator acceptance. No En Route progress is earned at step 0.
+  const stepIdx = st === 0 ? -1 : st === 1 ? 0 : st === 2 ? 1 : st <= 4 ? 2 : 3;
   const steps = [t('traveler.phaseEnRoute'), t('traveler.phaseArrived'), t('traveler.phaseOnboard'), t('traveler.arrival')];
 
   useEffect(() => {
@@ -217,7 +218,8 @@ export default function RideScreen() {
         <View style={{ alignItems: 'center' }}>
           {(preparing || searching) && <Radar />}
           <Text style={styles.searchTitle}>
-            {preparing ? t('traveler.rideStepPreparing') : searching ? t('traveler.rideFindingBest') : t('traveler.rideNoMatchYet')}
+            {preparing ? t('traveler.rideStepPreparing') : searching ? t('traveler.rideFindingBest')
+              : ride.dispatchState === 'none' ? t('traveler.noOperatorAvailable') : t('traveler.dispatchUnavailable')}
           </Text>
           {(preparing || searching) ? (
             <Text style={styles.searchSub}>
@@ -225,11 +227,9 @@ export default function RideScreen() {
             </Text>
           ) : (
             <>
-              <Text style={styles.searchSub}>
-                {ride.dispatchState === 'none'
-                  ? t('traveler.noOperatorsNearby')
-                  : t('traveler.dispatchUnavailable')}
-              </Text>
+              {ride.dispatchState === 'none' && (
+                <Text style={styles.searchSub}>{t('traveler.noOperatorsNearby')}</Text>
+              )}
               {ride.payment.status === 'paid' ? (
                 <Text style={styles.searchSub}>{t('traveler.chargedAwaitingOperator')}</Text>
               ) : ride.payment.status === 'processing' || ride.payment.status === 'failed' ? (
@@ -422,7 +422,9 @@ export default function RideScreen() {
       )}
 
       {/* The demo's operator card: avatar · name · vehicle · plate | rating · VERIFIED. */}
-      {ride.matchedOp && !complete && (
+      {/* An assigned offer is not yet an accepted Operator. Only show identifying
+          arrival details once the Operator has accepted through the verified server. */}
+      {ride.matchedOp && st >= 1 && !complete && (
         <Card style={styles.opCard}>
           <View style={styles.opAvatar}>
             <Text style={styles.opAvatarText}>
