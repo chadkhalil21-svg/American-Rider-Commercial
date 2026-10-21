@@ -1,0 +1,155 @@
+name: Capture genuine American Rider iPad/iPhone screenshots from repaired app (no TestFlight)
+on:
+  push:
+    branches: [diagnostic/authentic-appstore-ipad-20261021]
+    paths: ['.github/workflows/capture-authentic-appstore-ipad.yml']
+permissions:
+  contents: read
+jobs:
+  native-cold-launch:
+    runs-on: macos-26
+    timeout-minutes: 55
+    steps:
+      - uses: actions/checkout@v4
+      - name: Isolate exactly the repaired release commercial source
+        run: |
+          git fetch --depth=1 origin 2209e97f99bd2b344e5289edd1d95abe86b3c563
+          git checkout --detach 2209e97f99bd2b344e5289edd1d95abe86b3c563
+          test "$(git rev-parse HEAD)" = 2209e97f99bd2b344e5289edd1d95abe86b3c563
+          echo "EXACT_REPAIRED_RELEASE_SOURCE_VERIFIED"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install and prepare native sources without EAS or signing
+        shell: bash
+        run: |
+          set -euo pipefail
+          xcodebuild -version
+          npm ci --no-audit --no-fund
+          CI=1 npx expo prebuild --platform ios --non-interactive --no-install > /tmp/prebuild.log 2>&1 || {
+            tail -n 75 /tmp/prebuild.log; exit 1;
+          }
+          cd ios
+          pod install > /tmp/pod-install.log 2>&1 || { tail -n 80 /tmp/pod-install.log; exit 1; }
+          echo NATIVE_PROJECT_AND_PODS_PREPARED
+      - name: Create clean iOS simulator and boot (fail separately if Apple's runtime cannot start)
+        id: boot
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json,os,subprocess
+          runtimes=json.loads(subprocess.check_output(['xcrun','simctl','list','runtimes','-j']))['runtimes']
+          valid=[x for x in runtimes if x.get('isAvailable') and x.get('identifier','').endswith('iOS-26-4')]
+          if not valid:valid=[x for x in runtimes if x.get('isAvailable') and 'iOS' in x.get('identifier','')]
+          if not valid:raise SystemExit('BLOCKED_NO_IOS_RUNTIME')
+          runtime=valid[0]['identifier']
+          devices=json.loads(subprocess.check_output(['xcrun','simctl','list','devicetypes','-j']))['devicetypes']
+          validtypes=[x for x in devices if 'iPhone' in x.get('name','')]
+          if not validtypes:raise SystemExit('BLOCKED_NO_IPHONE_DEVICE_TYPE')
+          d=next((x for x in validtypes if '17 Pro' in x['name']), validtypes[0])
+          udid=subprocess.check_output(['xcrun','simctl','create','AmericanRiderColdLaunchCI',d['identifier'],runtime],text=True).strip()
+          print('FRESH_SIMULATOR',d['name'],runtime)
+          try:
+            subprocess.run(['xcrun','simctl','boot',udid],check=True,timeout=70)
+            subprocess.run(['xcrun','simctl','bootstatus',udid,'-b'],check=True,timeout=210)
+          except (subprocess.CalledProcessError,subprocess.TimeoutExpired) as err:
+            print('BLOCKED_HOSTED_APPLE_SIMULATOR_RUNTIME',type(err).__name__)
+            raise SystemExit(78)
+          with open(os.environ['GITHUB_OUTPUT'],'a') as f: f.write('udid='+udid+'\n')
+          print('FRESH_SIMULATOR_BOOT_PASSED')
+          PY
+      - name: Build exact repaired release native Release code using Xcode directly
+        env:
+          CI: '1'
+          EXPO_NO_TELEMETRY: '1'
+          EXPO_PUBLIC_API_URL: https://american-rider-api-production-623854974930.us-east1.run.app
+        shell: bash
+        run: |
+          set -euo pipefail
+          workspace="$(find ios -maxdepth 1 -name '*.xcworkspace' -print -quit)"
+          test -n "$workspace"
+          scheme="$(basename "$workspace" .xcworkspace)"
+          echo "BUILDING_RELEASE_SCHEME=$scheme"
+          xcodebuild -workspace "$workspace" -scheme "$scheme" -configuration Release \
+            -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath "$RUNNER_TEMP/ARBuild48Derived" CODE_SIGNING_ALLOWED=NO \
+            build > /tmp/native-repaired-xcode.log 2>&1 || {
+              echo 'NATIVE_COMPILE_ERROR_LINES'
+              grep -E 'error:|BUILD FAILED|fatal error:|** BUILD' /tmp/native-repaired-xcode.log | tail -n 75 | cut -c1-340 || true
+              tail -n 35 /tmp/native-repaired-xcode.log | cut -c1-340
+              exit 1
+            }
+          echo NATIVE_RELEASE_BUILD_PASSED
+      - name: Install and run app directly via simctl and inspect startup exceptions
+        env:
+          CI: '1'
+        shell: bash
+        run: |
+          set -euo pipefail
+          udid="${{ steps.boot.outputs.udid }}"
+          app="$(find "$RUNNER_TEMP/ARBuild48Derived/Build/Products/Release-iphonesimulator" -maxdepth 2 -name '*.app' -type d | grep -v 'ExpoWidgets' | head -n 1)"
+          test -n "$app"
+          xcrun simctl install "$udid" "$app"
+          (xcrun simctl spawn "$udid" log stream --style compact --level debug \
+            --predicate 'eventMessage CONTAINS[c] "Unhandled JS Exception" OR eventMessage CONTAINS[c] "RCTFatal" OR eventMessage CONTAINS[c] "firebase/native-persistence-unavailable" OR process CONTAINS[c] "AmericanRider"' > /tmp/native-launch-console.log 2>&1) &
+          logger_pid=$!
+          sleep 3
+          echo NATIVE_LAUNCH_ATTEMPT
+          xcrun simctl launch "$udid" com.americanrider.app || true
+          sleep 15
+          xcrun simctl launch "$udid" com.americanrider.app || true
+          sleep 10
+          kill "$logger_pid" 2>/dev/null || true
+          echo 'NATIVE_STARTUP_EXCEPTION_CANDIDATES_REDACTED'
+          grep -Ei 'Unhandled JS Exception|RCTFatal|firebase/native-persistence|TypeError|ReferenceError|Invariant Violation|Terminating app' /tmp/native-launch-console.log | \
+            sed -E 's/(AIza|sk_live_|pk_live_)[^ ]+/[REDACTED]/g' | tail -n 36 | cut -c1-310 || true
+          echo 'SIMULATOR_ONLY_NO_TESTFLIGHT_NO_CHARGE_NO_RELEASE_UPDATE'
+      - name: Capture signed-out 13-inch iPad and iPhone screens from actual repaired app
+        id: captures
+        shell: bash
+        run: |
+          set -euo pipefail
+          ipad="$(python3 - <<'PY'
+          import json,subprocess
+          runtimes=json.loads(subprocess.check_output(['xcrun','simctl','list','runtimes','-j']))['runtimes']
+          runtime=next((r['identifier'] for r in runtimes if r.get('isAvailable') and r['identifier'].endswith('iOS-26-4')),None)
+          if not runtime:raise SystemExit('No supported iOS 26.4 runtime for iPad capture')
+          devices=json.loads(subprocess.check_output(['xcrun','simctl','list','devicetypes','-j']))['devicetypes']
+          d=next((d for d in devices if d['name'].startswith('iPad Pro 13-inch (M4)')),None)
+          if d is None:d=next((d for d in devices if d['name'].startswith('iPad Pro 13-inch (M5)')),None)
+          if not d: raise SystemExit('No 13-inch iPad Pro simulator device type')
+          print(subprocess.check_output(['xcrun','simctl','create','AmericanRiderAppStore13inch',d['identifier'],runtime],text=True).strip())
+          PY
+          )"
+          test -n "$ipad"
+          xcrun simctl boot "$ipad"
+          xcrun simctl bootstatus "$ipad" -b
+          app="$(find "$RUNNER_TEMP/ARBuild48Derived/Build/Products/Release-iphonesimulator" -maxdepth 2 -name '*.app' -type d | grep -v 'ExpoWidgets' | head -n 1)"
+          test -n "$app"
+          xcrun simctl install "$ipad" "$app"
+          xcrun simctl status_bar "$ipad" override --time "9:41" --dataNetwork wifi --wifiMode active --wifiBars 3 --batteryState charged --batteryLevel 100 || true
+          echo GENUINE_IPAD_APP_LAUNCH
+          launch="$(xcrun simctl launch "$ipad" com.americanrider.app)"
+          echo "${launch%%:*}: PID received"
+          pid="${launch##*: }"
+          sleep 14
+          if ! kill -0 "$pid" 2>/dev/null; then
+             echo '::error::Repaired American Rider process exited before iPad capture'
+             exit 1
+          fi
+          xcrun simctl io "$ipad" screenshot "$RUNNER_TEMP/american-rider-ipad-pro-13-auth.png"
+          xcrun simctl io "${{ steps.boot.outputs.udid }}" screenshot "$RUNNER_TEMP/american-rider-iphone-auth.png"
+          echo GENUINE_SCREENSHOT_DIMENSIONS
+          sips -g pixelWidth -g pixelHeight "$RUNNER_TEMP/american-rider-ipad-pro-13-auth.png" "$RUNNER_TEMP/american-rider-iphone-auth.png"
+          echo 'Screenshots were captured from actual simulator app; no redraw, no personal address, no TestFlight upload.'
+      - name: Upload authentic screenshots as private QA assets
+        uses: actions/upload-artifact@v4
+        with:
+          name: american-rider-genuine-simulator-appstore-captures
+          path: |
+            ${{ runner.temp }}/american-rider-ipad-pro-13-auth.png
+            ${{ runner.temp }}/american-rider-iphone-auth.png
+          retention-days: 14
+          if-no-files-found: error
