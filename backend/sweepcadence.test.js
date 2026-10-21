@@ -2,7 +2,7 @@
 const assert=require('node:assert/strict');
 const {PERIOD_MS,createSweepCadence,quotaError,createQuotaBackoff}=require('./sweepcadence');
 (async()=>{
-  assert.equal(PERIOD_MS.screening,30*60_000);
+  assert.equal(PERIOD_MS.screening,6*60*60_000);
   assert.equal(PERIOD_MS.insuranceMonitoring,30*60_000);
   assert.equal(PERIOD_MS.founderMarketIntent,10*60_000);
   assert.equal(PERIOD_MS.operatorFees,6*60*60_000);
@@ -11,7 +11,9 @@ const {PERIOD_MS,createSweepCadence,quotaError,createQuotaBackoff}=require('./sw
   assert.equal((await clock.run('screening',f,now)).ok,true);
   assert.equal((await clock.run('screening',f,now+60_000)).skipped,'cadence');
   assert.equal(calls,1);
-  assert.equal((await clock.run('screening',f,now+30*60_000)).ok,true);
+  assert.equal((await clock.run('screening',f,now+5*60*60_000)).skipped,'cadence',
+    'screening renewal sweep is reminders only; real-time acceptance independently checks expiry');
+  assert.equal((await clock.run('screening',f,now+6*60*60_000)).ok,true);
   assert.equal(calls,2);
   assert.equal((await clock.run('founderMarketIntent',f,now)).ok,true);
   assert.equal((await clock.run('founderMarketIntent',f,now+9*60_000)).skipped,'cadence');
