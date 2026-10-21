@@ -8,79 +8,101 @@ permissions:
 jobs:
   native-cold-launch:
     runs-on: macos-26
-    timeout-minutes: 40
+    timeout-minutes: 55
     steps:
       - uses: actions/checkout@v4
-      - name: Check out exact Build 48 Commercial source for reproduction
+      - name: Isolate exactly the Build 48 commercial source
         run: |
           git fetch --depth=1 origin e6a6a6a4ba4289887de54018578161e25e8d99b8
           git checkout --detach e6a6a6a4ba4289887de54018578161e25e8d99b8
           test "$(git rev-parse HEAD)" = e6a6a6a4ba4289887de54018578161e25e8d99b8
-          echo "Checked out exact source used for Build 48; this is a simulator-only run."
+          echo "EXACT_BUILD_48_SOURCE_REPRODUCTION_CONFIRMED"
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
           cache: npm
-      - name: Show simulator toolchain and choose available iPhone
-        id: phone
+      - name: Install and prepare native sources without EAS or signing
         shell: bash
         run: |
           set -euo pipefail
           xcodebuild -version
-          xcrun simctl list devices available -j > /tmp/available-devices.json
-          python3 - <<'PY'
-          import json,os
-          j=json.load(open('/tmp/available-devices.json'))
-          sims=[]
-          for runtime,devs in j['devices'].items():
-            for d in devs:
-              if d.get('isAvailable') and d.get('name','').startswith('iPhone'):
-                sims.append((int('iOS-18' in runtime),int('iOS-26' in runtime),d['name'],d['udid'],runtime))
-          if not sims:
-            raise SystemExit('NO_IPHONE_SIMULATOR_INSTALLED')
-          sims.sort(reverse=True)
-          _,_,name,udid,runtime=sims[0]
-          print('SIMULATOR',name,runtime)
-          with open(os.environ['GITHUB_OUTPUT'],'a') as f:
-            f.write('udid='+udid+'\n')
-          PY
-      - name: Install exact Build 48 dependencies and start iPhone simulator
+          npm ci --no-audit --no-fund
+          CI=1 npx expo prebuild --platform ios --non-interactive --no-install > /tmp/prebuild.log 2>&1 || {
+            tail -n 75 /tmp/prebuild.log; exit 1;
+          }
+          cd ios
+          pod install > /tmp/pod-install.log 2>&1 || { tail -n 80 /tmp/pod-install.log; exit 1; }
+          echo NATIVE_PROJECT_AND_PODS_PREPARED
+      - name: Create clean iOS simulator and boot (fail separately if Apple's runtime cannot start)
+        id: boot
         shell: bash
         run: |
           set -euo pipefail
-          npm ci --no-audit --no-fund
-          xcrun simctl boot "${{ steps.phone.outputs.udid }}"
-          xcrun simctl bootstatus "${{ steps.phone.outputs.udid }}" -b
-      - name: Compile and cold-launch iOS Release in simulator (not TestFlight)
+          python3 - <<'PY'
+          import json,os,subprocess
+          runtimes=json.loads(subprocess.check_output(['xcrun','simctl','list','runtimes','-j']))['runtimes']
+          valid=[x for x in runtimes if x.get('isAvailable') and x.get('identifier','').endswith('iOS-26-4')]
+          if not valid:valid=[x for x in runtimes if x.get('isAvailable') and 'iOS' in x.get('identifier','')]
+          if not valid:raise SystemExit('BLOCKED_NO_IOS_RUNTIME')
+          runtime=valid[0]['identifier']
+          devices=json.loads(subprocess.check_output(['xcrun','simctl','list','devicetypes','-j']))['devicetypes']
+          validtypes=[x for x in devices if 'iPhone' in x.get('name','')]
+          if not validtypes:raise SystemExit('BLOCKED_NO_IPHONE_DEVICE_TYPE')
+          d=next((x for x in validtypes if '17 Pro' in x['name']), validtypes[0])
+          udid=subprocess.check_output(['xcrun','simctl','create','AmericanRiderColdLaunchCI',d['identifier'],runtime],text=True).strip()
+          print('FRESH_SIMULATOR',d['name'],runtime)
+          try:
+            subprocess.run(['xcrun','simctl','boot',udid],check=True,timeout=70)
+            subprocess.run(['xcrun','simctl','bootstatus',udid,'-b'],check=True,timeout=210)
+          except (subprocess.CalledProcessError,subprocess.TimeoutExpired) as err:
+            print('BLOCKED_HOSTED_APPLE_SIMULATOR_RUNTIME',type(err).__name__)
+            raise SystemExit(78)
+          with open(os.environ['GITHUB_OUTPUT'],'a') as f: f.write('udid='+udid+'\n')
+          print('FRESH_SIMULATOR_BOOT_PASSED')
+          PY
+      - name: Build exact Build 48 native Release code using Xcode directly
         env:
-          CI: "1"
-          EXPO_NO_TELEMETRY: "1"
+          CI: '1'
+          EXPO_NO_TELEMETRY: '1'
           EXPO_PUBLIC_API_URL: https://american-rider-api-production-623854974930.us-east1.run.app
-          EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID: 623854974930-4muug9hi3jjrml3tokaqh3n2tbd0h2ms.apps.googleusercontent.com
-          EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID: 623854974930-4t4u62mvkeopvlrm6ne15eq6rubn25r9.apps.googleusercontent.com
         shell: bash
         run: |
-          set -uo pipefail
-          set +e
-          npx expo run:ios --configuration Release --device "${{ steps.phone.outputs.udid }}" --no-bundler > /tmp/native-build48.log 2>&1
-          status=$?
-          set -e
-          echo "NATIVE_RELEASE_BUILD_EXIT_STATUS=$status"
-          if [ "$status" -ne 0 ]; then
-             grep -E -i 'error:|error |failed|Unable to|SDK|Provisioning|simulator|fatal|missing|unsupported' /tmp/native-build48.log | tail -n 55 | cut -c1-270 || true
-             exit "$status"
-          fi
-          echo "Release native simulator build succeeded."
-          xcrun simctl get_app_container "${{ steps.phone.outputs.udid }}" com.americanrider.app app
-          (xcrun simctl spawn "${{ steps.phone.outputs.udid }}" log stream --style compact --level info --predicate 'process CONTAINS[c] "AmericanRider" OR eventMessage CONTAINS[c] "Unhandled JS Exception" OR eventMessage CONTAINS[c] "RCTFatal"' > /tmp/app-startup-console.log 2>&1) &
+          set -euo pipefail
+          workspace="$(find ios -maxdepth 1 -name '*.xcworkspace' -print -quit)"
+          test -n "$workspace"
+          scheme="$(basename "$workspace" .xcworkspace)"
+          echo "BUILDING_RELEASE_SCHEME=$scheme"
+          xcodebuild -workspace "$workspace" -scheme "$scheme" -configuration Release \
+            -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath "$RUNNER_TEMP/ARBuild48Derived" CODE_SIGNING_ALLOWED=NO \
+            build > /tmp/native-build48-xcode.log 2>&1 || {
+              echo 'NATIVE_COMPILE_ERROR_LINES'
+              grep -E 'error:|BUILD FAILED|fatal error:|** BUILD' /tmp/native-build48-xcode.log | tail -n 75 | cut -c1-340 || true
+              tail -n 35 /tmp/native-build48-xcode.log | cut -c1-340
+              exit 1
+            }
+          echo NATIVE_RELEASE_BUILD_PASSED
+      - name: Install and run app directly via simctl and inspect startup exceptions
+        env:
+          CI: '1'
+        shell: bash
+        run: |
+          set -euo pipefail
+          udid="${{ steps.boot.outputs.udid }}"
+          app="$(find "$RUNNER_TEMP/ARBuild48Derived/Build/Products/Release-iphonesimulator" -maxdepth 2 -name '*.app' -type d | grep -v 'ExpoWidgets' | head -n 1)"
+          test -n "$app"
+          xcrun simctl install "$udid" "$app"
+          (xcrun simctl spawn "$udid" log stream --style compact --level debug \
+            --predicate 'eventMessage CONTAINS[c] "Unhandled JS Exception" OR eventMessage CONTAINS[c] "RCTFatal" OR eventMessage CONTAINS[c] "firebase/native-persistence-unavailable" OR process CONTAINS[c] "AmericanRider"' > /tmp/native-launch-console.log 2>&1) &
           logger_pid=$!
-          sleep 4
-          xcrun simctl terminate "${{ steps.phone.outputs.udid }}" com.americanrider.app || true
-          xcrun simctl launch "${{ steps.phone.outputs.udid }}" com.americanrider.app || true
-          sleep 16
-          kill "$logger_pid" || true
-          echo "REDACTED_JS_STARTUP_ERRORS:"
-          grep -Ei 'Unhandled JS Exception|RCTFatal|firebase/native-persistence|Component auth|INTERNAL ASSERTION|Fatal|TypeError|ReferenceError|Invariant' /tmp/app-startup-console.log | sed -E 's/(AIza|sk_live_|pk_live_)[^ ]+/[REDACTED]/g' | tail -n 35 | cut -c1-280 || true
-          echo "RECENT_SIMULATOR_CRASH_REPORTS:"
-          find "$HOME/Library/Logs/DiagnosticReports" -maxdepth 1 -iname '*AmericanRider*' -type f -mmin -10 -print 2>/dev/null | sed 's@.*/@@' | head -n 12 || true
-          echo "Simulator-only run; no EAS, signing, paid booking, TestFlight, or App Store submission."
+          sleep 3
+          echo NATIVE_LAUNCH_ATTEMPT
+          xcrun simctl launch "$udid" com.americanrider.app || true
+          sleep 15
+          xcrun simctl launch "$udid" com.americanrider.app || true
+          sleep 10
+          kill "$logger_pid" 2>/dev/null || true
+          echo 'NATIVE_STARTUP_EXCEPTION_CANDIDATES_REDACTED'
+          grep -Ei 'Unhandled JS Exception|RCTFatal|firebase/native-persistence|TypeError|ReferenceError|Invariant Violation|Terminating app' /tmp/native-launch-console.log | \
+            sed -E 's/(AIza|sk_live_|pk_live_)[^ ]+/[REDACTED]/g' | tail -n 36 | cut -c1-310 || true
+          echo 'SIMULATOR_ONLY_NO_TESTFLIGHT_NO_CHARGE_NO_RELEASE_UPDATE'
