@@ -234,7 +234,8 @@ export default function RideScreen() {
                 <Text style={styles.searchSub}>{t('traveler.noChargeMade')}</Text>
               )}
               {ride.payment.status === 'paid' ? (
-                <Text style={styles.searchSub}>{t('traveler.chargedAwaitingOperator')}</Text>
+                <Text style={styles.searchSub}>{t(ride.payment.authorizationOnly
+                  ? 'traveler.authorizationAwaitingOperator':'traveler.chargedAwaitingOperator')}</Text>
               ) : ride.payment.status === 'processing' || ride.payment.status === 'failed' ? (
                 <Text style={styles.searchSub}>{t('traveler.paymentStatusUnverified')}</Text>
               ) : null}
@@ -275,7 +276,8 @@ export default function RideScreen() {
                 by this point. Nothing is charged until an operator is matched now, so this
                 states the money position instead of reassuring about it. */}
             <Text style={styles.cancelNote}>{t(ride.payment.status === 'paid'
-              ? 'traveler.chargedAwaitingOperator'
+              ? (ride.payment.authorizationOnly
+                ? 'traveler.authorizationAwaitingOperator':'traveler.chargedAwaitingOperator')
               : ride.payment.status === 'processing' || ride.payment.status === 'failed'
                 ? 'traveler.paymentStatusUnverified' : 'traveler.notCharged')}</Text>
             <View style={styles.cancelBtns}>
@@ -585,9 +587,14 @@ export default function RideScreen() {
             <Text style={styles.payProcessing}>{t('traveler.processing')}</Text>
           ) : ride.payment.status === 'paid' ? (
             <Num size={13} color={colors.green}>
-              {ride.payment.amountCents != null
-                ? `${fmt(ride.payment.amountCents / 100)} charged`
-                : 'Charged'}
+              {ride.payment.authorizationOnly
+                ? t('traveler.authorizationAmount',{
+                    amount:ride.payment.amountCents!=null
+                      ? fmt(ride.payment.amountCents/100):''
+                  })
+                : ride.payment.amountCents != null
+                  ? `${fmt(ride.payment.amountCents / 100)} charged`
+                  : 'Charged'}
             </Num>
           ) : (
             <Text style={styles.payFailed}>{ride.payment.error || t('traveler.ridePaymentIncomplete')}</Text>
@@ -611,6 +618,8 @@ export default function RideScreen() {
           <Text style={styles.cancelNote}>
             {ride.payment.status !== 'paid'
               ? t('traveler.rideNotCharged')
+              : ride.payment.authorizationOnly
+                ? t(st >= 2?'traveler.authorizationPossibleFee':'traveler.authorizationFreeCancel')
               : st >= 2
                 ? t('traveler.rideFareReturnedLessArrival', {
                     name: ride.matchedOp?.name ?? t('traveler.yourOperatorFallback'),
