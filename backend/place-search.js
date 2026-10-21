@@ -4,7 +4,7 @@
 // configured HERE account. No Geoapify provider or subscription is supported.
 // A hosted public Photon demo or public OSM Nominatim is NEVER used here.
 const { readKey } = require('./env');
-const MAX_QUERY=160, CACHE_TTL_MS=10*60*1000, MAX_CACHE=500;
+const MAX_QUERY=160, CACHE_TTL_MS=10*60*1000, HERE_BRIDGE_CACHE_TTL_MS=60*1000, MAX_CACHE=500;
 const cache=new Map(),inflight=new Map();
 // Emergency HERE fallback is per process; configure a vendor-wide quota before
 // allowing autoscaling. Never call a second provider after a valid empty answer.
@@ -134,20 +134,28 @@ async function searchPlaces(query,near,limit=6){
   const max=clamp(Number(limit)||6,1,8);
   const ck=cacheKey(q,n,max,primary.name);
   const hit=cache.get(ck);
-  if(hit&&Date.now()-hit.at<CACHE_TTL_MS)return hit.items;
+  if(hit&&Date.now()-hit.at<(hit.ttlMs || CACHE_TTL_MS))return hit.items;
   if(inflight.has(ck))return inflight.get(ck);
   const work=(async()=>{
     const result=await invoke(primary,q,n,max);
-    // Successful empty results are authoritative. No speculative paid lookup.
-    let items=result.items;
+    // A valid empty primary answer is authoritative. Never perform a second paid lookup.
+    let items=result.items, verifiedHereBridge=false;
     if(!result.ok){
       const hereKey=primary.name!=='here'&&process.env.AR_HERE_AUTOCOMPLETE_FALLBACK==='1'
         ?readKey('HERE_API_KEY'):null;
-      if(hereKey&&allowExceptionalHere())items=(await here(q,n,max,hereKey)).items;
+      if(hereKey&&allowExceptionalHere()){
+        const backup=await here(q,n,max,hereKey);
+        if(backup.ok){items=backup.items;verifiedHereBridge=true;}
+      }
     }
     items=annotateProximity(items,n);
-    if(result.ok){
-      cache.set(ck,{at:Date.now(),items});
+    // Successful HERE outage-bridge answers were previously never cached: reopening
+    // the same query during a Photon outage paid HERE again. Cache only real provider
+    // successes, with a short bridge TTL so normal primary service resumes promptly.
+    // Do not cache a failed provider response or accidentally suppress retries.
+    if(result.ok||verifiedHereBridge){
+      cache.set(ck,{at:Date.now(),items,
+        ttlMs:verifiedHereBridge?HERE_BRIDGE_CACHE_TTL_MS:CACHE_TTL_MS});
       if(cache.size>MAX_CACHE)cache.delete(cache.keys().next().value);
     }
     return items;
