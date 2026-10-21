@@ -1,148 +1,109 @@
-import {
-  IBMPlexMono_400Regular,
-  IBMPlexMono_500Medium,
-  IBMPlexMono_600SemiBold,
-  useFonts,
-} from '@expo-google-fonts/ibm-plex-mono';
-import { Stack, useRouter } from 'expo-router';
-import { StatusBar } from 'expo-status-bar';
-import React, { useEffect } from 'react';
-import { Platform, StyleSheet, View } from 'react-native';
-import { onNotificationTap, recoverLastNotificationTap, registerForPush } from '../src/backend/push';
-import { pingSweep } from '../src/backend/heartbeat';
-import { AuthScreen } from '../src/screens/AuthScreen';
-import { AuthProvider, useAuth } from '../src/state/AuthContext';
-import { LanguageProvider } from '../src/state/LanguageContext';
-import { PaymentConfigProvider } from '../src/state/PaymentConfigContext';
-import { OperatorProvider } from '../src/state/OperatorContext';
-import { RideProvider } from '../src/state/RideContext';
-import { VoiceProvider } from '../src/state/VoiceContext';
-import { colors } from '../src/theme';
+// P0 launch-safe bootstrap. This file intentionally imports no application
+// state, authentication, payment, push, background tracking or optional widgets.
+// One of those modules may throw synchronously before the first React screen
+// appears on a physical iPhone. Eager ES imports cannot be protected by a
+// React ErrorBoundary. Load the unchanged full root *inside* a try/catch.
+// A failed boot shows an actionable on-device error instead of a blank splash.
+import React from 'react';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-// The Stack is always mounted (so expo-router routing works). Until the user is
-// signed in, the sign-up screen is shown as a full-screen overlay on top of it.
-function AppGate() {
-  const { user, initializing, onboarding } = useAuth();
-  const router = useRouter();
+type Failure = { title: string; diagnostic: string };
 
-  // DESIGN REVIEW BYPASS — web preview only. This never runs in native builds and is
-  // inert unless the Render preview explicitly enables it. Add ?preview=app to the
-  // preview URL to inspect signed-in surfaces without changing or weakening Firebase.
-  const webPreviewBypass =
-    Platform.OS === 'web' &&
-    process.env.EXPO_PUBLIC_AUTH_PREVIEW_BYPASS === '1' &&
-    typeof window !== 'undefined' &&
-    new URLSearchParams(window.location.search).get('preview') === 'app';
+function describeFailure(error: unknown): Failure {
+  const source = error && typeof error === 'object'
+    ? error as { name?: unknown; message?: unknown; code?: unknown }
+    : null;
+  const name = typeof source?.name === 'string' ? source.name : 'StartupError';
+  const code = typeof source?.code === 'string' ? source.code : '';
+  const message = typeof source?.message === 'string' ? source.message
+    : typeof error === 'string' ? error : 'Unable to finish application initialization';
+  // Display only short, locally visible diagnostics. No network telemetry, API
+  // keys, credentials or personal information. The original exception remains
+  // accessible through the device's Apple diagnostics when available.
+  const safe = (value: string) => value
+    .replace(/https?:\\/\\/[^\\s]+/gi, '[URL]')
+    .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\\.[A-Z]{2,}/gi, '[EMAIL]')
+    .replace(/(?:sk_live_|pk_live_|AIza)[a-zA-Z0-9_-]+/g, '[REDACTED]')
+    .slice(0, 180);
+  return { title: safe(code || name), diagnostic: safe(message) };
+}
 
-  // REGISTERED ONCE THERE IS AN ACCOUNT TO REGISTER AGAINST, not at launch. The token is
-  // stored on `users/{uid}`, so asking before sign-in would have nowhere to put it — and
-  // asking a stranger for permission to notify them is the wrong first impression besides.
-  //
-  // Web has no push, and a simulator has no token; both return a reason rather than an error.
-  // Nothing here blocks the app: a refusal costs notifications, not the product.
-  useEffect(() => {
-    if (!user || onboarding || Platform.OS === 'web') return;
-    registerForPush();
-    // And wake the server on the way past. A free instance that has been idle takes about
-    // thirty seconds to come up; doing it now means the first real request does not wait.
-    pingSweep();
-  }, [user, onboarding]);
-
-  // Tapping a notification opens the thing it was about.
-  useEffect(() => {
-    if (Platform.OS === 'web' || !user || initializing || onboarding) return;
-    let mounted = true;
-    const open = (data: Record<string, unknown>) => {
-      if (!mounted) return;
-      // A push is untrusted external input. Authenticate its recipient; navigate
-      // only to existing safe destinations. No acceptance or payment action here.
-      const recipientUid = typeof data?.recipientUid === 'string' ? data.recipientUid : null;
-      if (!user || !recipientUid || recipientUid !== user.uid) return;
-      const screen = typeof data?.screen === 'string' ? data.screen : null;
-      const allowed = new Set(['/ride', '/receipt', '/operator', '/operator/insurance', '/family']);
-      if (screen && allowed.has(screen)) router.navigate(screen as never);
-    };
-    const unsubscribe = onNotificationTap(open);
-    // Expo may have launched us FROM a notification before React subscribed.
-    // Its persistent last response is replayed only once and then cleared.
-    void recoverLastNotificationTap(open);
-    return () => { mounted = false; unsubscribe(); };
-  }, [router, user?.uid, initializing, onboarding]);
-
+function BootFailure({ error, onRetry }: { error: unknown; onRetry: () => void }) {
+  const info = describeFailure(error);
   return (
-    <View style={{ flex: 1 }}>
-      <Stack
-        screenOptions={{
-          headerShown: false,
-          contentStyle: { backgroundColor: colors.bg },
-          animation: Platform.OS === 'web' ? 'none' : 'fade',
-        }}
-      />
-      {initializing ? (
-        <View style={[StyleSheet.absoluteFill, { backgroundColor: colors.bg, zIndex: 10 }]} />
-      ) : (!user || onboarding) && !webPreviewBypass ? (
-        <View style={[StyleSheet.absoluteFill, { zIndex: 10 }]}>
-          <AuthScreen />
-        </View>
-      ) : null}
+    <View style={styles.page}>
+      <Text style={styles.brand}>AMERICAN RIDER</Text>
+      <Text style={styles.title}>Unable to open American Rider</Text>
+      <Text style={styles.body}>
+        An application component could not initialize. No Travel was requested
+        and no payment was made by this screen.
+      </Text>
+      <Text selectable style={styles.code}>AR-BOOT  ·  {info.title}</Text>
+      <Text selectable style={styles.detail}>{info.diagnostic}</Text>
+      <Pressable onPress={onRetry} accessibilityRole="button" style={styles.button}>
+        <Text style={styles.buttonText}>Try Again</Text>
+      </Pressable>
+      <Text style={styles.note}>
+        Please share a screenshot of this screen with American Rider Support.
+        You do not need to uninstall the app.
+      </Text>
     </View>
   );
 }
 
-// ONE ACCOUNT'S STATE NEVER REACHES THE NEXT ACCOUNT. The stores below hold a traveler's
-// live travel, operator qualification and revenue in memory. They were mounted once at the
-// root and never keyed on who was signed in, so signing out and signing in as somebody else
-// left all of it in place — a second Operator sharing a handset saw the first one's travel.
-// Keying the subtree on the uid makes React unmount and rebuild it whenever the account
-// changes, which is the only way to be sure nothing is carried across.
-function AccountScope({ children }: { children: React.ReactNode }) {
-  const { user } = useAuth();
-  return <React.Fragment key={user?.uid ?? 'signed-out'}>{children}</React.Fragment>;
+class StartupBoundary extends React.Component<
+  { children: React.ReactNode; onRetry: () => void },
+  { error: unknown | null }
+> {
+  state: { error: unknown | null } = { error: null };
+
+  static getDerivedStateFromError(error: unknown) {
+    return { error };
+  }
+
+  render() {
+    if (this.state.error !== null) {
+      return <BootFailure error={this.state.error} onRetry={this.props.onRetry} />;
+    }
+    return this.props.children;
+  }
 }
 
 export default function RootLayout() {
-  const [fontsLoaded] = useFonts({
-    IBMPlexMono_400Regular,
-    IBMPlexMono_500Medium,
-    IBMPlexMono_600SemiBold,
-  });
-
-  if (!fontsLoaded) {
-    return <View style={{ flex: 1, backgroundColor: colors.bg }} />;
+  const [attempt, setAttempt] = React.useState(0);
+  const retry = () => setAttempt((n: number) => n + 1);
+  let FullRoot: React.ComponentType;
+  try {
+    // Metro knows this static require, but does not evaluate its module until
+    // we reach this guarded statement. Catches module evaluation failures that
+    // an ordinary React ErrorBoundary cannot catch.
+    FullRoot = (require('../src/boot/FullRoot') as {
+      default: React.ComponentType;
+    }).default;
+    if (!FullRoot) throw new Error('full-root-unavailable');
+  } catch (error) {
+    return <BootFailure error={error} onRetry={retry} />;
   }
-
   return (
-    <LanguageProvider>
-    <AuthProvider>
-      <AccountScope>
-      <PaymentConfigProvider>
-      <RideProvider>
-      <OperatorProvider>
-      <VoiceProvider>
-        <StatusBar style="dark" />
-        {Platform.OS === 'web' ? (
-          <View style={{ flex: 1, backgroundColor: colors.canvas, alignItems: 'center' }}>
-            <View
-              style={{
-                flex: 1,
-                width: '100%',
-                maxWidth: 430,
-                backgroundColor: colors.bg,
-                boxShadow: '0 0 32px rgba(20, 23, 31, 0.10)',
-              }}
-            >
-              <AppGate />
-            </View>
-          </View>
-        ) : (
-          <AppGate />
-        )}
-      </VoiceProvider>
-      </OperatorProvider>
-      </RideProvider>
-      </PaymentConfigProvider>
-      </AccountScope>
-    </AuthProvider>
-    </LanguageProvider>
+    <StartupBoundary key={attempt} onRetry={retry}>
+      <FullRoot />
+    </StartupBoundary>
   );
 }
+
+const styles = StyleSheet.create({
+  page: { flex: 1, backgroundColor: '#F8F9FB', paddingHorizontal: 28,
+    justifyContent: 'center' },
+  brand: { fontSize: 12, fontWeight: '700', letterSpacing: 2,
+    color: '#19223B', marginBottom: 40 },
+  title: { fontSize: 22, fontWeight: '600', color: '#14171F', marginBottom: 15 },
+  body: { fontSize: 15, lineHeight: 24, color: '#414958', marginBottom: 25 },
+  code: { fontSize: 14, fontWeight: '600', color: '#19223B',
+    marginBottom: 12 },
+  detail: { fontSize: 12, lineHeight: 19, color: '#505B6C', marginBottom: 28 },
+  button: { alignSelf: 'flex-start', backgroundColor: '#19223B',
+    paddingHorizontal: 25, paddingVertical: 14, borderRadius: 5 },
+  buttonText: { fontSize: 15, color: '#FFFFFF', fontWeight: '600' },
+  note: { fontSize: 12, lineHeight: 20, color: '#697284',
+    marginTop: 25 },
+});
