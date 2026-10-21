@@ -1,5 +1,16 @@
 # AMERICAN RIDER — CANONICAL PROJECT LEDGER
 
+## 21 October 2026 | Stripe sandbox acceptance key format correction (source candidate)
+
+**Provider test not yet certified.** Manual workflow run 39673669538 (founder, `release/current` `b96140b`) passed GitHub checkout, configured secret/prefix and Stripe SDK installation, then failed before any Stripe API request. Root cause: the workflow accepted any `sk_test_*` prefix, but the Node script rejected characters outside `[A-Za-z0-9]` following that prefix; Stripe's published API authentication contract establishes `sk_test_` for test-secret keys, not that narrow suffix alphabet. The source candidate permits a nonblank `sk_test_` value with optional outer copy/paste whitespace, rejects all live/restricted/public credentials and embedded whitespace, and makes a **read-only Stripe balance request** to confirm authenticated `livemode === false` **before any test-only authorization**. No API key is printed, the production secret is never passed, and the original test-mode full capture / no-fee void / partial capture assertions remain unchanged.
+
+This corrects validation only: it is not evidence that the saved GitHub secret is a complete, valid Stripe secret. If the provider returns an authentication error, the Founder must replace the encrypted GitHub `STRIPE_TEST_SECRET_KEY` with a complete actual Stripe standard test secret, never paste it into chat, and rerun the workflow with `STRIPE_TEST_ONLY`. Manual capture and the optional $4/$3 policy are still disabled. Cloud Run revision `00013-4wl` remains the last source-verified live revision `b96140b`; any newer release requires its own controlled source-only deploy.
+
+Source: https://docs.stripe.com/api/authentication ; https://docs.stripe.com/api/balance/balance_object
+
+---
+
+
 ## 21 October 2026 | Verified Cloud Run and scheduled future-capture permission (new source branch)
 
 **Cloud Run deployment independently verified:** Founder-triggered controlled deploy GitHub Action #7 (run 39642586477) completed SUCCESS for `release/current` SHA `962ebb4`; source updater provisioned `american-rider-api-production-00012-2sw` READY with zero traffic first, preserved live Stripe/Connect secrets, and promoted the revision, retaining the original Google Scheduler and webhook endpoints. Subsequent read-only audit confirmed revision `00012-2sw` serving 100% traffic with healthy public `/live`. The earlier `00011-vn4` “old revision” issue is resolved. One-time first-launch verifier remains intentionally unsuitable for an already-open paid service; do not invoke it as a deployment shortcut.
