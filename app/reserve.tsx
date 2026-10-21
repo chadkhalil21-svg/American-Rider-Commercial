@@ -971,6 +971,11 @@ export default function TravelConfirmation() {
                   </Pressable>
                 </View>
               )}
+            {!selectingScheduledTravel && payConfig.cancellationFeeGrossCents===400 && (
+              <Text style={styles.cancelTerms}>
+                {t('traveler.cancellationFeeNet3Disclosure')}
+              </Text>
+            )}
             <PrimaryButton
               label={busy ? t('traveler.busyChecking')
                 : t(selectingScheduledTravel ? 'traveler.schedContinueScheduling' : 'traveler.confirmTravel')}
@@ -980,7 +985,7 @@ export default function TravelConfirmation() {
                 : confirm}
               style={styles.confirm}
             />
-            {!selectingScheduledTravel && (
+            {!selectingScheduledTravel && payConfig.cancellationFeeGrossCents!==400 && (
               <Text style={styles.cancelTerms}>{t('traveler.cancellationGrace')}</Text>
             )}
           </View>
