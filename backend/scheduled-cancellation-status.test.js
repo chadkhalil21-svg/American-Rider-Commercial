@@ -52,6 +52,7 @@ assert.match(home, /ride\.schedState\?\.status !== 'cancelled'/);
 assert.match(home, /scheduledHomeHeadingKey\(ride\.schedState\?\.status\)/);
 assert.match(ride, /ride\.dispatchState === 'none' \? t\('traveler\.noOperatorAvailable'\)/);
 assert.match(ride, /ride\.payment\.status === 'idle' && ride\.dispatchState === 'none'/);
+assert.match(ride, /ride\.dispatchState === 'none' && ride\.payment\.status === 'idle' && !ride\.rideActive/);
 assert.match(ride, /traveler\.noChargeMade/);
 assert.match(ride, /const stepIdx = st === 0 \? -1/);
 assert.match(ride, /ride\.matchedOp && st >= 1 && !complete/);
