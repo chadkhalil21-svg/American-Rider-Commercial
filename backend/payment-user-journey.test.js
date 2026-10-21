@@ -13,7 +13,7 @@ const js=ts.transpileModule(source,{compilerOptions:{
 }}).outputText;
 const events=[],methods=[];
 let mode='live',initFailure=null,presentFailure=null,throwInit=false,throwPresent=false,
-  missingMode=false,missingIntentId=false,os='android',sheetAction='setup';
+  missingMode=false,missingIntentId=false,legacyConfigMode=null,os='android',sheetAction='setup';
 const stripeNative={
   async initPaymentSheet(settings){
     events.push({kind:'sheet-init',settings});
@@ -37,7 +37,10 @@ const stripeNative={
 async function mockFetch(url,opts={}){
   const suffix=String(url).replace('https://synthetic.local','');
   events.push({kind:'fetch',url:suffix,method:opts.method||'GET'});
-  if(suffix==='/config')throw Error('unexpected second /config request during sheet');
+  if(suffix==='/config'){
+    if(legacyConfigMode)return {ok:true,json:async()=>({mode:legacyConfigMode,canTakePayment:true,canManagePaymentMethods:true,stripePublishableKey:'pk_test_fixture'})};
+    throw Error('no legacy config available');
+  }
   if(suffix==='/payment-methods')return {ok:true,json:async()=>({methods})};
   if(suffix==='/payment-methods/setup-intent')return {ok:true,json:async()=>({
     clientSecret:'seti_fixture_secret_abc',customerId:'cus_Synthetic',
@@ -78,7 +81,7 @@ vm.runInNewContext(js,context);
 const p=simulatedModule.exports;
 const lastSheet=()=>events.filter(e=>e.kind==='sheet-init').at(-1)?.settings;
 const reset=()=>{events.length=0;methods.length=0;mode='live';initFailure=null;presentFailure=null;
-  throwInit=false;throwPresent=false;missingMode=false;missingIntentId=false;
+  throwInit=false;throwPresent=false;missingMode=false;missingIntentId=false;legacyConfigMode=null;
   os='android';sheetAction='setup';};
 (async()=>{
   for(let pass=0;pass<2;pass++){
@@ -120,12 +123,20 @@ const reset=()=>{events.length=0;methods.length=0;mode='live';initFailure=null;p
     reset();missingMode=true;
     assert.equal((await p.addPaymentMethod()).ok,false);
     assert.equal(events.filter(e=>e.kind==='sheet-init').length,0,'unknown mode cannot show sheet');
+    reset();missingMode=true;legacyConfigMode='live';
+    assert.equal((await p.addPaymentMethod()).ok,true,'older Cloud Run may supply mode from verified config');
+    assert.equal(lastSheet().googlePay.testEnv,false);
+    assert.equal(events.filter(e=>e.url==='/config').length,1,'legacy fallback once, never for current mode');
     reset();missingIntentId=true;
     assert.equal((await p.payForRide({destination:'Airport'})).ok,false);
     assert.equal(events.filter(e=>e.kind==='sheet-init').length,0,'missing intent identity cannot collect');
     reset();missingMode=true;
     assert.equal((await p.payForRide({destination:'Airport'})).ok,false);
     assert.equal(events.filter(e=>e.kind==='sheet-init').length,0);
+    reset();missingMode=true;legacyConfigMode='live';
+    assert.equal((await p.payForRide({destination:'Airport'})).ok,true);
+    assert.equal(lastSheet().googlePay.testEnv,false);
+    assert.equal(events.filter(e=>e.url==='/config').length,1);
     reset();throwPresent=true;
     assert.equal((await p.payForRide({destination:'Airport'})).error,
       'traveler.errPaymentUnavailableNoCharge');
