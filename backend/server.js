@@ -3760,6 +3760,20 @@ app.post('/travel/prepare', requireAuth, LIMITS.dispatch, requireFreshAuth, requ
       return res.status(409).json({error:'The Travel Total changed. Review the current price before confirming.',
         code:'travel_total_changed',currentTotalCents:priced.travelerPays});
     }
+    // Booking confirmation and payment feature flags must describe precisely the
+    // same fee policy. Old app builds may not silently accept new charges.
+    const manualFeeOffered=process.env.AR_MANUAL_TRAVEL_CAPTURE==='true'&&
+      process.env.AR_MANUAL_CANCELLATION_FEE==='true';
+    if(manualFeeOffered && b.cancellationFeeDisclosureVersion!=='net3-allin400-v1')
+      return res.status(428).json({
+        error:'Update American Rider to review the cancellation fee before booking.',
+        code:'cancellation_fee_disclosure_required',
+      });
+    if(!manualFeeOffered && b.cancellationFeeDisclosureVersion)
+      return res.status(409).json({
+        error:'Cancellation terms have changed. Review your booking.',
+        code:'cancellation_fee_terms_changed',
+      });
     const partyResult = priced.journey?.party
       ? { ok: true, party: priced.journey.party }
       : await normalizeParty(b, { uid: req.uid, name: req.name || b.bookerName || b.travelerName || '' });
@@ -3796,6 +3810,11 @@ app.post('/travel/prepare', requireAuth, LIMITS.dispatch, requireFreshAuth, requ
       tollCents: Math.max(0, Number(priced.tollCents) || 0), feeLines: priced.feeLines,
       pricedBy: priced.pricedBy, cardCountry: priced.cardCountry,
       journey: priced.journey || null, cabinPreferences,
+      ...(manualFeeOffered ? {
+        cancellationFeeDisclosureVersion:'net3-allin400-v1',
+        cancellationFeeDisclosureAt:Date.now(),
+        cancellationFeeGrossCents:400,operatorCancellationNetCents:300,
+      } : {}),
     } });
     if (party.teen && [200,201].includes(outcome.status)) {
       await provisionTeenPin({ rideRef: db.collection('rides').doc(id), rideId: id, party });
