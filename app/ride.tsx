@@ -156,7 +156,8 @@ export default function RideScreen() {
   const preparing = !ride.matchedOp && ride.dispatchState === 'preparing';
   const searching = !ride.matchedOp && ride.dispatchState === 'searching';
   const noOperator = !ride.matchedOp && (ride.dispatchState === 'none' || ride.dispatchState === 'error');
-  const stepIdx = st <= 1 ? 0 : st === 2 ? 1 : st <= 4 ? 2 : 3;
+  // Assignment alone is not Operator acceptance. No En Route progress is earned at step 0.
+  const stepIdx = st === 0 ? -1 : st === 1 ? 0 : st === 2 ? 1 : st <= 4 ? 2 : 3;
   const steps = [t('traveler.phaseEnRoute'), t('traveler.phaseArrived'), t('traveler.phaseOnboard'), t('traveler.arrival')];
 
   useEffect(() => {
@@ -217,7 +218,8 @@ export default function RideScreen() {
         <View style={{ alignItems: 'center' }}>
           {(preparing || searching) && <Radar />}
           <Text style={styles.searchTitle}>
-            {preparing ? t('traveler.rideStepPreparing') : searching ? t('traveler.rideFindingBest') : t('traveler.rideNoMatchYet')}
+            {preparing ? t('traveler.rideStepPreparing') : searching ? t('traveler.rideFindingBest')
+              : ride.dispatchState === 'none' ? t('traveler.noOperatorAvailable') : t('traveler.dispatchUnavailable')}
           </Text>
           {(preparing || searching) ? (
             <Text style={styles.searchSub}>
@@ -225,11 +227,12 @@ export default function RideScreen() {
             </Text>
           ) : (
             <>
-              <Text style={styles.searchSub}>
-                {ride.dispatchState === 'none'
-                  ? t('traveler.noOperatorsNearby')
-                  : t('traveler.dispatchUnavailable')}
-              </Text>
+              {ride.dispatchState === 'none' && (
+                <Text style={styles.searchSub}>{t('traveler.noOperatorsNearby')}</Text>
+              )}
+              {ride.payment.status === 'idle' && ride.dispatchState === 'none' && (
+                <Text style={styles.searchSub}>{t('traveler.noChargeMade')}</Text>
+              )}
               {ride.payment.status === 'paid' ? (
                 <Text style={styles.searchSub}>{t('traveler.chargedAwaitingOperator')}</Text>
               ) : ride.payment.status === 'processing' || ride.payment.status === 'failed' ? (
@@ -246,16 +249,19 @@ export default function RideScreen() {
                   Change Travel keeps the booking and returns to the destination screen.
                   Cancel remains, at the bottom, unchanged and still confirmed — the heaviest
                   action stays the least prominent. */}
-              <Pressable onPress={ride.retryDispatch} hitSlop={8}>
+              <Pressable accessibilityRole="button" onPress={ride.retryDispatch} hitSlop={8}
+                style={{ minHeight: 44, justifyContent: 'center' }}>
                 <Text style={styles.retryLink}>{t('traveler.tryAgain')}</Text>
               </Pressable>
               {ride.payment.status === 'idle' ? (
-                <Pressable onPress={() => router.replace('/reserve')} hitSlop={8}>
+                <Pressable accessibilityRole="button" onPress={() => router.replace('/reserve')} hitSlop={8}
+                  style={{ minHeight: 44, justifyContent: 'center' }}>
                   <Text style={styles.retryLink}>{t('traveler.changeTravel')}</Text>
                 </Pressable>
               ) : null}
               {/* Leaving the view never tells the server to cancel an existing booking. */}
-              <Pressable accessibilityRole="button" onPress={() => router.dismissTo('/')} hitSlop={8}>
+              <Pressable accessibilityRole="button" onPress={() => router.dismissTo('/')} hitSlop={8}
+                style={{ minHeight: 44, justifyContent: 'center' }}>
                 <Text style={styles.retryLink}>{t('traveler.returnHome')}</Text>
               </Pressable>
             </>
@@ -304,7 +310,7 @@ export default function RideScreen() {
               </View>
             ) : null}
           </View>
-        ) : (
+        ) : !(ride.dispatchState === 'none' && ride.payment.status === 'idle' && !ride.rideActive) ? (
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={t('traveler.cancelTravel')}
@@ -314,7 +320,7 @@ export default function RideScreen() {
           >
             <Text style={styles.searchCancel}>{t('traveler.cancelTravel')}</Text>
           </Pressable>
-        )}
+        ) : null}
         <View style={{ flex: 1 }} />
         {/* Safety is available from the moment a Travel is confirmed, not only after an
             Operator has been found. A Traveler searching for an Operator may still need to
@@ -358,8 +364,12 @@ export default function RideScreen() {
       {/* The demo's enroute head: 23px phase title + sub, plain ARRIVAL figure. */}
       <View style={styles.headRow}>
         <View style={{ flex: 1 }}>
-          <Text style={styles.statusTitle}>{STATUS_LABELS[st]}</Text>
-          <Text style={styles.statusSub}>{subs[st]}</Text>
+          <Text style={styles.statusTitle}>
+            {st === 0 && ride.matchedOp ? t('traveler.rideAwaitingAcceptance') : STATUS_LABELS[st]}
+          </Text>
+          <Text style={styles.statusSub}>
+            {st === 0 && ride.matchedOp ? t('traveler.rideOfferPendingBody') : subs[st]}
+          </Text>
         </View>
         <View style={styles.etaWrap}>
           <SectionLabel style={styles.etaLabel}>{t('traveler.arrival')}</SectionLabel>
@@ -422,7 +432,9 @@ export default function RideScreen() {
       )}
 
       {/* The demo's operator card: avatar · name · vehicle · plate | rating · VERIFIED. */}
-      {ride.matchedOp && !complete && (
+      {/* An assigned offer is not yet an accepted Operator. Only show identifying
+          arrival details once the Operator has accepted through the verified server. */}
+      {ride.matchedOp && st >= 1 && !complete && (
         <Card style={styles.opCard}>
           <View style={styles.opAvatar}>
             <Text style={styles.opAvatarText}>
@@ -707,7 +719,8 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     paddingHorizontal: 10,
     fontWeight: '500',
-    color: colors.muted,
+    // Enabled cancellation must not look like a disabled control.
+    color: colors.ink2,
     fontSize: 15,
   },
   // ---- enroute ----

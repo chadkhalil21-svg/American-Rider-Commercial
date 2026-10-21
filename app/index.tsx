@@ -42,6 +42,7 @@ import { useLanguage } from '../src/state/LanguageContext';
 import { HomeMap } from '../src/components/HomeMap';
 import { legTitle } from '../src/smartLegs';
 import { colors, fmt, radii } from '../src/theme';
+import { scheduledHomeHeadingKey } from '../src/scheduledHomeState';
 
 // THE WEB DEMO, EXACTLY (Chad's call, 8 Aug 2026 — "he liked exactly what was on the web
 // demo"): letterhead header with the person outline, "Begin Travel", plain grey letterspaced
@@ -468,12 +469,12 @@ export default function Home() {
           down" — because nothing ever happened to a reservation afterwards. Now an operator
           is assigned, or the card was declined, or nobody was available, and each of those is
           something the traveler has to be told without being asked to guess from silence. */}
-      {ride.scheduled && ride.schedInfo && (
+      {ride.scheduled && ride.schedInfo && ride.schedState?.status !== 'cancelled' && (
         <View style={styles.upcomingCard}>
           <View style={styles.rowBetween}>
             <View style={{ flex: 1 }}>
               <SectionLabel style={styles.upcomingLabel}>
-                {ride.schedState?.status === 'dispatched' ? 'Operator Assigned' : 'Upcoming Travel'}
+                {t(scheduledHomeHeadingKey(ride.schedState?.status))}
               </SectionLabel>
               <Text style={styles.upcomingDest}>{ride.schedInfo.arr}</Text>
               <Text style={styles.upcomingWhen}>

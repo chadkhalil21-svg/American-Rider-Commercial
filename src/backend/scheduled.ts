@@ -23,11 +23,13 @@ import {
   type QueryDocumentSnapshot,
 } from 'firebase/firestore';
 import { auth, db } from '../firebase';
+import { showScheduledOnHome } from '../scheduledHomeState';
 import { PAYMENT_SERVER_URL } from '../config';
 
 /** Where a reservation has got to. Written by the sweep, never by the app. */
 export type SchedStatus =
   | 'reserved' // waiting for its hour
+  | 'dispatching' // scheduler's temporary claimed state, not an accepted Operator
   | 'dispatched' // an operator has been sent
   | 'unmatched' // nobody was available, and the hour has passed
   | 'payment_failed' // the card on file was declined
@@ -174,14 +176,8 @@ export async function fetchScheduledRide(): Promise<ScheduledRide | null> {
   for (let pageNo = 0; pageNo < 5; pageNo++) {
     const page = await fetchScheduledRidesPage(after);
     if (!page) return null; // network/index errors cannot become invented bookings
-    const next = page.rides.find((r) => {
-      if (!Number.isFinite(r.atMs)) return false;
-      const status = r.status ?? 'reserved';
-      if (status === 'dispatched') return r.atMs > Date.now() - 90 * 60 * 1000;
-      if (['unmatched', 'payment_failed', 'needs_attention', 'cancelled', 'price_changed'].includes(status))
-        return r.atMs > Date.now() - 60 * 60 * 1000;
-      return r.atMs > Date.now();
-    });
+    const now = Date.now();
+    const next = page.rides.find((r) => showScheduledOnHome(r, now));
     if (next) return next;
     if (!page.hasMore || !page.nextCursor) return null;
     after = page.nextCursor;

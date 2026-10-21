@@ -12,6 +12,7 @@ import {
   type ScheduledRide, type ScheduledPage,
 } from '../src/backend/scheduled';
 import { useLanguage } from '../src/state/LanguageContext';
+import { useRide } from '../src/state/RideContext';
 import { scheduledDisplayTotal } from '../src/scheduledMoney';
 import { colors, fmt } from '../src/theme';
 
@@ -30,6 +31,7 @@ function bookedDate(r: ScheduledRide, language: string): string {
 export default function UpcomingTravel() {
   const router = useRouter();
   const { t, language } = useLanguage();
+  const ride = useRide();
   const [rides, setRides] = useState<ScheduledRide[]>([]);
   const [cursor, setCursor] = useState<ScheduledPage['nextCursor']>(null);
   const [more, setMore] = useState(false);
@@ -63,6 +65,9 @@ export default function UpcomingTravel() {
     setCancelErrorId(null);
     const confirmed = await deleteScheduledRide(id);
     if (confirmed) {
+      // Server has committed the cancellation; reconcile the existing Home state
+      // without waiting for a separate Firestore snapshot or another paid read.
+      ride.dismissCancelledScheduled(id);
       setRides(prev => prev.map(r => r.id === id ? { ...r, status: 'cancelled' } : r));
       setCancelId(null);
     } else {
@@ -76,6 +81,7 @@ export default function UpcomingTravel() {
   const statusLabel = (r: ScheduledRide) => {
     switch (r.status ?? 'reserved') {
       case 'reserved': return t('traveler.scheduledTravel');
+      case 'dispatching': return t('traveler.rideFindingBest');
       case 'dispatched': return t('traveler.schedOperatorAssigned');
       case 'unmatched': return t('traveler.noOperatorAvailable');
       case 'payment_failed': return t('traveler.cardDeclined');
