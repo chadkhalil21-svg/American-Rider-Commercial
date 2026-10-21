@@ -63,6 +63,7 @@ import { fetchRoute, Route } from '../backend/route';
 import { getCabinPrefs } from './cabinPrefs';
 import { submitIssue, type SupportOutcome, type SupportTrip } from '../backend/support';
 import { t as tr } from '../i18n';
+import { usePaymentConfig } from './PaymentConfigContext';
 
 export type Prefs = { quiet: boolean; charging: boolean; luggage: boolean; pet: boolean };
 export type PayKey = 'ach' | 'apple' | 'gpay' | 'card';
@@ -321,6 +322,13 @@ const OPERATOR_STEP: Record<string, number> = {
 const RideContext = createContext<RideStore | null>(null);
 
 export function RideProvider({ children }: { children: React.ReactNode }) {
+  // Stable ref avoids additional config reads when Retry Dispatch reuses the
+  // same prepared ride. The server validates the version before recording it.
+  const providerPaymentConfig=usePaymentConfig();
+  const feeDisclosureVersionRef=useRef<string|null>(null);
+  feeDisclosureVersionRef.current=providerPaymentConfig.manualTravelAuthorization===true &&
+    providerPaymentConfig.cancellationFeeGrossCents===400
+      ? 'net3-allin400-v1' : null;
   const [defaultPrefs, setDefaultPrefs] = useState<Prefs>(DEFAULT_PREFS);
   const [tripPrefs, setTripPrefs] = useState<Prefs>({ ...DEFAULT_PREFS });
   const [pay, setPay] = useState<PayKey>('ach');
@@ -969,6 +977,7 @@ export function RideProvider({ children }: { children: React.ReactNode }) {
           const prepared = await prepareRide({
             bookingKey: bookingKeyRef.current, pickup: from, destinationPoint: dest,
             agreedTotalCents:quotedTotalRef.current,
+            cancellationFeeDisclosureVersion:feeDisclosureVersionRef.current,
             researchQuoteToken:researchQuoteRef.current,
             dep: departure.short, dest: arrival.short,
             cls: operatorClassFor(travelClassRef.current),
