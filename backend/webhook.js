@@ -86,8 +86,11 @@ async function handleEvent(event) {
           if(!verified.ok)return verified.reason;
           const manual=obj.metadata?.capturePolicy==='manual_v1';
           if(ride.paymentIntentId===obj.id&&ride.paidAt&&
-             (!manual || (ride.authorizationState==='captured'&&
-               Number(ride.capturedCents)===verified.amountCents)))
+             // Existing captured Travels can later be cancelled; the refund
+             // obligation must be durably recorded on the first such replay.
+             (manual ? (ride.authorizationState==='captured'&&
+               Number(ride.capturedCents)===verified.amountCents)
+               : !(ride.status==='cancelled'&&ride.refundPending!==true)))
             return 'already reconciled'; // replay: one read, zero writes
           tx.update(ref, { paymentIntentId:obj.id,paidAt:ride.paidAt||Date.now(),
             ...(manual?{authorizationState:'captured',capturedCents:verified.amountCents}
