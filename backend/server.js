@@ -2058,6 +2058,8 @@ app.post('/create-payment-intent', requireAuth, LIMITS.payments, requireFreshAut
           governmentFees: ride.feeLines,
           cardCountry: ride.cardCountry || null,
           tollCents: Math.max(0, Number(ride.tollCents) || 0),
+          routedMinutes: Number(ride.routedMinutes) || 90,
+          scheduledFor: ride.scheduledFor || null,
         }),
     });
     if (out.status !== 200) return res.status(out.status).json(out.body);
