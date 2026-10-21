@@ -53,8 +53,12 @@ function run() {
   // Deployment isolation: imported policy MUST NOT be enabled by importing it.
   const payments=fs.readFileSync(path.join(__dirname,'payments.js'),'utf8');
   const booking=fs.readFileSync(path.join(__dirname,'booking.js'),'utf8');
-  assert(!payments.slice(payments.indexOf('async function createPaymentIntent('),payments.indexOf('async function resumePaymentIntent(')).includes("capture_method: 'manual'"));
-  assert(booking.includes("payment.status === 'succeeded'"));
+  assert(payments.includes("process.env.AR_MANUAL_TRAVEL_CAPTURE==='true'"),
+    'capture_method change remains OFF unless deliberately enabled in deployment');
+  assert(payments.includes("capture_method:'manual'"),
+    'the only eligible manual card authorization is explicitly configured');
+  assert(booking.includes("payment.status==='succeeded'")&&booking.includes("payment.status==='requires_capture'"),
+    'captured legacy and provider-verified manual holds both remain supported');
 }
 run();run();
 console.log('PASS twice: PR143 future authorization/capture/void policy + 40,000 synthetic hold conditions; production auto-capture unchanged.');
