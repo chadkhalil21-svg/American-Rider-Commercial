@@ -9,6 +9,7 @@
 const { assessOperator } = require('./qualification');
 const { paymentMatches } = require('./booking');
 const { acceptanceEvidence } = require('./pickup-progress-fee');
+const { acceptanceProof } = require('./adultpickup');
 
 /**
  * @param externals { account: { disabled }, payouts: { enabled } } — the network half, checked by
@@ -72,12 +73,15 @@ async function acceptOffer({ db, uid, rideId, externals, liveMoney = false, now 
     // Reuse the Operator record already read for eligibility: no extra read,
     // no GPS-history collection and no additional write transaction. If the
     // position is stale/queued, record no basis for an en-route cancellation fee.
+    const pickupProof = acceptanceProof({rideId,ride,operatorUid:uid,now:at});
+    if (!pickupProof.ok) return {status:503,body:{error:'Pickup identity protection is unavailable.',code:pickupProof.code}};
     const pickupProgressStart = acceptanceEvidence({
       operator: opSnap.exists ? opSnap.data() : null,
       rideId,pickup:{lat:ride.pickupLat,lng:ride.pickupLng},at,
     });
     tx.update(rideRef, { status: 'accepted', acceptedAt: at, statusAt: at,
-      pickupProgressStart });
+      pickupProgressStart,
+      ...(pickupProof.field ? {adultPickup:pickupProof.field} : {}) });
     return { status: 200, body: { ok: true, acceptedAt: at } };
   });
 }
