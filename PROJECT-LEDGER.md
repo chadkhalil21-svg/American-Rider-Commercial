@@ -1,5 +1,11 @@
 # AMERICAN RIDER — CANONICAL PROJECT LEDGER
 
+## 20 Oct 2026 | Tolled-road launch safety
+
+New source PR fixes a potential toll overcharge in current release: different ways of paying one toll must not be added together; tolls must be priced for the same physical route as the quoted Fare. When a certified local price is unavailable, a single HERE response must supply both the road metrics and toll. Unknown costs remain unavailable rather than assumed zero. Includes synthetic routing regression and preserves geohash dispatch. Cloud Run and physical booking validation remain separate.
+
+---
+
 ## PR #187 | Payment method journey regression | 2026-10-20
 
 Added two synthetic Wallet and checkout tests, including Apple Pay, Google Pay, cancellation, default card, and old server response compatibility. The release retains PR #186 pricing and Stripe Customer idempotency. Changes to src/backend/payments.ts, backend/payments.js and backend/server.js improve wallet failures and prevent repeated config requests. No live card has been used. Stripe account profile text says flat $1.50 but the actual release dynamically calculates a minimum $2.50.
@@ -665,6 +671,7 @@ Founder confirmed a second run of controlled source deployment. The existing pai
 
 | Function / release item | Proven status on Commercial | What remains distinct |
 | --- | --- | --- |
+| 20 Oct 2026 P0 toll correctness #188 | **SOURCE PR CI:** Refuse simultaneous HERE alternative payment prices for one toll; when local road geometry is not certified for tolls, use one HERE answer for both Fare miles/time and applicable tolls. Synthetic HERE-vs-OSRM test. | Production Cloud Run deployment, 10+ actual area route samples, HERE license/Operator transponder rules, completed paid booking still not independently verified. |
 | Payment methods regression PR #187 | New synthetic user journey for card adding, defaulting, checkout, cancellation, and removal; fixes Native PaymentSheet failures and uses verified Stripe mode. Keeps PR #186 pricing. | CI, Cloud Run parity and native real-device confirmation before declaring live completion. |
 | Oct 20 Traveler payment-method journey (PR #186) | **SOURCE PR / CI PENDING:** Synthetic sequence covers SetupIntent cancellation/add, list, make default, switch, ownership, remove default/last, no charge; customer-create idempotency and native Stripe initialization readiness guarded. Checkout quote uses unknown/international-safe card cost because PaymentSheet can change the default card. Dynamic $2.50 minimum and 99% fare preserved. | Merge CI, production deployment and matching native build; physical Apple/Google Pay hardware acceptance and authenticated Stripe test-mode PaymentSheet/refund still not evidenced. Stripe business description's $1.50 is stale metadata; account edit not exposed by connected Stripe tools. |
 | Oct 20 Connect payout event queue, Google/Stripe/H3 cost audit | **STACKED DRAFT source PR, not deployed:** records payout.paid/payout.failed by Stripe ID; duplicates zero writes, paid-to-failed reverses month, due-only indexed review max 160 docs per maintenance run. PR #182 must merge before this. No cash collected, no weekly payout schedule. | Actual Stripe Connect pricing ownership & charged fees, consented future earnings recovery, verified sandbox/signed iOS bank-payout experience and controlled index+server release remain mandatory. Google Query Explain staging billing verification outstanding. |

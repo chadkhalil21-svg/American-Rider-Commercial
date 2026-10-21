@@ -17,6 +17,16 @@ const normal = {
   config: {mode:'live',canTakePayment:true,stripePublishableKey:'pk_live_DUMMY'}
 };
 assert.ok(verifyProductionResponses(normal.live, normal.health, normal.config));
+const certified = '48f31bc3fe60112858f26a9be9b36b5f9391df53';
+assert.ok(verifyProductionResponses(normal.live, {...normal.health, commit:certified.slice(0,7)},
+  normal.config, {certifiedSha:certified}), 'exact Cloud Run commit serves certified mobile source');
+assert.throws(()=>verifyProductionResponses(normal.live, {...normal.health, commit:'fffffff'},
+  normal.config, {certifiedSha:certified}),/Cloud Run revision/,
+  'stale Cloud Run backend blocks publication even if Stripe works');
+assert.throws(()=>verifyProductionResponses(normal.live, normal.health,
+  normal.config,{certifiedSha:certified}),/Cloud Run revision/,
+  'missing Cloud Run commit is not evidence of matching binary');
+
 for (const [field, bad] of [
   ['deployment','development'], ['stripe','no-key'],
   ['scheduler','off'], ['operationalReady',false],
