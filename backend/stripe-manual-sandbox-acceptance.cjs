@@ -3,9 +3,10 @@
 // Run via the founder's manual GitHub workflow. NEVER accept a live/restricted-live key.
 const crypto=require('node:crypto');
 const Stripe=require('stripe');
-const key=process.env.STRIPE_TEST_SECRET_KEY||'';
-if(!/^sk_test_[A-Za-z0-9]+$/.test(key)) {
- console.error('STOP: a real Stripe TEST secret key is required; live money refused.');
+const {safeSandboxSecretKey}=require('./stripe-test-key-policy');
+const key=safeSandboxSecretKey(process.env.STRIPE_TEST_SECRET_KEY);
+if(!key) {
+ console.error('STOP: STRIPE_TEST_SECRET_KEY must contain one complete sk_test_ secret. No live money permitted.');
  process.exit(1);
 }
 const stripe=new Stripe(key,{apiVersion:'2024-06-20',maxNetworkRetries:1});
@@ -30,6 +31,10 @@ async function authorize(name){
 }
 (async()=>{
  try {
+   // Stripe itself, not a guessed alphabet for its credentials, proves test mode.
+   // Do no financial writes until the authenticated account confirms livemode=false.
+   const scope=await stripe.balance.retrieve();
+   assure(scope?.livemode===false,'Stripe API did not confirm sandbox balance; no test payments performed');
    const full=await authorize('complete');
    const captured=await stripe.paymentIntents.capture(full.id,{amount_to_capture:1000},
      {idempotencyKey:'ar_sandbox_capture_'+run+'_full'});
