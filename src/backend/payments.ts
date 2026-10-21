@@ -94,6 +94,8 @@ export type PaymentConfig = {
   canManagePaymentMethods: boolean;
   /** The platform is operationally ready to create a Travel payment. */
   canTakePayment: boolean;
+  manualTravelAuthorization?:boolean;
+  cancellationFeeGrossCents?:number|null;
 };
 
 /**
@@ -113,6 +115,8 @@ export async function fetchPaymentConfig(): Promise<PaymentConfig> {
       mode: d?.mode === 'live' ? 'live' : d?.mode === 'test' ? 'test' : 'no-key',
       canManagePaymentMethods: d?.canManagePaymentMethods === true,
       canTakePayment: d?.canTakePayment === true,
+      manualTravelAuthorization:d?.manualTravelAuthorization===true,
+      cancellationFeeGrossCents:Number(d?.cancellationFeeGrossCents)===400?400:null,
     };
   } catch {
     return { stripePublishableKey: null, mode: 'no-key', canManagePaymentMethods: false, canTakePayment: false };
