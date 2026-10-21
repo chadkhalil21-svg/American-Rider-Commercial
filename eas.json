@@ -40,6 +40,11 @@
       "android": {
         "track": "production"
       }
+    },
+    "internal": {
+      "android": {
+        "track": "internal"
+      }
     }
   }
 }
