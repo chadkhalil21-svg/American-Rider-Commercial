@@ -355,6 +355,28 @@ async function settleTravel({ db, uid, rideId, deps, now = Date.now() }) {
   const paymentIntentId = String(ride.paymentIntentId || '');
   if (!paymentIntentId) return fail(400, 'No payment is recorded for this travel', 'no_payment');
 
+  // A legitimately completed manual Travel must CAPTURE before the authorization
+  // expires, even if the Operator still needs to finish Connect onboarding.
+  // Sending the Operator share remains independently conditional on payout readiness.
+  if(ride.paymentCapturePolicy==='manual_v1') {
+    if(typeof deps.settleUncapturedTravel!=='function')
+      return {status:202,body:{ok:false,pending:true,reason:'capture handler unavailable'}};
+    let captured;
+    try {captured=await deps.settleUncapturedTravel({
+      paymentIntentId,uid:String(uid),rideId:id,totalCents:Number(ride.costCents),
+      action:'complete',now,
+    });} catch(e) {
+      captured={ok:false,code:String(e.message||e)};
+    }
+    if(!captured?.manual||!captured.ok) {
+      await rideRef.set({capturePending:true,captureBlockedReason:captured?.code||'capture_unconfirmed'},
+        {merge:true});
+      return {status:202,body:{ok:false,pending:true,reason:'capture_reconciliation_pending'}};
+    }
+    await rideRef.set({capturePending:false,authorizationState:'captured',
+      capturedCents:captured.captureCents,capturedAt:now},{merge:true});
+  }
+
   const { accountId, reason } = await deps.operatorPayoutAccount(db, ride.operatorId);
   if (!accountId) {
     await rideRef.set({ payoutPending: true, payoutBlockedReason: reason, payoutCheckedAt: now }, { merge: true });
