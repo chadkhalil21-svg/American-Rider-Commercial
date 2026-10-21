@@ -1,0 +1,71 @@
+name: Read-only Build 48 JavaScript startup resolution probe (no TestFlight)
+on:
+  push:
+    branches: [diagnostic/build48-react-native-startup-20261021]
+    paths:
+      - '.github/workflows/diagnose-build48-js-startup.yml'
+permissions:
+  contents: read
+jobs:
+  metro-native-boot-check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - name: Probe installed Firebase auth RN export and ESM resolution without changing app source
+        shell: bash
+        run: |
+          set -euo pipefail
+          node - <<'NODE'
+          const fs=require('node:fs'),path=require('node:path');
+          const authRoot=path.dirname(require.resolve('@firebase/auth/package.json'));
+          const p=JSON.parse(fs.readFileSync(path.join(authRoot,'package.json'),'utf8'));
+          console.log('INSTALLED_FIREBASE_AUTH_VERSION',p.version);
+          console.log('FIREBASE_AUTH_RN_FIELD',p['react-native']||'<absent>');
+          const exp=p.exports?.['.'];console.log('FIREBASE_AUTH_EXPORT_RN',JSON.stringify(exp?.['react-native']??'<absent>').slice(0,400));
+          const f=(typeof exp?.['react-native']==='string'?exp['react-native']:typeof p['react-native']==='string'?p['react-native']:null);
+          if(f){
+            const target=path.resolve(authRoot,f);
+            console.log('RN_TARGET_EXISTS',fs.existsSync(target));
+            if(fs.existsSync(target)){
+              const t=fs.readFileSync(target,'utf8');
+              console.log('RN_ENTRY_HAS_PERSISTENCE',t.includes('getReactNativePersistence'));
+            }
+          }
+          const source=fs.readFileSync('metro.config.js','utf8');
+          const addition=`
+          let resolvedAuthPaths=new Set();
+          const inner=config.resolver.resolveRequest;
+          config.resolver.resolveRequest=(context, moduleName, platform)=>{
+            const result=inner(context,moduleName,platform);
+            if(platform==='ios' && (moduleName==='firebase/auth'||moduleName==='@firebase/auth') && resolvedAuthPaths.size<12){
+              const relative=String(result.filePath||'').replace(process.cwd()+'/', '');
+              if(!resolvedAuthPaths.has(moduleName+':'+relative)){
+                resolvedAuthPaths.add(moduleName+':'+relative);
+                console.log('REAL_METRO_IOS_AUTH_RESOLUTION',moduleName,relative);
+              }
+            }
+            return result;
+          };
+          `;
+          if(!source.includes('module.exports = config;'))throw Error('Metro hook location changed');
+          fs.writeFileSync('metro.config.js',source.replace('module.exports = config;',addition+'\\nmodule.exports = config;'));
+          NODE
+      - name: Actually Metro-export native iOS production JS and capture Firebase resolution (not a binary)
+        shell: bash
+        run: |
+          set -euo pipefail
+          npx expo export --platform ios --output-dir dist-startup-diagnostic > /tmp/native-export.log 2>&1 || {
+            tail -n 85 /tmp/native-export.log
+            exit 1
+          }
+          grep -E 'REAL_METRO_IOS_AUTH_RESOLUTION|iOS Bundled|Exported|Exporting|bundle' /tmp/native-export.log | tail -n 45 || true
+          test -n "$(find dist-startup-diagnostic -type f -name '*.hbc' -o -name '*.js' | head -n1)"
+          echo NATIVE_IOS_JS_EXPORT_PASSED
+      - name: Explicitly confirm no publish action took place
+        run: echo 'No signing, EAS upload, TestFlight submission, Apple metadata, release branch, or production deployment changed.'
