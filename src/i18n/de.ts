@@ -1319,6 +1319,23 @@ export default {
     msgTravelUnavailable: "Für diese Unterhaltung liegt keine verifizierte Fahrt vor. Wählen Sie eine aufgezeichnete Fahrt oder kontaktieren Sie den Support.",
   },
 
+  operatorNoShow: {
+    waitUnconfirmed: "Die Wartezeit wird überprüft.",
+    countdown: "Warten auf den Reisenden · {time}",
+    contactFirst: "Der Reisende ist nicht da? Senden Sie vor der Meldung eine Nachricht.",
+    title: "Reisender nicht erschienen",
+    confirm: "Bestätigen Sie, dass Sie fünf Minuten am Abholort gewartet und dem Reisenden eine Nachricht gesendet haben.",
+    continue: "Weiter warten",
+    record: "Nichterscheinen melden",
+    closed: "Fahrt abgeschlossen",
+    refundPending: "Die Erstattung an den Reisenden wird noch geprüft.",
+    paymentReconciled: "Die Zahlung des Reisenden wurde abgeglichen.",
+    messageRequired: "Senden Sie dem Reisenden zuerst über Kontakt eine Nachricht.",
+    unavailable: "Die Abwicklung bei Nichterscheinen ist noch nicht verfügbar. Wenden Sie sich an den Support.",
+    unverified: "Das Nichterscheinen konnte nicht bestätigt werden. Warten Sie weiter oder wenden Sie sich an den Support.",
+    action: "Reisender Nicht Erschienen",
+  },
+
   legal: {
     termsTitle: 'Nutzungsbedingungen',
     privacyTitle: 'Datenschutzerklärung',
