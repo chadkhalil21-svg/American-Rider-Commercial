@@ -1,5 +1,19 @@
 # AMERICAN RIDER — CANONICAL PROJECT LEDGER
 
+## PAYMENT-METHOD JOURNEY REVIEW | 20 OCT 2026 | PR #186
+
+**Founder requirement:** Verify the Traveler's payment-method journey. Synthetic provider-mocked backend/payment-method-journey.test.js exercises overlapping first-time Customer requests, canceled SetupIntent, saved card, default switch, ownership checks, remove default, remove last, and Apple/Google wallet wiring. No live money or physical-device operation is claimed.
+
+**Defect #1:** src/state/PaymentConfigContext.tsx had enabled Wallet before Stripe native SDK initialization had completed. Payment capabilities now remain unavailable until init resolves, or fail safely on initialization error.
+
+**Defect #2:** backend/payments.js Stripe Customer Search is eventually consistent; simultaneous first-time Wallet/checkout requests might create duplicate Customers and split saved methods. Deterministic SHA-256 uid-derived Stripe idempotency key limits this first-time race without exposing PII. Historical duplicates are not automatically merged.
+
+**Defect #3:** PaymentSheet permits switching from saved default US card to an international-issued card or Apple/Google Pay AFTER the accepted quote. Default-card country is therefore not guaranteed to be actual card country. backend/fareauthority.js now quotes conservatively at the supported international/unknown processing tier across quote, booking, and PaymentIntent, preserving economic coverage and no after-acceptance surcharge. The $2.50 floor remains and the fee increases as required by modeled costs. This may increase displayed amounts for ordinary domestic-card Travels, and avoids per-quote Stripe Customer/default-method reads.
+
+**Stripe account description:** Its business profile still states $1.50, while executable code uses a $2.50 minimum and a dynamic fee solver. The installed Stripe integration can read account details but does not expose a supported own-account business-profile edit operation; the text requires Stripe Business settings through the user UI or a separate write-capable integration. This does not modify the checkout calculation. No provider-real card test, test charge, real charge, or public rollout is established by this PR.
+
+---
+
 ## FOUNDER EXECUTION DECISION | 20 OCT 2026 | DEFAULT FRIDAY STANDARD, INSTANT ON DEMAND, LIVE LAUNCH
 
 **Final provider cadence:** Founder approves **weekly automatic Standard bank payouts on FRIDAY** plus eligible **Instant Payouts throughout the week**. This is not a new Operator payday/calendar feature. `backend/connect-payout-schedule.js` now defaults to Stripe `interval=weekly,weekly_anchor=friday` for newly onboarded connected accounts; it updates and rechecks Stripe before stating completion. `CONNECT_STANDARD_PAYOUT_INTERVAL=daily` remains emergency rollback only. Stripe's separate two-day settlement/availability delay is unchanged. Previously created connected accounts require explicit migration; latest live account query returned ZERO connected Operators, so none needs retroactive migration today. User's platform account weekly schedule is not to be changed.
