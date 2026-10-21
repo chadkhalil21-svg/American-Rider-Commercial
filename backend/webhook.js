@@ -115,6 +115,8 @@ async function handleEvent(event) {
     // ---- The traveler's bank took the money back. -----------------------------------
     case 'charge.dispute.created': {
       const ride = await rideByPaymentIntent(db, obj.payment_intent);
+      if(ride?.disputed===true&&ride.disputeId===obj.id&&ride.caseNo)
+        return {ok:true,action:'dispute already opened',caseNo:ride.caseNo};
       const caseNo = await open(db, ride, {
         kind: 'emergency', // not a safety emergency — a deadline. Evidence windows close.
         reason: 'Payment disputed',
