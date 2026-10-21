@@ -181,7 +181,6 @@ async function cancelTravel({ db, uid, rideId, deps, stripeConfigured = true, no
       // Release only AFTER every eligibility check passes. An early no-show
       // must never drop a paying Traveler's accepted Operator slot.
     }
-    }
     // A reported no-show is an exceptional Operator action. Use the same Operator
     // snapshot this cancellation already reads, and reject without changing the
     // paid Travel if the wait, contact or precise pickup evidence is absent.
