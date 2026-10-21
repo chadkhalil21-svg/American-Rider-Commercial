@@ -1918,7 +1918,9 @@ app.post('/payment-methods/setup-intent', requireAuth, LIMITS.payments, async (r
   if (keyMode === 'no-key') return res.status(500).json({ error: 'No Stripe secret key configured' });
   try {
     const setup = await createSetupIntent({ uid: req.uid, email: req.email });
-    return res.json(setup);
+    // Match the PaymentIntent endpoint: the setup's own Stripe mode is authoritative.
+    // A second /config request could fail and incorrectly initialize live Google Pay in test.
+    return res.json({ ...setup, mode: keyMode });
   } catch (e) {
     return res.status(502).json({ error: 'A payment method cannot be added right now', detail: String(e && e.message || e) });
   }
