@@ -54,7 +54,7 @@ jobs:
           };
           `;
           if(!source.includes('module.exports = config;'))throw Error('Metro hook location changed');
-          fs.writeFileSync('metro.config.js',source.replace('module.exports = config;',addition+'\\nmodule.exports = config;'));
+          fs.writeFileSync('metro.config.js',source.replace('module.exports = config;',addition+'\nmodule.exports = config;'));
           NODE
       - name: Actually Metro-export native iOS production JS and capture Firebase resolution (not a binary)
         shell: bash
