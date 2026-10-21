@@ -963,6 +963,21 @@ async function transferToOperator({
 }
 
 /**
+ * Manual hold settlement is wholly separate from the legacy refund path.
+ * No Refund object is created when releasing or partially capturing a hold.
+ * Return manual:false for old already-captured payment versions ONLY.
+ */
+async function settleUncapturedTravel({paymentIntentId,uid,rideId,totalCents,action,
+  verifiedFeeCents=0,now=Date.now()}={}){
+  const pi=await verifiedTravelPayment(paymentIntentId);
+  if(!pi)return {manual:true,ok:false,code:'payment_unavailable'};
+  if(pi.metadata?.capturePolicy!=='manual_v1')return {manual:false};
+  const out=await executeManualSettlement({stripe:getStripe(),paymentIntentId,uid,rideId,
+    totalCents,action,verifiedFeeCents,now,requiredUntil:now});
+  return {manual:true,...out};
+}
+
+/**
  * Move a fixed amount to an operator, drawn from a specific charge.
  *
  * Used for the arrival fee on a cancellation, where the sum is a flat figure rather than a
@@ -1221,7 +1236,7 @@ module.exports = {
   MIN_PLATFORM_FEE_CENTS,
   customerForTraveler, connectAccountFor, configureConnectPayoutSchedule, connectOnboardingLink, connectAccountStatus,
   transferToOperator, paidWithFromIntent, refundableFor, connectDashboardLink, pingStripe, probeNetwork,
-  transferFixed, chargeScheduledTravel, createScreeningIntent, chargeOperatorAccountFee,
+  transferFixed, settleUncapturedTravel, chargeScheduledTravel, createScreeningIntent, chargeOperatorAccountFee,
   describePaymentMethod, listPaymentMethods, createSetupIntent, setDefaultPaymentMethod, detachPaymentMethod,
   // Exported under an underscored name for idempotency.test.js only. It is an internal detail
   // of how a charge is keyed, not part of the module's interface.
