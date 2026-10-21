@@ -756,6 +756,18 @@ app.post('/support', requireAuth, requireVerifiedEmail, LIMITS.support, async (r
         reason: 'Automatic credit approved but no authoritative owned Travel payment could be verified.',
         forced: true,
       };
+    } else if(refundRide.refundFailureReviewRequired||refundRide.disputed||
+              refundRide.financialReviewRequired) {
+      // A bank dispute, failed refund or unresolved account adjustment must not
+      // become a second automatic credit; use the already-existing support case.
+      decision={action:'escalate',message:decision.message,
+        reason:'Existing bank dispute/refund exception requires provider reconciliation',
+        forced:true};
+    } else if(refundRide.supportRefundId) {
+      // Idempotent whole-Travel credit: one successful support refund only.
+      // Saved on the ride after confirmation; replay does not call Stripe again.
+      return res.json({...decision,refunded:true,alreadyRefunded:true,
+        refundId:refundRide.supportRefundId});
     } else {
     const refund = await refundTravel({
       paymentIntentId: refundRide.paymentIntentId,
@@ -780,7 +792,8 @@ app.post('/support', requireAuth, requireVerifiedEmail, LIMITS.support, async (r
       });
     }
     if (refund.ok) {
-      if (refundRideRef) await refundRideRef.set({ supportRefundId: refund.refundId, supportRefundedCents: refund.amountCents, supportRefundedAt: Date.now() }, { merge: true });
+      if (refundRideRef) await refundRideRef.set({ supportRefundId: refund.refundId, supportRefundedCents: refund.amountCents,
+        supportRefundStatus:refund.status,supportRefundedAt:Date.now() }, { merge: true });
       return res.json({ ...decision, refunded: true, refundId: refund.refundId });
     }
     decision = {
