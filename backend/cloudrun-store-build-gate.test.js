@@ -49,12 +49,14 @@ for(const workflow of [
   assert.ok(gate>=0 && build>gate, 'Cloud Run gate must precede store build: '+workflow);
 }
 const eas = JSON.parse(fs.readFileSync(path.join(root,'eas.json'),'utf8'));
-assert.equal(eas.submit?.production?.android?.track, 'internal',
-  'Google Play must first use internal testing, not automatic public release');
+assert.equal(eas.submit?.production?.android?.track, 'production',
+  'Public Play releases must use the production track by explicit submission');
+assert.equal(eas.submit?.internal?.android?.track, 'internal',
+  'Optional prelaunch testing must use a separate internal track');
 const android = fs.readFileSync(
   path.join(root,'.github/workflows/build-certified-android-play.yml'),'utf8');
 assert.match(android,/submit_to_google_play_internal/);
 assert.match(android,/if: \$\{\{ inputs\.submit_to_google_play_internal == true \}\}/);
-assert.match(android,/eas-cli@latest submit --platform android --id "\$EAS_BUILD_ID"/,
-  'optional Play upload must use the exact EAS AAB that was built');
+assert.match(android,/eas-cli@latest submit --platform android --id "\$EAS_BUILD_ID" --profile internal/,
+  'optional internal Play upload must use the exact EAS AAB and internal-only submit profile');
 console.log('PASS: signed iOS/Google Play builds must target verified live Cloud Run production API.');
