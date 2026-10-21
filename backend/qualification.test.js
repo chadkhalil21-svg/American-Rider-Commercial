@@ -14,6 +14,7 @@ const check = (l, c, d) => R.push({ l, ok: !!c, d });
 // ——— a Firestore stand-in: get/set on refs, auto-id docs, queries by one field, transactions ——
 function fakeDb(seed) {
   const data = JSON.parse(JSON.stringify(seed));
+  const counts = { writes: 0, users: 0, operators: 0 };
   let n = 0;
   const merge = (a, b) => {
     const out = { ...(a || {}) };
@@ -27,6 +28,8 @@ function fakeDb(seed) {
     return { exists: !!v, data: () => (v ? JSON.parse(JSON.stringify(v)) : undefined) };
   };
   const write = (col, id, f, opts) => {
+    counts.writes++;
+    if (col === 'users' || col === 'operators') counts[col]++;
     data[col] = data[col] || {};
     data[col][id] = opts?.merge ? merge(data[col][id], f) : { ...f };
   };
@@ -36,7 +39,7 @@ function fakeDb(seed) {
     set: async (f, opts) => write(col, id, f, opts),
   });
   return {
-    data,
+    data, counts,
     collection: (col) => ({
       doc: (id) => ref(col, id ?? `auto${++n}`),
       where: (field, op, val) => ({
@@ -129,6 +132,36 @@ const codes = (a) => a.blockers.map((b) => b.code);
     const db = fakeDb({ users: { op: cleanUser() }, operators: {} });
     const r = await assessAndRecord({ db, uid: 'op', checks: async () => OK, liveMoney: true, now: NOW });
     check('1. …and recorded as qualified with a timestamp', r.qualified && db.data.users.op.qualification.status === 'qualified' && db.data.users.op.qualification.qualifiedAt === NOW);
+  }
+
+  // ——— 1b. Read-only unchanged assessments, immediate adverse status ————————————
+  {
+    const db = fakeDb({ users: { op: cleanUser() },
+      operators: { op: { available:true, commissioned:true } } });
+    const run = async at => assessAndRecord({db,uid:'op',checks:async()=>OK,liveMoney:true,now:at});
+    await run(NOW);
+    check('1b. first qualification creates one current snapshot',db.counts.users===1);
+    const previous = db.counts.writes;
+    await run(NOW+120_000);
+    await run(NOW+4*60*60_000);
+    check('1b. repeated unchanged foreground status is read-only (no repeated write)',
+      db.counts.writes===previous);
+    await run(NOW+6*60*60_000);
+    check('1b. unchanged six-hour diagnostic refresh is bounded',
+      db.counts.users===2 && db.counts.operators===0);
+    // A newly adverse source record must take effect on the NEXT request,
+    // rather than hiding behind the six-hour snapshot interval.
+    db.data.users.op.screening.decision='refuse';
+    await run(NOW+6*60*60_000+1000);
+    check('1b. refused screening immediately records changed evidence and goes off duty',
+      db.data.users.op.qualification.status==='refused' &&
+      db.data.operators.op.available===false &&
+      db.data.operators.op.commissioned===false &&
+      db.counts.users===3 && db.counts.operators===1);
+    const lossWrites=db.counts.writes;
+    await run(NOW+6*60*60_000+120000);
+    check('1b. already recorded refusal produces no duplicate off-duty or qualification writes',
+      db.counts.writes===lossWrites);
   }
 
   // ——— 2. one document held for review ———————————————————————————————————————————
