@@ -1,64 +1,74 @@
-// Starting, updating and ending the Live Activity.
-//
-// KEPT OUT OF RideContext DELIBERATELY. The ride store is already the largest file in the app,
-// and a lock-screen surface that fails must never take a travel down with it — every call here
-// is wrapped, returns nothing, and is safe to make on a platform that has no such thing.
-//
-// ONE AT A TIME. ActivityKit will happily run several; a traveler has one travel. The instance
-// is held here so a second start replaces rather than stacks, and so a restart of the app can
-// still end an activity it did not begin — `TravelActivity.getInstances()` is the only handle
-// that survives the process.
+// Live Activities are optional lock-screen presentation, not a startup dependency.
+// IMPORTANT: RideContext loads this module while the app boots. Importing the native
+// Expo widget at the module top level can throw before any call-level try/catch runs.
+// Keep only the erased TypeScript type import here and resolve the native widget at
+// the moment an activity is needed, inside the existing failure boundary.
+// This preserves every paid Travel and sign-in even when a widget is unavailable.
 import { Platform } from 'react-native';
-import { TravelActivity, type TravelActivityProps } from '../widgets/TravelActivity';
+import type { TravelActivityProps } from '../widgets/TravelActivity';
 
-type Instance = { update: (p: TravelActivityProps) => Promise<void>; end: (...a: unknown[]) => Promise<void> };
+type Instance = {
+  update: (p: TravelActivityProps) => Promise<void>;
+  end: (...args: unknown[]) => Promise<void>;
+};
 
+type ActivityAPI = {
+  start: (props: TravelActivityProps, url: string) => Instance;
+  getInstances: () => Instance[];
+};
+
+const supported = Platform.OS === 'ios';
 let current: Instance | null = null;
 
-/** Live Activities are iOS 16.1+; everything here is a no-op elsewhere. */
-const supported = Platform.OS === 'ios';
-
-/** Begin showing a travel on the lock screen. Safe to call twice — the second replaces. */
-export function startTravelActivity(props: TravelActivityProps): void {
-  if (!supported) return;
+function activity(): ActivityAPI | null {
+  if (!supported) return null;
   try {
-    endTravelActivity();
-    // The deep link is what a tap on the lock screen opens: the travel itself, not the app's
-    // front door. Somebody glancing at a Live Activity wants the screen it came from.
-    current = TravelActivity.start(props, 'americanrider:///ride') as unknown as Instance;
+    // Metro bundles the module, but does not evaluate it during RootLayout import.
+    // The widget's createLiveActivity() may fail at module evaluation (a previously
+    // observed failure mode). A local try/catch can contain that without taking down
+    // Firebase sign-in, routing, payments, or dispatch.
+    return (require('../widgets/TravelActivity') as typeof import('../widgets/TravelActivity'))
+      .TravelActivity as unknown as ActivityAPI;
   } catch {
-    // A refused activity (permission off, too many running, unsupported device) costs the
-    // lock screen and nothing else. The travel is unaffected.
+    return null;
   }
 }
 
-/** Move it along. Silently does nothing when no activity is running. */
+/** Begin a Live Activity on iOS. Never affects the underlying travel on failure. */
+export function startTravelActivity(props: TravelActivityProps): void {
+  if (!supported) return;
+  try {
+    const widget = activity();
+    if (!widget) return;
+    endTravelActivity();
+    current = widget.start(props, 'americanrider:///ride');
+  } catch {
+    // Optional ActivityKit/Expo widget errors must never terminate a travel.
+  }
+}
+
+/** Update an activity already started. Safe on every other platform. */
 export function updateTravelActivity(props: TravelActivityProps): void {
   if (!supported || !current) return;
   try {
     current.update(props).catch(() => {});
   } catch {
-    /* see above */
+    // An OS refusal costs only the lock-screen presentation.
   }
 }
 
-/**
- * End it.
- *
- * `immediate` removes it from the lock screen at once — right for a cancellation. The default
- * leaves it briefly, which is right for an arrival: somebody glancing down after getting out
- * should still see which travel it was.
- */
+/** End all activity instances, including ones surviving a prior app process. */
 export function endTravelActivity(immediate = false): void {
   if (!supported) return;
   try {
-    // Anything still running, including from a previous launch of the app. A Live Activity
-    // outliving the process is the one failure mode users actually complain about.
-    const running = TravelActivity.getInstances() as unknown as Instance[];
-    for (const a of running) a.end(immediate ? 'immediate' : 'default').catch(() => {});
+    const widget = activity();
+    if (widget) {
+      const running = widget.getInstances();
+      for (const active of running) active.end(immediate ? 'immediate' : 'default').catch(() => {});
+    }
     current?.end(immediate ? 'immediate' : 'default').catch(() => {});
   } catch {
-    /* nothing to end, or no ActivityKit here */
+    // Optional activity failure must never stop the underlying journey.
   }
   current = null;
 }
