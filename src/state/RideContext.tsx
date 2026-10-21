@@ -1694,6 +1694,11 @@ export function RideProvider({ children }: { children: React.ReactNode }) {
   // `schedSaved` records whether it will still be there tomorrow, and the screen says so.
   const scheduleRide = useCallback(
     async (info: SchedInfo): Promise<boolean> => {
+      // Do not submit an unknown restored price as a new booking quote.
+      if (typeof info.cost !== 'number' || !Number.isFinite(info.cost) || info.cost <= 0) {
+        setSchedSaved(false);
+        return false;
+      }
       // A reservation is a server fact. Do not display "Scheduled" before the server has
       // accepted the exact journey; a failed or stale write must never become local truth.
       setSchedSaved(null);
