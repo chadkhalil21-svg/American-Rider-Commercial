@@ -991,13 +991,37 @@ async function settleUncapturedTravel({paymentIntentId,uid,rideId,totalCents,act
  * those funds exactly as a settlement does, and the idempotency key makes a repeated
  * cancellation request pay once.
  */
-async function transferFixed({ paymentIntentId, operatorStripeAccount, amountCents, reference }) {
+async function transferFixed({ paymentIntentId, operatorStripeAccount, amountCents,
+  reference, rideId=null, expectedUid=null }) {
   if (!(amountCents > 0)) return { ok: false, error: 'nothing to transfer' };
   const stripe = getStripe();
   try {
     const pi = await stripe.paymentIntents.retrieve(paymentIntentId, { expand: ['latest_charge'] });
     const chargeId = typeof pi.latest_charge === 'string' ? pi.latest_charge : pi.latest_charge?.id;
     if (!chargeId) return { ok: false, error: 'payment has no charge to draw from' };
+    // A $3 payout on the newly disclosed $4 manual fee must have an
+    // authentic Stripe $4 captured charge. No second transfer after a crash.
+    if(rideId||pi.metadata?.capturePolicy==='manual_v1') {
+      if(!rideId||!expectedUid||pi.metadata?.capturePolicy!=='manual_v1'||
+         pi.metadata?.uid!==String(expectedUid)||pi.metadata?.rideId!==String(rideId)||
+         pi.status!=='succeeded'||Number(pi.amount_received)!==400||
+         amountCents!==300)
+        return {ok:false,error:'verified manual fee transfer binding unavailable',
+          code:'fixed_fee_not_authorized'};
+      const {transferCancellationOnce}=require('./fixed-fee-transfer-guard');
+      const {adminDb}=require('./firebase-admin');
+      return transferCancellationOnce({
+        db:adminDb(),rideId:String(rideId),paymentIntentId:pi.id,
+        expectedUid:String(expectedUid),accountId:operatorStripeAccount,chargeId,
+        findTransfers:group=>stripe.transfers.list({transfer_group:group,limit:2}),
+        createTransfer:group=>stripe.transfers.create({
+          amount:300,currency:'usd',destination:operatorStripeAccount,
+          source_transaction:chargeId,transfer_group:group,
+          description:'American Rider verified cancellation',
+          metadata:{rideId:String(rideId),paymentIntentId:pi.id},
+        },{idempotencyKey:`ar_cancel_operator_${rideId}`}),
+      });
+    }
     const transfer = await stripe.transfers.create(
       {
         amount: amountCents,
