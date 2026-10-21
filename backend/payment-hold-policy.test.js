@@ -36,12 +36,12 @@ function run() {
     settlementPlan({...opts(),travelState:'completed'}),
     {action:'capture',amountCents:2500,reason:'verified_completion'});
   assert.equal(settlementPlan({...opts(),travelState:'accepted'}).action,'wait');
-  assert.equal(settlementPlan({...opts(),travelState:'cancelled',acceptedAt:now-30000,verifiedCancellationFeeCents:300}).action,'void_authorization');
+  assert.equal(settlementPlan({...opts(),travelState:'cancelled',acceptedAt:now-30000,verifiedCancellationFeeCents:400}).action,'void_authorization');
   assert.equal(settlementPlan({...opts(),travelState:'cancelled',acceptedAt:now-180000,verifiedCancellationFeeCents:0}).action,'void_authorization');
-  assert.equal(settlementPlan({...opts(),travelState:'cancelled',acceptedAt:now-180000,verifiedCancellationFeeCents:300,operatorAtFault:true}).action,'void_authorization');
-  assert.equal(settlementPlan({...opts(),travelState:'cancelled',acceptedAt:now-180000,verifiedCancellationFeeCents:301}).action,'void_authorization');
-  assert.deepEqual(settlementPlan({...opts(),travelState:'cancelled',acceptedAt:now-180000,verifiedCancellationFeeCents:300}),
-    {action:'capture',amountCents:300,reason:'server_verified_cancellation_fee'});
+  assert.equal(settlementPlan({...opts(),travelState:'cancelled',acceptedAt:now-180000,verifiedCancellationFeeCents:400,operatorAtFault:true}).action,'void_authorization');
+  assert.equal(settlementPlan({...opts(),travelState:'cancelled',acceptedAt:now-180000,verifiedCancellationFeeCents:401}).action,'void_authorization');
+  assert.deepEqual(settlementPlan({...opts(),travelState:'cancelled',acceptedAt:now-180000,verifiedCancellationFeeCents:400}),
+    {action:'capture',amountCents:400,reason:'server_verified_cancellation_fee'});
   // Synthetic, deterministic stress: unknown or near-expiring capture deadlines
   // always DENY dispatch; otherwise validate amount and ownership.
   for(let i=0;i<20000;i++){
