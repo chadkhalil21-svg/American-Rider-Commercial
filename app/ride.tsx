@@ -310,7 +310,7 @@ export default function RideScreen() {
               </View>
             ) : null}
           </View>
-        ) : (
+        ) : !(ride.dispatchState === 'none' && ride.payment.status === 'idle' && !ride.rideActive) ? (
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={t('traveler.cancelTravel')}
@@ -320,7 +320,7 @@ export default function RideScreen() {
           >
             <Text style={styles.searchCancel}>{t('traveler.cancelTravel')}</Text>
           </Pressable>
-        )}
+        ) : null}
         <View style={{ flex: 1 }} />
         {/* Safety is available from the moment a Travel is confirmed, not only after an
             Operator has been found. A Traveler searching for an Operator may still need to
