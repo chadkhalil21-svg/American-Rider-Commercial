@@ -764,10 +764,16 @@ app.post('/support', requireAuth, requireVerifiedEmail, LIMITS.support, async (r
         reason:'Existing bank dispute/refund exception requires provider reconciliation',
         forced:true};
     } else if(refundRide.supportRefundId) {
-      // Idempotent whole-Travel credit: one successful support refund only.
-      // Saved on the ride after confirmation; replay does not call Stripe again.
-      return res.json({...decision,refunded:true,alreadyRefunded:true,
-        refundId:refundRide.supportRefundId});
+      // An exact replay confirms the original Stripe Refund. A different
+      // requested amount is not automatically granted (or falsely "refunded").
+      // If more reimbursement is appropriate, Support must verify provider
+      // cumulative refunded amount and the Operator-transfer exposure.
+      if(Number(refundRide.supportRefundedCents)===Number(decision.credit_cents) &&
+         ['succeeded','pending'].includes(String(refundRide.supportRefundStatus||'succeeded')))
+        return res.json({...decision,refunded:true,alreadyRefunded:true,
+          refundId:refundRide.supportRefundId});
+      decision={action:'escalate',message:decision.message,forced:true,
+        reason:'Further or changed credit requires review of already-issued refund'};
     } else {
     const refund = await refundTravel({
       paymentIntentId: refundRide.paymentIntentId,
