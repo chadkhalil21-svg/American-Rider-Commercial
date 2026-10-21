@@ -360,8 +360,12 @@ export default function RideScreen() {
       {/* The demo's enroute head: 23px phase title + sub, plain ARRIVAL figure. */}
       <View style={styles.headRow}>
         <View style={{ flex: 1 }}>
-          <Text style={styles.statusTitle}>{STATUS_LABELS[st]}</Text>
-          <Text style={styles.statusSub}>{subs[st]}</Text>
+          <Text style={styles.statusTitle}>
+            {st === 0 && ride.matchedOp ? t('traveler.rideAwaitingAcceptance') : STATUS_LABELS[st]}
+          </Text>
+          <Text style={styles.statusSub}>
+            {st === 0 && ride.matchedOp ? t('traveler.rideOfferPendingBody') : subs[st]}
+          </Text>
         </View>
         <View style={styles.etaWrap}>
           <SectionLabel style={styles.etaLabel}>{t('traveler.arrival')}</SectionLabel>
