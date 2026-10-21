@@ -1,5 +1,6 @@
 const { randomUUID } = require('crypto');
 const { cancellationProgress } = require('./pickup-progress-fee');
+const {STANDARD_CANCELLATION_GROSS_CENTS,OPERATOR_NET_CENTS}=require('./fee-economics');
 
 // Money on a travel: paying for it, cancelling it, settling it — each decided from the travel
 // RECORD, never from what a client names.
@@ -132,7 +133,7 @@ async function payForTravel({ db, uid, rideId, create, resume = null, now = Date
  * deps: { refundableFor, refundTravel, transferFixed, operatorPayoutAccount }
  */
 async function cancelTravel({ db, uid, rideId, deps, stripeConfigured = true, now = Date.now(),
-  enableVerifiedProgressFee = false }) {
+  enableVerifiedProgressFee = false, enableManualCancellationFee = false }) {
   const id = String(rideId || '');
   if (!id) return fail(400, 'rideId is required');
   const rideRef = db.collection('rides').doc(id);
@@ -192,7 +193,17 @@ async function cancelTravel({ db, uid, rideId, deps, stripeConfigured = true, no
         evidence:current.cancellationFeeEvidence||undefined} : null;
     const feeDecision = enableVerifiedProgressFee
       ? (priorDecision || cancellationProgress({ ride:current, operator:op, rideId:id, now })) : null;
+    // Fee paid from a manual hold is not today's legacy $3 refund withholding.
+    // The new $4 all-in service fee is possible only after BOTH verified evidence
+    // and a genuine, upfront Traveler disclosure were already stored.
+    const grossManual= current.paymentCapturePolicy==='manual_v1' &&
+      enableManualCancellationFee===true &&
+      current.cancellationFeeDisclosureVersion==='net3-allin400-v1' &&
+      feeDecision?.feeCents===300
+        ? STANDARD_CANCELLATION_GROSS_CENTS : 0;
     tx.update(rideRef, { status: 'cancelled', statusAt: now,
+      ...(current.paymentCapturePolicy==='manual_v1'
+        ? {cancellationFeeCaptureCents:grossManual}:{}),
       cancelledFrom: current.cancelledFrom || current.status,
       refundPending: !!current.paymentIntentId,
       ...(enableVerifiedProgressFee ? {
@@ -201,7 +212,7 @@ async function cancelTravel({ db, uid, rideId, deps, stripeConfigured = true, no
         cancellationFeeEvidence:feeDecision.evidence||null,
       }:{}),
     });
-    return { current, feeDecision };
+    return { current, feeDecision, grossManual };
   });
   if (closed.status) return closed;
   const currentRide = closed.current;
@@ -222,6 +233,46 @@ async function cancelTravel({ db, uid, rideId, deps, stripeConfigured = true, no
   };
   if (!stripeConfigured) return pendingRefund('Stripe payment provider unavailable');
 
+  // The new hold has its OWN fee/void path and must never enter the legacy
+  // captured-full-fare refund path. Older paid Travels remain backwards compatible.
+  if (currentRide.paymentCapturePolicy==='manual_v1') {
+    if(typeof deps.settleUncapturedTravel!=='function')
+      return pendingRefund('Manual authorization reconciliation unavailable');
+    const gross=Number(closed.grossManual)||0;
+    let out;
+    try {
+      out=await deps.settleUncapturedTravel({
+        paymentIntentId,uid:String(uid),rideId:id,totalCents:Number(currentRide.costCents),
+        action:gross?'fee':'cancel',verifiedFeeCents:gross,now,
+      });
+    } catch(e) {return pendingRefund(e.message||'Manual authorization unresolved');}
+    if(!out?.manual || !out?.ok) return pendingRefund(out?.code||'Manual authorization unconfirmed');
+    await rideRef.set({
+      refundPending:false,
+      authorizationState:out.status==='released'?'released':'captured',
+      ...(out.status==='released'
+        ? {paymentIntentCancelledAt:now,cancellationFeeCaptureCents:0}
+        : {capturedCents:gross,cancellationFeeCaptureCents:gross,
+           arrivalFeeCents:OPERATOR_NET_CENTS}),
+    },{merge:true});
+    if(gross) {
+      const {accountId}=await deps.operatorPayoutAccount(db,currentRide.operatorId);
+      if(accountId) {
+        const paid=await deps.transferFixed({paymentIntentId,
+          operatorStripeAccount:accountId,amountCents:OPERATOR_NET_CENTS,
+          reference:`verified service cancellation ${currentRide.tripNo||id}`});
+        await rideRef.set(paid.ok
+          ? {arrivalFeeTransferId:paid.transferId,arrivalFeePaidAt:now,arrivalFeePending:false}
+          : {arrivalFeePending:true,arrivalFeeBlockedReason:paid.error||'transfer_failed'},
+          {merge:true});
+      } else await rideRef.set({
+        arrivalFeePending:true,arrivalFeeBlockedReason:'no payout account',
+      },{merge:true});
+    }
+    return {status:200,body:{ok:true,
+      authorizationReleased:out.status==='released',capturedCents:gross,
+      operatorNetCents:gross?OPERATOR_NET_CENTS:0,refunded:false}};
+  }
   let refundable, reason;
   try { ({ cents: refundable, reason } = await deps.refundableFor({ paymentIntentId, expectUid: String(uid) })); }
   catch (e) { return pendingRefund(e?.message || e); }
