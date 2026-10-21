@@ -13,6 +13,7 @@
 
 const Stripe = require('stripe');
 const {executeManualSettlement}=require('./manual-capture');
+const { refundableChargeSafety }=require('./payment-exception-policy');
 const manualCaptureEnabled=()=>process.env.AR_MANUAL_TRAVEL_CAPTURE==='true';
 const { readKey, hasInvalidHeaderChars, describeInvalidChars } = require('./env');
 const {
@@ -704,8 +705,11 @@ async function refundTravel({ paymentIntentId, amountCents, expectUid, idempoten
     if (expectUid && pi.metadata?.uid !== expectUid) {
       return { ok: false, error: 'that payment belongs to a different account' };
     }
-    if (pi.status !== 'succeeded') {
-      return { ok: false, error: `payment is ${pi.status}, not a completed charge` };
+    const providerSafety=refundableChargeSafety(pi);
+    if(!providerSafety.ok){
+      return {ok:false,error:providerSafety.reason,
+        code:providerSafety.reason==='disputed_charge_requires_provider_reconciliation'
+          ?'dispute_refund_review_required':'not_captured'};
     }
     // Never refund more than was actually taken, whatever the request claimed the travel cost.
     const balance = refundBalanceFromVerifiedIntent(pi);
