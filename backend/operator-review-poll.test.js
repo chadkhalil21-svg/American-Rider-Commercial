@@ -1,0 +1,14 @@
+'use strict';
+const assert=require('node:assert/strict');
+const fs=require('node:fs');
+const path=require('node:path');
+const s=fs.readFileSync(path.join(__dirname,'../app/operator/review.tsx'),'utf8');
+assert(s.includes('10 * 60_000'), 'Under-review foreground polling must be no more frequent than 10 minutes');
+assert(!s.includes('}, 120_000)'), 'Never run two-minute redundant Auth/Stripe status polling');
+assert(s.includes('checkingRef.current'), 'Focus/resume/interval races must dedupe provider checks');
+assert(s.includes("AppState.currentState === 'active'"),'Do not poll while backgrounded');
+assert(s.includes("if (state === 'active') void check()"),'Refresh when app resumes');
+assert(s.includes('onPress={check}'), 'Explicit user-initiated status refresh is retained');
+const accept=fs.readFileSync(path.join(__dirname,'server.js'),'utf8');
+assert(accept.includes('qualificationChecks(uid, u)'), 'Paid acceptance still requires up-to-date eligibility');
+console.log('PASS: under-review vendor reads limited to 10-minute foreground checks, explicit refresh and safe acceptance retained');

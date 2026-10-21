@@ -5,7 +5,7 @@
 // operator on the spot, in phone storage ("Test program — review is simulated and clears at
 // once"). The server now qualifies an operator automatically when every check passes, and a
 // person on /ops decides only what the checks cannot settle. This screen reads that answer:
-// on arrival, every thirty seconds while it is open, and when the operator asks.
+// on arrival, only while foregrounded at a modest cadence, and when the operator asks.
 import { useFocusEffect, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { AppState, Pressable, StyleSheet, View } from 'react-native';
@@ -41,11 +41,18 @@ export default function OperatorReview() {
   const [statusUnavailable, setStatusUnavailable] = useState(false);
   const [busy, setBusy] = useState(false);
   const approvedOnce = useRef(false);
+  // Focus, resume and a scheduled refresh can coincide. Only one provider check
+  // may be in flight; this prevents duplicate Firebase Auth + Stripe API calls.
+  const checkingRef = useRef(false);
   const { commission, resetQualification } = op;
   const check = useCallback(async () => {
+    if (checkingRef.current) return;
+    checkingRef.current = true;
     setBusy(true);
-    const s = await qualificationStatus();
-    setBusy(false);
+    let s;
+    try { s = await qualificationStatus(); }
+    catch { s = { status: 'unknown' as const }; }
+    finally { checkingRef.current = false; setBusy(false); }
     setStatusUnavailable(s.status === 'unknown');
     if (s.status === 'qualified' && !approvedOnce.current) {
       approvedOnce.current = true;
@@ -63,14 +70,16 @@ export default function OperatorReview() {
     // Either way this screen, which says the answer appears here, is the right place to wait.
   }, [commission, resetQualification, router]);
 
-  // Do not poll external screening/Firebase/Stripe every 30 seconds forever.
-  // The one-phone Operator sees fresh results when returning to the screen or
-  // reopening the app; pending review gets a bounded two-minute foreground check.
+  // The review screen asks Firebase Auth and Stripe for live provider status.
+  // Paid acceptance and duty gates independently check eligibility, so do not
+  // re-call both vendors every two minutes while an account waits on approval.
+  // Refresh on focus, resume and user request; at most one ten-minute check
+  // while this screen stays active in the foreground.
   useFocusEffect(useCallback(() => {
     void check();
     const id = setInterval(() => {
       if (AppState.currentState === 'active') void check();
-    }, 120_000);
+    }, 10 * 60_000);
     const listener = AppState.addEventListener('change', state => {
       if (state === 'active') void check();
     });
