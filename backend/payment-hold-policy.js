@@ -6,7 +6,7 @@
 const HOURS_24 = 24 * 60 * 60 * 1000;
 const MIN_CAPTURE_HEADROOM_MS = 60 * 60 * 1000;
 const FREE_CANCEL_MS = 2 * 60 * 1000;
-const MAX_CANCELLATION_FEE_CENTS = 300;
+const MAX_CANCELLATION_FEE_CENTS = 400;
 
 function schedulePlan({now, departAt, savedMethod=false, futureUseConsented=false}) {
   if (!Number.isFinite(now) || !Number.isFinite(departAt) || departAt <= now)
