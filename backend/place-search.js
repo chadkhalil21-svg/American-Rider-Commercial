@@ -4,7 +4,7 @@
 // configured HERE account. No Geoapify provider or subscription is supported.
 // A hosted public Photon demo or public OSM Nominatim is NEVER used here.
 const { readKey } = require('./env');
-const MAX_QUERY=160, CACHE_TTL_MS=10*60*1000, MAX_CACHE=500;
+const MAX_QUERY=160, CACHE_TTL_MS=10*60*1000, FALLBACK_CACHE_TTL_MS=60*1000, MAX_CACHE=500;
 const cache=new Map(),inflight=new Map();
 // Emergency HERE fallback is per process; configure a vendor-wide quota before
 // allowing autoscaling. Never call a second provider after a valid empty answer.
@@ -134,20 +134,32 @@ async function searchPlaces(query,near,limit=6){
   const max=clamp(Number(limit)||6,1,8);
   const ck=cacheKey(q,n,max,primary.name);
   const hit=cache.get(ck);
-  if(hit&&Date.now()-hit.at<CACHE_TTL_MS)return hit.items;
+  // A temporary HERE fallback can be reused briefly, but turning fallback off
+  // must immediately stop showing its cached responses.
+  if(hit&&Date.now()-hit.at<(hit.ttlMs||CACHE_TTL_MS)&&
+      (!hit.fallback||process.env.AR_HERE_AUTOCOMPLETE_FALLBACK==='1'))return hit.items;
   if(inflight.has(ck))return inflight.get(ck);
   const work=(async()=>{
     const result=await invoke(primary,q,n,max);
     // Successful empty results are authoritative. No speculative paid lookup.
     let items=result.items;
+    let fallbackOk=false;
     if(!result.ok){
       const hereKey=primary.name!=='here'&&process.env.AR_HERE_AUTOCOMPLETE_FALLBACK==='1'
         ?readKey('HERE_API_KEY'):null;
-      if(hereKey&&allowExceptionalHere())items=(await here(q,n,max,hereKey)).items;
+      if(hereKey&&allowExceptionalHere()){
+        const replacement=await here(q,n,max,hereKey);
+        items=replacement.items;
+        fallbackOk=replacement.ok;
+      }
     }
     items=annotateProximity(items,n);
-    if(result.ok){
-      cache.set(ck,{at:Date.now(),items});
+    if(result.ok||fallbackOk){
+      // Do not buy the same exceptional search again on each tap/reopen.
+      // Cache only successful provider replies, including valid empty lists.
+      cache.set(ck,fallbackOk
+        ?{at:Date.now(),items,ttlMs:FALLBACK_CACHE_TTL_MS,fallback:true}
+        :{at:Date.now(),items});
       if(cache.size>MAX_CACHE)cache.delete(cache.keys().next().value);
     }
     return items;
