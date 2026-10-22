@@ -79,7 +79,7 @@ def assert_live(service,scheduler):
         raise Stop("Production Scheduler is not on the authorized one-minute cadence.")
     return e
 
-def public_readiness(sha=None):
+def public_readiness(sha=None, require_manual_capture=False):
     def read(route):
         try:
             with urllib.request.urlopen(urllib.request.Request(URL+route,
@@ -99,6 +99,8 @@ def public_readiness(sha=None):
         raise Stop("Real public money/Firestore readiness not established.")
     if sha and health.get("commit")!=sha[:7]:
         raise Stop("Public API source SHA does not match approved GitHub release.")
+    if require_manual_capture and config.get("manualTravelAuthorization") is not True:
+        raise Stop("Cloud Run public configuration does not confirm manual Travel authorization.")
     return True
 
 
@@ -140,21 +142,37 @@ def main():
     sha=os.environ.get("GITHUB_SHA","")
     if os.environ.get("FOUNDER_CONFIRM")!="DEPLOY_EXISTING_PAID_CODE_ONLY" or not re.fullmatch(r"[0-9a-f]{40}",sha):
         raise Stop("Manual founder approval and exact current branch SHA required.")
+    # A one-time prelaunch feature activation uses the established paid-code
+    # update machinery. Never permit an arbitrary flag string or quietly turn
+    # on the separately unapproved cancellation or no-show fees.
+    activation=os.environ.get("ENABLE_MANUAL_CAPTURE","")
+    if activation not in ("", "FOUNDER_PRELAUNCH_MANUAL_CAPTURE"):
+        raise Stop("Manual Travel capture activation confirmation is invalid.")
+    enable_manual=activation=="FOUNDER_PRELAUNCH_MANUAL_CAPTURE"
     release=os.environ.get("GITHUB_REF","")
     if release!="refs/heads/release/current":
         raise Stop("Only release/current may update the paid backend.")
     before=meta("run","services","describe",SERVICE,f"--project={PROJECT}",f"--region={REGION}")
     scheduler=meta("scheduler","jobs","describe",JOB,f"--project={PROJECT}",f"--location={REGION}")
     old_env=assert_live(before,scheduler)
+    if enable_manual and (old_env.get("AR_MANUAL_CANCELLATION_FEE",{}).get("value")=="true" or
+                          old_env.get("AR_VERIFIED_NO_SHOW",{}).get("value")=="true"):
+        raise Stop("Separate cancellation or no-show charging is active; refuse feature activation.")
     old_revision=require_single_traffic(before)
     public_readiness()
     print("Verified one existing public paid backend and exactly one Google scheduler; no Stripe or Render change.")
     print("Previous 100% traffic revision:",old_revision)
     # --no-traffic keeps all customer requests on the known old revision.
+    # Update ONLY the existing capture-mode flag on founder's specific request.
+    # gcloud --update-env-vars is additive; all previous secrets, payment keys
+    # and non-payment settings are preserved by Cloud Run.
+    updates=f"AR_RELEASE_COMMIT={sha}"
+    if enable_manual:
+        updates+=",AR_MANUAL_TRAVEL_CAPTURE=true"
     cmd("run","deploy",SERVICE,f"--project={PROJECT}",f"--region={REGION}",
         "--source=./backend","--no-traffic","--service-account=ar-production-live-runtime@american-rider-35688.iam.gserviceaccount.com",
         "--min-instances=0","--max-instances=2","--cpu=1","--memory=1Gi","--concurrency=20",
-        f"--update-env-vars=AR_RELEASE_COMMIT={sha}",timeout=1800)
+        f"--update-env-vars={updates}",timeout=1800)
     # Do not compare only status.latestReadyRevisionName. The service's routed
     # pointer may remain old for a READY candidate created with --no-traffic.
     new_revision,after=wait_for_created_ready_revision(old_revision)
@@ -165,6 +183,8 @@ def main():
         not set(old_env).issubset(set(now_env)) or
         now_env.get("AR_RELEASE_COMMIT",{}).get("value")!=sha):
         raise Stop("New revision changed critical configuration; old traffic untouched.")
+    if enable_manual and now_env.get("AR_MANUAL_TRAVEL_CAPTURE",{}).get("value")!="true":
+        raise Stop("New revision did not receive approved manual Travel capture flag.")
     if require_single_traffic(after)!=old_revision:
         raise Stop("Unexpected customer traffic shift during no-traffic deploy.")
     # The candidate's own immutable Revision status, not the service's last READY
@@ -174,7 +194,7 @@ def main():
     try:
         cmd("run","services","update-traffic",SERVICE,f"--project={PROJECT}",
             f"--region={REGION}",f"--to-revisions={new_revision}=100",timeout=360)
-        public_readiness(sha)
+        public_readiness(sha, require_manual_capture=enable_manual)
         print("SUCCESS: paid API updated to release/current",sha[:7],
               "; Google scheduler unchanged; both Stripe webhook URLs unchanged.")
     except Exception:
