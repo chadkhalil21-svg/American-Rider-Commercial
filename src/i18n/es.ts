@@ -133,6 +133,8 @@ export default {
     withdrawTravel: 'No puedo completar la recogida',
     withdrawExplanation: 'Avisaremos al Viajero mientras buscamos otro Operador. Si no encontramos uno, cancelaremos el Viaje y liberaremos o reembolsaremos el pago. Usted quedará fuera de servicio.',
     withdrawFailed: 'No pudimos confirmar el cambio. Inténtelo de nuevo o contacte con Asistencia.',
+    withdrawalCancelled: 'Viaje cancelado',
+    withdrawalRefundReview: 'No había otro Operador disponible. La autorización de su tarjeta se liberará o el cobro realizado se reembolsará tras verificar el pago.',
     completedEarningsEstimate: 'Ingresos estimados. La transferencia a Stripe y el depósito bancario se confirman por separado.',
     completionTollReimbursement: 'Reembolso de peajes',
     returnToOperations: 'Volver a Operaciones',
