@@ -1158,10 +1158,7 @@ export default {
     shareUnavailable: 'Verfügbar, sobald Sie eine Reise bestätigen.',
 
     pickupSecurityIntro: 'Prüfen Sie in der App den Namen des Operators, das Fahrzeug und das Kennzeichen. Fragen Sie vor dem Einsteigen, wen der Operator abholen soll. Kein Code erforderlich.',
-    pickupCodePendingRollout: 'Sichere Abholcodes werden mit der nächsten mobilen Version aktiviert. Prüfen Sie bis dahin Operator und Fahrzeugdaten.',
-    pickupCodeVerified: 'Abholcode bestätigt.',
     pickupCodeUnavailable: 'Der Abholcode konnte nicht abgerufen oder bestätigt werden. Bitte erneut versuchen oder den Support kontaktieren.',
-    getPickupSecurityCode: 'Privaten Abholcode anfordern',
     verifyCodeIdle: 'Prüfen Sie nach der Zuweisung den Namen des Operators, das Fahrzeug und das Kennzeichen.',
     emgTextMyLocation: 'Meinen Standort per SMS senden',
     emgSendMyLocation: 'Meinen Standort senden',
