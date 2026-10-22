@@ -118,6 +118,8 @@ export default {
     withdrawTravel: 'Impossibile effettuare il prelievo',
     withdrawExplanation: 'Avviseremo il Viaggiatore mentre cerchiamo un altro Operatore. Se nessuno è disponibile, il Viaggio sarà annullato e il pagamento sbloccato o rimborsato. Andrà fuori servizio.',
     withdrawFailed: 'Non è stato possibile confermare la modifica. Riprovi o contatti l\'assistenza.',
+    withdrawalCancelled: 'Viaggio annullato',
+    withdrawalRefundReview: 'Non era disponibile un altro Operatore. L’autorizzazione sulla carta sarà rilasciata oppure l’importo addebitato sarà rimborsato dopo la verifica del pagamento.',
     completedEarningsEstimate: 'Guadagni stimati. Il trasferimento a Stripe e il versamento bancario vengono confermati separatamente.',
     completionTollReimbursement: 'Rimborso pedaggi',
     returnToOperations: 'Torna alle Operazioni',
