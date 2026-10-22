@@ -455,7 +455,7 @@ export type TravelMonitor = {
 
 export function watchRide(
   rideId: string,
-  onStatus: (status: string) => void,
+  onStatus: (status: string, releasedForReassignment?: boolean) => void,
   // Route monitoring's reading of this journey — a known delay it can explain, or a question
   // for the traveler. Optional so existing callers are unaffected.
   onMonitor?: (m: TravelMonitor | null) => void,
@@ -487,7 +487,7 @@ export function watchRide(
           } : null);
         }
         const s = data?.status;
-        if (typeof s === 'string' && s) onStatus(s);
+        if (typeof s === 'string' && s) onStatus(s, s === 'assigned' && !!data?.releasedAt);
         onMonitor?.(data?.monitor ?? null);
       },
       () => {},
