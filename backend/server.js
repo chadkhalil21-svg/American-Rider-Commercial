@@ -124,7 +124,7 @@ const { closeOperationalAccount } = require('./accountclosure');
 const { finalizeAccountDeletion, sweepAccountDeletion } = require('./accountdeletion');
 const { acceptOffer } = require('./eligibility');
 const { bookingId, prepareBooking, paymentMatches, assignPaidTravel } = require('./booking');
-const { progressTravel } = require('./travelprogress');
+const { progressTravel, withdrawAcceptedTravel } = require('./travelprogress');
 const { payForTravel, cancelTravel: cancelTravelFor, settleTravel: settleTravelFor } = require('./travelmoney');
 const { authorizeVoiceTravel, lostItemTravel, authorizeAnnouncement, claimAnnouncement } = require('./trustboundaries');
 const { authorizeTravelMessage } = require('./travel-message-policy');
@@ -4294,6 +4294,36 @@ app.post('/travel/accept', requireAuth, requireFreshAuth, requireOperationalRead
     res.status(out.status).json(out.body);
   } catch (e) {
     res.status(502).json({ error: e.message });
+  }
+});
+
+// An exceptional accepted-Travel withdrawal must remain available even after insurance
+// expiry or a revoked qualification. Do NOT use requireOperationalReadiness here.
+// The transaction protects the original payment and returns the same Travel to
+// the existing re-offer + automatic payment-recovery sweeps.
+app.post('/travel/operator-withdraw', requireAuth, requireFreshAuth, LIMITS.dispatch, async (req, res) => {
+  const db = adminDb();
+  if (!db) return res.status(503).json({ error: adminStatus().reason, code: 'no_admin_db' });
+  try {
+    const out = await withdrawAcceptedTravel({
+      db, uid: req.uid, rideId: req.body?.rideId,
+    });
+    if (out.status === 200 && out.body?.ok && !out.body.unchanged) {
+      const snap = await db.collection('rides').doc(String(req.body.rideId)).get();
+      const ride = snap.exists ? snap.data() || {} : {};
+      const notice = {
+        kind: 'operator_withdrawn', title: 'Finding another Operator',
+        body: 'Your Operator can no longer collect you. We are seeking a replacement for this same Travel. If none is available, we will cancel it and release or refund your payment.',
+        data: { screen: '/ride', rideId: String(req.body.rideId), tripNo: ride.tripNo || '' },
+      };
+      if (ride.travelerUid) await notify({ ...notice, uid: ride.travelerUid });
+      if (ride.party?.teen && ride.party?.guardianUid &&
+          String(ride.party.guardianUid) !== String(ride.travelerUid))
+        await notify({ ...notice, uid: ride.party.guardianUid, data: { ...notice.data, screen: '/family' } });
+    }
+    return res.status(out.status).json(out.body);
+  } catch (e) {
+    return res.status(502).json({ error: e.message });
   }
 });
 
