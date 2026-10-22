@@ -11,6 +11,8 @@ function fixture(status='accepted',extras={}) {
   const data={
     rides:{r1:{operatorId:'op1',travelerUid:'traveler',status,tripNo:'AR-1-MIA',
       paymentIntentId:'pi_same',costCents:2575,travelCostCents:1900,createdAt:NOW-60_000,
+      opLat:25.7617,opLng:-80.1918,opAt:NOW-1000,
+      monitor:{state:'asked_operator'},monitorSeen:{lat:25.7617,lng:-80.1918,at:NOW-3000},stillSince:NOW-120000,
       party:{teen:true},teenPickup:{hash:'one-pin',verifiedAt:NOW-2000,verifiedBy:'op1'},
       ...extras}},
     operators:{op1:{currentRideId:'r1',available:true,onlineAt:NOW}},
@@ -46,6 +48,12 @@ async function main(){
   assert.equal(h.data.rides.r1.tripNo,'AR-1-MIA');
   assert.equal(h.data.rides.r1.teenPickup.hash,'one-pin');
   assert.equal(h.data.rides.r1.teenPickup.verifiedAt,null);
+  assert.equal(h.data.rides.r1.opLat,null);
+  assert.equal(h.data.rides.r1.opLng,null);
+  assert.equal(h.data.rides.r1.opAt,null);
+  assert.equal(h.data.rides.r1.monitor,null);
+  assert.equal(h.data.rides.r1.monitorSeen,null);
+  assert.equal(h.data.rides.r1.stillSince,null);
   assert.equal(h.data.operators.op1.available,false);
   assert.equal(h.data.operators.op1.currentRideId,null);
 
