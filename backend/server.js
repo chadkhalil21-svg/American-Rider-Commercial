@@ -4308,7 +4308,7 @@ app.post('/travel/operator-withdraw', requireAuth, requireFreshAuth, LIMITS.disp
     const out = await withdrawAcceptedTravel({
       db, uid: req.uid, rideId: req.body?.rideId,
     });
-    if (out.status === 200 && out.body?.ok && !out.body.unchanged) {
+    try { if (out.status === 200 && out.body?.ok && !out.body.unchanged) {
       const snap = await db.collection('rides').doc(String(req.body.rideId)).get();
       const ride = snap.exists ? snap.data() || {} : {};
       const notice = {
@@ -4320,6 +4320,10 @@ app.post('/travel/operator-withdraw', requireAuth, requireFreshAuth, LIMITS.disp
       if (ride.party?.teen && ride.party?.guardianUid &&
           String(ride.party.guardianUid) !== String(ride.travelerUid))
         await notify({ ...notice, uid: ride.party.guardianUid, data: { ...notice.data, screen: '/family' } });
+    } } catch (error) {
+      // The Travel is already released in Firestore; a push or recipient lookup
+      // failure must never report the successful withdrawal as failed.
+      console.warn('[withdraw] notification unavailable', String(error?.message || error));
     }
     return res.status(out.status).json(out.body);
   } catch (e) {
