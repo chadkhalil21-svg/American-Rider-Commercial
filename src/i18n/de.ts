@@ -116,6 +116,8 @@ export default {
     commenceTravel: 'Fahrt Beginnen',
     completeOperation: 'Fahrt Abschließen',
     operationComplete: 'Fahrt Abgeschlossen',
+    completedEarningsEstimate: 'Geschätzte Einnahmen. Stripe-Transfer und Bankauszahlung werden gesondert bestätigt.',
+    completionTollReimbursement: 'Mauterstattung',
     returnToOperations: 'Zurück zum Betrieb',
     youRetain: 'Sie behalten',
     travelNumber: 'Fahrtnummer',
