@@ -1157,10 +1157,7 @@ export default {
     shareUnavailable: 'Disponibile dopo la conferma di un Viaggio.',
 
     pickupSecurityIntro: 'Controlli nell’app il nome dell’Operatore, il veicolo e la targa. Prima di salire, chieda all’Operatore chi è venuto a prendere. Non serve un codice.',
-    pickupCodePendingRollout: 'I codici sicuri saranno attivati con la prossima versione mobile. Nel frattempo, verifichi i dati dell\'Operatore e del veicolo.',
-    pickupCodeVerified: 'Codice di prelievo verificato.',
     pickupCodeUnavailable: 'Impossibile ottenere o verificare il codice. Riprovi o contatti l\'assistenza.',
-    getPickupSecurityCode: 'Richiedi il codice privato di prelievo',
     verifyCodeIdle: 'Quando viene assegnato un Operatore, verifichi il nome, il veicolo e la targa prima di salire.',
     emgTextMyLocation: 'Inviare la mia posizione via SMS',
     emgSendMyLocation: 'Inviare la mia posizione',
