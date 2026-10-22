@@ -17,7 +17,7 @@ function visitFiles(dir, found = []) {
   for (const entry of fs.readdirSync(path.join(root, dir), {withFileTypes:true})) {
     const relative = path.join(dir, entry.name);
     if (entry.isDirectory()) visitFiles(relative, found);
-    else if (/\\.tsx$/.test(entry.name)) found.push(relative);
+    else if (/\.tsx$/.test(entry.name)) found.push(relative);
   }
   return found;
 }
