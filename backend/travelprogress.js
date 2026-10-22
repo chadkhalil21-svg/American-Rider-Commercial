@@ -109,4 +109,63 @@ async function progressTravel({ db, uid, rideId, status, now = Date.now() }) {
   });
 }
 
-module.exports = { progressTravel, TRANSITIONS, PICKUP_RADIUS_MI, DESTINATION_RADIUS_MI };
+
+/**
+ * Exception before boarding: the accepted Operator cannot complete this pickup.
+ * Atomically free their slot, mark them off duty and return the SAME Travel to the
+ * existing server re-offer sweep. It retains the original provider payment,
+ * quote and ride ID. The sweep automatically cancels + reconciles money after
+ * its short replacement window if no qualified Operator can be found.
+ *
+ * No phone may rewrite fare, capture an authorization, issue a refund or
+ * force this transition after the Traveler has boarded.
+ */
+async function withdrawAcceptedTravel({ db, uid, rideId, now = Date.now() }) {
+  const id = String(rideId || '');
+  const operatorId = String(uid || '');
+  if (!id || !operatorId) return fail(400, 'Operator and Travel are required', 'missing_travel');
+  const ref = db.collection('rides').doc(id);
+  return db.runTransaction(async tx => {
+    const snap = await tx.get(ref);
+    if (!snap.exists) return fail(404, 'No such Travel', 'no_travel');
+    const ride = snap.data() || {};
+    if (String(ride.operatorId || '') !== operatorId)
+      return fail(403, 'This Travel belongs to another Operator', 'not_yours');
+    if (ride.status === 'assigned' && ride.releasedReason === 'operator_withdrawn' &&
+        ride.withdrawnBy === operatorId && Number.isSafeInteger(ride.operatorWithdrawalAt))
+      return { status: 200, body: { ok: true, unchanged: true, searchingReplacement: true } };
+    if (!['accepted', 'arrived'].includes(ride.status))
+      return fail(409, 'Travel cannot be withdrawn after boarding. Contact Support.', 'travel_underway');
+    const fleetRef = db.collection('operators').doc(operatorId);
+    const fleetSnap = await tx.get(fleetRef);
+    if (fleetSnap.exists) {
+      const fleet = fleetSnap.data() || {};
+      const patch = { available: false, offlineAt: now, offDutyReason: 'operator_withdrawn' };
+      if (String(fleet.currentRideId || '') === id) {
+        patch.currentRideId = null;
+        patch.reservedAt = null;
+      } else if (String(fleet.nextRideId || '') === id) {
+        patch.nextRideId = null;
+        patch.nextReservedAt = null;
+      }
+      tx.update(fleetRef, patch);
+    }
+    tx.update(ref, {
+      status: 'assigned', statusAt: now, offeredAt: now,
+      releasedAt: now, releasedReason: 'operator_withdrawn',
+      operatorWithdrawalAt: now, withdrawnBy: operatorId,
+      declinedBy: [...new Set([...(Array.isArray(ride.declinedBy) ? ride.declinedBy : []), operatorId])],
+      acceptedAt: null, arrivedAt: null,
+      // No stale position, stopped-vehicle alert or safety check may follow the new
+      // Operator. The replacement must report their OWN fresh location first.
+      opLat: null, opLng: null, opAt: null,
+      monitor: null, monitorSeen: null, stillSince: null,
+      // Reassignment never inherits the prior Operator's proof of pickup.
+      ...(ride.teenPickup ? { teenPickup: { ...ride.teenPickup, verifiedAt: null, verifiedBy: null } } : {}),
+      ...(ride.adultPickup ? { adultPickup: { ...ride.adultPickup, verifiedAt: null, verifiedBy: null } } : {}),
+    });
+    return { status: 200, body: { ok: true, searchingReplacement: true } };
+  });
+}
+
+module.exports = { progressTravel, withdrawAcceptedTravel, TRANSITIONS, PICKUP_RADIUS_MI, DESTINATION_RADIUS_MI };

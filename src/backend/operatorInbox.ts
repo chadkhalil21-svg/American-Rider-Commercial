@@ -260,6 +260,23 @@ export async function markOnboard(rideId: string, teenPickupCode?: string): Prom
 }
 export const markCompleted = (rideId: string) => setStatus(rideId, 'completed');
 
+/** Release an accepted preboarding Travel on the server. No new payment or Travel. */
+export async function withdrawAcceptedTravel(rideId: string): Promise<{ok:boolean;code?:string}> {
+  if (!rideId) return {ok:false,code:'missing_travel'};
+  try {
+    const token = await auth.currentUser?.getIdToken().catch(() => null);
+    if (!token) return {ok:false,code:'not_authenticated'};
+    const res = await fetch(`${PAYMENT_SERVER_URL}/travel/operator-withdraw`,{
+      method:'POST', headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},
+      body:JSON.stringify({rideId}),
+    });
+    const data=await res.json().catch(()=>({}));
+    return {ok:res.ok&&data.ok===true,
+      code:res.ok?undefined:String(data.code||'withdraw_unavailable')};
+  } catch { return {ok:false,code:'network_unavailable'}; }
+}
+
+
 // An exceptional Operator action. No charge, refund or terminal status is
 // written by the phone. The authenticated server decides eligibility and money.
 export async function markNoShow(rideId: string): Promise<{ok:boolean;code?:string;refundPending?:boolean}> {

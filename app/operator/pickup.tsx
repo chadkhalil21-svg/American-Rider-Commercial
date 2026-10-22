@@ -212,6 +212,33 @@ export default function OperatorPickup() {
         </View>
       ) : null}
       {transitionError ? <Text style={styles.error}>{transitionError}</Text> : null}
+      <Pressable
+        accessibilityRole="button"
+        disabled={transitioning}
+        onPress={() => Alert.alert(
+          t('operator.withdrawTravel'), t('operator.withdrawExplanation'), [
+            {text:t('traveler.keepTravel'),style:'cancel'},
+            {text:t('operator.withdrawTravel'),style:'destructive',onPress:async () => {
+              setTransitioning(true);
+              setTransitionError(null);
+              try {
+                const result = await op.withdrawAcceptedOp();
+                if (result.ok) router.replace('/operator');
+                else setTransitionError(t('operator.withdrawFailed'));
+              } catch {
+                setTransitionError(t('operator.withdrawFailed'));
+              } finally {
+                setTransitioning(false);
+              }
+            }},
+          ])}
+        style={{ alignSelf:'center', minHeight:44, justifyContent:'center', marginTop:14 }}
+      >
+        <Text style={{ color:colors.muted, fontSize:14 }}>
+          {t('operator.withdrawTravel')}
+        </Text>
+      </Pressable>
+
       {!arrived ? (
         <PrimaryButton label={transitioning ? t('traveler.pleaseWait') : t('operator.confirmArrival')} disabled={transitioning} onPress={async () => { setTransitioning(true); setTransitionError(null); const ok = await op.confirmArrival(); setTransitioning(false); if (!ok) setTransitionError(t('traveler.errGeneric')); }} style={{ marginTop: 24 }} />
       ) : (
