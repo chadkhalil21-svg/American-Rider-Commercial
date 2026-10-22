@@ -1180,10 +1180,7 @@ export default {
     shareUnavailable: 'Available once you confirm a Travel.',
 
     pickupSecurityIntro: 'Check the Operator’s name, vehicle and license plate in the app. Ask the Operator who they are here to pick up before boarding. No code is needed.',
-    pickupCodePendingRollout: 'Secure pickup codes are being activated with the next mobile release. For now, match the Operator and vehicle details before boarding.',
-    pickupCodeVerified: 'Pickup code verified.',
     pickupCodeUnavailable: 'Unable to obtain or confirm the pickup code. Please try again or contact Patron Support.',
-    getPickupSecurityCode: 'Request private pickup code',
     verifyCodeIdle: 'When an Operator is assigned, check their name, vehicle and license plate before boarding.',
     emgTextMyLocation: 'Text my location',
     emgSendMyLocation: 'Send my location',
