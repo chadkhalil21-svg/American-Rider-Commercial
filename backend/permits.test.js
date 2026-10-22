@@ -44,11 +44,19 @@ check('national autocomplete remains discovery, not a permit exemption',
   source('backend/server.js').includes("app.post('/travel/dispatch'"));
 
 const fll = { lat: 26.0742, lng: -80.1506 };
-check('Fort Lauderdale airport is refused at both ends',
+check('Fort Lauderdale airport pickup restricted but drop-off allowed',
   permitRequired(fll, null)?.end === 'pickup' &&
-  permitRequired(null, fll)?.end === 'destination');
-check('refusal names the correct county facility',
-  /Fort Lauderdale/.test(permitRequiredMessage(permitRequired(null, fll))));
+  permitRequired(null, fll) === null);
+check('pickup refusal names the correct county facility',
+  /Fort Lauderdale/.test(permitRequiredMessage(permitRequired(fll, null))));
+for (const [label, point] of [
+  ['MIA', { lat: 25.795, lng: -80.29 }],
+  ['PortMiami', { lat: 25.774, lng: -80.166 }],
+  ['FLL', fll],
+]) {
+  check(`${label}: paid travel may arrive but not originate`,
+    permitRequired(null, point) === null && permitRequired(point, null)?.end === 'pickup');
+}
 check('restricted places identify their authority',
   RESTRICTED_PLACES.every((p) => typeof p.authority === 'string' && p.authority.length > 0));
 
