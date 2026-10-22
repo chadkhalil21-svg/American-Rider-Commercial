@@ -8,9 +8,15 @@ for(let i=0;i<2;i++){
    'sk_test_fake_with_underscores_123');
  assert.equal(safeSandboxSecretKey('sk_test_dummy_1\n'), 'sk_test_dummy_1');
  assert.equal(safeSandboxSecretKey('  sk_test_dummy_1  '),'sk_test_dummy_1');
+ // Responsive/mobile token cells may wrap one complete secret into several lines.
+ assert.equal(safeSandboxSecretKey('sk_test_some_long\nwrapped\r\nsecret'),
+   'sk_test_some_longwrappedsecret');
+ assert.equal(safeSandboxSecretKey('sk_test_some_\u200Bwrapped\u2060token'),
+   'sk_test_some_wrappedtoken');
+ assert.equal(safeSandboxSecretKey('sk_test_interior space'),'sk_test_interiorspace');
  for(const bad of ['',null,undefined,'sk_test_','sk_live_not_allowed',
    'rk_test_restricted','rk_live_not_allowed','pk_test_public',
-   'sk_test_interior space','sk_test_mismatch\nline']){
+   'mk_key_identifier','sk_test_bad\u0007control']){
    assert.equal(safeSandboxSecretKey(bad),null);
  }
  const src=fs.readFileSync(path.join(__dirname,'stripe-manual-sandbox-acceptance.cjs'),'utf8');
@@ -21,4 +27,4 @@ for(let i=0;i<2;i++){
    'Provider-confirmed sandbox must precede test financial writes');
  assert(!src.includes('console.log(key)'),'Never print an API key');
 }
-console.log('PASS twice: Stripe key suffix format tolerant, live/restricted secrets blocked, Stripe sandbox confirmed before any financial write');
+console.log('PASS twice: mobile soft-wrap tolerant, live/restricted/control tokens blocked, Stripe sandbox confirmed before any financial write');
