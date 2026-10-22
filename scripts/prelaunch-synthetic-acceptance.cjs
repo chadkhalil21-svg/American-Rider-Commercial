@@ -8,6 +8,8 @@ const {verifyProductionSource,CANONICAL}=require('./verify-store-cloudrun-api.cj
 const root=path.resolve(__dirname,'..');
 
 const tests=[
+  'backend/visible-control-action-audit.test.js',
+  'backend/operator-review-feedback.test.js',
   'backend/native-wallet-pickup-release-contract.test.js',
   'backend/operator-completion-money-truth.test.js',
   'backend/operator-first-class-onboarding.test.js',
