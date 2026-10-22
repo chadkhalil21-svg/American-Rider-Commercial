@@ -115,6 +115,8 @@ export default {
     commenceTravel: 'Avviare il Viaggio',
     completeOperation: 'Completare l’Operazione',
     operationComplete: 'Operazione Completata',
+    completedEarningsEstimate: 'Guadagni stimati. Il trasferimento a Stripe e il versamento bancario vengono confermati separatamente.',
+    completionTollReimbursement: 'Rimborso pedaggi',
     returnToOperations: 'Torna alle Operazioni',
     youRetain: 'Lei trattiene',
     travelNumber: 'Numero di Viaggio',
