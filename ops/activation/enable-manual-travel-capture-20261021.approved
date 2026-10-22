@@ -10,3 +10,5 @@ FOUNDER_APPROVED=ENABLE_PRELAUNCH_MANUAL_TRAVEL_CAPTURE
 # Founder-directed systematic audit source repair: one controlled paid Cloud Run
 # code update after exact-source CI, keeping manual capture ON; still no TestFlight.
 SYSTEMATIC_AUDIT_RELEASE=2026-10-22-MANUAL-HOLD-RECOVERY
+# Founder requested complete lifecycle source audit; source-only Ops triage repair.
+SCHEDULED_EXCEPTION_RELEASE=2026-10-22-FOUNDER-DURABLE-TRIAGE
