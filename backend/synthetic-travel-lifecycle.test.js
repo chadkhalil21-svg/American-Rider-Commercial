@@ -8,6 +8,9 @@ const { acceptOffer } = require('./eligibility');
 const { progressTravel } = require('./travelprogress');
 const { travelerCode, verifyOperatorCode } = require('./adultpickup');
 const { settleTravel, cancelTravel } = require('./travelmoney');
+const { executeManualSettlement } = require('./manual-capture');
+const { quote } = require('./payments');
+const { priceRoute } = require('./fareauthority');
 const { initialMonitoringFromDocument, applyIndependentConfirmation } = require('./insurance-monitoring');
 const { DISCLOSURE_VERSION } = require('./disclosure');
 const { readinessForRoute } = require('./booking-readiness');
@@ -265,6 +268,130 @@ async function continuousJourney(teen, protectedAdult = false) {
   return { teen, protectedAdult, transitions: ['assigned', 'accepted', 'arrived', 'onboard', 'completed'] };
 }
 
+
+/**
+ * Full synthetic authorized-payment journey to an airport: the same server
+ * eligibility, progress and settlement operations used in production, a
+ * provider-compatible Stripe manual-hold stand-in, and exact fare accounting.
+ * No provider network, production Firestore, real charges or actual transfer.
+ */
+async function manualAirportDropoffJourney() {
+  const destination = { lat: 25.7953, lng: -80.2789 };
+  check(priceRoute({pickup:PICKUP,dest:destination})?.travelCostCents > 0,
+    'MIA drop-off receives a canonical server fare');
+
+  const simulation = memoryDb(initialData());
+  const {db,data} = simulation;
+  const ride = data.rides.ride1;
+  ride.destinationLat = destination.lat;
+  ride.destinationLng = destination.lng;
+  ride.travelCostCents = 1575;
+  ride.paymentCapturePolicy = 'manual_v1';
+  ride.authorizationState = 'held';
+  const accounting = quote(ride.travelCostCents, null, null, 'US');
+  check(accounting.travelerPays === ride.costCents &&
+    accounting.operatorGets === 1560 && accounting.platformTake === 265 &&
+    accounting.operatorGets + accounting.platformTake === ride.costCents,
+    'Traveler $18.25 = Operator $15.60 + platform $2.65, preserving 99% Fare');
+
+  // Real authorization status, not the legacy succeeded/charged fixture.
+  let intent = {
+    id:ride.paymentIntentId, status:'requires_capture',capture_method:'manual',
+    currency:'usd',amount:ride.costCents,amount_capturable:ride.costCents,amount_received:0,
+    metadata:{uid:'traveler',rideId:'ride1',capturePolicy:'manual_v1'},
+    latest_charge:{payment_method_details:{card:{
+      capture_before:Math.floor((Date.now()+3*24*60*60*1000)/1000),
+    }}},
+  };
+  const external = {...externals(),payment:clone(intent)};
+  let out = await accept(db,{externals:external});
+  check(out.status===200 && data.rides.ride1.status==='accepted' &&
+    intent.status==='requires_capture', 'Operator accepts authenticated Stripe hold without capture');
+  out = await settleTravel({db,uid:'traveler',rideId:'ride1',deps:{},now:NOW});
+  check(out.status===409 && intent.status==='requires_capture',
+    'no capture or payout before server-confirmed completion');
+
+  out = await progress(db,'arrived');
+  check(out.status===200 && data.rides.ride1.status==='arrived',
+    'Operator reaches airport-bound Traveler pickup');
+  out = await progress(db,'onboard',NOW+1);
+  check(out.status===200 && data.rides.ride1.status==='onboard',
+    'Traveler safely boards while payment remains authorized, not captured');
+  check(intent.amount_received===0,'never capture money at pickup');
+
+  data.operators.op.lat = destination.lat;
+  data.operators.op.lng = destination.lng;
+  data.operators.op.onlineAt = NOW+2;
+  out = await progress(db,'completed',NOW+2);
+  check(out.status===200 && data.rides.ride1.status==='completed' &&
+    data.rides.ride1.needsPayout===true,
+    'Operator reaches airport drop-off; completion queues settlement');
+
+  // A missing capture dependency must NOT pay an Operator against an uncaptured hold.
+  out = await settleTravel({db,uid:'traveler',rideId:'ride1',
+    deps:{operatorPayoutAccount:async()=>({accountId:'acct_synthetic'})},now:NOW+3});
+  check(out.status===202 && intent.status==='requires_capture' &&
+    data.rides.ride1.needsPayout===true,
+    'unavailable capture handler defers payment instead of paying from a hold');
+
+  const providerCalls={capture:0,transfer:0,receipt:0};
+  const stripe={paymentIntents:{
+    retrieve:async id=>{assert.equal(id,ride.paymentIntentId);return clone(intent);},
+    capture:async(id,params,opts)=>{
+      assert.equal(id,ride.paymentIntentId);
+      assert.equal(params.amount_to_capture,ride.costCents);
+      assert.equal(opts.idempotencyKey,'ar_hold_complete_ride1_1825');
+      assert.equal(data.rides.ride1.status,'completed');
+      providerCalls.capture++;
+      intent={...intent,status:'succeeded',amount_capturable:0,
+        amount_received:params.amount_to_capture};
+      return clone(intent);
+    },
+  }};
+  const deps={
+    settleUncapturedTravel:async args=>({
+      manual:true,...await executeManualSettlement({stripe,...args,requiredUntil:args.now}),
+    }),
+    operatorPayoutAccount:async()=>({accountId:'acct_synthetic'}),
+    transferToOperator:async args=>{
+      check(intent.status==='succeeded' && providerCalls.capture===1,
+        'Operator transfer is attempted only AFTER confirmed capture');
+      check(args.paymentIntentId===ride.paymentIntentId &&
+        args.expectedUid==='traveler' && args.rideId==='ride1',
+        'Operator transfer is bound to the original Traveler and Travel');
+      providerCalls.transfer++;
+      return {ok:true,transferId:'tr_synthetic_airport',
+        amountCents:accounting.operatorGets,platformTake:accounting.platformTake};
+    },
+    sendReceipt:async()=>{providerCalls.receipt++;return {ok:true};},
+  };
+  out = await settleTravel({db,uid:'traveler',rideId:'ride1',deps,now:NOW+3});
+  check(out.status===200 &&
+    data.rides.ride1.authorizationState==='captured' &&
+    data.rides.ride1.capturedCents===1825 && intent.amount_received===1825,
+    'completed authorized Travel captures the complete original $18.25');
+  check(data.rides.ride1.transferId==='tr_synthetic_airport' &&
+    data.rides.ride1.operatorPaidCents===1560 &&
+    data.rides.ride1.platformTakeCents===265 &&
+    data.rides.ride1.needsPayout===false,
+    'actual settlement record reconciles exactly and clears pending payout scan');
+  check(providerCalls.capture===1 && providerCalls.transfer===1 &&
+    providerCalls.receipt===1,
+    'one capture, one Operator transfer and one receipt');
+  out = await settleTravel({db,uid:'traveler',rideId:'ride1',deps,now:NOW+4});
+  check(out.body.alreadySettled===true &&
+    providerCalls.capture===1 && providerCalls.transfer===1 &&
+    providerCalls.receipt===1,'settlement retry creates no duplicate money activity');
+
+  // Pin real route wiring, not merely a test-supplied provider dependency.
+  const source = require('node:fs').readFileSync(
+    require('node:path').join(__dirname,'server.js'),'utf8');
+  const section=source.split("app.post('/travel/settle'")[1]?.split("app.post('/lost-item'")[0] || '';
+  check(/deps:\s*\{\s*operatorPayoutAccount,\s*transferToOperator,\s*settleUncapturedTravel,/.test(section),
+    'production /travel/settle passes its manual capture handler');
+  return providerCalls;
+}
+
 async function canceledAndRefundedJourney() {
   const fixture=memoryDb(initialData());
   const {db,data}=fixture;
@@ -401,6 +528,7 @@ async function triCountyGeography() {
     if(oldKey===undefined)delete process.env.TEEN_PIN_SECRET;
     else process.env.TEEN_PIN_SECRET=oldKey;
   }
+  await manualAirportDropoffJourney();
   await canceledAndRefundedJourney();
   await operatorDeclinesReoffer();
   for (const type of [
@@ -409,6 +537,6 @@ async function triCountyGeography() {
     'account_disabled', 'disclosure_stale', 'payout_blocked',
   ]) await adverseBeforeAcceptance(type);
   await triCountyGeography();
-  console.log('PASS synthetic continuous Traveler/Operator Travel, teen/adult pickup proof, server completion/one-time settlement/receipt, 8 adverse cases, three-county geography');
+  console.log('PASS synthetic continuous Traveler/Operator Travel including manual airport hold, capture, 99% Operator payout, receipt, idempotency, teen/adult pickup proof, adverse cases and three-county geography');
   console.log('PASS ' + assertions + ' deterministic assertions, in-memory only; no provider or real-device certification');
 })().catch(error => { console.error(error); process.exitCode = 1; });
