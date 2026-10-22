@@ -130,6 +130,8 @@ export default {
     withdrawTravel: 'Unable to Complete Pickup',
     withdrawExplanation: 'The Traveler will be notified while we look for another Operator. If none is available, the Travel will be cancelled and the payment released or refunded. You will go off duty.',
     withdrawFailed: 'We could not confirm this change. Please try again or contact Support.',
+    withdrawalCancelled: 'Travel cancelled',
+    withdrawalRefundReview: 'No replacement Operator was available. Your card authorization will be released or any completed charge refunded after payment verification.',
     completedEarningsEstimate: 'Estimated earnings. Stripe transfer and bank payout are confirmed separately.',
     completionTollReimbursement: 'Toll reimbursement',
     returnToOperations: 'Return to Operations',
