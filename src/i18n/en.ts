@@ -753,7 +753,6 @@ export default {
     toDest: 'To %{dest}',
     arrivalCaps: 'ARRIVAL',
     ninetyNineOfFareAmt: '99% of the %{amount} fare',
-    addedToRevenue: 'added to your revenue',
     travelersFare: 'Traveler\'s fare',
     distMi: '%{n} mi',
     milesShort: '%{n} mi',
