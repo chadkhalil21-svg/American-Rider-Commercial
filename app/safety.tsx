@@ -1,5 +1,5 @@
 // Safety — the web demo's safety screen: share your travel, trusted contacts, the vehicle
-// verification code, and immediate assistance. No red on this screen: the only red control
+// vehicle/name confirmation guidance, and immediate assistance. No red on this screen: the only red control
 // in the product is Call 911, on the emergency screen this one opens.
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
@@ -17,7 +17,6 @@ import {
 } from '../src/contacts';
 import { useRide } from '../src/state/RideContext';
 import { followLink } from '../src/backend/follow';
-import { travelerPickupCode } from '../src/backend/pickupVerification';
 import { useLanguage } from '../src/state/LanguageContext';
 import { colors, radii } from '../src/theme';
 
@@ -31,25 +30,10 @@ export default function SafeTravels() {
   const [pendingRemoveContact, setPendingRemoveContact] = useState<number | null>(null);
   const [draftName, setDraftName] = useState('');
   const [draftPhone, setDraftPhone] = useState('');
-  // Sharing is available from Travel confirmation onward. Vehicle verification waits until
-  // an Operator is actually assigned, because the server-authoritative Travel Number and the
-  // Operator's matching code do not exist before dispatch succeeds.
+  // Ordinary adult pickup requires neither a code nor an extra provider read.
+  // Check the Operator/vehicle/plate and verbally confirm the Traveler's name.
+  // The separate Teen PIN remains authoritative at boarding.
   const activeNo = ride.rideActive ? ride.lastTrip.no : null;
-  const currentRideId = ride.rideActive ? ride.matchedOp?.rideId : null;
-  const [secureCode, setSecureCode] = useState<string | null>(null);
-  const [pickupMessage, setPickupMessage] = useState<'idle'|'working'|'inactive'|'ready'|'verified'|'error'>('idle');
-  const getSecureCode = async () => {
-    if (!currentRideId || pickupMessage === 'working') return;
-    setSecureCode(null); setPickupMessage('working');
-    try {
-      const result = await travelerPickupCode(currentRideId);
-      if (!result.enabled) setPickupMessage('inactive');
-      else if (result.verified) setPickupMessage('verified');
-      else if (result.pin) { setSecureCode(result.pin); setPickupMessage('ready'); }
-      else setPickupMessage('error');
-    } catch { setPickupMessage('error'); }
-  };
-  useEffect(() => { setSecureCode(null); setPickupMessage('idle'); }, [currentRideId]);
 
   useEffect(() => {
     loadContacts().then(setContacts);
@@ -183,28 +167,12 @@ export default function SafeTravels() {
       </Card>
 
       <SectionLabel style={styles.lbl}>{t('traveler.vehicleVerification')}</SectionLabel>
-      {/* Never display the former predictable number-based code as proof of
-          identity. A six-digit code is issued only to this Traveler by the server,
-          and cannot be inferred by an Operator from the Travel Number. */}
       <Card style={styles.verifyCard}>
-        {currentRideId ? (
-          <>
-            <Text style={styles.verifyBody}>{t('traveler.pickupSecurityIntro')}</Text>
-            {secureCode ? (
-              <Mono size={26} weight="600" style={{marginTop:8,letterSpacing:1.3}}>{secureCode}</Mono>
-            ) : null}
-            {pickupMessage === 'inactive' ? <Text style={styles.verifyBody}>{t('traveler.pickupCodePendingRollout')}</Text> : null}
-            {pickupMessage === 'verified' ? <Text style={styles.verifyBody}>{t('traveler.pickupCodeVerified')}</Text> : null}
-            {pickupMessage === 'error' ? <Text style={styles.verifyBody}>{t('traveler.pickupCodeUnavailable')}</Text> : null}
-            {pickupMessage !== 'ready' && pickupMessage !== 'verified' && (
-              <Pressable accessibilityRole="button" disabled={pickupMessage === 'working'} onPress={() => { void getSecureCode(); }} style={{paddingVertical:10}}>
-                <Text style={styles.addLink}>{pickupMessage === 'working' ? t('traveler.pleaseWait') : t('traveler.getPickupSecurityCode')}</Text>
-              </Pressable>
-            )}
-          </>
-        ) : (
-          <Text style={styles.verifyBody}>{t('traveler.verifyCodeIdle')}</Text>
-        )}
+        <Text style={styles.verifyBody}>
+          {ride.rideActive && ride.matchedOp?.rideId
+            ? t('traveler.pickupSecurityIntro')
+            : t('traveler.verifyCodeIdle')}
+        </Text>
       </Card>
 
       <SectionLabel style={styles.lbl}>{t('traveler.immediateAssistance')}</SectionLabel>
