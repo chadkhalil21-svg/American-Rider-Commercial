@@ -9,6 +9,7 @@ const root=path.resolve(__dirname,'..');
 
 const tests=[
   'backend/native-wallet-pickup-release-contract.test.js',
+  'backend/operator-completion-money-truth.test.js',
   'backend/synthetic-travel-lifecycle.test.js',
   'backend/manual-capture.test.js',
   'backend/authorized-hold-recovery.test.js',
