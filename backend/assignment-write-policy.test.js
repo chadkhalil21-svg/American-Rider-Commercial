@@ -38,7 +38,8 @@ function exercise(){
   assert(fn.includes("await write(db, ride.id, { unanswered: true, unansweredAt: now })"));
   assert(fn.includes('out.stranded.push(ride.id)'));
   assert(fn.includes("where('status', '==', 'assigned')"));
-  assert(fn.includes('if (age > STALE_ASSIGNMENT_MS)'),'old assignments still close');
+  assert(fn.includes('age > STALE_ASSIGNMENT_MS') && fn.includes('WITHDRAWN_REPLACEMENT_MS'),
+    'old unanswered assignments still expire; withdrawn accepted pickup uses a shorter window');
   assert(fn.includes("refundPending: !!current.paymentIntentId"),'refund obligation not removed');
 }
 exercise();exercise();
