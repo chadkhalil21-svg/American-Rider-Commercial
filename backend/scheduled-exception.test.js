@@ -69,6 +69,8 @@ const {scheduledExceptionIdempotencyKey, scheduledExceptionTicket,
   first.rows[0].atMs=Date.parse('2026-10-22T15:00:00Z');
   const page=scheduledExceptionsPage(first);
   assert(!page.includes('<script>'), 'Founder HTML must escape stored exception messages');
+  assert.match(page,/Scheduled: Oct 22, 2026/);
+  assert(page.includes('ET'));
   assert(page.includes('&lt;script&gt;'));
   const second=await listScheduledExceptions(db,{after:first.next,limit:25});
   assert.equal(second.rows.length,25);
