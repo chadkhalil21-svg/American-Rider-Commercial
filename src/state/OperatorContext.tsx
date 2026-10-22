@@ -24,6 +24,7 @@ import {
   markCompleted,
   markOnboard,
   markNoShow,
+  withdrawAcceptedTravel,
   watchAssignedTravel,
   type AssignedTravel,
 } from '../backend/operatorInbox';
@@ -294,6 +295,7 @@ type OperatorState = {
   acceptRequest: (r: SimRequest) => Promise<boolean>;
   confirmArrival: () => Promise<boolean>;
   cancelOp: () => void;
+  withdrawAcceptedOp: () => Promise<{ok:boolean;code?:string}>;
   noShowOp: () => Promise<{ok:boolean;code?:string;refundPending?:boolean}>;
   completeOp: () => Promise<boolean>;
   lastCompleted: CompletedOp | null;
@@ -849,6 +851,15 @@ export function OperatorProvider({ children }: { children: React.ReactNode }) {
           Date.now() - Math.max(Number(x.statusAt) || 0, Number(x.createdAt) || 0) <
             ACTIVE_RESTORE_MAX_MS,
       );
+      const withdrawn = opRef.current && list.find(x =>
+        x.rideId === opRef.current?.rideId && x.status === 'assigned' &&
+        !!x.releasedAt);
+      if (withdrawn) {
+        setOp(current => current?.rideId === withdrawn.rideId ? null : current);
+        setOnlineState(false);
+        setArrived(false);
+        setCheckIn(null);
+      }
       if (underway && !opRef.current) {
         const fare = underway.travelCostCents > 0 ? underway.travelCostCents / 100 : fareFromTotal(underway.costCents / 100);
         const prices = operatorOfferAmounts({
@@ -1009,6 +1020,22 @@ export function OperatorProvider({ children }: { children: React.ReactNode }) {
     const rideId = opRef.current?.rideId;
     if (!rideId) return false;
     return await markOnboard(rideId, teenPickupCode);
+  }, []);
+
+  const withdrawAcceptedOp = useCallback(async (): Promise<{ok:boolean;code?:string}> => {
+    const rideId = opRef.current?.rideId;
+    if (!rideId) return {ok:false,code:'missing_travel'};
+    const result = await withdrawAcceptedTravel(rideId);
+    if (!result.ok) return result;
+    // Only the committed server release may clear the operation locally.
+    ++dutyAttemptRef.current;
+    setOnlineState(false);
+    setOp(current => current?.rideId === rideId ? null : current);
+    setQueuedOp(null);
+    setArrived(false);
+    setCheckIn(null);
+    setIncoming(null);
+    return result;
   }, []);
 
   const cancelOp = useCallback(() => {
@@ -1541,6 +1568,7 @@ tr('traveler.gateLocation'),
     acceptRequest,
     confirmArrival,
     cancelOp,
+    withdrawAcceptedOp,
     noShowOp,
     completeOp,
     lastCompleted,
