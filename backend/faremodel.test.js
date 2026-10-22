@@ -133,37 +133,41 @@ check('an airport fee and a toll are both passed through, and only the toll reac
   both.operatorGets === plain.operatorGets + 175 &&
   both.travelerPays === plain.travelerPays + 200 + 175 + (both.appFee - plain.appFee), JSON.stringify(both));
 
-// ---- THE PLACES WE ARE NOT PERMITTED TO SERVE -------------------------------------------
-//
-// Chad, 20 Sept 2026: launch without airport service and sequence MIA/PortMiami as a
-// post-pilot phase, drop-offs included. Both bodies require a permit — three weeks, $1,000, an
-// active LLC — before a TNC may operate on their property.
-//
-// THE FAILURE THIS PREVENTS is not a lost booking. It is quoting a traveler a $2.00 government
-// fee we have no account to remit, for a pickup an operator may not lawfully make, and then
-// keeping the money because nobody set the remittance up. The fee registry has been live and
-// correct since 9 September; the permit is not.
+// ---- Facility rule: all drop-offs allowed inside active service geography ----------------
+// Founder decision (22 Oct 2026): airport and seaport drop-offs do not inherit pickup
+// permit gates. The rule is neutral across facilities. Airport/port pickups remain gated.
 const { permitRequired, permitRequiredMessage, GOVERNMENT_FEES } = require('./fees');
 const MIA = { lat: 25.7953, lng: -80.2789 };
 const PORT = { lat: 25.775, lng: -80.165 };
+const FLL = { lat: 26.0742, lng: -80.1506 };
+const PBI = { lat: 26.6832, lng: -80.0956 };
+const EVERGLADES = { lat: 26.087, lng: -80.113 };
 const BRICKELL = { lat: 25.7617, lng: -80.1918 };
 const WYNWOOD = { lat: 25.801, lng: -80.1994 };
 
-check('no fee in the registry is permitted yet — if one is, it was turned on deliberately',
-  GOVERNMENT_FEES.every((f) => f.permitted === false),
-  GOVERNMENT_FEES.filter((f) => f.permitted !== false).map((f) => f.id).join(', '));
-check('a travel TO the airport is declined', permitRequired(BRICKELL, MIA)?.end === 'destination');
-check('a travel FROM the airport is declined too — a permit is not a fee waiver',
-  permitRequired(MIA, BRICKELL)?.end === 'pickup');
-check('the seaport is declined at both ends',
-  permitRequired(BRICKELL, PORT)?.end === 'destination' && permitRequired(PORT, BRICKELL)?.end === 'pickup');
+check('no pickup fee in the registry is marked permitted', GOVERNMENT_FEES.every(f => f.permitted === false));
+for (const [name, place] of [
+  ['Miami International Airport', MIA],
+  ['PortMiami', PORT],
+  ['Fort Lauderdale airport', FLL],
+  ['Palm Beach airport', PBI],
+  ['Port Everglades', EVERGLADES],
+]) {
+  check(name + ' drop-off is not rejected by a pickup-only facility permit',
+    permitRequired(BRICKELL, place) === null);
+  check(name + ' drop-off can receive a normal, coordinate-based fare',
+    priceRoute({pickup:BRICKELL,dest:place})?.travelCostCents > 0);
+}
+for (const [name, place] of [['MIA',MIA],['PortMiami',PORT],['FLL',FLL]]) {
+  check(name + ' pickup stays restricted',
+    permitRequired(place, BRICKELL)?.end === 'pickup');
+}
 check('an ordinary travel is untouched', permitRequired(BRICKELL, WYNWOOD) === null);
-check('the refusal names the place and does not apologise',
-  /Miami International Airport/.test(permitRequiredMessage(permitRequired(BRICKELL, MIA))) &&
-  !/sorry|apolog|unfortunate|!/i.test(permitRequiredMessage(permitRequired(BRICKELL, MIA))),
-  permitRequiredMessage(permitRequired(BRICKELL, MIA)));
-check('and it reads differently at each end, because they are different refusals',
-  permitRequiredMessage(permitRequired(BRICKELL, MIA)) !== permitRequiredMessage(permitRequired(MIA, BRICKELL)));
+check('the pickup refusal names the facility and uses restrained wording',
+  /Miami International Airport/.test(permitRequiredMessage(permitRequired(MIA,BRICKELL))) &&
+  !/sorry|apolog|unfortunate|!/i.test(permitRequiredMessage(permitRequired(MIA,BRICKELL))));
+check('an allowed drop-off is not misrepresented as a restricted pickup',
+  permitRequired(BRICKELL,MIA) === null && permitRequired(MIA,BRICKELL)?.end === 'pickup');
 // The gate must sit with the market gate, ahead of any price — a refusal that falls through to
 // a quote is a booking we cannot honour.
 const serverSrc = require('fs').readFileSync(require('path').join(__dirname, 'server.js'), 'utf8');
