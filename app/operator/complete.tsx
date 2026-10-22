@@ -10,6 +10,7 @@ import { Card, Mono, Num, PrimaryButton, Screen } from '../../src/components/UI'
 import { useOperator } from '../../src/state/OperatorContext';
 import { useLanguage } from '../../src/state/LanguageContext';
 import { colors, fmt } from '../../src/theme';
+import { completionBreakdown } from '../../src/operatorCompletionMoney';
 
 export default function OperatorComplete() {
   const { t } = useLanguage();
@@ -22,7 +23,9 @@ export default function OperatorComplete() {
   }, [rec, router]);
   if (!rec) return <Screen scroll={false}>{null}</Screen>;
 
-  const cut = +(rec.fare - rec.earn).toFixed(2);
+  // Local estimate, not a confirmed Stripe transfer. Tolls are reimbursed IN ADDITION
+  // to 99% of Fare; never count them as negative platform commission.
+  const detail = completionBreakdown(rec.fare, rec.earn, rec.tollReimbursementCents);
 
   return (
     <Screen>
@@ -44,7 +47,7 @@ export default function OperatorComplete() {
         <Num size={44} weight="600" color={colors.green} style={{ marginTop: 18 }}>
           {fmt(rec.earn)}
         </Num>
-        <Text style={styles.added}>{t('traveler.addedToRevenue')}</Text>
+        <Text style={styles.added}>{t('operator.completedEarningsEstimate')}</Text>
       </View>
 
       <Card style={styles.ledgerCard}>
@@ -52,12 +55,18 @@ export default function OperatorComplete() {
           <Text style={styles.rowLabel}>{t('traveler.travelersFare')}</Text>
           <Num size={14.5}>{fmt(rec.fare)}</Num>
         </View>
-        <View style={[styles.row, styles.hair]}>
-          <Text style={styles.rowLabel}>{t('traveler.platformCommission')}</Text>
-          <Num size={14.5} color={colors.muted}>
-            −{fmt(cut)}
-          </Num>
-        </View>
+        {detail.commissionCents !== null && (
+          <View style={[styles.row, styles.hair]}>
+            <Text style={styles.rowLabel}>{t('traveler.platformCommission')}</Text>
+            <Num size={14.5} color={colors.muted}>−{fmt(detail.commissionCents / 100)}</Num>
+          </View>
+        )}
+        {detail.tollReimbursementCents != null && detail.tollReimbursementCents > 0 && (
+          <View style={[styles.row, styles.hair]}>
+            <Text style={styles.rowLabel}>{t('operator.completionTollReimbursement')}</Text>
+            <Num size={14.5}>{fmt(detail.tollReimbursementCents / 100)}</Num>
+          </View>
+        )}
         <View style={[styles.row, styles.hair]}>
           <Text style={styles.rowStrong}>{t('operator.youRetain')}</Text>
           <Num size={14.5} weight="600" color={colors.green}>
