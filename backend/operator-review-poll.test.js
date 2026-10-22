@@ -8,7 +8,7 @@ assert(!s.includes('}, 120_000)'), 'Never run two-minute redundant Auth/Stripe s
 assert(s.includes('checkingRef.current'), 'Focus/resume/interval races must dedupe provider checks');
 assert(s.includes("AppState.currentState === 'active'"),'Do not poll while backgrounded');
 assert(s.includes("if (state === 'active') void check()"),'Refresh when app resumes');
-assert(s.includes('onPress={check}'), 'Explicit user-initiated status refresh is retained');
+assert(s.includes('onPress={() => { void check(true); }}'), 'Explicit user-initiated status refresh must give a visible result');
 const accept=fs.readFileSync(path.join(__dirname,'server.js'),'utf8');
 assert(accept.includes('qualificationChecks(uid, u)'), 'Paid acceptance still requires up-to-date eligibility');
 console.log('PASS: under-review vendor reads limited to 10-minute foreground checks, explicit refresh and safe acceptance retained');

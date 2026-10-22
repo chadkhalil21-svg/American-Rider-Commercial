@@ -134,20 +134,41 @@ export type QualificationStatus = {
   reason: string | null;
 };
 
-/** Never throws. An unreachable server reads as `unknown`, never as qualified. */
+/** Never throws or waits indefinitely: unknown status never grants qualification. */
 export async function qualificationStatus(): Promise<QualificationStatus> {
+  const unknown: QualificationStatus = { status: 'unknown', reason: null };
+  const controller = new AbortController();
+  let timeout: ReturnType<typeof setTimeout> | undefined;
   try {
-    const res = await fetch(`${PAYMENT_SERVER_URL}/operator/qualification`, { headers: await authHeaders() });
-    if (!res.ok) return { status: 'unknown', reason: null };
-    const d = await res.json();
-    const s = d?.status;
-    const known = ['qualified', 'exception', 'refused', 'suspended', 'incomplete'];
-    return {
-      status: known.includes(s) ? s : 'unknown',
-      reason: typeof d?.blockers?.[0]?.reason === 'string' ? d.blockers[0].reason : null,
-    };
+    // The deadline covers Firebase token retrieval, fetch AND parsing. Abort the
+    // HTTP request if it is still underway, and always release the screen's busy
+    // state even when the provider does not return.
+    const request: Promise<QualificationStatus> = (async () => {
+      const headers = await authHeaders();
+      const res = await fetch(`${PAYMENT_SERVER_URL}/operator/qualification`, {
+        headers,
+        signal: controller.signal,
+      });
+      if (!res.ok) return unknown;
+      const d = await res.json();
+      const s = d?.status;
+      const known = ['qualified', 'exception', 'refused', 'suspended', 'incomplete'];
+      return {
+        status: known.includes(s) ? s : 'unknown',
+        reason: typeof d?.blockers?.[0]?.reason === 'string' ? d.blockers[0].reason : null,
+      };
+    })().catch(() => unknown);
+    const deadline = new Promise<QualificationStatus>(resolve => {
+      timeout = setTimeout(() => {
+        controller.abort();
+        resolve(unknown);
+      }, 12_000);
+    });
+    return await Promise.race([request, deadline]);
   } catch {
-    return { status: 'unknown', reason: null };
+    return unknown;
+  } finally {
+    if (timeout) clearTimeout(timeout);
   }
 }
 

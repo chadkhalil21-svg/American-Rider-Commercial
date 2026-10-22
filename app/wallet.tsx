@@ -190,7 +190,7 @@ export default function PaymentAndSettlement() {
 
       <Modal visible={!!pendingRemove} animationType="fade" transparent onRequestClose={() => setPendingRemove(null)}>
         <Pressable style={styles.confirmScrim} onPress={() => setPendingRemove(null)}>
-          <Pressable style={styles.confirmCard} onPress={() => {}}>
+          <Pressable style={styles.confirmCard} accessible={false} onPress={(event) => event.stopPropagation()}>
             <Text style={styles.confirmTitle}>{t('traveler.paymentMethod')}</Text>
             {pendingRemove ? (
               <>
