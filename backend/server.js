@@ -1068,7 +1068,7 @@ app.get('/connect/status', requireAuth, async (req, res) => {
     if (status?.error) return res.status(502).json({ code:'provider_unavailable', error:'Payout status unavailable. Please try again.' });
     const consent=operator?.stripeFeeConsent;
     res.json({...status,feeConsentAccepted:require('./connect-fee-consent').currentConnectFeeConsent(consent)});
-  } catch (e) {
+  } catch {
     res.status(502).json({ code:'provider_unavailable', error:'Payout status unavailable. Please try again.' });
   }
 });
