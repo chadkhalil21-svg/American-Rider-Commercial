@@ -156,6 +156,10 @@ async function withdrawAcceptedTravel({ db, uid, rideId, now = Date.now() }) {
       operatorWithdrawalAt: now, withdrawnBy: operatorId,
       declinedBy: [...new Set([...(Array.isArray(ride.declinedBy) ? ride.declinedBy : []), operatorId])],
       acceptedAt: null, arrivedAt: null,
+      // No stale position, stopped-vehicle alert or safety check may follow the new
+      // Operator. The replacement must report their OWN fresh location first.
+      opLat: null, opLng: null, opAt: null,
+      monitor: null, monitorSeen: null, stillSince: null,
       // Reassignment never inherits the prior Operator's proof of pickup.
       ...(ride.teenPickup ? { teenPickup: { ...ride.teenPickup, verifiedAt: null, verifiedBy: null } } : {}),
       ...(ride.adultPickup ? { adultPickup: { ...ride.adultPickup, verifiedAt: null, verifiedBy: null } } : {}),
