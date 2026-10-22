@@ -749,7 +749,6 @@ export default {
     toDest: 'Hacia %{dest}',
     arrivalCaps: 'LLEGADA',
     ninetyNineOfFareAmt: 'El 99 % de la tarifa de %{amount}',
-    addedToRevenue: 'añadido a sus ingresos',
     travelersFare: 'Tarifa del viajero',
     distMi: '%{n} mi',
     milesShort: '%{n} mi',
