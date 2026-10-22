@@ -28,6 +28,17 @@ for(let i=0;i<2;i++){
   'scheduled Travel must authorize off-session in new mode; old mode unchanged');
  assert(dispatch.indexOf('matchOperator(')<dispatch.indexOf('chargeScheduledTravel({'),
   'Do not request an authorization before a qualified operator is matched');
+ // A held scheduled card is not paid. Preserve separate amounts in both
+ // dispatched and failed scheduling outcomes and avoid a false refund claim.
+ assert(dispatch.includes("chargedCents:heldOnly?0:paid.chargedCents"),
+   'new scheduled manual holds cannot be reported as charged funds');
+ assert(dispatch.includes("authorizedCents:paid.chargedCents"),
+   'record the separate amount reserved at the bank');
+ assert(dispatch.includes('RELEASE ORIGINAL HOLD; NO CAPTURED REFUND IS OWED.'),
+   'failed dispatch support must release the hold, not promise a cash refund');
+ const upcoming=fs.readFileSync(path.join(__dirname,'../app/upcoming.tsx'),'utf8');
+ assert(upcoming.includes("case 'needs_attention': return t('traveler.schedNeedsReview');"),
+   'scheduled reviews must not falsely claim a captured charge');
  const screen=fs.readFileSync(path.join(__dirname,'../app/schedule.tsx'),'utf8');
  const context=fs.readFileSync(path.join(__dirname,'../src/state/RideContext.tsx'),'utf8');
  assert(screen.includes('futurePaymentConsent')&&screen.includes('offSessionPaymentConsent:futurePaymentConsent'));

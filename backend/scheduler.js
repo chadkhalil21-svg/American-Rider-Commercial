@@ -331,7 +331,9 @@ async function sweepScheduled({ now = Date.now(), checkMarket } = {}) {
       continue;
     }
 
-    // ---- 4. Attach the provider charge, verify it and atomically reserve the Operator. ----
+    // ---- 4. Attach the provider payment, verify it and reserve the Operator. ----
+    // Manual mode is a hold, not funds captured; never label it a charge.
+    const heldOnly=paid.capturePolicy==='manual_v1';
     try {
       if (Number(paid.chargedCents) !== billed) throw new Error('Provider amount differs from reserved price');
       // If this write fails, Stripe's payment_intent.succeeded webhook uses rideId metadata to
@@ -353,7 +355,10 @@ async function sweepScheduled({ now = Date.now(), checkMarket } = {}) {
       const finished = await touchClaimed(db,id,claimed,{
         status: 'dispatched', claimedAt: null, claimNonce:null, rideId, operatorId: assigned.body.matched.id,
         operatorName: assigned.body.matched.name || '', etaMin: assigned.body.matched.etaMin,
-        paymentIntentId: paid.paymentIntentId, chargedCents: paid.chargedCents,
+        paymentIntentId: paid.paymentIntentId,
+        paymentCapturePolicy:paid.capturePolicy||'captured_legacy',
+        chargedCents:heldOnly?0:paid.chargedCents,
+        ...(heldOnly?{authorizedCents:paid.chargedCents}:{}),
         dispatchedAt: now, paymentError: null,
       });
       if (!finished) throw new Error('Reservation changed after assignment; Operations reconciliation required');
@@ -385,19 +390,26 @@ async function sweepScheduled({ now = Date.now(), checkMarket } = {}) {
       // The charge cannot vanish into a case alone: a durable ride was staged BEFORE charging.
       // The webhook can attach its PI if this write failed; booking recovery then refunds.
       await touchClaimed(db,id,claimed,{ status: 'needs_attention', claimedAt: null,claimNonce:null, rideId,
-        paymentIntentId: paid.paymentIntentId, chargedCents: paid.chargedCents,
+        paymentIntentId: paid.paymentIntentId,
+        paymentCapturePolicy:paid.capturePolicy||'captured_legacy',
+        chargedCents:heldOnly?0:paid.chargedCents,
+        ...(heldOnly?{authorizedCents:paid.chargedCents}:{}),
         dispatchError: e.message, dispatchErrorAt: now });
       let caseNo = null;
       try {
         const filed = await fileTicket({ uid: r.travelerUid, email: r.travelerEmail || '',
-          kind: 'support', reason: 'Scheduled travel charged but not dispatched',
+          kind: 'support', reason:heldOnly
+            ? 'Scheduled Travel authorization held but not dispatched'
+            : 'Scheduled travel charged but not dispatched',
           trip: r.tripNo || '', description:
-            `Scheduled Travel ${r.tripNo || '(no number)'} charged ${paid.chargedCents} cents ` +
-            `(${paid.paymentIntentId}) but dispatch failed: ${e.message}. Ride ${rideId}. REFUND IS OWED.` });
+            `Scheduled Travel ${r.tripNo || '(no number)'} ${heldOnly?'authorized':'charged'} ${paid.chargedCents} cents ` +
+            `(${paid.paymentIntentId}) but dispatch failed: ${e.message}. Ride ${rideId}. ` +
+            (heldOnly?'RELEASE ORIGINAL HOLD; NO CAPTURED REFUND IS OWED.':'REFUND OF CAPTURED FUNDS IS OWED.') });
         caseNo = filed?.caseNo || null;
         if (caseNo) await touch(db, id, { caseNo });
       } catch { /* the reservation and staged ride both retain the obligation */ }
-      report.failed.push({ id, reason: `charged but not dispatched: ${e.message}`, paid: true, caseNo });
+      report.failed.push({ id, reason: `${heldOnly?'authorized':'charged'} but not dispatched: ${e.message}`,
+        paid:!heldOnly,authorized:heldOnly,caseNo });
     }
   }
 
@@ -474,10 +486,10 @@ async function recoverStaleClaims(db,now,report){
      tx.update(ref,{status:'dispatched',rideId,paymentIntentId:ride.paymentIntentId,
        operatorId:ride.operatorId||null,operatorName:ride.operatorName||'',
        claimedAt:null,claimNonce:null,dispatchedAt:ride.offeredAt||now,
-       lastSweepResult:'Recovered already-paid assigned Travel'});return;
+       lastSweepResult:'Recovered provider-confirmed assigned Travel'});return;
     }
     tx.update(ref,{status:'needs_attention',rideId,paymentIntentId:ride.paymentIntentId||null,
-      claimedAt:null,claimNonce:null,dispatchError:'Stale claim with staged Travel: verify charge/refund before retry'});
+      claimedAt:null,claimNonce:null,dispatchError:'Stale claim with staged Travel: verify payment, hold release or refund before retry'});
    });
   }
   return true;

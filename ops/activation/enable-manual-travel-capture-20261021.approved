@@ -6,3 +6,7 @@ FOUNDER_APPROVED=ENABLE_PRELAUNCH_MANUAL_TRAVEL_CAPTURE
 # paid Cloud Run, Stripe Connect, Scheduler, credentials and webhooks.
 # ONE-TIME GitHub push signal on merge to release/current.
 # No TestFlight/EAS build or distribution is authorized.
+
+# Founder-directed systematic audit source repair: one controlled paid Cloud Run
+# code update after exact-source CI, keeping manual capture ON; still no TestFlight.
+SYSTEMATIC_AUDIT_RELEASE=2026-10-22-MANUAL-HOLD-RECOVERY

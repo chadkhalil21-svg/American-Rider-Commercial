@@ -75,13 +75,43 @@ async function sweepBookingRecovery({ db, deps, stripeConfigured, now = Date.now
           const piId = reservation.exists ? reservation.data().paymentIntentId : null;
           if (piId) {
             const pi = await deps.verifiedTravelPayment(piId);
-            if (!paymentMatches({ ...ride, paymentIntentId: piId }, pi, ride.travelerUid, doc.id)) {
+            // Recovery is NOT dispatch: the original Stripe hold may now be
+            // expired or already canceled. Verify its immutable owner, Travel
+            // and full quoted amount, then release/reconcile it. Do not require
+            // an active capture window to clean up an abandoned authorization.
+            const recoverableManual = pi?.id === piId &&
+              pi?.capture_method === 'manual' &&
+              pi?.metadata?.capturePolicy === 'manual_v1' &&
+              pi?.metadata?.uid === String(ride.travelerUid) &&
+              pi?.metadata?.rideId === String(doc.id) &&
+              pi?.currency === 'usd' &&
+              Number.isSafeInteger(Number(ride.costCents)) &&
+              Number(ride.costCents) > 0 && pi?.amount === Number(ride.costCents) &&
+              (pi.status === 'canceled' ||
+                (pi.status === 'requires_capture' &&
+                  pi.amount_capturable === Number(ride.costCents)));
+            if (!paymentMatches({ ...ride, paymentIntentId: piId }, pi, ride.travelerUid, doc.id) &&
+                !recoverableManual) {
               out.ok = false; out.pending.push(doc.id);
               out.errors.push(`${doc.id}: scheduled payment ownership/amount unavailable`);
               continue;
             }
-            await db.collection('rides').doc(doc.id).set({ paymentIntentId: piId, paidAt: now }, { merge: true });
-            ride = { ...ride, paymentIntentId: piId, paidAt: now };
+            // A manual requires_capture authorization is NOT a captured charge.
+            // Do not stamp paidAt: it changes receipt, refund and webhook behavior.
+            // Preserve the provider's real held-vs-settled state across a crash.
+            const manual = pi.metadata?.capturePolicy === 'manual_v1';
+            const manualHold = manual && pi.status === 'requires_capture';
+            const manualReleased = manual && pi.status === 'canceled';
+            const recovered = manualHold || manualReleased
+              ? { paymentIntentId: piId, paymentCapturePolicy: 'manual_v1',
+                  authorizationState: manualHold ? 'held' : 'released',
+                  authorizedAt: now, authorizedAmountCents: Number(pi.amount) }
+              : { paymentIntentId: piId, paidAt: now,
+                  paymentCapturePolicy: manual ? 'manual_v1' : 'captured_legacy',
+                  ...(manual ? { authorizationState: 'captured',
+                    capturedCents: Number(pi.amount_received) } : {}) };
+            await db.collection('rides').doc(doc.id).set(recovered, { merge: true });
+            ride = { ...ride, ...recovered };
           }
         } catch (e) {
           out.ok = false; out.pending.push(doc.id);
