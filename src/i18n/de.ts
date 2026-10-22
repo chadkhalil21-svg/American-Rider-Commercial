@@ -91,6 +91,8 @@ export default {
         activeAccountCostBody: "Ihr Bruttoanteil am Fahrpreis beträgt 99 %. Je nach geltender Connect-Preisregelung: 2 $ im Monat mit Bankauszahlung, Standardauszahlung 0,25 % + 0,25 $, Geldweiterleitung 0,25 % und optionale Sofortauszahlung zusätzlich 1 %. Nur vereinbarte, nachgewiesene Gebühren dürfen den Nettoeingang mindern. Keine zweite Karte erforderlich.",
     feeConsentAccept: "Ich stimme den separaten 2 $ und den ausgewiesenen Auszahlungsgebühren zu",
     feeConsentRequired: "Bitte stimmen Sie den Connect-Konto- und Auszahlungsgebühren vor der Einrichtung zu.",
+    payoutStatusUnavailable: "Auszahlungsdaten sind vorübergehend nicht verfügbar. Ihr bestehendes Konto wurde nicht entfernt. Bitte versuchen Sie es erneut.",
+    payoutStatusStillPending: "Status geprüft. Stripe prüft Ihr Auszahlungskonto weiterhin.",
     operatingArea: 'Einsatzgebiet',
     marketUnknownSoon: "Bald in weiteren Gebieten. Die Registrierung für Operatoren ist nur in Regionen möglich, in denen American Rider bereits tätig ist. Wählen Sie ein geöffnetes County.",
     marketNotActive: 'Demnächst in %{name}. Die Registrierung für Operatoren beginnt, sobald der Dienst hier startet.',
