@@ -733,7 +733,6 @@ export default {
     toDest: 'Nach %{dest}',
     arrivalCaps: 'ANKUNFT',
     ninetyNineOfFareAmt: '99 % des Fahrpreises von %{amount}',
-    addedToRevenue: 'Ihren Erträgen gutgeschrieben',
     travelersFare: 'Fahrpreis des Reisenden',
     distMi: '%{n} mi',
     milesShort: '%{n} mi',
