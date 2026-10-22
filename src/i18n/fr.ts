@@ -93,6 +93,8 @@ export default {
         activeAccountCostBody: "Votre part brute du Tarif est de 99 %. Selon les tarifs Connect applicables : 2 $ pour un mois avec versement bancaire, versement standard 0,25 % + 0,25 $, acheminement des fonds 0,25 %, et versement instantané facultatif +1 %. Seuls les frais applicables, vérifiés et acceptés peuvent réduire le dépôt net. Aucune seconde carte n’est requise.",
     feeConsentAccept: "J'accepte les 2 $ distincts et les frais de versement indiqués",
     feeConsentRequired: "Veuillez accepter les frais de compte Connect et de versement avant la configuration.",
+    payoutStatusUnavailable: "Les détails de versement sont momentanément indisponibles. Votre compte existant n’a pas été supprimé. Réessayez.",
+    payoutStatusStillPending: "Statut vérifié. Stripe finalise encore la vérification de votre compte de versement.",
     operatingArea: 'Zone d’Opération',
     marketUnknownSoon: "Bientôt disponible dans d'autres régions. L'inscription des Opérateurs n'est possible que là où American Rider est ouvert. Choisissez un comté ouvert.",
     marketNotActive: "Bientôt disponible dans %{name}. L'inscription des Opérateurs commencera à l'ouverture du service.",
