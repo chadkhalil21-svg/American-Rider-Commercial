@@ -1174,10 +1174,7 @@ export default {
     shareUnavailable: 'Disponible una vez que confirme un Viaje.',
 
     pickupSecurityIntro: 'Compruebe en la aplicación el nombre del Operador, el vehículo y la matrícula. Antes de subir, pregunte al Operador a quién viene a recoger. No necesita código.',
-    pickupCodePendingRollout: 'Los códigos seguros se activarán con la próxima versión móvil. Mientras tanto, compruebe los datos del Operador y del vehículo.',
-    pickupCodeVerified: 'Código de recogida verificado.',
     pickupCodeUnavailable: 'No se pudo obtener ni verificar el código. Inténtelo de nuevo o contacte con Atención al Viajero.',
-    getPickupSecurityCode: 'Solicitar código privado de recogida',
     verifyCodeIdle: 'Cuando se asigne un Operador, compruebe su nombre, vehículo y matrícula antes de subir.',
     emgTextMyLocation: 'Enviar mi ubicación por SMS',
     emgSendMyLocation: 'Enviar mi ubicación',
