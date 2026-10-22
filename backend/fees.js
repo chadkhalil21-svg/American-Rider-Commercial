@@ -124,7 +124,7 @@ function governmentFeeCents(pickup, dest, registry = GOVERNMENT_FEES) {
 // remittance is the worst version of this, and it is what happens by default if the fee
 // registry is live and the permit is not.
 //
-// A PLACE IS DECLINED AT BOTH ENDS. Chad included drop-offs deliberately, and the fee schedule
+// HISTORICAL POLICY (superseded 22 October 2026): A PLACE WAS DECLINED AT BOTH ENDS. Chad included drop-offs deliberately, and the fee schedule
 // is the reason the question arises at all: MIA's Exhibit F charges $2.00 to pick up and
 // $0.00 to drop off, so a drop-off costs nothing and looks harmless. The permit is not a fee
 // waiver — it is permission to operate on the property, and an operator who drops off without
@@ -137,20 +137,20 @@ function governmentFeeCents(pickup, dest, registry = GOVERNMENT_FEES) {
 const permittedAt = (fee) => fee.permitted === true;
 
 /**
- * Whether this travel touches a place we are not permitted to serve, and which end.
+ * Whether this travel originates at a pickup-restricted facility. Drop-offs are not blocked by pickup-only facility rules.
  * Returns { id, name, end } for the first such place, else null.
  */
 function permitRequired(pickup, dest, registry = GOVERNMENT_FEES, restricted = RESTRICTED_PLACES) {
   for (const fee of registry) {
     if (permittedAt(fee)) continue;
     if (inBox(fee.bbox, pickup)) return { id: fee.id, name: fee.name, end: 'pickup' };
-    if (inBox(fee.bbox, dest)) return { id: fee.id, name: fee.name, end: 'destination' };
+    // Founder-authorized drop-off-only service: a pickup permit does not block arrival.
   }
   // And the places we are not permitted at whose fee we cannot even quote. Checked second
   // only because the priced ones are the commoner case, not because they matter less.
   for (const place of restricted) {
     if (inBox(place.bbox, pickup)) return { id: place.id, name: place.name, end: 'pickup' };
-    if (inBox(place.bbox, dest)) return { id: place.id, name: place.name, end: 'destination' };
+    // Restricted-facility pickup remains blocked; drop-offs use normal service geography.
   }
   return null;
 }
