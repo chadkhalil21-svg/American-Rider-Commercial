@@ -423,6 +423,7 @@ async function settleTravel({ db, uid, rideId, deps, now = Date.now() }) {
   await rideRef.set(
     {
       transferId: out.transferId,
+      needsPayout: false,
       operatorPaidCents: out.amountCents,
       platformTakeCents: out.platformTake,
       payoutPending: false,
