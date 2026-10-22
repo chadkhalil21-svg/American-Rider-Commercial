@@ -400,7 +400,7 @@ async function sweepScheduled({ now = Date.now(), checkMarket } = {}) {
         const filed = await fileTicket({ uid: r.travelerUid, email: r.travelerEmail || '',
           kind: 'support', reason:heldOnly
             ? 'Scheduled Travel authorization held but not dispatched'
-            : 'Scheduled Travel charged but not dispatched',
+            : 'Scheduled travel charged but not dispatched',
           trip: r.tripNo || '', description:
             `Scheduled Travel ${r.tripNo || '(no number)'} ${heldOnly?'authorized':'charged'} ${paid.chargedCents} cents ` +
             `(${paid.paymentIntentId}) but dispatch failed: ${e.message}. Ride ${rideId}. ` +
