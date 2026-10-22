@@ -69,6 +69,51 @@ async function main() {
     now:now+PAID_UNMATCHED_TTL_MS+1000 });
   assert(later.closed.includes('scheduled'));
   assert.equal(refunds.length,3,'the scheduled orphan was automatically refunded');
+  // PRELAUNCH MANUAL CAPTURE: an authorized scheduled PaymentIntent is never
+  // a settled charge. After a lost reservation->ride PI write, recover the
+  // original provider hold and release it without a Stripe refund.
+  {
+    const holdDb=store(); const voids=[];
+    holdDb.rows.set('rides/held-scheduled', {
+      travelerUid:'u', status:'awaiting_payment',
+      reservationId:'held-reservation', createdAt:now-PREPARED_TTL_MS-1,
+      costCents:2350, routedMinutes:60,
+    });
+    holdDb.rows.set('scheduled_rides/held-reservation',{paymentIntentId:'pi_held'});
+    const holdDeps={
+      ...deps,
+      verifiedTravelPayment:async(id)=>({
+        id,status:'requires_capture',capture_method:'manual',
+        amount:2350,amount_capturable:2350,currency:'usd',
+        metadata:{uid:'u',rideId:'held-scheduled',capturePolicy:'manual_v1'},
+        latest_charge:{payment_method_details:{card:{
+          capture_before:Math.floor((now+3*24*60*60*1000)/1000),
+        }}},
+      }),
+      settleUncapturedTravel:async(args)=>{
+        voids.push(args);
+        return {manual:true,ok:true,status:'released'};
+      },
+    };
+    const beforeRefund=refunds.length;
+    const held=await sweepBookingRecovery({db:holdDb,deps:holdDeps,stripeConfigured:true,now});
+    assert.equal(held.ok,true,JSON.stringify(held));
+    assert(held.closed.includes('held-scheduled'));
+    const record=holdDb.rows.get('rides/held-scheduled');
+    assert.equal(record.paymentIntentId,'pi_held');
+    assert.equal(record.paymentCapturePolicy,'manual_v1');
+    assert.equal(record.paidAt,undefined,
+      'an uncollected hold must never acquire a paidAt timestamp');
+    assert.equal(record.authorizationState,'released');
+    assert.equal(record.refundPending,false);
+    assert.equal(voids.length,1);
+    assert.equal(voids[0].action,'cancel');
+    assert.equal(voids[0].paymentIntentId,'pi_held');
+    assert.equal(refunds.length,beforeRefund,'no captured refund for an uncaptured hold');
+    const replay=await sweepBookingRecovery({db:holdDb,deps:holdDeps,stripeConfigured:true,now:now+2000});
+    assert.equal(replay.ok,true,JSON.stringify(replay));
+    assert.equal(voids.length,1,'no second provider authorization release after recovery');
+  }
   // Adversarial regression: 125 unrelated records occupy the natural scan
   // order with refundPending=true but are NOT legally eligible for this cancel
   // refund path. A post-query .continue used to starve the valid paid refund.
