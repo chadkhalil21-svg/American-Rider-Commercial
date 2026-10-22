@@ -100,6 +100,8 @@ export default {
         activeAccountCostBody: "Your gross Travel Fare share is 99%. Depending on the agreed Connect pricing: $2 in a month with a bank payout, standard payout 0.25% + 25¢, funds routing 0.25%, and optional Instant Payout +1%. Only applicable, verified, separately agreed fees may reduce the net bank deposit. No second fee card is required.",
     feeConsentAccept: "I agree to the separate $2 active-account cost and disclosed payout charges",
     feeConsentRequired: "You must agree to the separately billed Connect account and payout costs before setting up payouts.",
+    payoutStatusUnavailable: "Payout details are temporarily unavailable. Your existing account has not been removed. Please try again.",
+    payoutStatusStillPending: "Status checked. Stripe is still completing your payout account verification.",
     operatingArea: 'Operating Area',
     marketUnknownSoon: "Coming soon to more areas. Operator registration is available only where American Rider is open. Select an open county to continue.",
     marketNotActive: 'Coming soon to %{name}. Operator registration begins when service opens here.',
