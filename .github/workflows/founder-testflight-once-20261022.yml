@@ -1,0 +1,160 @@
+name: Founder-approved ONE-TIME TestFlight build and submission (22 Oct 2026)
+
+# Founder explicitly instructed "Send TestFlight" on 22 Oct 2026.
+# One-time, isolated marker-triggered submission using the tested existing iOS
+# pipeline. The pinned source is the exact same commit deployed to Cloud Run.
+# No PUBLIC App Store release, Android build or extra paid backend deployment.
+on:
+  push:
+    branches:
+      - release/current
+    paths:
+      - ops/activation/send-testflight-20261022.approved
+
+permissions:
+  contents: read
+
+jobs:
+  build-submit-certified-ios:
+    if: ${{ github.event_name == 'push' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+      ASC_API_KEY_BASE64: ${{ secrets.ASC_API_KEY_BASE64 }}
+      ASC_KEY_ID: LS74L322NV
+      ASC_ISSUER_ID: 2fa282d5-2b2c-4820-8fe9-6928ac1e8d33
+      CERTIFIED_SHA: c2ab077a3572ebdb69a9a998c2910db6f44e95cf
+
+    steps:
+      - name: Check out certified candidate
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.CERTIFIED_SHA }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Require submission credentials
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$EXPO_TOKEN" || { echo "::error::EXPO_TOKEN is not configured."; exit 1; }
+          test -n "$ASC_API_KEY_BASE64" || { echo "::error::ASC_API_KEY_BASE64 is not configured."; exit 1; }
+
+      - name: Verify certified source
+        shell: bash
+        run: |
+          set -euo pipefail
+          ACTUAL_SHA="$(git rev-parse HEAD)"
+          test "$ACTUAL_SHA" = "$CERTIFIED_SHA" || { echo "::error::Refusing build: $ACTUAL_SHA != $CERTIFIED_SHA"; exit 1; }
+          git fetch origin release/current --depth=1
+          RELEASE_SHA="$(git rev-parse FETCH_HEAD)"
+          # The marker and this one-time workflow create a new release Git commit,
+          # but no application/backend code may change since the certified source.
+          # Reuse the deployed c2ab077 app source without a redundant Cloud Run deploy.
+          while IFS= read -r path; do
+            case "$path" in
+              .github/workflows/founder-testflight-once-20261022.yml|ops/activation/send-testflight-20261022.approved|PROJECT-LEDGER.md) ;;
+              *) echo "::error::App/backend source changed after Cloud Run certification: $path"; exit 1 ;;
+            esac
+          done < <(git diff --name-only "$ACTUAL_SHA" "$RELEASE_SHA")
+          test "$(git show "$RELEASE_SHA:ops/activation/send-testflight-20261022.approved" | head -n 1)" = "FOUNDER_APPROVED=SEND_TESTFLIGHT_20261022" || {
+            echo "::error::One-time founder consent missing or altered."; exit 1;
+          }
+          test "$(git show "$RELEASE_SHA:ops/activation/send-testflight-20261022.approved" | tail -n 1)" = "CERTIFIED_SHA=c2ab077a3572ebdb69a9a998c2910db6f44e95cf" || {
+            echo "::error::Certified source marker does not match authorized app source."; exit 1;
+          }
+          echo "Certified iOS source $ACTUAL_SHA matches deployed backend; one-time founder authorization verified."
+
+      - name: Verify isolated synthetic journey, money and native wallet source contracts
+        run: node scripts/prelaunch-synthetic-acceptance.cjs
+
+      - name: Configure owner-controlled App Store Connect key and select build number
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m pip install --quiet PyJWT cryptography
+          KEY_PATH="$RUNNER_TEMP/AuthKey_${ASC_KEY_ID}.p8"
+          printf '%s' "$ASC_API_KEY_BASE64" | base64 --decode > "$KEY_PATH"
+          grep -q -- '-----BEGIN PRIVATE KEY-----' "$KEY_PATH"
+          grep -q -- '-----END PRIVATE KEY-----' "$KEY_PATH"
+          chmod 600 "$KEY_PATH"
+          echo "ASC_API_KEY_PATH=$KEY_PATH" >> "$GITHUB_ENV"
+
+          python3 - "$KEY_PATH" "$ASC_KEY_ID" "$ASC_ISSUER_ID" <<'PY'
+          import base64, json, sys, time, urllib.parse, urllib.request
+          key_path, key_id, issuer_id = sys.argv[1:]
+          try:
+              import jwt
+          except ImportError:
+              raise SystemExit("PyJWT is required for App Store Connect build discovery")
+          with open(key_path, "rb") as fh:
+              private_key = fh.read()
+          token = jwt.encode(
+              {"iss": issuer_id, "iat": int(time.time()), "exp": int(time.time()) + 600, "aud": "appstoreconnect-v1"},
+              private_key, algorithm="ES256", headers={"kid": key_id, "typ": "JWT"})
+          q = urllib.parse.urlencode({
+              "filter[app]": "6798078543",
+              "filter[preReleaseVersion.version]": "1.0.0",
+              "filter[preReleaseVersion.platform]": "IOS",
+              "fields[builds]": "version",
+              "limit": "200",
+          })
+          req = urllib.request.Request("https://api.appstoreconnect.apple.com/v1/builds?" + q,
+                                       headers={"Authorization": "Bearer " + token})
+          with urllib.request.urlopen(req) as resp:
+              data = json.load(resp)
+          nums = [int(x["attributes"]["version"]) for x in data.get("data", [])
+                  if str(x.get("attributes", {}).get("version", "")).isdigit()]
+          next_build = max(nums, default=0) + 1
+          with open("app.json") as fh:
+              app = json.load(fh)
+          app.setdefault("expo", {}).setdefault("ios", {})["buildNumber"] = str(next_build)
+          with open("app.json", "w") as fh:
+              json.dump(app, fh, indent=2); fh.write("\n")
+          with open("eas.json") as fh:
+              eas = json.load(fh)
+          eas.setdefault("cli", {})["appVersionSource"] = "local"
+          eas.setdefault("build", {}).setdefault("production", {})["autoIncrement"] = False
+          ios = eas.setdefault("submit", {}).setdefault("production", {}).setdefault("ios", {})
+          ios.update({"ascApiKeyPath": key_path, "ascApiKeyId": key_id, "ascApiKeyIssuerId": issuer_id})
+          with open("eas.json", "w") as fh:
+              json.dump(eas, fh, indent=2); fh.write("\n")
+          with open("/tmp/next_build_number", "w") as fh:
+              fh.write(str(next_build))
+          print("Selected next unused iOS build number:", next_build)
+          PY
+
+      - name: Require real Google Cloud Run API before certified store build
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/verify-store-cloudrun-api.cjs
+
+      - name: Build exact certified iOS candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          npx --yes eas-cli@latest build --platform ios --profile production --non-interactive --wait --json > "$RUNNER_TEMP/eas-build.json"
+          node - "$RUNNER_TEMP/eas-build.json" <<'NODE'
+          const fs = require('fs');
+          const p = process.argv[2];
+          const data = JSON.parse(fs.readFileSync(p, 'utf8'));
+          const row = Array.isArray(data) ? data[0] : data;
+          const id = row?.id;
+          if (!id) throw new Error('EAS build completed without a build ID.');
+          fs.appendFileSync(process.env.GITHUB_ENV, 'EAS_BUILD_ID=' + id + '\n');
+          console.log('Exact EAS build ID:', id);
+          NODE
+
+      - name: Submit exact build to TestFlight
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$EAS_BUILD_ID" || { echo "::error::Exact EAS build ID is unavailable."; exit 1; }
+          npx --yes eas-cli@latest submit --platform ios --id "$EAS_BUILD_ID" --profile production --non-interactive --wait --verbose
