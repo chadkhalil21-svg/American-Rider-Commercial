@@ -1,0 +1,99 @@
+name: Founder-approved ONE-TIME paid Cloud Run source synchronization (22 Oct 2026)
+
+# Owner requested "Okay, update back end." Single consent-marker push on
+# release/current, NOT an always-on deploy-on-merge or a new cloud service.
+# Reuse the proven production update/rollback script and existing GCP identity.
+on:
+  push:
+    branches:
+      - release/current
+    paths:
+      - ops/activation/refresh-existing-cloudrun-20261022.approved
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: american-rider-paid-cloudrun-source
+  cancel-in-progress: false
+
+jobs:
+  sync-existing-paid-cloudrun:
+    if: ${{ github.ref == 'refs/heads/release/current' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    environment: american-rider-commercial-live
+    env:
+      FOUNDER_CONFIRM: DEPLOY_EXISTING_PAID_CODE_ONLY
+      CLOUDSDK_CORE_PROJECT: american-rider-35688
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Require one-time Founder consent and exact latest release
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f ops/activation/refresh-existing-cloudrun-20261022.approved
+          grep -qx 'FOUNDER_APPROVED=DEPLOY_EXISTING_PAID_CODE_ONLY_20261022' ops/activation/refresh-existing-cloudrun-20261022.approved
+          grep -qx 'SOURCE_BEFORE_SYNC=467cae5669e9b611d843c174ad9d7d12b7dc67d3' ops/activation/refresh-existing-cloudrun-20261022.approved
+          git fetch origin release/current --depth=1
+          test "$(git rev-parse HEAD)" = "$(git rev-parse FETCH_HEAD)"
+          python3 -m py_compile infra/cloud-run/deploy-existing-paid-source.py
+          echo "One-time founder-authorized paid code synchronization to $(git rev-parse --short HEAD)"
+      - name: Existing synthetic Traveler, Operator, cancellation, money and recovery regression tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm ci --ignore-scripts
+          npm ci --prefix backend --omit=dev
+          node scripts/prelaunch-synthetic-acceptance.cjs
+          node backend/monitor.test.js
+          node backend/operator-withdraw.test.js
+          node backend/paid-cloudrun-activation.test.js
+          node backend/bookingrecovery.test.js
+          node backend/commercial-economics.test.js
+          node backend/paid-scale-economics.test.js
+      - name: Authenticate existing paid Google project without downloading keys
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: projects/623854974930/locations/global/workloadIdentityPools/github-production/providers/github
+          service_account: ar-production-deployer@american-rider-35688.iam.gserviceaccount.com
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Deploy to SAME Cloud Run service with zero traffic first and rollback on failure
+        shell: bash
+        run: python3 infra/cloud-run/deploy-existing-paid-source.py
+      - name: Verify SAME public API is serving this exact release with manual payment authorization
+        shell: bash
+        env:
+          CERTIFIED_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          node scripts/verify-store-cloudrun-api.cjs
+          node - <<'NODE'
+          const endpoint='https://american-rider-api-production-623854974930.us-east1.run.app/config';
+          (async()=>{
+            const res=await fetch(endpoint,{signal:AbortSignal.timeout(15000)});
+            if(!res.ok)throw Error('Public production config not reachable');
+            const config=await res.json();
+            if(config.manualTravelAuthorization!==true)
+              throw Error('Original live manual-authorization mode was not preserved');
+            console.log('PASS live manual Travel authorization preserved.');
+          })().catch(error=>{console.error(String(error.message).slice(0,180));process.exitCode=1});
+          NODE
+      - name: Record verified production result
+        if: ${{ success() }}
+        shell: bash
+        run: |
+          {
+            echo '### Verified American Rider existing paid Cloud Run synchronized'
+            echo 'Source: `release/current` `'${GITHUB_SHA:0:7}'`'
+            echo 'Existing Google Cloud Run service, Stripe/Connect webhooks, Secret Manager and Scheduler preserved.'
+            echo 'Backend synthetic suites passed, public /live /health /config and exact release SHA verified.'
+            echo 'No mobile build, app-store submission, new paid service or Stripe transaction was initiated.'
+          } >> "$GITHUB_STEP_SUMMARY"
