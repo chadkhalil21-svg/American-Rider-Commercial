@@ -127,6 +127,8 @@ export default {
     commenceTravel: 'Commence Travel',
     completeOperation: 'Complete Operation',
     operationComplete: 'Operation Complete',
+    completedEarningsEstimate: 'Estimated earnings. Stripe transfer and bank payout are confirmed separately.',
+    completionTollReimbursement: 'Toll reimbursement',
     returnToOperations: 'Return to Operations',
 
     youRetain: 'You retain',
@@ -751,7 +753,6 @@ export default {
     toDest: 'To %{dest}',
     arrivalCaps: 'ARRIVAL',
     ninetyNineOfFareAmt: '99% of the %{amount} fare',
-    addedToRevenue: 'added to your revenue',
     travelersFare: 'Traveler\'s fare',
     distMi: '%{n} mi',
     milesShort: '%{n} mi',

@@ -130,6 +130,8 @@ export default {
     commenceTravel: 'Iniciar Viaje',
     completeOperation: 'Completar Operación',
     operationComplete: 'Operación Completada',
+    completedEarningsEstimate: 'Ingresos estimados. La transferencia a Stripe y el depósito bancario se confirman por separado.',
+    completionTollReimbursement: 'Reembolso de peajes',
     returnToOperations: 'Volver a Operaciones',
 
     youRetain: 'Usted retiene',
@@ -747,7 +749,6 @@ export default {
     toDest: 'Hacia %{dest}',
     arrivalCaps: 'LLEGADA',
     ninetyNineOfFareAmt: 'El 99 % de la tarifa de %{amount}',
-    addedToRevenue: 'añadido a sus ingresos',
     travelersFare: 'Tarifa del viajero',
     distMi: '%{n} mi',
     milesShort: '%{n} mi',

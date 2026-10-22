@@ -93,10 +93,9 @@ export const operatorShareCents = (costCents: number) => {
 /**
  * Watch for travel dispatched to the signed-in operator.
  *
- * Queries on `operatorId` alone and filters status in memory. Two equality filters would work
- * through index merging, but this keeps the query independent of index configuration — a
- * dispatch that silently returns nothing because an index is missing is exactly the class of
- * failure this file exists to remove.
+ * Subscribe only to live Travels using the already-declared (operatorId, status)
+ * composite Firestore index. Do not load every completed Travel into the listener.
+ * No arbitrary result cap may hide an older live Travel; query errors remain visible.
  *
  * Returns an unsubscribe function. Never throws: a listener that cannot attach reports an
  * empty inbox, which shows the operator "nothing yet" rather than a scripted journey.
@@ -112,7 +111,9 @@ export function watchAssignedTravel(
     return () => {};
   }
   try {
-    const q = query(collection(db, 'rides'), where('operatorId', '==', uid));
+    const q = query(collection(db, 'rides'),
+      where('operatorId', '==', uid),
+      where('status', 'in', ['assigned', 'accepted', 'arrived', 'onboard']));
     return onSnapshot(
       q,
       (snap) => {

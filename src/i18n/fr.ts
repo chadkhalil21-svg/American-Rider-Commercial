@@ -120,6 +120,8 @@ export default {
     commenceTravel: 'Commencer le Trajet',
     completeOperation: 'Terminer l’Opération',
     operationComplete: 'Opération Terminée',
+    completedEarningsEstimate: 'Gains estimés. Le transfert Stripe et le versement bancaire sont confirmés séparément.',
+    completionTollReimbursement: 'Remboursement des péages',
     returnToOperations: 'Retour aux Opérations',
 
     youRetain: 'Vous conservez',
@@ -737,7 +739,6 @@ export default {
     toDest: 'Vers %{dest}',
     arrivalCaps: 'ARRIVÉE',
     ninetyNineOfFareAmt: '99 % de la course de %{amount}',
-    addedToRevenue: 'ajouté à vos revenus',
     travelersFare: 'Course du voyageur',
     distMi: '%{n} mi',
     milesShort: '%{n} mi',

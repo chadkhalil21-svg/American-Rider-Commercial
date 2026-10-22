@@ -9,14 +9,25 @@ const root=path.resolve(__dirname,'..');
 
 const tests=[
   'backend/native-wallet-pickup-release-contract.test.js',
+  'backend/operator-completion-money-truth.test.js',
+  'backend/operator-first-class-onboarding.test.js',
   'backend/synthetic-travel-lifecycle.test.js',
+  'backend/booking.test.js',
+  'backend/dispatchfailure.test.js',
+  'backend/payment-user-journey.test.js',
   'backend/manual-capture.test.js',
   'backend/authorized-hold-recovery.test.js',
+  'backend/payout-transfer-guard.test.js',
+  'backend/operator-payout-event-ledger.test.js',
   'backend/bookingrecovery.test.js',
+  'backend/sched.test.js',
   'backend/scheduled-exception.test.js',
   'backend/booking-readiness.test.js',
   'backend/geooperators.test.js',
   'backend/travelmoney.test.js',
+  'backend/support.test.js',
+  'backend/operatorsupport.test.js',
+  'backend/critical-sweep-recovery.test.js',
 ];
 
 if(verifyProductionSource(root)!==CANONICAL)

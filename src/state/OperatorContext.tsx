@@ -160,6 +160,8 @@ export type CompletedOp = {
   dep: string;
   earn: number;
   fare: number;
+  /** Server-priced toll reimbursement in cents, separate from the 99% Fare. */
+  tollReimbursementCents?: number;
   // Optional for the same reason they are optional on a request: a real travel record carries
   // no mileage or journey time. The completion screen omits the row rather than printing a
   // measurement nobody took.
@@ -1046,6 +1048,7 @@ export function OperatorProvider({ children }: { children: React.ReactNode }) {
       dep: op.pickup,
       earn: op.earn,
       fare: op.fare,
+      tollReimbursementCents: op.tollReimbursementCents,
       dist: op.dist,
       tripMin: op.tripMin,
       at: Date.now(),
