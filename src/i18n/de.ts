@@ -218,6 +218,7 @@ export default {
     whatComesOut: 'Was Abgezogen Wird',
 
     enterPrivatePickupCode: 'Bitten Sie den Fahrgast um seinen privaten Abholcode. Geben Sie ihm selbst keinen Code vor.',
+    confirmTravelerName: 'Bestätigen Sie den Namen des Fahrgasts mündlich, bevor Sie die Fahrt beginnen. Für Erwachsene ist kein Abholcode nötig.',
     howItReachesYou: 'Wie Es Sie Erreicht',
     verified: 'Geprüft',
     documents: 'Dokumente',
@@ -1156,12 +1157,9 @@ export default {
     safetySub: 'Teilen Sie Reisedetails jederzeit nach der Bestätigung. Sobald ein Operator zugewiesen ist, überwacht American Rider die Route auf ungewöhnliche Unterbrechungen, und die Fahrzeugverifizierung hilft, vor dem Einsteigen das richtige Fahrzeug zu bestätigen.',
     shareUnavailable: 'Verfügbar, sobald Sie eine Reise bestätigen.',
 
-    pickupSecurityIntro: 'Prüfen Sie zuerst Fahrzeug und Kennzeichen. Geben Sie Ihren privaten Code erst beim Einsteigen an den Operator weiter.',
-    pickupCodePendingRollout: 'Sichere Abholcodes werden mit der nächsten mobilen Version aktiviert. Prüfen Sie bis dahin Operator und Fahrzeugdaten.',
-    pickupCodeVerified: 'Abholcode bestätigt.',
+    pickupSecurityIntro: 'Prüfen Sie in der App den Namen des Operators, das Fahrzeug und das Kennzeichen. Fragen Sie vor dem Einsteigen, wen der Operator abholen soll. Kein Code erforderlich.',
     pickupCodeUnavailable: 'Der Abholcode konnte nicht abgerufen oder bestätigt werden. Bitte erneut versuchen oder den Support kontaktieren.',
-    getPickupSecurityCode: 'Privaten Abholcode anfordern',
-    verifyCodeIdle: 'Die Fahrzeugverifizierung wird verfügbar, sobald ein Operator zugewiesen ist.',
+    verifyCodeIdle: 'Prüfen Sie nach der Zuweisung den Namen des Operators, das Fahrzeug und das Kennzeichen.',
     emgTextMyLocation: 'Meinen Standort per SMS senden',
     emgSendMyLocation: 'Meinen Standort senden',
     rideFareReturnedLessArrival: 'Ihr Fahrpreis wird Ihnen abzüglich einer Anfahrtsgebühr von 3,00 USD erstattet, die an %{name} geht.',

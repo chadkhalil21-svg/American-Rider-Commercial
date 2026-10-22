@@ -35,32 +35,41 @@ assert(payment.includes("authorizationOnly:intent.capturePolicy==='manual_v1'"),
   'Traveler receipt must distinguish hold from captured charge');
 assert(payment.includes("isPlatformPaySupported()"),'wallet capability queried from device');
 
-// One private, correctly bound pickup code per Travel; not a publicly
-// guessable Travel Number or a new unguarded client-side generator.
-assert(safety.includes("import { travelerPickupCode }"));
-assert(safety.includes("const result = await travelerPickupCode(currentRideId);"));
-assert(safety.includes("pickupCodePendingRollout"));
-assert(safety.includes("getPickupSecurityCode"));
-assert(traveler.includes("st === 2 && ride.travelParty.mode === 'self' && ride.matchedOp?.rideId"));
-assert(traveler.includes("router.navigate('/safety')"),
-  'Traveler pickup must have a direct route to existing authenticated code screen');
-assert(!traveler.includes('travelerPickupCode('),
-  'do not add automatic Firestore reads on every Traveler Travel render');
-assert(operator.includes("operatorPickupStatus(active.rideId)"));
-assert(operator.includes("verifyOperatorPickupCode(active.rideId,pickupEntry)"));
-assert(operator.includes("op.beginTrip(active.teen ? pickupEntry : undefined)"));
-assert(pickupClient.includes("'/travel/adult-pickup/verify'"));
-assert(pickupClient.includes("'/travel/pickup/code?rideId='"));
+// Founder decision, 21 Oct: ordinary adult pickup is verbal/name + vehicle/plate
+// confirmation. No mandatory adult PIN, code request, extra per-arrival DB read,
+// onboarding dialog or delay. Teen PIN remains enforced by the authoritative
+// server and native Operator screen.
+assert(!traveler.includes('pickupHandoffCard'),
+  'do not reintroduce unwanted adult code prompt at pickup');
+assert(!traveler.includes('getPickupSecurityCode'),
+  'do not present the adult PIN as a mandatory Travel action');
+assert(!safety.includes('travelerPickupCode('),
+  'ordinary adult safety must not fetch or advertise a private pickup code');
+assert(!safety.includes("import { travelerPickupCode }"));
+assert(safety.includes("t('traveler.pickupSecurityIntro')"),
+  'show the name, plate and Operator check without another user action');
+assert(operator.includes("t('operator.confirmTravelerName')"),
+  'Operator receives verbal name check guidance');
+assert(!operator.includes('operatorPickupStatus('),
+  'no extra Firestore read during ordinary adult arrival');
+assert(!operator.includes('verifyOperatorPickupCode('),
+  'no adult PIN obligation on the Operator screen');
+assert(operator.includes('active.teen ? ('),
+  'Teen still has a distinct code input');
+assert(operator.includes("if (active.teen && !/^\\d{4}$/.test(pickupEntry))"),
+  'the mandatory Teen code must remain four digits');
+assert(operator.includes("op.beginTrip(active.teen ? pickupEntry : undefined)"),
+  'normal adult boarding requires no PIN; Teen still sends proof');
 assert(pickupServer.includes("String(readKey('ADULT_PICKUP_VERIFICATION') || '').toLowerCase() === 'on'"),
-  'rollout flag must remain explicitly off unless separately commissioned');
-assert(pickupServer.includes("String(ride.travelerUid||'')!==String(travelerUid||'')"),
-  'only authenticated bound Traveler sees code');
-assert(pickupServer.includes("String(ride.operatorId||'')!==String(operatorUid)"),
-  'only assigned Operator checks code');
-assert(pickupServer.includes("crypto.timingSafeEqual"));
-assert(pickupServer.includes('failedAttempts')&&pickupServer.includes('>=5'));
+  'legacy adult backend mode stays explicitly OFF by default, never silently enabled');
 assert(progress.includes('adult_pickup_unverified'),
-  'server boarding must enforce verified private proof when required');
+  'legacy enrollment cannot be bypassed if a ride was previously enrolled');
+const en=read('src/i18n/en.ts');
+assert(en.includes('confirmTravelerName:')&&en.includes('No adult pickup code is required'));
+assert(en.includes('pickupSecurityIntro:')&&en.includes('No code is needed'));
+for(const lang of ['es','fr','it','de'])
+  assert(read('src/i18n/'+lang+'.ts').includes('confirmTravelerName:'),
+    'localized Operator guidance is required for '+lang);
 
 // Existing Firestore query budgets and money guards stay in place.
 // Do not migrate to H3 or degrade lossless payouts to save document reads.
@@ -83,4 +92,4 @@ assert(money.includes("if (ride.status !== 'completed')"),
 assert(money.includes('capturePending:true'),
   'failed capture must remain explicitly recoverable');
 
-console.log('PASS synthetic native wallet iOS/Android mode separation, authorized pickup handoff, server boarding guard, bounded reads and payout invariants (not physical-device certification)');
+console.log('PASS native wallet iOS/Android source parity, verbal adult/mandatory Teen pickup, no extra adult reads, payout guards (not physical-device certification)');

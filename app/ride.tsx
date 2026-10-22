@@ -387,21 +387,6 @@ export default function RideScreen() {
         <LiveMap />
       </View>
 
-      {/* The Traveler's existing private proof lives in Safe Travels. Link to
-          that authenticated flow at pickup rather than generating/displaying
-          another code or doing an extra database read on every render.
-          Teen and guest Travels have separate handoff rules. */}
-      {st === 2 && ride.travelParty.mode === 'self' && ride.matchedOp?.rideId && (
-        <Pressable accessibilityRole="button"
-          accessibilityLabel={t('traveler.getPickupSecurityCode')}
-          onPress={() => router.navigate('/safety')}>
-          <Card style={styles.pickupHandoffCard}>
-            <Text style={styles.pickupHandoffTitle}>{t('traveler.getPickupSecurityCode')}</Text>
-            <Text style={styles.pickupHandoffBody}>{t('traveler.pickupSecurityIntro')}</Text>
-          </Card>
-        </Pressable>
-      )}
-
       {/* He's here: the walk-to-your-car finder (arrow + distance on iPhone), with the
           "Confirm Boarding" button that lets the travel begin. */}
       {st === 2 && carParked && ride.tripCoords && (
@@ -757,12 +742,6 @@ const styles = StyleSheet.create({
   statusSub: { fontSize: 14.5, color: colors.muted, marginTop: 9, lineHeight: 21.75 },
   etaWrap: { alignItems: 'flex-end', flexShrink: 0, marginLeft: 12 },
   etaLabel: { fontSize: 9.5, letterSpacing: 1.425 },
-  pickupHandoffCard: {
-    marginTop: 14, paddingVertical: 14, paddingHorizontal: 16,
-    borderWidth: 1, borderColor: colors.border, borderRadius: 12,
-  },
-  pickupHandoffTitle: { fontSize: 15, fontWeight: '600', color: colors.ink },
-  pickupHandoffBody: { fontSize: 13, color: colors.ink2, lineHeight: 19, marginTop: 5 },
   venueCard: {
     marginTop: 14,
     backgroundColor: colors.blueTint,
