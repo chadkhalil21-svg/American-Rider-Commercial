@@ -24,6 +24,8 @@ jobs:
       - name: Audit production backend dependencies
         run: npm audit --omit=dev --prefix backend
       - run: npm run check
+      - name: Verify prelaunch synthetic paid Travel, native wallet source, pickup and Cloud Run contracts
+        run: node scripts/prelaunch-synthetic-acceptance.cjs
       - name: Offline Census/BLS geographic source-integrity and 51-jurisdiction tests twice
         run: |
           python3 scripts/assemble-national-economic-geography.test.py
