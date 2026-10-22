@@ -7,7 +7,6 @@ import { Alert, Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { Text } from '../../src/components/AppText';
 import { OperatorMap } from '../../src/components/operator';
 import { Avatar, Card, Mono, Num, PrimaryButton, Screen, SectionLabel } from '../../src/components/UI';
-import { operatorPickupStatus, verifyOperatorPickupCode } from '../../src/backend/pickupVerification';
 import { CheckInCard } from '../../src/components/CheckInCard';
 import { useOperator } from '../../src/state/OperatorContext';
 import { useLanguage } from '../../src/state/LanguageContext';
@@ -21,9 +20,6 @@ export default function OperatorPickup() {
   const [transitioning, setTransitioning] = useState(false);
   const [transitionError, setTransitionError] = useState<string | null>(null);
   const [pickupEntry, setPickupEntry] = useState('');
-  const [codeRequired, setCodeRequired] = useState(false);
-  const [codeVerified, setCodeVerified] = useState(false);
-  const [pickupChecking, setPickupChecking] = useState(false);
   // This is a DISPLAY timer only. Eligibility and payments are always decided
   // from the server arrival stamp, not this device's clock or UI countdown.
   const [clock, setClock] = useState(Date.now());
@@ -44,15 +40,9 @@ export default function OperatorPickup() {
   const waitMs = active?.arrivedAt
     ? Math.max(0, 5*60*1000 - (clock - active.arrivedAt)) : null;
   const waitSeconds=waitMs===null ? null : Math.ceil(waitMs/1000);
-  useEffect(() => {
-    let live=true;
-    setPickupEntry('');setCodeRequired(false);setCodeVerified(false);
-    if(!active?.rideId || !arrived || active.teen) return () => {live=false;};
-    void operatorPickupStatus(active.rideId).then(state=>{
-      if(live){setCodeRequired(state.required);setCodeVerified(state.verified);}
-    }).catch(()=>{ /* commencement rechecks with the authoritative server */ });
-    return () => {live=false;};
-  },[active?.rideId,arrived,active?.teen]);
+  // No extra backend status request for a normal adult pickup.
+  // Teen PIN entry stays required and is checked by the server.
+  useEffect(() => { setPickupEntry(''); }, [active?.rideId,arrived]);
   if (!active) return <Screen scroll={false}>{null}</Screen>;
 
   return (
@@ -118,20 +108,22 @@ export default function OperatorPickup() {
         </View>
       </Card>
 
-      {/* Neither Teen nor adult proof is disclosed to the Operator. The Traveler
-          supplies the code after confirming the car and plate. */}
-      {(active.teen || codeRequired) ? (
+      {/* Teen travelers retain their mandatory four-digit boarding code. */}
+      {active.teen ? (
         <Card style={styles.codeCard}>
           <SectionLabel>{t('operator.verificationCode')}</SectionLabel>
           <Text style={styles.codeBody}>{t('operator.enterPrivatePickupCode')}</Text>
           <TextInput accessibilityLabel={t('operator.enterPrivatePickupCode')}
             keyboardType="number-pad" value={pickupEntry}
-            onChangeText={value=>setPickupEntry(value.replace(/\D/g,'').slice(0,active.teen?4:6))}
-            maxLength={active.teen?4:6}
-            placeholder={active.teen?'••••':'••••••'}
+            onChangeText={value=>setPickupEntry(value.replace(/\D/g,'').slice(0,4))}
+            maxLength={4}
+            placeholder="••••"
             style={{fontSize:24,letterSpacing:3,color:colors.ink,paddingVertical:12}}/>
-          {codeVerified ? <Text style={styles.codeBody}>{t('traveler.pickupCodeVerified')}</Text> : null}
         </Card>
+      ) : null}
+
+      {!active.teen ? (
+        <Text style={styles.codeBody}>{t('operator.confirmTravelerName')}</Text>
       ) : null}
 
       {active.cabinPreferences ? (
@@ -190,7 +182,7 @@ export default function OperatorPickup() {
           </Text>
           {waitSeconds === 0 ? (
             <Pressable accessibilityRole="button"
-              disabled={transitioning || pickupChecking}
+              disabled={transitioning}
               onPress={() => Alert.alert(t('operatorNoShow.title'),
                 t('operatorNoShow.confirm'),[
                   {text:t('operatorNoShow.continue'),style:'cancel'},
@@ -233,26 +225,12 @@ export default function OperatorPickup() {
               if (active.teen && !/^\d{4}$/.test(pickupEntry)) {
                 setTransitionError(t('operator.enterPrivatePickupCode'));return;
               }
-              if (!active.teen && active.rideId) {
-                setPickupChecking(true);
-                const state = await operatorPickupStatus(active.rideId);
-                setCodeRequired(state.required);setCodeVerified(state.verified);
-                if (state.required && !state.verified) {
-                  if (!/^\d{6}$/.test(pickupEntry)) {
-                    setTransitionError(t('operator.enterPrivatePickupCode'));return;
-                  }
-                  if (!await verifyOperatorPickupCode(active.rideId,pickupEntry)) {
-                    setTransitionError(t('traveler.pickupCodeUnavailable'));return;
-                  }
-                  setCodeVerified(true);
-                }
-              }
               const ok = await op.beginTrip(active.teen ? pickupEntry : undefined);
               if (ok) router.replace('/operator/trip');
               else setTransitionError(t('traveler.errGeneric'));
             } catch {
               setTransitionError(t('traveler.pickupCodeUnavailable'));
-            } finally { setPickupChecking(false);setTransitioning(false); }
+            } finally { setTransitioning(false); }
           }}
           style={{ marginTop: 24 }}
         />
