@@ -127,6 +127,8 @@ export default {
     commenceTravel: 'Commence Travel',
     completeOperation: 'Complete Operation',
     operationComplete: 'Operation Complete',
+    completedEarningsEstimate: 'Estimated earnings. Stripe transfer and bank payout are confirmed separately.',
+    completionTollReimbursement: 'Toll reimbursement',
     returnToOperations: 'Return to Operations',
 
     youRetain: 'You retain',
