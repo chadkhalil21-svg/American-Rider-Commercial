@@ -233,6 +233,7 @@ export default {
     whatComesOut: 'Lo Que Se Descuenta',
 
     enterPrivatePickupCode: 'Solicite al Viajero su código privado de recogida. Nunca le indique usted un código.',
+    confirmTravelerName: 'Confirme verbalmente el nombre del Viajero antes de comenzar el Viaje. Los adultos no necesitan código de recogida.',
     howItReachesYou: 'Cómo Le Llega',
     verified: 'Verificado',
     documents: 'Documentos',
@@ -1172,12 +1173,12 @@ export default {
     safetySub: 'Comparta los datos del Viaje en cualquier momento después de confirmarlo. Una vez asignado un Operador, American Rider supervisa la ruta para detectar interrupciones inusuales, y la verificación del vehículo ayuda a confirmar el vehículo correcto antes de subir.',
     shareUnavailable: 'Disponible una vez que confirme un Viaje.',
 
-    pickupSecurityIntro: 'Primero confirme el vehículo y la matrícula. Facilite el código privado al Operador solo cuando esté listo para subir.',
+    pickupSecurityIntro: 'Compruebe en la aplicación el nombre del Operador, el vehículo y la matrícula. Antes de subir, pregunte al Operador a quién viene a recoger. No necesita código.',
     pickupCodePendingRollout: 'Los códigos seguros se activarán con la próxima versión móvil. Mientras tanto, compruebe los datos del Operador y del vehículo.',
     pickupCodeVerified: 'Código de recogida verificado.',
     pickupCodeUnavailable: 'No se pudo obtener ni verificar el código. Inténtelo de nuevo o contacte con Atención al Viajero.',
     getPickupSecurityCode: 'Solicitar código privado de recogida',
-    verifyCodeIdle: 'La verificación del vehículo estará disponible una vez que se asigne un Operador.',
+    verifyCodeIdle: 'Cuando se asigne un Operador, compruebe su nombre, vehículo y matrícula antes de subir.',
     emgTextMyLocation: 'Enviar mi ubicación por SMS',
     emgSendMyLocation: 'Enviar mi ubicación',
     rideFareReturnedLessArrival: 'Se le devuelve la tarifa menos una tarifa de llegada de 3,00 USD, que se abona a %{name}.',
