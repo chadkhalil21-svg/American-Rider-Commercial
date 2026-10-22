@@ -654,9 +654,12 @@ async function sweepAssignments({ now = Date.now(), checkMarket } = {}) {
 
     // A withdrawn accepted pickup gets five minutes for safe reassignment, not the
     // ordinary one-hour never-answered window. It remains the SAME paid Travel.
-    const withdrawnAt = ride.releasedReason === 'operator_withdrawn' &&
-      Number.isSafeInteger(ride.operatorWithdrawalAt) && ride.operatorWithdrawalAt > 0 &&
-      ride.operatorWithdrawalAt <= now ? ride.operatorWithdrawalAt : null;
+    // Keep the original five-minute deadline even if the sweep already offered
+    // this same Travel to another Operator who has not ACCEPTED it yet.
+    // A new offer is not a completed replacement and must not restart the clock.
+    const withdrawnAt = Number.isSafeInteger(ride.operatorWithdrawalAt) &&
+      ride.operatorWithdrawalAt > 0 && ride.operatorWithdrawalAt <= now
+      ? ride.operatorWithdrawalAt : null;
     const expired = withdrawnAt
       ? now - withdrawnAt >= WITHDRAWN_REPLACEMENT_MS
       : age > STALE_ASSIGNMENT_MS;
