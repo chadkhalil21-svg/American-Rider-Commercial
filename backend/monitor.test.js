@@ -667,6 +667,43 @@ const check = (l, c, d) => results.push({ l, ok: !!c, d });
       rep.stranded.includes('r1') && h.data.rides.r1.unanswered === true, JSON.stringify(rep));
   }
 
+
+  // Accepted-Travel exception: reuse the exact same paid booking, and do not
+  // force the Traveler to wait for the ordinary one-hour unanswered timeout.
+  // The existing refund recovery sweep, not this monitor, calls Stripe once.
+  {
+    const withdrawnAt = now - 4 * MIN;
+    const h = makeDb({ rides:{r1:assigned({
+      releasedAt:withdrawnAt, releasedReason:'operator_withdrawn',
+      operatorWithdrawalAt:withdrawnAt, withdrawnBy:'op1',
+      declinedBy:['op1'], offeredAt:withdrawnAt, createdAt:now - 6 * MIN,
+    })},operators:{} });
+    const rep=await inject(h.db).sweepAssignments({now});
+    check('withdrawal replacement window stays open before five minutes',
+      rep.pending===1 && rep.stranded.includes('r1') &&
+      h.data.rides.r1.status==='assigned' && h.data.rides.r1.paymentIntentId==='pi_r1',
+      JSON.stringify(rep));
+  }
+  {
+    const withdrawnAt = now - 5 * MIN;
+    const h = makeDb({ rides:{r1:assigned({
+      releasedAt:withdrawnAt, releasedReason:'operator_withdrawn',
+      operatorWithdrawalAt:withdrawnAt, withdrawnBy:'op1',
+      declinedBy:['op1'], offeredAt:withdrawnAt, createdAt:now - 6 * MIN,
+    })},operators:{} });
+    const sweep=inject(h.db);
+    const rep=await sweep.sweepAssignments({now});
+    check('after five minutes with no replacement, server cancels original Travel',
+      rep.expired.includes('r1') && h.data.rides.r1.status==='cancelled' &&
+      h.data.rides.r1.paymentIntentId==='pi_r1' &&
+      h.data.rides.r1.refundPending===true &&
+      h.data.rides.r1.cancelledFrom==='assigned',JSON.stringify(rep));
+    const repeat=await sweep.sweepAssignments({now:now+MIN});
+    check('cancellation and refund obligation cannot repeat or be lost',
+      repeat.expired.length===0 && h.data.rides.r1.status==='cancelled' &&
+      h.data.rides.r1.refundPending===true);
+  }
+
   let bad = 0;
   for (const r of results) { if (!r.ok) bad++; console.log(`${r.ok ? 'PASS' : 'FAIL'}  ${r.l}${r.ok ? '' : '   <-- ' + r.d}`); }
   console.log(`\n${results.length - bad}/${results.length} passed`);
