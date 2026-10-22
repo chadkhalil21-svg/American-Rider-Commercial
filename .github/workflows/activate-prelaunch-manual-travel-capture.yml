@@ -1,0 +1,73 @@
+name: Activate prelaunch Travel authorization then capture (one-time)
+
+# The founder explicitly approved enabling this payment mode before public launch.
+# This is ONE controlled push event on release/current, not an evergreen deploy
+# on subsequent commits. No TestFlight, EAS, stores, or new credentials.
+on:
+  push:
+    branches:
+      - release/current
+    paths:
+      - ops/activation/enable-manual-travel-capture-20261021.approved
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: american-rider-paid-cloudrun-source
+  cancel-in-progress: false
+
+jobs:
+  activate-prelaunch-capture:
+    if: ${{ github.ref == 'refs/heads/release/current' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    environment: american-rider-commercial-live
+    env:
+      FOUNDER_CONFIRM: DEPLOY_EXISTING_PAID_CODE_ONLY
+      ENABLE_MANUAL_CAPTURE: FOUNDER_PRELAUNCH_MANUAL_CAPTURE
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Require exact prelaunch consent marker and latest release
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f ops/activation/enable-manual-travel-capture-20261021.approved
+          grep -qx 'FOUNDER_APPROVED=ENABLE_PRELAUNCH_MANUAL_TRAVEL_CAPTURE' ops/activation/enable-manual-travel-capture-20261021.approved
+          git fetch origin release/current --depth=1
+          test "$(git rev-parse HEAD)" = "$(git rev-parse FETCH_HEAD)"
+          python3 -m py_compile infra/cloud-run/deploy-existing-paid-source.py
+      - name: Validate booking, provider hold, completion, cancellation and scheduled consent policies
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm ci --ignore-scripts
+          npm ci --prefix backend --omit=dev
+          node backend/booking.test.js
+          node backend/payment-hold-policy.test.js
+          node backend/manual-capture.test.js
+          node backend/authorized-hold-recovery.test.js
+          node backend/scheduled-manual-consent.test.js
+          node backend/travelmoney.test.js
+          node backend/commercial-economics.test.js
+          node backend/paid-cloudrun-activation.test.js
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: projects/623854974930/locations/global/workloadIdentityPools/github-production/providers/github
+          service_account: ar-production-deployer@american-rider-35688.iam.gserviceaccount.com
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Safely deploy original paid API with capture-only flag, verify and roll back on failure
+        shell: bash
+        run: python3 infra/cloud-run/deploy-existing-paid-source.py
+      - name: Record feature enabled only after Cloud Run verified traffic
+        shell: bash
+        run: |
+          echo 'Prelaunch manual Travel authorization: Cloud Run public config verified ON.' >> "$GITHUB_STEP_SUMMARY"
+          echo 'Separately priced cancellation/no-show fees remain OFF; no TestFlight action performed.' >> "$GITHUB_STEP_SUMMARY"
