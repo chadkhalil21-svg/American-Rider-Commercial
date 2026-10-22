@@ -114,6 +114,41 @@ async function main() {
     assert.equal(replay.ok,true,JSON.stringify(replay));
     assert.equal(voids.length,1,'no second provider authorization release after recovery');
   }
+  // Dispatch correctly refuses expired holds, but recovery must still
+  // release or acknowledge them. Otherwise an old hold becomes a permanent
+  // unresolved payment case and an Operator never sees the correction.
+  for (const state of ['expired','canceled']) {
+    const recoverDb=store(),voids=[];
+    const id='expired-'+state,piId='pi_'+state;
+    recoverDb.rows.set('rides/'+id,{
+      travelerUid:'u',status:'awaiting_payment',createdAt:now-PREPARED_TTL_MS-1,
+      reservationId:'res-'+state,costCents:2350,routedMinutes:60,
+    });
+    recoverDb.rows.set('scheduled_rides/res-'+state,{paymentIntentId:piId});
+    const hold={
+      id:piId, status:state==='canceled'?'canceled':'requires_capture',
+      capture_method:'manual', amount:2350,
+      amount_capturable:state==='canceled'?0:2350,
+      currency:'usd',metadata:{uid:'u',rideId:id,capturePolicy:'manual_v1'},
+      latest_charge:{payment_method_details:{card:{
+        capture_before:Math.floor((now-60_000)/1000),
+      }}},
+    };
+    const deps2={...deps,verifiedTravelPayment:async()=>hold,
+      settleUncapturedTravel:async(args)=>{
+        voids.push(args);return {manual:true,ok:true,status:'released'};
+      }};
+    const recovered=await sweepBookingRecovery({db:recoverDb,deps:deps2,
+      stripeConfigured:true,now});
+    assert.equal(recovered.ok,true,JSON.stringify(recovered));
+    assert(recovered.closed.includes(id),
+      'a verified original '+state+' hold must never remain unresolved forever');
+    assert.equal(recoverDb.rows.get('rides/'+id).paidAt,undefined);
+    assert.equal(recoverDb.rows.get('rides/'+id).authorizationState,'released');
+    assert.equal(recoverDb.rows.get('rides/'+id).refundPending,false);
+    assert.equal(voids.length,1);
+    assert.equal(voids[0].action,'cancel');
+  }
   // Adversarial regression: 125 unrelated records occupy the natural scan
   // order with refundPending=true but are NOT legally eligible for this cancel
   // refund path. A post-query .continue used to starve the valid paid refund.
