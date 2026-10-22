@@ -34,6 +34,7 @@ const { bookingId, prepareBooking, assignPaidTravel } = require('./booking');
 const { createHash, randomUUID } = require('node:crypto');
 const { assessOperator } = require('./qualification');
 const { fileTicket } = require('./tickets');
+const { alertScheduledException } = require('./scheduled-exception');
 const { notify } = require('./push');
 const { activeFamilyLink } = require('./family');
 const { provisionTeenPin } = require('./teenpickup');
@@ -455,11 +456,25 @@ async function stillClaimed(db,id,nonce,party){
 
 async function touchClaimed(db,id,nonce,fields){
  const ref=db.collection('scheduled_rides').doc(id);
- return db.runTransaction(async tx=>{
+ const result=await db.runTransaction(async tx=>{
   const snap=await tx.get(ref);const r=snap.exists?snap.data():null;
-  if(!r||r.status!=='dispatching'||r.claimNonce!==nonce)return false;
-  tx.update(ref,fields);return true;
+  if(!r||r.status!=='dispatching'||r.claimNonce!==nonce)return {applied:false};
+  tx.update(ref,fields);return {applied:true,reservation:r};
  });
+ // A preparation or Teen protection failure previously became needs_attention
+ // but sent no persistent Ops case. Alert AFTER the committed transaction:
+ // email/network outages never hold a Firestore transaction open or undo state.
+ // Post-provider failures already use a richer dedicated money case below.
+ if(result.applied&&fields.status==='needs_attention'&&!fields.paymentIntentId){
+  try{
+   const alert=await alertScheduledException({reservationId:id,
+     reservation:result.reservation,rideId:fields.rideId,
+     reason:fields.dispatchError,fileTicket});
+   if(alert?.caseNo)await touch(db,id,{caseNo:alert.caseNo});
+   if(!alert?.ok)console.error('[scheduled] Operations alert not confirmed',id);
+  }catch(e){console.error('[scheduled] Operations alert unavailable',id,String(e.message||e));}
+ }
+ return result.applied;
 }
 
 // Only a claim that never staged a Travel can be safely retried. An already-assigned ride
@@ -470,7 +485,7 @@ async function recoverStaleClaims(db,now,report){
     .where('claimedAt','<=',now-CLAIM_STALE_MS).limit(25).get();
   report.staleClaims=q.docs.length;
   for(const d of q.docs){
-   await db.runTransaction(async tx=>{
+   const needsAlert=await db.runTransaction(async tx=>{
     const ref=db.collection('scheduled_rides').doc(d.id);
     const snap=await tx.get(ref);const r=snap.exists?snap.data():null;
     if(!r||r.status!=='dispatching'||Number(r.claimedAt)>now-CLAIM_STALE_MS)return;
@@ -490,7 +505,18 @@ async function recoverStaleClaims(db,now,report){
     }
     tx.update(ref,{status:'needs_attention',rideId,paymentIntentId:ride.paymentIntentId||null,
       claimedAt:null,claimNonce:null,dispatchError:'Stale claim with staged Travel: verify payment, hold release or refund before retry'});
+    return {reservation:r,rideId,paymentIntentId:ride.paymentIntentId||null};
    });
+   if(needsAlert){
+    try{
+     const alert=await alertScheduledException({reservationId:d.id,
+       ...needsAlert,
+       reason:'Stale dispatch claim with an existing Travel: reconcile provider money and Operator assignment',
+       fileTicket});
+     if(alert?.caseNo)await touch(db,d.id,{caseNo:alert.caseNo});
+     if(!alert?.ok)console.error('[scheduled] Stale claim Operations alert not confirmed',d.id);
+    }catch(e){console.error('[scheduled] Stale claim Operations alert unavailable',d.id,String(e.message||e));}
+   }
   }
   return true;
  }catch(e){report.failed.push({reason:`stale scheduled claims could not be reconciled: ${e.message}`});return false;}

@@ -53,6 +53,7 @@ jobs:
           node backend/booking.test.js
           node backend/bookingrecovery.test.js
           node backend/sched.test.js
+          node backend/scheduled-exception.test.js
           node backend/payment-hold-policy.test.js
           node backend/manual-capture.test.js
           node backend/authorized-hold-recovery.test.js

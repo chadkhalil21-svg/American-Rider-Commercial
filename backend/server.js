@@ -135,6 +135,7 @@ const {
 const { smartQuote, revalidateTransit } = require('./smart');
 const { transitHealth } = require('./transit');
 const { sweepScheduled, sweepSettlements } = require('./scheduler');
+const { listScheduledExceptions, scheduledExceptionsPage } = require('./scheduled-exception');
 const { sweepBookingRecovery } = require('./bookingrecovery');
 const { sweepMonitor, sweepAssignments } = require('./monitor');
 const { notify } = require('./push');
@@ -2558,6 +2559,19 @@ function requireOpsMutation(req, res, next) {
   }
   return next();
 }
+// Read-only Founder triage of every aged scheduled issue, even if an email
+// notification failed. Indexed and bounded, requested only on page load.
+app.get('/ops/scheduled-exceptions', requireOps, async (req,res)=>{
+  if(opsAuthMode()!=='named')return res.status(403).send('Named Operations account required.');
+  try{
+    const cases=await listScheduledExceptions(adminDb(),
+      {after:String(req.query?.after||'')});
+    return res.type('html').send(scheduledExceptionsPage(cases));
+  }catch(e){
+    console.error('[ops] scheduled exception queue unavailable',String(e?.message||e));
+    return res.status(503).send('Scheduled exceptions cannot be checked. Do not assume the queue is clear.');
+  }
+});
 app.get('/ops/cases', requireOps, async (req, res) => {
   if (opsAuthMode() !== 'named') return res.status(403).send('Named Operations account required.');
   try {
