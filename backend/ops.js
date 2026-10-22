@@ -343,6 +343,7 @@ ${unreadable.length ? `<section role="alert" style="border:2px solid #B42318;">
 <p><a href="/ops/markets">Market readiness, evidence and pause controls →</a></p>
 <p><a href="/ar/oauth/connections">ChatGPT Operations connection · view or disconnect →</a></p>
 <p><a href="/ops/cases?kind=emergency">Urgent and deadline cases · acknowledge →</a> · <a href="/ops/cases?kind=support">Support cases →</a></p>
+<p><a href="/ops/scheduled-exceptions">Unresolved scheduled Travel · payment and dispatch review →</a></p>
 <p><a href="/ops/screening">Operator screening · verify authenticated agency reports →</a></p>
 <p><a href="/ops/disputes">Stripe dispute evidence · review only →</a> · <a href="/ops/pricing-research">Pricing research · quoted price to prepared booking →</a></p>
 <section>
