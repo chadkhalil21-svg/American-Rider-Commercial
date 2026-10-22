@@ -1,0 +1,8 @@
+FOUNDER_APPROVED=ENABLE_PRELAUNCH_MANUAL_TRAVEL_CAPTURE
+# Prelaunch, no production Travelers yet. Activate Stripe PaymentIntent
+# authorization at immediate booking and capture only after verified completion.
+# Scheduled Travel requires opt-in and a saved card before scheduling.
+# Keep separate cancellation/no-show fees disabled and preserve existing
+# paid Cloud Run, Stripe Connect, Scheduler, credentials and webhooks.
+# ONE-TIME GitHub push signal on merge to release/current.
+# No TestFlight/EAS build or distribution is authorized.
