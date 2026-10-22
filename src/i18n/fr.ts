@@ -120,6 +120,8 @@ export default {
     commenceTravel: 'Commencer le Trajet',
     completeOperation: 'Terminer l’Opération',
     operationComplete: 'Opération Terminée',
+    completedEarningsEstimate: 'Gains estimés. Le transfert Stripe et le versement bancaire sont confirmés séparément.',
+    completionTollReimbursement: 'Remboursement des péages',
     returnToOperations: 'Retour aux Opérations',
 
     youRetain: 'Vous conservez',
