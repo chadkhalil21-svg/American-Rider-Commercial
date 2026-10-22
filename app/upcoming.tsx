@@ -85,7 +85,7 @@ export default function UpcomingTravel() {
       case 'dispatched': return t('traveler.schedOperatorAssigned');
       case 'unmatched': return t('traveler.noOperatorAvailable');
       case 'payment_failed': return t('traveler.cardDeclined');
-      case 'needs_attention': return t('traveler.chargedNotCreated');
+      case 'needs_attention': return t('traveler.schedNeedsReview');
       case 'cancelled': return t('traveler.schedCanceled');
       default: return t('traveler.schedNeedsReview');
     }
