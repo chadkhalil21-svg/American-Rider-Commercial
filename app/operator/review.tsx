@@ -130,7 +130,7 @@ export default function OperatorReview() {
           <Text accessibilityRole="text" style={styles.detail}>{reviewReason}</Text>
         ) : null}
         {refreshNotice ? (
-          <Text accessibilityRole="status" style={styles.feedback}>{refreshNotice}</Text>
+          <Text accessibilityLiveRegion="polite" style={styles.feedback}>{refreshNotice}</Text>
         ) : null}
         <View style={{ flex: 1 }} />
         <View style={{ alignSelf: 'stretch' }}>
