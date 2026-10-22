@@ -223,6 +223,7 @@ export default {
     whatComesOut: 'Ce Qui Est Déduit',
 
     enterPrivatePickupCode: 'Demandez au Voyageur son code privé de prise en charge. Ne lui communiquez jamais vous-même un code.',
+    confirmTravelerName: 'Confirmez verbalement le nom du Voyageur avant de commencer le Trajet. Aucun code n’est requis pour les adultes.',
     howItReachesYou: 'Comment Cela Vous Parvient',
     verified: 'Vérifié',
     documents: 'Documents',
@@ -1162,12 +1163,12 @@ export default {
     safetySub: 'Partagez les détails du Trajet à tout moment après confirmation. Une fois un Opérateur affecté, American Rider surveille l’itinéraire afin de détecter les interruptions inhabituelles, et la vérification du véhicule aide à confirmer le bon véhicule avant de monter.',
     shareUnavailable: 'Disponible dès que vous confirmez un Trajet.',
 
-    pickupSecurityIntro: 'Vérifiez d\'abord le véhicule et sa plaque. Communiquez votre code privé à l\'Opérateur seulement au moment de monter.',
+    pickupSecurityIntro: 'Vérifiez dans l’application le nom de l’Opérateur, le véhicule et la plaque. Avant de monter, demandez à l’Opérateur qui il vient chercher. Aucun code n’est requis.',
     pickupCodePendingRollout: 'Les codes sécurisés seront activés lors de la prochaine version mobile. D\'ici là, vérifiez l\'Opérateur et le véhicule.',
     pickupCodeVerified: 'Code de prise en charge vérifié.',
     pickupCodeUnavailable: 'Impossible d\'obtenir ou de vérifier le code. Réessayez ou contactez l\'assistance.',
     getPickupSecurityCode: 'Demander le code privé de prise en charge',
-    verifyCodeIdle: 'La vérification du véhicule devient disponible une fois un Opérateur affecté.',
+    verifyCodeIdle: 'Une fois l’Opérateur affecté, vérifiez son nom, le véhicule et la plaque avant de monter.',
     emgTextMyLocation: 'Envoyer ma position par SMS',
     emgSendMyLocation: 'Envoyer ma position',
     rideFareReturnedLessArrival: 'Votre tarif vous est remboursé, moins des frais d’arrivée de 3,00 USD versés à %{name}.',
