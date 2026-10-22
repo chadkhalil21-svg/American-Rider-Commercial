@@ -123,6 +123,8 @@ export default {
     withdrawTravel: 'Impossible d\'effectuer la prise en charge',
     withdrawExplanation: 'Le Voyageur sera informé pendant que nous cherchons un autre Opérateur. Si aucun n\'est disponible, le Trajet sera annulé et le paiement libéré ou remboursé. Vous serez mis hors service.',
     withdrawFailed: 'Nous n\'avons pas pu confirmer ce changement. Réessayez ou contactez l\'assistance.',
+    withdrawalCancelled: 'Trajet annulé',
+    withdrawalRefundReview: 'Aucun autre Opérateur n’était disponible. L’autorisation de votre carte sera levée ou tout paiement encaissé sera remboursé après vérification.',
     completedEarningsEstimate: 'Gains estimés. Le transfert Stripe et le versement bancaire sont confirmés séparément.',
     completionTollReimbursement: 'Remboursement des péages',
     returnToOperations: 'Retour aux Opérations',
