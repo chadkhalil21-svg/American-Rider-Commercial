@@ -55,7 +55,7 @@ assert(pickupServer.includes("String(readKey('ADULT_PICKUP_VERIFICATION') || '')
   'rollout flag must remain explicitly off unless separately commissioned');
 assert(pickupServer.includes("String(ride.travelerUid||'')!==String(travelerUid||'')"),
   'only authenticated bound Traveler sees code');
-assert(pickupServer.includes("String(ride.operatorId||'')!==String(operatorUid||'')"),
+assert(pickupServer.includes("String(ride.operatorId||'')!==String(operatorUid)"),
   'only assigned Operator checks code');
 assert(pickupServer.includes("crypto.timingSafeEqual"));
 assert(pickupServer.includes('failedAttempts')&&pickupServer.includes('>=5'));
