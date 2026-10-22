@@ -1,3 +1,13 @@
+## 22 October 2026 | PAID CLOUD RUN LIVE; MANUAL COMPLETION/CAPTURE FIX UNDER PR #232
+
+**Production independently verified:** [existing Cloud Run deploy #39851303581](https://github.com/chadkhalil21-svg/American-Rider-Commercial/actions/runs/39851303581) succeeded on source `a49f180` after airport/seaport drop-offs were changed to pickup-only facility restrictions. The deployment verified exact API SHA, live Stripe, Firestore, scheduler and `manualTravelAuthorization:true`. This does NOT prove a real paid airport booking, physical pickup or bank payout.
+
+**Full synthetic acceptance correction:** PR [#232](https://github.com/chadkhalil21-svg/American-Rider-Commercial/pull/232) is SOURCE UNDER REVIEW, NOT YET DEPLOYED. Independent October 22 Release Gate, two-pass exhaustive and whole-platform workflows failed only because the older `backend/faremodel.test.js` still incorrectly required airport/seaport destination refusal; directional rules were already deployed. PR #232 updates those tests and fixes the critical live `POST /travel/settle` dependency omission: a completed manual-authorized Travel must pass `settleUncapturedTravel` to capture funds before transferring the Operator's 99% fare. Successful direct settlement clears `needsPayout` to prevent perpetual reads. One continuous synthetic airport journey checks payment hold, eligible Operator acceptance, GPS-checked pickup/boarding/destination completion, manual Stripe capture, exact cents payout accounting, receipt and retry idempotency, with no provider writes.
+
+**Next:** Require PR #232 CI green, merge only after verification, then deploy this backend code through the existing founder-authorized guarded Cloud Run sync and independently verify the production SHA. Only actual provider/payment and signed-device evidence can establish real-world paid booking and bank settlement. All pickups remain restricted as previously; all drop-offs follow active-market geography without facility enumeration. Do not describe a source-only fix as live.
+
+---
+
 ## 22 October 2026 | FOUNDER POLICY: DROP-OFF-ONLY FACILITY SERVICE (PROPOSED, NOT DEPLOYED)
 Founder authorized airport and seaport drop-offs for paid bookings, retaining pickup restrictions. `backend/fees.js` now evaluates unpermitted facility geofences for pickup only; `backend/permits.test.js` adds MIA, PortMiami, and FLL directionality checks. Server pricing and nearby destinations share `permitRequired`, so a backend deployment is necessary. This code change does not establish government facility permission, production deployment, successful payments, or availability in an older TestFlight binary. Verify legal requirements and exact Cloud Run SHA separately; do not label live before production evidence.
 
