@@ -11,13 +11,13 @@
 // then reports what Stripe says, which is the only honest source for "can you be paid".
 import { useFocusEffect } from 'expo-router';
 import * as Linking from 'expo-linking';
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { AppState, Pressable, StyleSheet, View } from 'react-native';
 import { Text } from '../../src/components/AppText';
 import { BadgeOk, OperatorBar, OperatorDrawer, OperatorScreen } from '../../src/components/operator';
 import { Card, PrimaryButton, SectionLabel, useNote } from '../../src/components/UI';
 import { useGoBack } from '../../src/components/nav';
-import { acceptConnectFees, connectStatus, openPayoutDashboard, startConnectOnboarding, type ConnectStatus } from '../../src/backend/connect';
+import { acceptConnectFees, readConnectStatus, openPayoutDashboard, startConnectOnboarding, type ConnectStatus } from '../../src/backend/connect';
 import { useOperator } from '../../src/state/OperatorContext';
 import { useLanguage } from '../../src/state/LanguageContext';
 import { colors } from '../../src/theme';
@@ -33,14 +33,34 @@ export default function OperatorPayouts() {
   const [feeBusy, setFeeBusy] = useState(false);
   const [dashboardBusy, setDashboardBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [statusUnavailable, setStatusUnavailable] = useState(false);
+  const [statusChecking, setStatusChecking] = useState(false);
+  const [statusNotice, setStatusNotice] = useState<string | null>(null);
+  const refreshingRef = useRef<Promise<void> | null>(null);
 
-  const refresh = useCallback(async () => {
-    setStatus(await connectStatus());
-  }, []);
-
-  useEffect(() => {
-    refresh();
-  }, [refresh]);
+  // Focus, deep link and app resume can all occur on the same return from
+  // Stripe. Share one read, never repeatedly poll the provider or render a
+  // failed lookup as a nonexistent payout account.
+  const refresh = useCallback(async (requested = false) => {
+    if (refreshingRef.current) return refreshingRef.current;
+    const task = (async () => {
+      setStatusChecking(true);
+      const actual = await readConnectStatus();
+      if (actual === null) {
+        setStatus(null);
+        setStatusUnavailable(true);
+        setStatusNotice(null);
+      } else {
+        setStatus(actual);
+        setStatusUnavailable(false);
+        setStatusNotice(requested && !actual.payoutsEnabled
+          ? t('operator.payoutStatusStillPending') : null);
+      }
+      setStatusChecking(false);
+    })();
+    refreshingRef.current = task;
+    try { await task; } finally { refreshingRef.current = null; }
+  }, [t]);
 
   // Stripe onboarding happens in a browser. There is no way to know from here whether they
   // finished, so the status is re-read when they come back rather than assumed.
@@ -76,6 +96,10 @@ export default function OperatorPayouts() {
   }, [refresh]);
 
   const begin = async () => {
+    if (statusUnavailable || statusChecking || status === null) {
+      setError(t('operator.payoutStatusUnavailable'));
+      return;
+    }
     if (status?.feeConsentAccepted !== true) {
       setError(t('operator.feeConsentRequired'));
       return;
@@ -124,10 +148,10 @@ export default function OperatorPayouts() {
       <Card style={styles.card}>
         <Text style={styles.accountTitle}>{t('operator.activeAccountCost')}</Text>
         <Text style={styles.accountBody}>{t('operator.activeAccountCostBody')}</Text>
-        {status && status.feeConsentAccepted !== true && (
+        {status && !statusUnavailable && status.feeConsentAccepted !== true && (
           <PrimaryButton
             label={feeBusy ? t('traveler.familyWorking') : t('operator.feeConsentAccept')}
-            disabled={feeBusy}
+            disabled={feeBusy || statusChecking}
             style={{marginTop:16}}
             onPress={async()=>{
               setFeeBusy(true);
@@ -141,7 +165,19 @@ export default function OperatorPayouts() {
         )}
       </Card>
       <Card style={styles.card}>
-        {status === null ? (
+        {statusUnavailable ? (
+          <>
+            <Text accessibilityRole="alert" style={styles.pending}>
+              {t('operator.payoutStatusUnavailable')}
+            </Text>
+            <PrimaryButton
+              label={statusChecking ? t('operator.checking') : t('traveler.tryAgain')}
+              disabled={statusChecking}
+              onPress={() => { void refresh(true); }}
+              style={{ marginTop: 16 }}
+            />
+          </>
+        ) : status === null ? (
           <Text style={styles.body}>{t('operator.checking')}</Text>
         ) : payable ? (
           <>
@@ -175,17 +211,20 @@ export default function OperatorPayouts() {
             {t('traveler.stripeChecksIdentity')}
           </Text>
         )}
-        {error && <Text style={styles.error}>{error}</Text>}
-        {!payable && (
+        {error && <Text accessibilityRole="alert" style={styles.error}>{error}</Text>}
+        {statusNotice && !statusUnavailable &&
+          <Text accessibilityLiveRegion="polite" style={styles.body}>{statusNotice}</Text>}
+        {!payable && !statusUnavailable && status !== null && (
           <PrimaryButton
             label={busy ? t('traveler.busyOpeningStripe') : started ? t('traveler.finishWithStripe') : t('traveler.setUpPayouts')}
             onPress={begin}
-            disabled={busy}
+            disabled={busy || statusChecking}
             style={{ marginTop: 16 }}
           />
         )}
-        {started && !payable && (
-          <Pressable accessibilityRole="button" onPress={refresh} hitSlop={10}>
+        {started && !payable && !statusUnavailable && (
+          <Pressable accessibilityRole="button" disabled={statusChecking}
+            onPress={() => { void refresh(true); }} hitSlop={10}>
             <Text style={styles.recheck}>{t('traveler.finishedCheckAgain')}</Text>
           </Pressable>
         )}
