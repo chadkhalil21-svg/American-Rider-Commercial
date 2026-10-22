@@ -1,3 +1,6 @@
+## 22 October 2026 | FOUNDER POLICY: DROP-OFF-ONLY FACILITY SERVICE (PROPOSED, NOT DEPLOYED)
+Founder authorized airport and seaport drop-offs for paid bookings, retaining pickup restrictions. `backend/fees.js` now evaluates unpermitted facility geofences for pickup only; `backend/permits.test.js` adds MIA, PortMiami, and FLL directionality checks. Server pricing and nearby destinations share `permitRequired`, so a backend deployment is necessary. This code change does not establish government facility permission, production deployment, successful payments, or availability in an older TestFlight binary. Verify legal requirements and exact Cloud Run SHA separately; do not label live before production evidence.
+
 # AMERICAN RIDER — CANONICAL PROJECT LEDGER
 
 ## 22 October 2026 | VERIFIED TESTFLIGHT CREDENTIAL LOCATION: REUSE LEGACY REPOSITORY, NO SECRET TRANSFER
