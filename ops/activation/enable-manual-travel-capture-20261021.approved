@@ -16,3 +16,5 @@ SCHEDULED_EXCEPTION_RELEASE=2026-10-22-FOUNDER-DURABLE-TRIAGE
 # PR #221 source-tested clarity for original scheduled Operations alert,
 # existing paid backend only. No Stripe money/settings change or TestFlight.
 SCHEDULED_REVIEW_UX_RELEASE=2026-10-22-FOUNDER-ONE-PHONE-TRIAGE
+# Source-only paid backend sync after #221 and approved native UX audit; no new TestFlight.
+NATIVE_WALLET_PICKUP_AUDIT_RELEASE=2026-10-22-SOURCE-ONLY
