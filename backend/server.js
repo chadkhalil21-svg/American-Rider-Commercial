@@ -1055,17 +1055,21 @@ app.post('/connect/fee-consent', requireAuth, LIMITS.connect, async (req,res)=>{
 
 // GET /connect/status — can this operator actually be paid?
 app.get('/connect/status', requireAuth, async (req, res) => {
-  if (keyMode === 'no-key') return res.json({ exists: false, payoutsEnabled: false, due: [] });
+  // A missing Stripe key, Firestore outage or failed provider lookup must NOT
+  // resemble an Operator who has no account. The app must display Retry rather
+  // than start a second onboarding or request new fee consent.
+  if (keyMode === 'no-key') return res.status(503).json({ code:'stripe_unavailable', error:'Payout status unavailable. Please try again.' });
   const db = adminDb();
-  if (!db) return res.json({ exists: false, payoutsEnabled: false, due: [], reason: adminStatus().reason });
+  if (!db) return res.status(503).json({ code:'no_admin_db', error:'Payout status unavailable. Please try again.' });
   try {
     const operator=await operatorRecord(req.uid);
     const accountId = operator?.stripeAccountId || null;
     const status=await connectAccountStatus(accountId);
+    if (status?.error) return res.status(502).json({ code:'provider_unavailable', error:'Payout status unavailable. Please try again.' });
     const consent=operator?.stripeFeeConsent;
     res.json({...status,feeConsentAccepted:require('./connect-fee-consent').currentConnectFeeConsent(consent)});
   } catch (e) {
-    res.status(502).json({ error: e.message });
+    res.status(502).json({ code:'provider_unavailable', error:'Payout status unavailable. Please try again.' });
   }
 });
 
