@@ -618,6 +618,9 @@ const ANSWER_WINDOW_SEC = 45;
 // only because those records carry no coordinates; had they carried any, real operators would
 // have been sent journeys from weeks ago.
 const STALE_ASSIGNMENT_MS = 60 * 60 * 1000;
+// A cancelled pickup should not leave a Traveler seeking a car for an hour.
+// A short, bounded replacement window uses the same scheduled sweep and refund backstop.
+const WITHDRAWN_REPLACEMENT_MS = 5 * 60 * 1000;
 
 async function sweepAssignments({ now = Date.now(), checkMarket } = {}) {
   const db = adminDb();
@@ -649,9 +652,17 @@ async function sweepAssignments({ now = Date.now(), checkMarket } = {}) {
   for (const ride of rows) {
     const age = now - (Number(ride.createdAt) || now);
 
-    // Old enough to be history. Stamped once so it stops being read as a pending dispatch,
-    // and NOT deleted — a travel record is the traveler's, whatever became of it.
-    if (age > STALE_ASSIGNMENT_MS) {
+    // A withdrawn accepted pickup gets five minutes for safe reassignment, not the
+    // ordinary one-hour never-answered window. It remains the SAME paid Travel.
+    const withdrawnAt = ride.releasedReason === 'operator_withdrawn' &&
+      Number.isSafeInteger(ride.operatorWithdrawalAt) && ride.operatorWithdrawalAt > 0 &&
+      ride.operatorWithdrawalAt <= now ? ride.operatorWithdrawalAt : null;
+    const expired = withdrawnAt
+      ? now - withdrawnAt >= WITHDRAWN_REPLACEMENT_MS
+      : age > STALE_ASSIGNMENT_MS;
+    // Keep history, release held funds or refund the original captured payment
+    // through the existing idempotent recovery path, never a second charge.
+    if (expired) {
       if (!ride.staleAt) {
         const ref = db.collection('rides').doc(ride.id);
         const closed = await db.runTransaction(async (tx) => {
@@ -670,7 +681,23 @@ async function sweepAssignments({ now = Date.now(), checkMarket } = {}) {
             refundPending: !!current.paymentIntentId });
           return true;
         });
-        if (closed) out.expired.push(ride.id);
+        if (closed) {
+          out.expired.push(ride.id);
+          if (withdrawnAt) {
+            const notice = {
+              kind: 'operator_unavailable', title: 'Travel cancelled',
+              body: 'No replacement Operator was available. Your Travel has been cancelled. Any card hold will be released or any settled charge refunded.',
+              data: { screen: '/ride', rideId: ride.id, tripNo: ride.tripNo || '' },
+            };
+            try {
+              await notify({ ...notice, uid: ride.travelerUid });
+              if (ride.party?.teen && ride.party?.guardianUid &&
+                  String(ride.party.guardianUid) !== String(ride.travelerUid))
+                await notify({ ...notice, uid: ride.party.guardianUid,
+                  data: { ...notice.data, screen: '/family' } });
+            } catch { /* A notification outage must never undo cancellation or money recovery. */ }
+          }
+        }
       }
       continue;
     }
@@ -807,6 +834,7 @@ async function sweepAssignments({ now = Date.now(), checkMarket } = {}) {
 module.exports = {
   sweepMonitor,
   sweepAssignments,
+  WITHDRAWN_REPLACEMENT_MS,
   readReply,
   STILL_MIN,
   STILL_RADIUS_MI,
