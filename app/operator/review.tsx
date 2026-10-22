@@ -39,21 +39,27 @@ export default function OperatorReview() {
 
   const [refused, setRefused] = useState<string | null>(null);
   const [statusUnavailable, setStatusUnavailable] = useState(false);
+  const [reviewReason, setReviewReason] = useState<string | null>(null);
+  const [refreshNotice, setRefreshNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const approvedOnce = useRef(false);
   // Focus, resume and a scheduled refresh can coincide. Only one provider check
   // may be in flight; this prevents duplicate Firebase Auth + Stripe API calls.
   const checkingRef = useRef(false);
   const { commission, resetQualification } = op;
-  const check = useCallback(async () => {
+  // An explicit press must ALWAYS produce a visible result, even when the server
+  // reports the same exception as before. Only the authenticated server can qualify.
+  const check = useCallback(async (requested = false) => {
     if (checkingRef.current) return;
     checkingRef.current = true;
     setBusy(true);
-    let s;
+    let s: Awaited<ReturnType<typeof qualificationStatus>>;
     try { s = await qualificationStatus(); }
-    catch { s = { status: 'unknown' as const }; }
+    catch { s = { status: 'unknown', reason: null }; }
     finally { checkingRef.current = false; setBusy(false); }
     setStatusUnavailable(s.status === 'unknown');
+    setReviewReason(s.reason?.trim() || null);
+    setRefreshNotice(null);
     if (s.status === 'qualified' && !approvedOnce.current) {
       approvedOnce.current = true;
       commission();
@@ -61,14 +67,18 @@ export default function OperatorReview() {
     } else if (s.status === 'refused' || s.status === 'suspended') {
       setRefused(s.reason || '');
     } else if (s.status === 'incomplete') {
-      // Something the operator must do — a document missing or expired, a screening to finish.
-      // Nobody is reviewing that, so waiting here would be forever; the checklist shows it.
+      // An incomplete application needs another action, not another waiting screen.
       resetQualification();
       router.replace('/operator/qualify');
+    } else if (s.status === 'exception') {
+      // Do not fabricate an approval or a reviewer action. Give a specific blocker,
+      // plus positive confirmation when the operator manually checks again.
+      setRefused(null);
+      if (requested) setRefreshNotice(t('traveler.reviewStillPending'));
+    } else if (s.status === 'unknown') {
+      if (requested) setRefreshNotice(t('traveler.reviewRefreshUnavailable'));
     }
-    // 'exception': a person is deciding one item. 'unknown': the server was not reached.
-    // Either way this screen, which says the answer appears here, is the right place to wait.
-  }, [commission, resetQualification, router]);
+  }, [commission, resetQualification, router, t]);
 
   // The review screen asks Firebase Auth and Stripe for live provider status.
   // Paid acceptance and duty gates independently check eligibility, so do not
@@ -116,6 +126,12 @@ export default function OperatorReview() {
             {t('traveler.reviewStatusHere')}
           </Text>
         )}
+        {refused === null && !statusUnavailable && reviewReason ? (
+          <Text accessibilityRole="text" style={styles.detail}>{reviewReason}</Text>
+        ) : null}
+        {refreshNotice ? (
+          <Text accessibilityRole="status" style={styles.feedback}>{refreshNotice}</Text>
+        ) : null}
         <View style={{ flex: 1 }} />
         <View style={{ alignSelf: 'stretch' }}>
           {refused !== null ? (
@@ -130,7 +146,7 @@ export default function OperatorReview() {
             <PrimaryButton
               label={busy ? t('traveler.busyChecking') : t('traveler.reviewCheckStatus')}
               disabled={busy}
-              onPress={check}
+              onPress={() => { void check(true); }}
             />
           )}
         </View>
@@ -156,6 +172,20 @@ const styles = StyleSheet.create({
     color: colors.muted,
     marginTop: 9,
     lineHeight: 21.75,
+    textAlign: 'center',
+  },
+  detail: {
+    marginTop: 15,
+    fontSize: 13.5,
+    lineHeight: 20,
+    color: colors.ink2,
+    textAlign: 'center',
+  },
+  feedback: {
+    marginTop: 13,
+    fontSize: 12.5,
+    lineHeight: 19,
+    color: colors.muted,
     textAlign: 'center',
   },
   link: { fontSize: 15, fontWeight: '500', color: colors.ink, textAlign: 'center' },
