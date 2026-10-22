@@ -75,5 +75,19 @@ const {fileTicket,updateTicketLocation}=require('./tickets');
  const reused=await updateTicketLocation({caseNo:first.caseNo,uid:'u-fixture',
    address:'Synthetic position later',coords:{lat:25.8,lng:-80.4}});
  assert.equal(reused.ok,true);assert.equal(sent.length,3,'location update is not repeatedly mailed');
+ const scheduled={
+   uid:'u-fixture',kind:'support',reason:'Scheduled Travel requires Operations review',
+   idempotencyKey:'scheduled-review-1234567890abcdef1234567890abcdef',
+   description:'Synthetic scheduled dispatch needs investigation',
+   trip:{no:'AR-TEST-SCHEDULED'},
+ };
+ const scheduledFirst=await fileTicket(scheduled);
+ assert.equal(scheduledFirst.ok,true);
+ assert.match(sent.at(-1).payload.subject,/^SCHEDULED REVIEW · AR-C-/);
+ assert(sent.at(-1).payload.subject.includes('AR-TEST-SCHEDULED'));
+ const afterScheduled=sent.length;
+ const scheduledAgain=await fileTicket(scheduled);
+ assert.equal(scheduledAgain.caseNo,scheduledFirst.caseNo);
+ assert.equal(sent.length,afterScheduled,'do not duplicate scheduled alert on replay');
  console.log('PASS stable emergency ticket, replay, distinct incident, Resend 24-hour idempotency headers, first-location-only notification, unauthorized location denial');
 })().catch(e=>{console.error(e);process.exit(1)});

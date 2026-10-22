@@ -84,6 +84,9 @@ function scheduledExceptionsPage({rows,next}) {
  const items=rows.map(r=>`<article style="padding:15px 0;border-bottom:1px solid #ccc">
   <h2 style="font-size:17px">Travel ${escape(r.tripNo||r.id)}</h2>
   <p>Reservation: ${escape(r.id)} · Payment: ${escape(r.paymentState)}</p>
+  <p>Scheduled: ${escape(Number.isFinite(r.atMs)&&r.atMs>0&&r.atMs<8640000000000000
+    ?new Date(r.atMs).toLocaleString('en-US',{dateStyle:'medium',timeStyle:'short',timeZone:'America/New_York'})+' ET'
+    :'Time unavailable')}</p>
   <p>${escape(r.reason)}</p>
   <p>Original case: ${escape(r.caseNo||'Not recorded')}</p>
   </article>`).join('');

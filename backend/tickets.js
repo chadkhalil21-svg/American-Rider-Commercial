@@ -48,6 +48,8 @@ async function notifyByEmail(ticket) {
   const emergency = ticket.kind === 'emergency';
   const operatorRelations = !emergency && isOperatorCase(ticket);
   const paymentDeadline = ticket.reason === 'Payment disputed';
+  // Existing standard Resend alert, not a new channel or an emergency page.
+  const scheduledReview = ticket.reason === 'Scheduled Travel requires Operations review';
   try {
     const r = await fetch('https://api.resend.com/emails', {
       method: 'POST',
@@ -64,6 +66,8 @@ async function notifyByEmail(ticket) {
           ? // First word in the inbox says what it is. Nothing else we send is capitalised
             // like this, so an emergency cannot be mistaken for a billing question.
             `EMERGENCY · ${ticket.caseNo} · ${ticket.trip?.no || 'no travel number'}`
+          : scheduledReview
+          ? `SCHEDULED REVIEW · ${ticket.caseNo} · ${ticket.trip?.no || 'no travel number'}`
           : `${ticket.caseNo} · ${operatorRelations ? 'Operator Relations' : 'Patron Support'} · ${ticket.trip?.no || 'no travel number'}`,
         text:
           `Case ${ticket.caseNo}\n` +
