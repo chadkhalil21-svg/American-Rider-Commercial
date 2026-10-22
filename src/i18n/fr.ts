@@ -739,7 +739,6 @@ export default {
     toDest: 'Vers %{dest}',
     arrivalCaps: 'ARRIVÉE',
     ninetyNineOfFareAmt: '99 % de la course de %{amount}',
-    addedToRevenue: 'ajouté à vos revenus',
     travelersFare: 'Course du voyageur',
     distMi: '%{n} mi',
     milesShort: '%{n} mi',
