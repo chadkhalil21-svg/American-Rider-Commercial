@@ -20,6 +20,8 @@ for(const [description,condition] of [
  ['approval still requires server qualified status',review.includes("if (s.status === 'qualified' && !approvedOnce.current)")],
  ['incomplete applications route to their checklist',review.includes("s.status === 'incomplete'") && review.includes("router.replace('/operator/qualify')")],
  ['status API exposes the server blocker reason',connect.includes('d?.blockers?.[0]?.reason')],
+ ['status request has finite deadline covering authentication and fetch',connect.includes('Promise.race([request, deadline])') && connect.includes('12_000')],
+ ['expired request cancels network and fails closed',connect.includes('controller.abort()') && connect.includes("status: 'unknown', reason: null")],
  ['server GET reads current qualification',server.includes("app.get('/operator/qualification'") && server.includes('await assessAndRecord({ db, uid: req.uid')],
  ['qualification is always derived, never locally toggled',qualification.includes('function assessOperator(') && !review.includes("status: 'qualified' as const")],
 ]) assert(condition,description);
