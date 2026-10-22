@@ -55,6 +55,9 @@ jobs:
           test "$ACTUAL_SHA" = "$RELEASE_SHA" || { echo "::error::Refusing stale/non-current candidate: $ACTUAL_SHA != release/current $RELEASE_SHA"; exit 1; }
           echo "Certified release/current source verified: $ACTUAL_SHA"
 
+      - name: Verify isolated synthetic journey, money and native wallet source contracts
+        run: node scripts/prelaunch-synthetic-acceptance.cjs
+
       - name: Configure owner-controlled App Store Connect key and select build number
         shell: bash
         run: |
