@@ -1604,6 +1604,7 @@ app.post('/travel/settle', requireAuth, requireFreshAuth, async (req, res) => {
       deps: {
         operatorPayoutAccount,
         transferToOperator,
+        settleUncapturedTravel,
         // THE RECEIPT, BY EMAIL, once. A failure is recorded on the travel and visible on /ops.
         sendReceipt: async (ride) => {
           const sent = await send({ to: req.email, ...receiptEmail(ride) });
