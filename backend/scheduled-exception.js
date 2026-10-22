@@ -49,5 +49,54 @@ async function alertScheduledException({ reservationId, reservation, rideId, pay
   return fileTicket(ticket);
 }
 
+// Open-ended, indexed and strictly bounded. Queried ONLY when the Founder opens
+// the Operations page. No new cron, polling, location reads or indexes.
+async function listScheduledExceptions(db,{after='',limit=25}={}) {
+  if(!db)throw new Error('Firestore unavailable');
+  if(after&&!/^[A-Za-z0-9_-]{1,128}$/.test(after))
+    throw new Error('Invalid reservation cursor');
+  const size=Number.isSafeInteger(limit)&&limit>0?Math.min(limit,50):25;
+  let q=db.collection('scheduled_rides').where('status','==','needs_attention')
+    .orderBy('__name__','asc');
+  if(after){
+    const cursor=await db.collection('scheduled_rides').doc(after).get();
+    if(!cursor.exists)throw new Error('Reservation cursor missing');
+    q=q.startAfter(cursor);
+  }
+  const snap=await q.limit(size+1).get();
+  const docs=snap.docs||[];
+  const page=docs.slice(0,size);
+  const rows=page.map(d=>{
+    const r=d.data()||{};
+    return {id:d.id,tripNo:String(r.tripNo||''),
+      atMs:Number(r.atMs)||0,reason:String(r.dispatchError||'Requires payment or dispatch review').slice(0,250),
+      paymentState:r.paymentCapturePolicy==='manual_v1'?
+        (Number(r.chargedCents)>0?'captured':'authorization_or_provider_review'):
+        r.paymentIntentId?'verify_payment':'no_payment_confirmed',
+      caseNo:String(r.caseNo||'')};
+  });
+  return {rows,next:docs.length>size?page.at(-1).id:null};
+}
+
+function scheduledExceptionsPage({rows,next}) {
+ const escape=s=>String(s??'').replace(/[&<>"']/g,ch=>
+  ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+ const items=rows.map(r=>`<article style="padding:15px 0;border-bottom:1px solid #ccc">
+  <h2 style="font-size:17px">Travel ${escape(r.tripNo||r.id)}</h2>
+  <p>Reservation: ${escape(r.id)} · Payment: ${escape(r.paymentState)}</p>
+  <p>${escape(r.reason)}</p>
+  <p>Original case: ${escape(r.caseNo||'Not recorded')}</p>
+  </article>`).join('');
+ const nextLink=next?`<p><a href="/ops/scheduled-exceptions?after=${encodeURIComponent(next)}">Older unresolved reservations →</a></p>`:'';
+ return '<!doctype html><html lang="en"><meta name="viewport" content="width=device-width,initial-scale=1">'+
+ '<title>Scheduled Travel exceptions · American Rider</title>'+
+ '<main style="max-width:720px;margin:auto;padding:20px;font:16px system-ui;line-height:1.45">'+
+ '<p><a href="/ops">← Operations</a> · <a href="/ops/cases?kind=support">Support cases</a></p>'+
+ '<h1>Scheduled Travel exceptions</h1>'+
+ '<p>Unresolved payment or dispatch work. An authorization is not a charge. Verify the original Stripe transaction before taking action.</p>'+
+ (items||'<p>No unresolved scheduled exceptions on this page.</p>')+nextLink+
+ '</main></html>';
+}
+
 module.exports = { scheduledExceptionIdempotencyKey, scheduledExceptionTicket,
-  alertScheduledException };
+  alertScheduledException, listScheduledExceptions, scheduledExceptionsPage };
