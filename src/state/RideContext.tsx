@@ -101,7 +101,7 @@ export type PaymentState = {
 };
 // How finding an operator is going: searching → matched, or none available / error (so the
 // live screen can offer a retry instead of spinning on "Finding your operator…" forever).
-export type DispatchState = 'idle' | 'preparing' | 'searching' | 'matched' | 'none' | 'error' | 'price_changed' | 'update_required';
+export type DispatchState = 'idle' | 'preparing' | 'searching' | 'matched' | 'none' | 'cancelled' | 'error' | 'price_changed' | 'update_required';
 
 const DEFAULT_PREFS: Prefs = { quiet: true, charging: false, luggage: false, pet: false };
 
@@ -1368,7 +1368,29 @@ export function RideProvider({ children }: { children: React.ReactNode }) {
     setOperatorLivePosition(null);
     const rideId = watchedRideId;
     if (!rideId) return;
-    return watchRide(rideId, (s) => {
+    return watchRide(rideId, (s, released) => {
+      if (s === 'assigned' && released) {
+        // This Operator has withdrawn; reset the old arrival stage before
+        // presenting any new Operator. One original Travel, no new payment.
+        if (rideTimer.current) clearInterval(rideTimer.current);
+        rideTimer.current = null;
+        statusRef.current = 0;
+        setStatus(0);
+        setMatchedOp(null);
+        setDispatchState('searching');
+        endTravelActivity(true);
+        return;
+      }
+      if (s === 'cancelled' || s === 'expired') {
+        // Only server-confirmed termination stops the replacement search.
+        // Payment is not pronounced refunded until the provider verifies it.
+        statusRef.current = 0;
+        setStatus(0);
+        setMatchedOp(null);
+        setDispatchState('cancelled');
+        endTravelActivity(true);
+        return;
+      }
       if (s === 'declined') {
         // Legacy declined records are never a reason to create another charged Travel.
         // Current server declines keep status assigned/released on this same document.
@@ -1420,7 +1442,7 @@ export function RideProvider({ children }: { children: React.ReactNode }) {
         setDispatchState('matched');
       } else if (activeRideId.current === rideId) {
         setMatchedOp(null);
-        setDispatchState((current) => current === 'none' ? current : 'searching');
+        setDispatchState((current) => current === 'none' || current === 'cancelled' ? current : 'searching');
       }
     },
     setOperatorLivePosition);
