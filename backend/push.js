@@ -25,6 +25,8 @@ const EXPO_PUSH = 'https://exp.host/--/api/v2/push/send';
 // whole screen was in.
 const KINDS = {
   travel_assigned: { pref: null, required: true, channel: 'travel' },
+  operator_withdrawn: { pref: null, required: true, channel: 'travel' },
+  operator_unavailable: { pref: null, required: true, channel: 'travel' },
   check_in: { pref: null, required: true, channel: 'travel' },
   teen_pickup_code: { pref: null, required: true, channel: 'travel' },
   guardian_travel: { pref: null, required: true, channel: 'travel' },
