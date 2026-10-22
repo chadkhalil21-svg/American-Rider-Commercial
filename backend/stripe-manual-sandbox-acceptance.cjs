@@ -43,15 +43,23 @@ async function authorize(name){
    const free=await authorize('free-cancel');
    const voided=await stripe.paymentIntents.cancel(free.id,{cancellation_reason:'requested_by_customer'},
      {idempotencyKey:'ar_sandbox_void_'+run});
-   assure(voided.status==='canceled','unused authorization did not release');
-   const refunds=await stripe.refunds.list({payment_intent:free.id,limit:1});
-   assure(refunds.data.length===0,'void unexpectedly created a refund');
+   assure(voided.status==='canceled'&&voided.amount_received===0&&voided.amount_capturable===0,
+     'unused authorization did not release with zero captured funds');
+   // Stripe may record the release of an uncaptured hold as a Refund object.
+   // A refund object is not evidence of a second settled money movement.
+   const releasedCharge=await stripe.charges.retrieve(voided.latest_charge);
+   assure(releasedCharge.captured===false&&releasedCharge.amount_captured===0&&
+     releasedCharge.balance_transaction===null,
+     'unused authorization unexpectedly created a settled charge');
+   const refunds=await stripe.refunds.list({payment_intent:free.id,limit:10});
+   assure(!refunds.has_more&&refunds.data.every(refund=>refund.balance_transaction===null),
+     'unused authorization unexpectedly created a settled refund balance movement');
    const fee=await authorize('partial');
    const part=await stripe.paymentIntents.capture(fee.id,{amount_to_capture:400},
      {idempotencyKey:'ar_sandbox_capture_'+run+'_partial'});
    assure(part.status==='succeeded'&&part.amount_received===400,
      'partial capture did not collect exactly 400 cents');
-   console.log('PASS: three REAL Stripe TEST PaymentIntents: full capture, free void with no refund, 400-cent partial capture.');
+   console.log('PASS: three REAL Stripe TEST PaymentIntents: full capture, free authorization release with no settled money movement, 400-cent partial capture.');
    console.log('Test-only PaymentIntent IDs:',made.join(', '));
  } catch(e) {
    console.error('Stripe TEST acceptance FAILED:',String(e.code||e.type||e.message||e));
