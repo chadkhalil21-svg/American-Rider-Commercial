@@ -218,7 +218,7 @@ export default function OperatorPickup() {
         <PrimaryButton
           label={t('operator.commenceTravel')}
           color={colors.green}
-          disabled={transitioning || pickupChecking}
+          disabled={transitioning}
           onPress={async () => {
             setTransitioning(true); setTransitionError(null);
             try {
