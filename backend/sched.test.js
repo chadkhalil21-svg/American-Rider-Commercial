@@ -295,8 +295,29 @@ const check = (label, cond, detail) => { results.push({ label, ok: !!cond, detai
     check('  a prepared unoffered Travel already exists before charging',
       Object.values(h.data.rides || {}).some((ride) => ride.status === 'awaiting_payment' && ride.reservationId === 'r1'));
     check('  a support case was opened automatically',
-      tickets.some(t=>t.reason==='Scheduled travel charged but not dispatched' && /REFUND IS OWED/.test(t.description)), tickets.at(-1)?.reason);
+      tickets.some(t=>t.reason==='Scheduled travel charged but not dispatched' && /REFUND OF CAPTURED FUNDS IS OWED/.test(t.description)), tickets.at(-1)?.reason);
     check('  the case number is on the reservation', r.caseNo === 'AR-CASE-1', r.caseNo);
+  }
+  // 7a. A genuine manual-only hold is not money already collected.
+  // The same post-authorization attachment failure must create a case to
+  // release the original hold, without inventing a cash refund or paid total.
+  {
+    charge=async()=>({ok:true,paymentIntentId:'pi_held_r1',chargedCents:2720,
+      capturePolicy:'manual_v1'});
+    const h=makeDb({scheduled_rides:{r1:base(3)},operators:FLEET,
+      users:{opA:QUALIFIED_USER('opA'),opB:QUALIFIED_USER('opB')}});
+    h.failPaymentAttach();
+    const rep=await inject(h.db).sweepScheduled();
+    const reservation=h.data.scheduled_rides.r1;
+    check('manual hold failed dispatch: still needs attention',
+      reservation.status==='needs_attention');
+    check('manual hold amounts must not become charged money',
+      reservation.chargedCents===0&&reservation.authorizedCents===2720,
+      JSON.stringify({charged:reservation.chargedCents,authorized:reservation.authorizedCents}));
+    check('manual hold case records release rather than a bank refund',
+      tickets.some(t=>t.reason==='Scheduled Travel authorization held but not dispatched' &&
+        /RELEASE ORIGINAL HOLD; NO CAPTURED REFUND IS OWED/.test(t.description)));
+    charge=async(opts)=>({ok:true,paymentIntentId:`pi_${opts.reservationId}`,chargedCents:2720});
   }
   // 7b. A failure to create the booking occurs BEFORE charging, not after it.
   {
