@@ -72,7 +72,7 @@ const {scheduledExceptionIdempotencyKey, scheduledExceptionTicket,
   const second=await listScheduledExceptions(db,{after:first.next,limit:25});
   assert.equal(second.rows.length,25);
   assert(!second.rows.some(r=>first.rows.some(a=>a.id===r.id)));
-  assert.throws(()=>listScheduledExceptions(db,{after:'bad/path'}),/Invalid reservation cursor/);
+  await assert.rejects(listScheduledExceptions(db,{after:'bad/path'}),/Invalid reservation cursor/);
   assert.equal((await listScheduledExceptions(db,{after:second.next,limit:25})).rows.length,12);
 
   const server=fs.readFileSync(path.join(__dirname,'server.js'),'utf8');
