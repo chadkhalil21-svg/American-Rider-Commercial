@@ -66,6 +66,7 @@ const {scheduledExceptionIdempotencyKey, scheduledExceptionTicket,
   assert.equal(first.rows.length,25);assert(first.next);
   assert.equal(first.rows[0].paymentState,'authorization_or_provider_review');
   assert(totalRead<=26);
+  first.rows[0].atMs=Date.parse('2026-10-22T15:00:00Z');
   const page=scheduledExceptionsPage(first);
   assert(!page.includes('<script>'), 'Founder HTML must escape stored exception messages');
   assert(page.includes('&lt;script&gt;'));
