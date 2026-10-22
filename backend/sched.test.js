@@ -238,6 +238,10 @@ const check = (label, cond, detail) => { results.push({ label, ok: !!cond, detai
     const rep=await inject(h.db).sweepScheduled();
     check('stale claim with staged money requires reconciliation, not a second off-session charge',
       rep.staleClaims===1 && h.data.scheduled_rides.r1.status==='needs_attention' && charged===0);
+    check('stale scheduled claim reaches durable founder support queue',
+      tickets.some(t=>t.reason==='Scheduled Travel requires Operations review' &&
+        t.idempotencyKey && /pi_orphan/.test(t.description)) &&
+        !!h.data.scheduled_rides.r1.caseNo);
     charge=async(opts)=>({ok:true,paymentIntentId:`pi_${opts.reservationId}`,chargedCents:2720});
   }
 
@@ -329,6 +333,10 @@ const check = (label, cond, detail) => { results.push({ label, ok: !!cond, detai
     const rep = await inject(h.db).sweepScheduled();
     check('failed durable prepare never opens an off-session charge',
       charged === 0 && rep.failed.length === 1 && h.data.scheduled_rides.r1.status === 'needs_attention');
+    check('failed prepare is recorded in existing founder case queue without claiming money was captured',
+      tickets.some(t=>t.reason==='Scheduled Travel requires Operations review' &&
+        /No provider payment reference was confirmed/.test(t.description)) &&
+      !!h.data.scheduled_rides.r1.caseNo);
     charge = async (opts) => ({ ok: true, paymentIntentId: `pi_${opts.reservationId}`, chargedCents: 2720 });
   }
 
