@@ -155,7 +155,7 @@ export default function RideScreen() {
   const canCancel = st <= 2;
   const preparing = !ride.matchedOp && ride.dispatchState === 'preparing';
   const searching = !ride.matchedOp && ride.dispatchState === 'searching';
-  const noOperator = !ride.matchedOp && (ride.dispatchState === 'none' || ride.dispatchState === 'error');
+  const noOperator = !ride.matchedOp && (ride.dispatchState === 'none' || ride.dispatchState === 'error' || ride.dispatchState === 'cancelled');
   // Assignment alone is not Operator acceptance. No En Route progress is earned at step 0.
   const stepIdx = st === 0 ? -1 : st === 1 ? 0 : st === 2 ? 1 : st <= 4 ? 2 : 3;
   const steps = [t('traveler.phaseEnRoute'), t('traveler.phaseArrived'), t('traveler.phaseOnboard'), t('traveler.arrival')];
@@ -219,6 +219,7 @@ export default function RideScreen() {
           {(preparing || searching) && <Radar />}
           <Text style={styles.searchTitle}>
             {preparing ? t('traveler.rideStepPreparing') : searching ? t('traveler.rideFindingBest')
+              : ride.dispatchState === 'cancelled' ? t('traveler.withdrawalCancelled')
               : ride.dispatchState === 'none' ? t('traveler.noOperatorAvailable') : t('traveler.dispatchUnavailable')}
           </Text>
           {(preparing || searching) ? (
@@ -230,10 +231,13 @@ export default function RideScreen() {
               {ride.dispatchState === 'none' && (
                 <Text style={styles.searchSub}>{t('traveler.noOperatorsNearby')}</Text>
               )}
+              {ride.dispatchState === 'cancelled' && (
+                <Text style={styles.searchSub}>{t('traveler.withdrawalRefundReview')}</Text>
+              )}
               {ride.payment.status === 'idle' && ride.dispatchState === 'none' && (
                 <Text style={styles.searchSub}>{t('traveler.noChargeMade')}</Text>
               )}
-              {ride.payment.status === 'paid' ? (
+              {ride.dispatchState !== 'cancelled' && ride.payment.status === 'paid' ? (
                 <Text style={styles.searchSub}>{t(ride.payment.authorizationOnly
                   ? 'traveler.authorizationAwaitingOperator':'traveler.chargedAwaitingOperator')}</Text>
               ) : ride.payment.status === 'processing' || ride.payment.status === 'failed' ? (
@@ -250,10 +254,12 @@ export default function RideScreen() {
                   Change Travel keeps the booking and returns to the destination screen.
                   Cancel remains, at the bottom, unchanged and still confirmed — the heaviest
                   action stays the least prominent. */}
-              <Pressable accessibilityRole="button" onPress={ride.retryDispatch} hitSlop={8}
-                style={{ minHeight: 44, justifyContent: 'center' }}>
-                <Text style={styles.retryLink}>{t('traveler.tryAgain')}</Text>
-              </Pressable>
+              {ride.dispatchState !== 'cancelled' && (
+                <Pressable accessibilityRole="button" onPress={ride.retryDispatch} hitSlop={8}
+                  style={{ minHeight: 44, justifyContent: 'center' }}>
+                  <Text style={styles.retryLink}>{t('traveler.tryAgain')}</Text>
+                </Pressable>
+              )}
               {ride.payment.status === 'idle' ? (
                 <Pressable accessibilityRole="button" onPress={() => router.replace('/reserve')} hitSlop={8}
                   style={{ minHeight: 44, justifyContent: 'center' }}>
@@ -268,7 +274,7 @@ export default function RideScreen() {
             </>
           )}
         </View>
-        {cancelAsk ? (
+        {cancelAsk && ride.dispatchState !== 'cancelled' ? (
           <View style={styles.cancelCard}>
             <Text style={styles.cancelTitle}>{t('traveler.cancelThisTravel')}</Text>
             {/* "Free to cancel — no operator has been assigned yet" gave the old $3-fee
@@ -312,7 +318,7 @@ export default function RideScreen() {
               </View>
             ) : null}
           </View>
-        ) : !(ride.dispatchState === 'none' && ride.payment.status === 'idle' && !ride.rideActive) ? (
+        ) : ride.dispatchState !== 'cancelled' && !(ride.dispatchState === 'none' && ride.payment.status === 'idle' && !ride.rideActive) ? (
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={t('traveler.cancelTravel')}
