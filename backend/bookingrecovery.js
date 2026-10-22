@@ -83,14 +83,17 @@ async function sweepBookingRecovery({ db, deps, stripeConfigured, now = Date.now
             // A manual requires_capture authorization is NOT a captured charge.
             // Do not stamp paidAt: it changes receipt, refund and webhook behavior.
             // Preserve the provider's real held-vs-settled state across a crash.
-            const manualHold = pi.status === 'requires_capture' &&
-              pi.capture_method === 'manual' && pi.metadata?.capturePolicy === 'manual_v1';
+            const manual = pi.metadata?.capturePolicy === 'manual_v1';
+            const manualHold = manual && pi.status === 'requires_capture' &&
+              pi.capture_method === 'manual';
             const recovered = manualHold
               ? { paymentIntentId: piId, paymentCapturePolicy: 'manual_v1',
                   authorizationState: 'held', authorizedAt: now,
                   authorizedAmountCents: Number(pi.amount) }
               : { paymentIntentId: piId, paidAt: now,
-                  paymentCapturePolicy: 'captured_legacy' };
+                  paymentCapturePolicy: manual ? 'manual_v1' : 'captured_legacy',
+                  ...(manual ? { authorizationState: 'captured',
+                    capturedCents: Number(pi.amount_received) } : {}) };
             await db.collection('rides').doc(doc.id).set(recovered, { merge: true });
             ride = { ...ride, ...recovered };
           }
