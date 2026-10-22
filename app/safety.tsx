@@ -207,7 +207,7 @@ export default function SafeTravels() {
 
       <Modal visible={pendingRemoveContact !== null} animationType="fade" transparent onRequestClose={() => setPendingRemoveContact(null)}>
         <Pressable style={styles.sheetScrim} onPress={() => setPendingRemoveContact(null)}>
-          <Pressable style={styles.sheet} onPress={() => {}}>
+          <Pressable style={styles.sheet} accessible={false} onPress={(event) => event.stopPropagation()}>
             <Text style={styles.sheetTitle}>{t('traveler.trustedContacts')}</Text>
             <Text style={styles.sheetBody}>{pendingRemoveContact !== null ? contacts[pendingRemoveContact]?.name : ''}</Text>
             <View style={styles.sheetBtns}>
@@ -228,7 +228,7 @@ export default function SafeTravels() {
 
       <Modal visible={adding} animationType="fade" transparent onRequestClose={() => setAdding(false)}>
         <Pressable style={styles.sheetScrim} onPress={() => setAdding(false)}>
-          <Pressable style={styles.sheet} onPress={() => {}}>
+          <Pressable style={styles.sheet} accessible={false} onPress={(event) => event.stopPropagation()}>
             <Text style={styles.sheetTitle}>{t('traveler.addTrustedContact')}</Text>
             <Text style={styles.sheetBody}>
               {t('traveler.numberUsedOnlyWhen')}
