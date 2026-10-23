@@ -198,7 +198,9 @@ export default function OperatorPickup() {
                       if(result.ok) {
                         Alert.alert(t('operatorNoShow.closed'),result.refundPending
                           ? t('operatorNoShow.refundPending')
-                          : t('operatorNoShow.paymentReconciled'));
+                          : result.operatorPaymentPending
+                            ? t('operatorNoShow.compensationPending')
+                            : t('operatorNoShow.paymentReconciled'));
                         router.replace('/operator');
                       } else {
                         setTransitionError(result.code==='operator_contact_required'
