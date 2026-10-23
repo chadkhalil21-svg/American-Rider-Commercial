@@ -23,63 +23,84 @@
 // not a framing one: an operator in another state reading it would be misinformed. Minimums
 // are set state by state and are named as Florida's.
 //
-// The figures are real, verified against Stripe on 19 Aug 2026: a $24.50 travel charges
-// $26.00, transfers $24.26, and leaves $1.74. If the fare model changes, change them here.
+// October 2026 website correction: remove obsolete fixed-value examples and avoid claiming
+// a successful App Store launch, live capacity, or service outside verified geography.
+// The canonical backend owns each actual all-in Travel Total; this page has no quote engine.
 const { page } = require('./shell');
 
 const HOME_HTML = page(
   'American Rider',
   `
-<div class="hero">
-  <div class="name">American Rider</div>
-  <div class="line">Transportation arranged between travelers and independent operators.</div>
-  <div class="rule"></div>
-</div>
-
-<div class="statement">
-  <div class="lbl">The operator retains</div>
-  <div class="figure">99%</div>
-  <div class="note">of every travel fare</div>
-</div>
-
-<section>
-  <h2>A travel in full</h2>
-  <p>One price, quoted before the travel and covering the journey in full.</p>
-  <div class="rows" style="margin-top:16px">
-    <div><span class="k">Travel fare</span><span class="amount">$24.50</span></div>
-    <div class="split"><span class="k">To the operator</span><span class="amount">$24.26</span></div>
-    <div><span class="k">American Rider commission</span><span class="amount">$0.24</span></div>
+<section class="hero-grid" aria-labelledby="home-heading">
+  <div>
+    <p class="eyebrow">American Rider · National Transportation</p>
+    <h1 class="hero-heading" id="home-heading">Travel, <span>considered.</span></h1>
+    <p class="hero-lede">Transportation with clear terms, a composed experience, and independent Operators who retain 99% of the Travel Fare.</p>
+    <div class="button-row">
+      <a class="cta" href="/travel">Explore Travel</a>
+      <a class="ghost" href="/operate">Operate with American Rider</a>
+    </div>
   </div>
-  <p style="margin-top:16px">The traveler is quoted one Total before reservation. A platform
-  fee funds payment and platform infrastructure without reducing the operator's 99% share of
-  the travel fare. Government fees and tolls, when applicable, are passed through to their
-  beneficiaries rather than retained by American Rider.</p>
+  <div class="path-card" role="img" aria-label="An abstract illustration of a connected journey, not a live map">
+    <div class="path-label"><span>American Rider · United States</span><span>01 / 03</span></div>
+    <svg viewBox="0 0 500 290" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">
+      <defs>
+        <pattern id="ar-web-grid" width="48" height="48" patternUnits="userSpaceOnUse">
+          <path d="M 48 0 L 0 0 0 48" fill="none" stroke="#c3ced8" stroke-width=".65" opacity=".48"/>
+        </pattern>
+      </defs>
+      <rect x="0" y="0" width="500" height="290" rx="9" fill="url(#ar-web-grid)"/>
+      <path d="M53 242 C110 226 102 157 183 158 C267 158 235 57 335 67 C401 73 407 116 457 51" fill="none" stroke="#a0afc0" stroke-width="11" stroke-linecap="round" opacity=".22"/>
+      <path d="M53 242 C110 226 102 157 183 158 C267 158 235 57 335 67 C401 73 407 116 457 51" fill="none" stroke="#224d86" stroke-width="2.6" stroke-linecap="round" stroke-dasharray="7 9"/>
+      <circle cx="53" cy="242" r="14" fill="#f6f9fc" stroke="#2E5FE0" stroke-width="2.5"/>
+      <circle cx="53" cy="242" r="4" fill="#2E5FE0"/>
+      <circle cx="457" cy="51" r="14" fill="#172f4c" stroke="#f8fafc" stroke-width="3"/>
+      <circle cx="457" cy="51" r="4" fill="#f8fafc"/>
+      <rect x="188" y="128" width="114" height="38" rx="10" fill="#ffffff" stroke="#d2dce5"/>
+      <text x="245" y="151" font-family="system-ui,sans-serif" font-size="12" font-weight="600" letter-spacing="1.1" text-anchor="middle" fill="#1c3859">AMERICAN</text>
+      <path d="M72 250L100 265M420 36L441 21" stroke="#8099af" stroke-width="1.6"/>
+    </svg>
+    <p class="path-caption">The journey, thoughtfully arranged.</p>
+  </div>
 </section>
 
-<section>
-  <h2>Travel</h2>
-  <p>A traveler names a destination, is shown the price, and is assigned the nearest qualified
-  operator. Standard, Large Vehicle and Pet Friendly are available.</p>
-  <a class="more" href="/travel">How a travel works &rsaquo;</a>
+<div class="feature-strip" aria-label="Explore American Rider">
+  <section aria-labelledby="ar-travel">
+    <div class="number">01 / TRAVELER</div>
+    <h2 id="ar-travel">One clear Total</h2>
+    <p>Review one all-in Total before reserving. The agreed Total includes the Travel Fare, Platform Fee, and applicable charges.</p>
+    <a class="more" href="/travel">How Travel works &rsaquo;</a>
+  </section>
+  <section aria-labelledby="ar-operator">
+    <div class="number">02 / OPERATOR</div>
+    <h2 id="ar-operator">99% of the Fare</h2>
+    <p>Independent Operators retain 99% of the Travel Fare. The minimum Platform Fee is $2.50 per Travel and is not deducted from the Operator's share.</p>
+    <a class="more" href="/operate">Operating information &rsaquo;</a>
+  </section>
+  <section aria-labelledby="ar-safety">
+    <div class="number">03 / CONFIDENCE</div>
+    <h2 id="ar-safety">Qualification and care</h2>
+    <p>Operators must meet applicable insurance, screening, and vehicle requirements before becoming eligible for Travel.</p>
+    <a class="more" href="/safety">Safety standards &rsaquo;</a>
+  </section>
+</div>
+
+<div class="divider-label">A national transportation platform</div>
+<section class="service-panel" aria-labelledby="network-heading">
+  <div>
+    <h2 id="network-heading">Designed to serve the nation.</h2>
+    <p>American Rider is building a transportation network across the United States.
+    Service begins in Miami-Dade, Broward and Palm Beach counties. Actual availability
+    depends on your pickup location and qualified Operators.
+    We are preparing the public mobile-app release.</p>
+  </div>
+  <a href="/travel">Explore Travel &rsaquo;</a>
 </section>
 
-<section>
-  <h2>Smart Travel</h2>
-  <p>Currently unavailable. We are verifying transit schedules and journey connections
-  before introducing this option. Ordinary American Rider Travel remains available.</p>
-</section>
-
-<section>
-  <h2>Operators</h2>
-  <p>Operators are independent contractors. They own their vehicles, carry their own commercial
-  coverage. On completion of each Travel, American Rider initiates the Operator’s earnings transfer to the Operator’s Stripe connected account; bank payout timing follows the Operator’s Stripe payout schedule.</p>
-  <a class="cta" href="/operate">Operate with American Rider</a>
-</section>
-
-<section>
-  <h2>Service</h2>
-  <p>American Rider begins service in Miami, Florida. The app is in its test program and is
-  not yet published on the App Store.</p>
+<section aria-labelledby="smart-heading" style="margin-top:22px">
+  <h2 id="smart-heading">Smart Travel</h2>
+  <p>Currently unavailable. Transit connections remain paused while live schedules
+  and journey reliability are verified. Ordinary American Rider Travel remains the alternative.</p>
 </section>
 `,
   '/',
@@ -92,31 +113,24 @@ const OPERATE_HTML = page(
 <p class="lede">The fare is the operator's, less a 1% coordination commission.</p>
 
 <div class="statement">
-  <div class="lbl">On a $24.50 travel</div>
-  <div class="figure">$24.26</div>
-  <div class="note">to the operator</div>
+  <div class="lbl">Operator share</div>
+  <div class="figure">99%</div>
+  <div class="note">of each Travel Fare</div>
 </div>
 
 <section>
-  <h2>The whole travel</h2>
-  <div class="rows">
-    <div><span class="k">Travel fare</span><span class="amount">$24.50</span></div>
-    <div><span class="k">Coordination commission (1%)</span><span class="amount">$0.24</span></div>
-    <div><span class="k">Operator receives</span><span class="amount">$24.26</span></div>
-  </div>
-  <p style="margin-top:16px">The platform fee is added to the fare and charged to the traveler.
-  It is never taken from the operator's share, and it is what pays for card processing.</p>
-  <p>The commission is 1% of the fare at every amount. A $200.00 travel returns $198.00. There
-  is no tier and no cap.</p>
+  <h2>Fare and Platform Fee</h2>
+  <p>American Rider retains a 1% coordination commission from the Travel Fare.
+  The separate Platform Fee starts at $2.50 per Travel, is shown in the
+  Traveler's quoted Total, and is not deducted from the Operator's 99% share.</p>
+  <p>Actual earnings depend on completed eligible Travels. Vehicle, insurance,
+  taxes and other operating expenses remain the Operator's responsibility.</p>
 </section>
 
 <section>
   <h2>Cancellations</h2>
-  <p>A traveler who cancels before an operator arrives pays nothing, and the operator is owed
-  nothing.</p>
-  <p>Once an operator has arrived, a cancellation carries a $3.00 arrival fee, and that fee is
-  paid to the operator who drove there and waited. A travel that has begun cannot be cancelled
-  at all.</p>
+  <p>Cancellation terms are shown before a Travel is reserved. An Operator's arrival alone does not automatically create a fee. If a verified cancellation fee is offered and accepted, qualifying evidence and the disclosed terms determine whether it applies.</p>
+  <p>A Travel already underway is resolved through Patron Support.</p>
 </section>
 
 <section>
@@ -193,7 +207,7 @@ const SUPPORT_HTML = page(
   <p>For insurance coordination, use
   <a href="mailto:insurance@americanrider.app">insurance@americanrider.app</a>.
   Do not email identification documents, background reports, bank credentials or other sensitive records.
-  Use the secure process within the app or the authenticated channel requested by our team.</p>
+  Use the private in-app upload process or the authenticated channel requested by our team.</p>
   <p>For an existing Travel, include your Travel number when available. Safety emergencies
   require local emergency services, not email.</p>
 </section>
@@ -223,9 +237,8 @@ const SUPPORT_HTML = page(
   <h2>Payment</h2>
   <p>Every travel carries a receipt in the Travel Log stating the fare, the platform fee and
   the total charged. A disputed amount is examined against the record of what was charged.</p>
-  <p>A travel cancelled before the operator arrives is refunded in full. After arrival, a
-  $3.00 arrival fee is retained for the operator. A travel already underway is settled through
-  Patron Support rather than cancelled.</p>
+  <p>For a cancelled Travel, an unused card authorization is released or a captured amount is refunded as the original booking terms require. Cancellation fees are not automatic merely because an Operator arrived; any optional verified fee must first have been disclosed and accepted.</p>
+  <p>A Travel underway is resolved through Patron Support.</p>
 </section>
 
 <section>
@@ -265,8 +278,7 @@ const TRAVEL_HTML = page(
   <h2>Dispatch</h2>
   <p>The nearest available operator qualified for the class requested is assigned. The
   traveler is shown that operator's name, vehicle and license plate, and their approach on the
-  map. Nothing is charged until an operator has been assigned; a travel with nobody to drive it
-  is not charged for.</p>
+  map. A temporary card authorization may be placed before an Operator is assigned. An authorization is not a completed charge. If no Travel takes place and no disclosed fee is due, the unused hold is released.</p>
 </section>
 
 <section>
@@ -288,10 +300,8 @@ const TRAVEL_HTML = page(
 
 <section>
   <h2>Cancelling</h2>
-  <p>Before the operator arrives, a travel may be cancelled and the fare is refunded in
-  full.</p>
-  <p>Once the operator has arrived, cancelling returns the fare less a $3.00 arrival fee, which
-  is paid to the operator who drove there and waited.</p>
+  <p>Before a Travel begins, you may cancel. The service releases an unused card authorization or refunds a captured amount under the terms of that booking.</p>
+  <p>An arrival fee is not automatic. If an optional verified cancellation fee applies, its total and requirements must have been shown and accepted before booking.</p>
   <p>A travel that has begun cannot be cancelled. Patron Support settles anything that goes
   wrong with a travel already underway.</p>
 </section>
@@ -352,5 +362,20 @@ const SMART_HTML = page(
   '/smart-travel',
 );
 
-module.exports = { HOME_HTML, OPERATE_HTML, SUPPORT_HTML, TRAVEL_HTML, SAFETY_HTML, SMART_HTML };
+// Neutral holding page only; does not complete invitations or pay recruiters.
+const JOIN_HTML = page(
+  'Invitation',
+  `
+<h1>Invitation</h1>
+<p class="lede">American Rider is preparing its public mobile-app release.</p>
+<section>
+  <h2>Invitation status</h2>
+  <p>Invitations are not yet active. The original invitation link may be reopened
+  once the supported application and attribution process are available.</p>
+  <p>No account, commission or Travel is initiated by visiting this page.</p>
+  <a class="more" href="/">Return to American Rider &rsaquo;</a>
+</section>
+`,
+);
+module.exports = { HOME_HTML, OPERATE_HTML, SUPPORT_HTML, TRAVEL_HTML, SAFETY_HTML, SMART_HTML, JOIN_HTML };
 

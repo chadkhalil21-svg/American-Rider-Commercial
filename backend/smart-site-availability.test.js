@@ -4,12 +4,13 @@
 const assert = require('node:assert/strict');
 const { HOME_HTML, TRAVEL_HTML, SMART_HTML } = require('./site');
 for (let pass = 0; pass < 2; pass++) {
-  for (const html of [HOME_HTML, TRAVEL_HTML, SMART_HTML]) {
+  for (const html of [TRAVEL_HTML, SMART_HTML]) {
     assert.match(html, /Smart Travel/, 'retain the named feature for future launch');
     assert.match(html, /Currently unavailable/, 'public pages must state the actual hold');
     assert.doesNotMatch(html, /Brickell to Dadeland|\$21\.75|\$25\.83|Platform fee<\/span><span class="amount">\$1\.50/,
       'no old or unverified illustrative price');
   }
+  assert.doesNotMatch(HOME_HTML, /Smart Travel/, 'national corporate landing should not promote paused features');
   assert.match(SMART_HTML, /ordinary\s+American Rider Travel/,
     'show available normal Travel as the alternative');
   const backend = require('node:fs').readFileSync(require('node:path').join(__dirname,'server.js'),'utf8');

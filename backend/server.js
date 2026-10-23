@@ -131,7 +131,7 @@ const { authorizeVoiceTravel, lostItemTravel, authorizeAnnouncement, claimAnnoun
 const { authorizeTravelMessage } = require('./travel-message-policy');
 const { TERMS_HTML, PRIVACY_HTML, ABOUT_HTML, ACCOUNT_DELETION_HTML, legalPage, LEGAL_LANGUAGES } = require('./legal');
 const {
-  HOME_HTML, OPERATE_HTML, SUPPORT_HTML, TRAVEL_HTML, SAFETY_HTML, SMART_HTML,
+  HOME_HTML, OPERATE_HTML, SUPPORT_HTML, TRAVEL_HTML, SAFETY_HTML, SMART_HTML, JOIN_HTML,
 } = require('./site');
 const { smartQuote, revalidateTransit } = require('./smart');
 const { transitHealth } = require('./transit');
@@ -666,6 +666,10 @@ app.get('/smart-travel', (req, res) => res.type('html').send(SMART_HTML));
 // Three screens in the app link to it (`${LEGAL_URL}/about`), so it has been a dead link
 // everywhere it appears.
 app.get('/about', (req, res) => res.type('html').send(ABOUT_HTML));
+// A paused informational landing only. Never silently claim/pay a recruit.
+app.get('/join', (_req, res) => res.set('Cache-Control','no-store')
+  .set('Referrer-Policy','no-referrer').set('X-Robots-Tag','noindex,nofollow')
+  .type('html').send(JOIN_HTML));
 // One-to-one referral attribution: OFF on production until the actual domain,
 // store installation handoff, budget, disclosures and contracts are approved.
 // No rewards, Stripe transfer, bank payout or Travel credit happens here.

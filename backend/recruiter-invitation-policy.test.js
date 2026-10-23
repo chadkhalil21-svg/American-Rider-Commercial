@@ -1,0 +1,23 @@
+'use strict';
+const assert=require('node:assert/strict');
+const {normalizedEmail,issueDraft,activationDecision}=require('./recruiter-invitation-policy');
+const now=1_791_000_000_000;
+assert.equal(normalizedEmail('  Recruiter@Example.com '),'recruiter@example.com');
+assert.equal(normalizedEmail('not-an-email'),null);
+const invite=issueDraft({email:'Recruiter@Example.com',approvedBy:'founder-verified-001',now});
+assert.equal(invite.ok,true);
+assert.ok(invite.secretForOneEmail.length>=40);
+assert.equal(invite.record.recipientEmail,'recruiter@example.com');
+assert.equal(invite.record.authorizedBy,'founder-verified-001');
+assert.notEqual(invite.record.tokenHash,invite.secretForOneEmail);
+const valid={invite:invite.record,token:invite.secretForOneEmail,
+  signedInEmail:'RECRUITER@example.com',emailVerified:true,now:now+1000};
+assert.equal(activationDecision(valid).ok,true);
+assert.equal(activationDecision({...valid,signedInEmail:'forwarded@example.com'}).reason,'approved_email_required');
+assert.equal(activationDecision({...valid,emailVerified:false}).reason,'approved_email_required');
+assert.equal(activationDecision({...valid,token:'A'.repeat(43)}).reason,'invalid_invitation');
+assert.equal(activationDecision({...valid,now:now+25*60*60*1000}).reason,'invitation_inactive');
+assert.equal(activationDecision({...valid,invite:{...invite.record,status:'revoked'}}).reason,'invitation_inactive');
+assert.equal(activationDecision({...valid,invite:{...invite.record,consumedAt:now+10}}).reason,'invitation_inactive');
+assert.equal(issueDraft({email:'nope',approvedBy:'founder',now}).ok,false);
+console.log('PASS: recruiter invitation cryptographic token, approved email binding, forwarding refusal, expiry, revocation, and single-use eligibility (no email sent, no account activated)');

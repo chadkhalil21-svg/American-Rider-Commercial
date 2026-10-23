@@ -112,73 +112,171 @@
   .foot .stamp { font-family:ui-monospace,"SF Mono",Menlo,monospace; font-size:11.5px;
     letter-spacing:1px; color:var(--faint); }
   .foot a { color:var(--muted); }
+
+/* Public experience, Oct 2026: mobile-first, fast, keyboard-friendly and quiet.
+   Inherits the source-of-truth brand colors in :root above. No remote fonts or images. */
+html{scroll-behavior:smooth}
+body{min-width:280px}
+.skip-link{position:absolute;top:-80px;left:14px;padding:12px 16px;background:var(--ink);color:#fff;z-index:100;border-radius:8px}
+.skip-link:focus{top:12px}
+.site-header{border-bottom:1px solid var(--hairline);background:rgba(247,247,245,.98)}
+.header-inner{max-width:1160px;margin:auto;display:flex;justify-content:space-between;align-items:center;gap:26px;padding:24px 28px}
+.site-header .lockup{flex:none;min-width:175px}
+.site-header .brand{text-align:left;font-size:15px;letter-spacing:.17em}
+.site-header .tagline{text-align:left;letter-spacing:.16em;font-size:9px;margin-top:5px}
+.site-header nav{border:0;margin:0;padding:0;display:flex;justify-content:flex-end;gap:8px 24px}
+.site-header nav .nav{font-size:13px;color:#505763;padding:9px 2px;white-space:nowrap;text-underline-offset:6px}
+.site-header nav .nav.on{color:var(--ink);text-decoration:underline;text-decoration-color:var(--blue);text-decoration-thickness:2px}
+.site-header nav .nav:hover{color:var(--ink)}
+.site-main{max-width:1160px;margin:auto;padding:26px 28px 64px;min-height:65vh}
+.site-main>h1,.site-main>.lede,.site-main>.updated{max-width:760px}
+.site-main>h1{font-size:clamp(31px,5vw,50px);letter-spacing:-.055em;line-height:1.13;margin:58px 0 14px}
+.site-main>.lede{font-size:18px;max-width:650px;line-height:1.6;margin-bottom:32px}
+.site-main>section:not(.hero-grid),.site-main>.statement{max-width:830px;margin-left:auto;margin-right:auto}
+.site-main>section{padding:24px 28px}
+.site-main>section h2{color:#606774}
+.site-main>section p{max-width:68ch;line-height:1.72}
+.site-main p{line-height:1.68}
+.site-main .statement{padding:34px 24px}
+.site-main .figure{font-size:clamp(46px,7vw,66px)}
+.site-main .hero-grid{background:transparent;border:0;padding:70px 0 64px;display:grid;grid-template-columns:minmax(0,1.08fr) minmax(300px,.92fr);align-items:center;gap:48px;max-width:none}
+.site-main .hero-grid p{max-width:57ch}
+.eyebrow{font-size:11px;font-weight:680;letter-spacing:.17em;text-transform:uppercase;color:#677186;margin-bottom:16px}
+.hero-heading{font-size:clamp(48px,6.8vw,88px);font-weight:590;letter-spacing:-.072em;line-height:.99;max-width:640px;margin:0 0 25px}
+.hero-heading span{color:#5e687b}
+.hero-lede{font-size:clamp(17px,1.8vw,20px);color:#4b5361;line-height:1.6;margin-bottom:28px}
+.button-row{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.button-row .cta,.button-row .ghost{margin:0;min-height:49px;display:inline-flex;align-items:center;justify-content:center;font-size:14px;line-height:1.3}
+.button-row .ghost{background:transparent}
+.button-row .cta:hover{background:#2c3646}
+.button-row .ghost:hover{background:#fff}
+.path-card{min-height:390px;position:relative;background:#e9edf1;border:1px solid #dfe5ea;border-radius:18px;overflow:hidden;padding:22px;isolation:isolate}
+.path-card:before{content:"";position:absolute;width:72%;height:75%;right:-20%;top:-40%;border-radius:50%;background:#f8fafb;filter:blur(30px);opacity:.75;z-index:-1}
+.path-card svg{width:100%;height:270px;display:block}
+.path-label{display:flex;align-items:center;justify-content:space-between;gap:12px;color:#51627a;font-size:11px;letter-spacing:.13em;font-weight:640;text-transform:uppercase}
+.path-caption{font-size:15px;font-weight:550;letter-spacing:-.02em;color:#1d3049;margin:2px 0 0}
+.feature-strip{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin:0 0 28px}
+.feature-strip section{margin:0;background:#fff;border:1px solid var(--hairline);border-radius:16px;padding:24px}
+.feature-strip h2{font-size:18px;letter-spacing:-.035em;text-transform:none;color:var(--ink);margin:0 0 13px}
+.feature-strip p{color:#4b5565;font-size:14px;min-height:68px;margin:0}
+.feature-strip .more{font-size:14px;font-weight:580}
+.number{font:600 11px ui-monospace,"SF Mono",monospace;letter-spacing:.05em;color:#728097;margin:0 0 24px}
+.divider-label{font-size:12px;text-transform:uppercase;letter-spacing:.17em;color:#687285;margin:38px 0 13px}
+.service-panel{display:flex;align-items:center;justify-content:space-between;gap:24px;padding:29px 32px;background:#101e34;color:#fff;border-radius:16px}
+.service-panel h2{font-size:22px;color:#fff;text-transform:none;letter-spacing:-.035em;margin:0 0 9px}
+.service-panel p{font-size:14px;color:#cad4df;max-width:60ch;margin:0}
+.service-panel a{color:#fff;text-decoration:underline;text-underline-offset:6px;white-space:nowrap;font-size:14px}
+.site-footer{max-width:1160px;margin:auto;padding:24px 28px 42px;border-top:1px solid var(--hairline)}
+.site-footer .foot{text-align:left;margin:0;line-height:2}
+.site-footer .foot a{color:#4a5365;text-underline-offset:4px}
+.site-footer .foot .stamp{color:#89919f}
+a:focus-visible,button:focus-visible{outline:3px solid var(--blue);outline-offset:4px;border-radius:4px}
+@media(max-width:850px){
+  .site-main .hero-grid{grid-template-columns:minmax(0,1fr);gap:26px;padding:48px 0 35px}
+  .path-card{min-height:300px}.path-card svg{height:200px}
+  .feature-strip{grid-template-columns:1fr}.feature-strip p{min-height:0}
+  .service-panel{align-items:flex-start;flex-direction:column}
+}
+@media(max-width:590px){
+  .header-inner{padding:18px 20px;display:block}
+  .site-header .lockup{display:block}
+  .site-header nav{margin-top:14px;justify-content:space-between;gap:4px;overflow-x:auto}
+  .site-header nav .nav{font-size:12px;padding:9px 1px}
+  .site-main{padding:16px 20px 52px}
+  .site-main>h1{margin-top:36px}
+  .site-main>section{padding:20px}
+  .site-main .hero-grid{padding:37px 0 28px}
+  .hero-heading{font-size:clamp(43px,12vw,62px)}
+  .path-card{min-height:250px;padding:18px}
+  .path-card svg{height:170px}
+  .service-panel{padding:24px}
+  .site-footer{padding:22px 20px 35px}
+}
+@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}*,*:before,*:after{animation:none!important;transition:none!important}}
+
 </style>
 </head>
-<body><main>
-<a class="lockup" href="/">
+<body>
+<a class="skip-link" href="#main">Skip to content</a>
+<header class="site-header"><div class="header-inner">
+<a class="lockup" href="/" aria-label="American Rider home">
 <div class="brand">AMERICAN RIDER</div>
 <div class="tagline">NATIONAL TRANSPORTATION</div>
 </a>
-<nav><a class="nav" href="/travel">Travel</a><a class="nav" href="/operate">Operate</a><a class="nav" href="/safety">Safety</a><a class="nav" href="/support">Support</a></nav>
+<nav aria-label="Main navigation"><a class="nav" href="/travel">Travel</a><a class="nav" href="/operate">Operate</a><a class="nav" href="/safety">Safety</a><a class="nav" href="/support">Support</a></nav>
+</div></header>
+<main class="site-main" id="main">
 
-<div class="hero">
-  <div class="name">American Rider</div>
-  <div class="line">Transportation arranged between travelers and independent operators.</div>
-  <div class="rule"></div>
-</div>
-
-<div class="statement">
-  <div class="lbl">The operator retains</div>
-  <div class="figure">99%</div>
-  <div class="note">of every travel fare</div>
-</div>
-
-<section>
-  <h2>A travel in full</h2>
-  <p>One price, quoted before the travel and covering the journey in full.</p>
-  <div class="rows" style="margin-top:16px">
-    <div><span class="k">Travel fare</span><span class="amount">$24.50</span></div>
-    <div><span class="k">Platform fee</span><span class="amount">$2.50</span></div>
-    <div><span class="k">Charged to the traveler</span><span class="amount">$27.00</span></div>
-    <div class="split"><span class="k">To the operator</span><span class="amount">$24.26</span></div>
-    <div><span class="k">Gross American Rider revenue, before expenses</span><span class="amount">$2.74</span></div>
+<section class="hero-grid" aria-labelledby="home-heading">
+  <div>
+    <p class="eyebrow">American Rider · National Transportation</p>
+    <h1 class="hero-heading" id="home-heading">Travel, <span>considered.</span></h1>
+    <p class="hero-lede">Transportation with clear terms, a composed experience, and independent Operators who retain 99% of the Travel Fare.</p>
+    <div class="button-row">
+      <a class="cta" href="/travel">Explore Travel</a>
+      <a class="ghost" href="/operate">Operate with American Rider</a>
+    </div>
   </div>
-  <p style="margin-top:16px">A 1% coordination commission on the fare, and a platform fee of
-  at least $2.50 per Travel. The platform fee may rise where necessary to cover payment and
-  service costs; the Traveler sees the complete price before confirming. American Rider bears
-  Traveler card processing. The Operator's 99% of the Travel Fare is unaffected.</p>
+  <div class="path-card" role="img" aria-label="An abstract illustration of a connected journey, not a live map">
+    <div class="path-label"><span>American Rider · United States</span><span>01 / 03</span></div>
+    <svg viewBox="0 0 500 290" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">
+      <defs>
+        <pattern id="ar-web-grid" width="48" height="48" patternUnits="userSpaceOnUse">
+          <path d="M 48 0 L 0 0 0 48" fill="none" stroke="#c3ced8" stroke-width=".65" opacity=".48"/>
+        </pattern>
+      </defs>
+      <rect x="0" y="0" width="500" height="290" rx="9" fill="url(#ar-web-grid)"/>
+      <path d="M53 242 C110 226 102 157 183 158 C267 158 235 57 335 67 C401 73 407 116 457 51" fill="none" stroke="#a0afc0" stroke-width="11" stroke-linecap="round" opacity=".22"/>
+      <path d="M53 242 C110 226 102 157 183 158 C267 158 235 57 335 67 C401 73 407 116 457 51" fill="none" stroke="#224d86" stroke-width="2.6" stroke-linecap="round" stroke-dasharray="7 9"/>
+      <circle cx="53" cy="242" r="14" fill="#f6f9fc" stroke="#2E5FE0" stroke-width="2.5"/>
+      <circle cx="53" cy="242" r="4" fill="#2E5FE0"/>
+      <circle cx="457" cy="51" r="14" fill="#172f4c" stroke="#f8fafc" stroke-width="3"/>
+      <circle cx="457" cy="51" r="4" fill="#f8fafc"/>
+      <rect x="188" y="128" width="114" height="38" rx="10" fill="#ffffff" stroke="#d2dce5"/>
+      <text x="245" y="151" font-family="system-ui,sans-serif" font-size="12" font-weight="600" letter-spacing="1.1" text-anchor="middle" fill="#1c3859">AMERICAN</text>
+      <path d="M72 250L100 265M420 36L441 21" stroke="#8099af" stroke-width="1.6"/>
+    </svg>
+    <p class="path-caption">The journey, thoughtfully arranged.</p>
+  </div>
 </section>
 
-<section>
-  <h2>Travel</h2>
-  <p>A traveler names a destination, is shown the price, and is assigned the nearest qualified
-  operator. Standard, Large Vehicle and Pet Friendly are available.</p>
-  <a class="more" href="/travel">How a travel works &rsaquo;</a>
+<div class="feature-strip" aria-label="Explore American Rider">
+  <section aria-labelledby="ar-travel">
+    <div class="number">01 / TRAVELER</div>
+    <h2 id="ar-travel">One clear Total</h2>
+    <p>Review one all-in Total before reserving. The agreed Total includes the Travel Fare, Platform Fee, and applicable charges.</p>
+    <a class="more" href="/travel">How Travel works &rsaquo;</a>
+  </section>
+  <section aria-labelledby="ar-operator">
+    <div class="number">02 / OPERATOR</div>
+    <h2 id="ar-operator">99% of the Fare</h2>
+    <p>Independent Operators retain 99% of the Travel Fare. The minimum Platform Fee is $2.50 per Travel and is not deducted from the Operator's share.</p>
+    <a class="more" href="/operate">Operating information &rsaquo;</a>
+  </section>
+  <section aria-labelledby="ar-safety">
+    <div class="number">03 / CONFIDENCE</div>
+    <h2 id="ar-safety">Qualification and care</h2>
+    <p>Operators must meet applicable insurance, screening, and vehicle requirements before becoming eligible for Travel.</p>
+    <a class="more" href="/safety">Safety standards &rsaquo;</a>
+  </section>
+</div>
+
+<div class="divider-label">A national transportation platform</div>
+<section class="service-panel" aria-labelledby="network-heading">
+  <div>
+    <h2 id="network-heading">Designed to serve the nation.</h2>
+    <p>American Rider is establishing its transportation network across the United States.
+    Travel availability varies by location and the presence of qualified Operators.
+    Our public mobile-app release is in preparation.</p>
+  </div>
+  <a href="/travel">Explore Travel &rsaquo;</a>
 </section>
 
-<section>
-  <h2>Smart Travel</h2>
-  <p>Integration with rail is being evaluated. Smart Travel booking is not yet available for public use.</p>
-  <a class="more" href="/smart-travel">Smart Travel &rsaquo;</a>
-</section>
-
-<section>
-  <h2>Operators</h2>
-  <p>Operators are independent contractors. They own their vehicles, carry their own commercial
-  coverage, and are paid directly on completion of each travel.</p>
-  <a class="cta" href="/operate">Operate with American Rider</a>
-</section>
-
-<section>
-  <h2>Service</h2>
-  <p>American Rider begins service in Miami, Florida. The app is in its test program and is
-  not yet published on the App Store.</p>
-</section>
-
-<div class="foot">
+</main>
+<footer class="site-footer"><div class="foot">
 <a href="/about">About</a> · <a href="/terms">Terms of Service</a> ·
 <a href="/privacy">Privacy Policy</a><br>
-<a href="mailto:support@americanrider.app">Support email</a> ·
-<a href="mailto:relations@americanrider.app">Company inquiries</a><br>
+<a href="mailto:support@americanrider.app">support@americanrider.app</a><br>
+<a href="mailto:relations@americanrider.app">relations@americanrider.app</a><br>
 <span class="stamp">AMERICAN RIDER · MIAMI, FL</span></div>
-</main></body></html>
+</footer></body></html>
