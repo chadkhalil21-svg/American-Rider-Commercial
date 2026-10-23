@@ -355,7 +355,7 @@ async function sweepMonitor({ now = Date.now() } = {}) {
         body: `Your travel has been stationary for ${Math.round(stillMin)} minutes. Is everything alright?`,
         data: { screen: '/ride', rideId: ride.id },
       });
-      if (ride.party?.teen && ride.party?.guardianUid && String(ride.party.guardianUid) !== String(ride.travelerUid)) await notify({ uid: ride.party.guardianUid, kind:'guardian_travel', title:'Teen Travel check-in', body:`${ride.party.travelerName || 'The Teen Traveler'}'s Travel has been stationary and American Rider has started a check-in.`, data:{screen:'/ride',rideId:ride.id,tripNo:ride.tripNo||''} });
+      if (ride.party?.teen && ride.party?.guardianUid && String(ride.party.guardianUid) !== String(ride.travelerUid)) await notify({ uid: ride.party.guardianUid, kind:'guardian_travel', title:'Teen Travel check-in', body:`${ride.party.travelerName || 'The Teen Traveler'}'s Travel has been stationary and American Rider has started a check-in.`, data:{screen:'/family',rideId:ride.id,tripNo:ride.tripNo||''} });
             report.asked.push({ rideId: ride.id, who: 'traveler' });
       continue;
     }
