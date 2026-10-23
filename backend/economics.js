@@ -76,7 +76,13 @@ function economicsFor({
   tollCents = 0,
   cardCountry = null,
   transactionCount = 1,
+  // A source-only scenario input. Zero in every existing production quote.
+  // Future paid referral offers must reserve the entire actual obligation first.
+  referralReserveCents = 0,
 }) {
+  if (!Number.isSafeInteger(referralReserveCents) ||
+      referralReserveCents < 0 || referralReserveCents > 30)
+    throw new RangeError('referralReserveCents must be a whole number from 0 to 30');
   const fare = Math.max(0, Math.trunc(Number(travelCostCents) || 0));
   const fee = Math.max(0, Math.trunc(Number(platformFeeCents) || 0));
   const government = Math.max(0, Math.trunc(Number(governmentFeeCents) || 0));
@@ -101,7 +107,8 @@ function economicsFor({
     connectVariableCents -
     connectFixedAllowanceCents -
     contingencyReserveCents -
-    operatingOverheadCents;
+    operatingOverheadCents -
+    referralReserveCents;
 
   return {
     travelerPays,
@@ -113,6 +120,7 @@ function economicsFor({
     connectFixedAllowanceCents,
     contingencyReserveCents,
     operatingOverheadCents,
+    referralReserveCents,
     platformContributionCents,
     requiredContributionCents: MIN_PLATFORM_CONTRIBUTION_CENTS * units,
   };
@@ -138,6 +146,7 @@ function minimumPlatformFeeCents({
   tollCents = 0,
   cardCountry = null,
   transactionCount = 1,
+  referralReserveCents = 0,
 }) {
   const base = {
     travelCostCents,
@@ -145,6 +154,7 @@ function minimumPlatformFeeCents({
     tollCents,
     cardCountry,
     transactionCount,
+    referralReserveCents,
   };
 
   if (feeIsSufficient({ ...base, platformFeeCents: MIN_PLATFORM_FEE_CENTS })) {
