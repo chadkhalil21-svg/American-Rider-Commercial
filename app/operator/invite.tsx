@@ -18,6 +18,10 @@ export default function OperatorInvitations(){
   const [busy,setBusy]=useState(false);
   const share=async(role:InviteRole)=>{
     if(busy)return;
+    if(process.env.EXPO_PUBLIC_REFERRALS_ENABLED !== '1'){
+      Alert.alert(t('operator.referralInviteUnavailable'));
+      return;
+    }
     setBusy(true);
     try{
       const url=await personalInvitation(role);
