@@ -125,6 +125,12 @@ export async function fetchMyCases(): Promise<{ cases: SupportCase[]; unavailabl
   }
 }
 
+// An Emergency identifies the real Travel, not a pricing or refund request.
+// Operators have their server-assigned Travel Number and route, but do not
+// necessarily hold the Traveler Total or receipt date; never invent these.
+export type EmergencyTrip = Pick<SupportTrip, 'no' | 'dep' | 'arr' | 'operator' | 'rideId'> &
+  Partial<Pick<SupportTrip, 'totalCents' | 'date'>>;
+
 export type EmergencyReport = {
   ok: boolean;
   caseNo: string | null;
@@ -147,7 +153,7 @@ export async function alertEmergency(args: {
   // demonstration journey because the screen read it out of `lastTrip`. A case describing a
   // trip to the airport on 6 July that never happened, sitting next to a real person in real
   // trouble, is worse than a case with no travel on it.
-  trip: SupportTrip | null;
+  trip: EmergencyTrip | null;
   operator: string;
   vehicle: string;
   plate: string;

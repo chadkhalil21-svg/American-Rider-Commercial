@@ -26,6 +26,8 @@ import { Card, Display, LetterheadBar, Mono, Screen, SectionLabel, Sub } from '.
 import { alertEmergency, updateEmergencyLocation } from '../src/backend/support';
 import { loadContacts, type TrustedContact } from '../src/contacts';
 import { useRide } from '../src/state/RideContext';
+import { useOperator } from '../src/state/OperatorContext';
+import { resolveEmergencyTravelFacts } from '../src/emergencyTravelFacts';
 import { useLanguage } from '../src/state/LanguageContext';
 import { colors } from '../src/theme';
 import { applyEmergencyPosition, applyEmergencyStreet, type EmergencyFix } from '../src/emergencyPosition';
@@ -50,27 +52,22 @@ export default function Emergency() {
   const goBack = useGoBack();
   const ride = useRide();
 
-  // NOTHING IS INVENTED ON THIS SCREEN. These fell back to the demonstration operator —
-  // Miguel D., a Gray Toyota Camry, plate KTR 4821 — whenever no operator was matched. A
-  // dispatcher writes the plate down. Reading them a car that is not there is worse than
-  // telling them we do not know, and it is the one place in this product where that could
-  // cost somebody far more than money.
-  const hasOperator = !!ride.matchedOp;
-  const operator = ride.matchedOp?.name || '';
-  const vehicle = ride.matchedOp?.car || '';
-  const plate = ride.matchedOp?.plate || '';
-  // AND THE TRAVEL NUMBER, which the rule above missed. `lastTrip` holds the seeded
-  // demonstration journey until a real one replaces it, so with no travel underway this screen
-  // printed AR-2047-MIA — a journey nobody took — and `alertEmergency` filed the case against
-  // it. openHelp in RideContext was given exactly this guard on 15 Sept for the support path;
-  // the emergency screen is where it matters most and was left without one.
-  //
-  // Empty, not a fallback string: a Travel Number is a key into our records, and a placeholder
-  // in that shape invites somebody to read it out.
-  // Before dispatch succeeds the client has only a provisional local number. Do not present
-  // that as an institutional record identifier in an emergency. The real Travel Number is
-  // shown only after the server has created the Travel and assigned an Operator.
-  const tripNo = ride.rideActive && hasOperator ? ride.lastTrip.no : '';
+  // Operator and Traveler hold DIFFERENT live Travel states. Never substitute
+  // the Traveler's cached old trip or demonstration car when an Operator
+  // opens Emergency during their own accepted Travel.
+  const operatorState = useOperator();
+  const facts = resolveEmergencyTravelFacts({
+    role: operatorState.role,
+    activeOperatorTravel: operatorState.op,
+    operatorName: operatorState.opName,
+    operatorVehicle: operatorState.vehicle,
+    travelerActive: ride.rideActive,
+    matchedOperator: ride.matchedOp,
+    travelerTrip: ride.lastTrip,
+  });
+  const { hasOperator, operator, vehicle, plate, tripNo } = facts;
+  const hasVehicleFacts = !!(vehicle && plate);
+  const hasOperatorName = !!operator;
 
   const [fix, setFix] = useState<Fix | null>(null);
   const [locationDenied, setLocationDenied] = useState(false);
@@ -158,16 +155,15 @@ export default function Emergency() {
     try {
       const result = await alertEmergency({
       requestId,
-      // NO TRAVEL, NO TRAVEL DETAILS. Sending the seeded journey's route and fare with an
-      // emergency would put a case in front of a person describing a trip to the airport on
-      // 6 July that never happened, next to a real person in real trouble.
+      // Send ONLY an actual active Traveler/Operator Travel. Never manufacture
+      // a previous or demonstration journey for an Emergency record.
       trip: tripNo
         ? {
             no: tripNo,
-            dep: ride.lastTrip.dep,
-            arr: ride.lastTrip.arr,
-            totalCents: Math.round(ride.lastTrip.total * 100),
-            date: ride.lastTrip.date,
+            dep: facts.dep,
+            arr: facts.arr,
+            ...(facts.totalCents != null ? { totalCents: facts.totalCents } : {}),
+            ...(facts.date ? { date: facts.date } : {}),
             operator,
           }
         : null,
@@ -185,7 +181,7 @@ export default function Emergency() {
     } finally {
       alertBusy.current = false;
     }
-  }, [requestId, tripNo, operator, vehicle, plate, ride.lastTrip]);
+  }, [requestId, tripNo, operator, vehicle, plate, facts]);
   const alerted = useRef(false);
   useEffect(() => {
     if (alerted.current) return;
@@ -221,19 +217,19 @@ export default function Emergency() {
     : null;
 
   const contactMessage =
-    (ride.status >= 3 && hasOperator
+    (hasOperator
       ? t('traveler.emgHelpIntro')
-      : ride.rideActive
+      : (ride.rideActive || !!operatorState.op?.rideId)
         ? t('traveler.emgHelpTravel')
         : t('traveler.emgHelpGeneral')) +
     '\n\n' +
     t('traveler.emgWhereIAm', { place: locationLine }) +
     (fix ? ' ' + t('traveler.emgAsOf', { time: clockLabel(fix.at) }) : '') +
-    (ride.rideActive
-      ? '\n' + t('traveler.emgRouteLine', { from: ride.lastTrip.dep, to: ride.lastTrip.arr })
+    (tripNo
+      ? '\n' + t('traveler.emgRouteLine', { from: facts.dep, to: facts.arr })
       : '') +
-    (hasOperator ? '\n' + t('traveler.emgVehicleLine', { vehicle, plate }) : '') +
-    (hasOperator ? '\n' + t('traveler.emgOperatorLine', { name: operator }) : '') +
+    (hasVehicleFacts ? '\n' + t('traveler.emgVehicleLine', { vehicle, plate }) : '') +
+    (hasOperatorName ? '\n' + t('traveler.emgOperatorLine', { name: operator }) : '') +
     (tripNo ? '\n' + t('traveler.emgTravelNumberLine', { no: tripNo }) : '') +
     (mapLink ? `\n\n${mapLink}` : '');
 
@@ -322,24 +318,23 @@ export default function Emergency() {
         )}
       </Card>
 
-      {hasOperator ? (
+      {hasOperator && (hasVehicleFacts || hasOperatorName) ? (
         <>
           {/* Vehicle and Operator facts do not exist until dispatch succeeds. Omitting the
               sections before then is clearer than presenting "Not recorded" as if data were
               missing from an assigned Travel. */}
-          <SectionLabel style={styles.lbl}>{t('traveler.vehicle')}</SectionLabel>
-          <Card style={styles.factCard}>
-            <Text style={styles.vehicle}>{vehicle}</Text>
-            <Text style={styles.plateLabel}>{t('traveler.plateCaps')}</Text>
-            <Mono size={34} weight="600" style={styles.plate}>
-              {plate}
-            </Mono>
-          </Card>
-
-          <SectionLabel style={styles.lbl}>{t('traveler.operator')}</SectionLabel>
-          <Card style={styles.factCard}>
-            <Text style={styles.operator}>{operator}</Text>
-          </Card>
+          {hasVehicleFacts && <>
+            <SectionLabel style={styles.lbl}>{t('traveler.vehicle')}</SectionLabel>
+            <Card style={styles.factCard}>
+              <Text style={styles.vehicle}>{vehicle}</Text>
+              <Text style={styles.plateLabel}>{t('traveler.plateCaps')}</Text>
+              <Mono size={34} weight="600" style={styles.plate}>{plate}</Mono>
+            </Card>
+          </>}
+          {hasOperatorName && <>
+            <SectionLabel style={styles.lbl}>{t('traveler.operator')}</SectionLabel>
+            <Card style={styles.factCard}><Text style={styles.operator}>{operator}</Text></Card>
+          </>}
         </>
       ) : null}
 
