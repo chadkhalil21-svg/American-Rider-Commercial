@@ -3,10 +3,10 @@
 // sharing, with two destination roles. No separate recruitment app.
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import { Alert, Share, View } from 'react-native';
+import { Alert, Pressable, Share, StyleSheet, View } from 'react-native';
 import { Text } from '../../src/components/AppText';
 import { OperatorBar, OperatorDrawer, OperatorScreen } from '../../src/components/operator';
-import { BackLink, Card, PrimaryButton } from '../../src/components/UI';
+import { BackLink, Card } from '../../src/components/UI';
 import { useLanguage } from '../../src/state/LanguageContext';
 import { useOperator } from '../../src/state/OperatorContext';
 import { personalInvitation, type InviteRole } from '../../src/backend/referrals';
@@ -37,18 +37,32 @@ export default function OperatorInvitations(){
       <Text style={{fontSize:24,fontWeight:'600',color:colors.ink,marginTop:14}}>
         {t('operator.referralInviteTitle')}
       </Text>
-      <Text style={{fontSize:14,lineHeight:22,color:colors.muted,marginTop:12}}>
-        {t('operator.referralInviteIntro')}
-      </Text>
-      <Card style={{padding:18,marginTop:24}}>
-        <PrimaryButton label={t('operator.referralInviteTraveler')}
-          onPress={()=>{void share('traveler');}} />
-        <View style={{height:14}}/>
-        <PrimaryButton label={t('operator.referralInviteOperator')}
-          onPress={()=>{void share('operator');}} />
+      <Card style={styles.choices}>
+        <Pressable accessibilityRole="button"
+          accessibilityLabel={t('operator.referralInviteTraveler')}
+          style={styles.choice} onPress={()=>{void share('traveler');}}>
+          <Text style={styles.choiceLabel}>{t('operator.referralInviteTraveler')}</Text>
+          <Text style={styles.chevron} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">›</Text>
+        </Pressable>
+        <View style={styles.rule} />
+        <Pressable accessibilityRole="button"
+          accessibilityLabel={t('operator.referralInviteOperator')}
+          style={styles.choice} onPress={()=>{void share('operator');}}>
+          <Text style={styles.choiceLabel}>{t('operator.referralInviteOperator')}</Text>
+          <Text style={styles.chevron} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">›</Text>
+        </Pressable>
       </Card>
       <OperatorDrawer open={menuOpen} onClose={()=>setMenuOpen(false)}
         onNote={()=>{}}/>
     </OperatorScreen>
   );
 }
+
+const styles=StyleSheet.create({
+  choices:{marginTop:24,padding:0,overflow:'hidden'},
+  choice:{minHeight:60,paddingHorizontal:18,flexDirection:'row',
+    alignItems:'center',justifyContent:'space-between'},
+  choiceLabel:{fontSize:15,fontWeight:'500',color:colors.ink},
+  chevron:{fontSize:24,fontWeight:'300',color:colors.muted},
+  rule:{height:1,backgroundColor:colors.hairline,marginHorizontal:18},
+});

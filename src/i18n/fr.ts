@@ -61,7 +61,6 @@ export default {
     referralInviteTraveler: "Inviter un Voyageur",
     referralInviteOperator: "Inviter un Opérateur",
     referralInviteUnavailable: "Les invitations ne sont pas encore disponibles.",
-    referralInviteIntro: "Partagez un lien en privé. American Rider ne demande pas vos contacts.",
     fareResearchLink: "Contribuer à des tarifs équitables",
     fareResearchCountyUnavailable: "Liste des comtés indisponible. Veuillez réessayer.",
     fareResearchReceiptUnconfirmed: "La transmission des données n'est pas confirmée.",
