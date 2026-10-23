@@ -19,13 +19,15 @@
 import * as Location from 'expo-location';
 import * as Crypto from 'expo-crypto';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { useLocalSearchParams } from 'expo-router';
 import { Linking, Platform, Pressable, Share, StyleSheet, View } from 'react-native';
 import { Text } from '../src/components/AppText';
 import { useGoBack } from '../src/components/nav';
 import { Card, Display, LetterheadBar, Mono, Screen, SectionLabel, Sub } from '../src/components/UI';
-import { alertEmergency, updateEmergencyLocation } from '../src/backend/support';
+import { alertEmergency, fetchEmergencyTravelContext, updateEmergencyLocation, type VerifiedEmergencyTravel } from '../src/backend/support';
 import { loadContacts, type TrustedContact } from '../src/contacts';
 import { useRide } from '../src/state/RideContext';
+import { useOperator } from '../src/state/OperatorContext';
 import { useLanguage } from '../src/state/LanguageContext';
 import { colors } from '../src/theme';
 import { applyEmergencyPosition, applyEmergencyStreet, type EmergencyFix } from '../src/emergencyPosition';
@@ -50,27 +52,34 @@ export default function Emergency() {
   const goBack = useGoBack();
   const ride = useRide();
 
-  // NOTHING IS INVENTED ON THIS SCREEN. These fell back to the demonstration operator —
-  // Miguel D., a Gray Toyota Camry, plate KTR 4821 — whenever no operator was matched. A
-  // dispatcher writes the plate down. Reading them a car that is not there is worse than
-  // telling them we do not know, and it is the one place in this product where that could
-  // cost somebody far more than money.
-  const hasOperator = !!ride.matchedOp;
-  const operator = ride.matchedOp?.name || '';
-  const vehicle = ride.matchedOp?.car || '';
-  const plate = ride.matchedOp?.plate || '';
-  // AND THE TRAVEL NUMBER, which the rule above missed. `lastTrip` holds the seeded
-  // demonstration journey until a real one replaces it, so with no travel underway this screen
-  // printed AR-2047-MIA — a journey nobody took — and `alertEmergency` filed the case against
-  // it. openHelp in RideContext was given exactly this guard on 15 Sept for the support path;
-  // the emergency screen is where it matters most and was left without one.
-  //
-  // Empty, not a fallback string: a Travel Number is a key into our records, and a placeholder
-  // in that shape invites somebody to read it out.
-  // Before dispatch succeeds the client has only a provisional local number. Do not present
-  // that as an institutional record identifier in an emergency. The real Travel Number is
-  // shown only after the server has created the Travel and assigned an Operator.
-  const tripNo = ride.rideActive && hasOperator ? ride.lastTrip.no : '';
+  // Both roles may open this screen, including from a cold-start emergency push.
+  // A local Travel ID is a lookup hint, NEVER proof of ownership or vehicle identity.
+  const actingOperator = useOperator();
+  const params = useLocalSearchParams<{ rideId?: string }>();
+  const pushedId = typeof params.rideId === 'string' && /^[a-f0-9]{40}$/.test(params.rideId)
+    ? params.rideId : null;
+  const rawRideId = pushedId ||
+    (actingOperator.role === 'operator' ? actingOperator.op?.rideId : ride.matchedOp?.rideId) ||
+    null;
+  const candidateRideId = rawRideId && /^[a-f0-9]{40}$/.test(rawRideId) ? rawRideId : null;
+  const [verifiedTravel, setVerifiedTravel] = useState<VerifiedEmergencyTravel | null>(null);
+  useEffect(() => {
+    let active = true;
+    setVerifiedTravel(null);
+    if (candidateRideId) {
+      // Read server-authoritative facts without delaying Call 911 or our alert.
+      void fetchEmergencyTravelContext(candidateRideId).then(facts => {
+        if (active) setVerifiedTravel(facts);
+      });
+    }
+    return () => { active = false; };
+  }, [candidateRideId]);
+
+  const hasOperator = !!(verifiedTravel?.operator && verifiedTravel.vehicle && verifiedTravel.plate);
+  const operator = verifiedTravel?.operator || '';
+  const vehicle = verifiedTravel?.vehicle || '';
+  const plate = verifiedTravel?.plate || '';
+  const tripNo = verifiedTravel?.tripNo || '';
 
   const [fix, setFix] = useState<Fix | null>(null);
   const [locationDenied, setLocationDenied] = useState(false);
@@ -158,22 +167,13 @@ export default function Emergency() {
     try {
       const result = await alertEmergency({
       requestId,
-      // NO TRAVEL, NO TRAVEL DETAILS. Sending the seeded journey's route and fare with an
-      // emergency would put a case in front of a person describing a trip to the airport on
-      // 6 July that never happened, next to a real person in real trouble.
-      trip: tripNo
-        ? {
-            no: tripNo,
-            dep: ride.lastTrip.dep,
-            arr: ride.lastTrip.arr,
-            totalCents: Math.round(ride.lastTrip.total * 100),
-            date: ride.lastTrip.date,
-            operator,
-          }
-        : null,
-      operator,
-      vehicle,
-      plate,
+      rideId: candidateRideId,
+      // Never send a local Travel Number or plate as authoritative evidence.
+      // The server retrieves both from the authenticated canonical Travel.
+      trip: null,
+      operator: '',
+      vehicle: '',
+      plate: '',
       address: fixRef.current ? [fixRef.current.address, fixRef.current.region].filter(Boolean).join(', ') : null,
       coords: fixRef.current?.coords ?? null,
       });
@@ -185,7 +185,7 @@ export default function Emergency() {
     } finally {
       alertBusy.current = false;
     }
-  }, [requestId, tripNo, operator, vehicle, plate, ride.lastTrip]);
+  }, [requestId, candidateRideId]);
   const alerted = useRef(false);
   useEffect(() => {
     if (alerted.current) return;
@@ -221,16 +221,16 @@ export default function Emergency() {
     : null;
 
   const contactMessage =
-    (ride.status >= 3 && hasOperator
+    (verifiedTravel && hasOperator
       ? t('traveler.emgHelpIntro')
-      : ride.rideActive
+      : verifiedTravel
         ? t('traveler.emgHelpTravel')
         : t('traveler.emgHelpGeneral')) +
     '\n\n' +
     t('traveler.emgWhereIAm', { place: locationLine }) +
     (fix ? ' ' + t('traveler.emgAsOf', { time: clockLabel(fix.at) }) : '') +
-    (ride.rideActive
-      ? '\n' + t('traveler.emgRouteLine', { from: ride.lastTrip.dep, to: ride.lastTrip.arr })
+    (verifiedTravel
+      ? '\n' + t('traveler.emgRouteLine', { from: verifiedTravel.dep, to: verifiedTravel.dest })
       : '') +
     (hasOperator ? '\n' + t('traveler.emgVehicleLine', { vehicle, plate }) : '') +
     (hasOperator ? '\n' + t('traveler.emgOperatorLine', { name: operator }) : '') +
