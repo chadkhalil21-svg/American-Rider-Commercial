@@ -82,8 +82,9 @@ const read = (uid, rideId = RIDE) => emergencyTravelContext({ db, uid, rideId })
     'backend must not accept unauthenticated phone-supplied Operator or Travel facts');
   assert(screen.includes('useOperator()') &&
     screen.includes('fetchEmergencyTravelContext(candidateRideId)'));
-  assert(screen.includes('rideId: candidateRideId'),
-    'Emergency screens include a canonical lookup hint; server does not trust client trip details');
+  assert(screen.includes('rideId: candidateRideId') && screen.includes('trip: null') &&
+    screen.includes("const tripNo = verifiedTravel?.tripNo || ''"),
+    'Emergency lookup hint is not unverified client Travel evidence');
   assert(push.includes("if (screen === '/emergency')") &&
     push.includes("pathname: '/emergency', params: { rideId }"),
     'cold-start emergency push preserves canonical Travel for both roles');
