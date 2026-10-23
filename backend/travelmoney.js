@@ -283,6 +283,7 @@ async function cancelTravel({ db, uid, rideId, deps, stripeConfigured = true, no
         : {capturedCents:gross,cancellationFeeCaptureCents:gross,
            arrivalFeeCents:OPERATOR_NET_CENTS}),
     },{merge:true});
+    let operatorPaymentPending=!!gross&&!currentRide.arrivalFeeTransferId;
     if(gross&&!currentRide.arrivalFeeTransferId) {
       try {
         const {accountId}=await deps.operatorPayoutAccount(db,currentRide.operatorId);
@@ -295,10 +296,12 @@ async function cancelTravel({ db, uid, rideId, deps, stripeConfigured = true, no
             reference:`verified service cancellation ${currentRide.tripNo||id}`});
           // The guard records new success. On an already-settled retry it
           // returns early; clear a stale pending marker from another caller.
-          if(paid.ok && paid.alreadySettled)
-            await rideRef.set({arrivalFeePending:false,
-              arrivalFeeBlockedReason:null},{merge:true});
-          else if(!paid.ok)await rideRef.set({arrivalFeePending:true,
+          if(paid.ok) {
+            operatorPaymentPending=false;
+            if(paid.alreadySettled)
+              await rideRef.set({arrivalFeePending:false,
+                arrivalFeeBlockedReason:null},{merge:true});
+          } else await rideRef.set({arrivalFeePending:true,
             arrivalFeeBlockedReason:paid.code||paid.error||'transfer_failed'},
             {merge:true});
         } else await rideRef.set({
@@ -314,7 +317,8 @@ async function cancelTravel({ db, uid, rideId, deps, stripeConfigured = true, no
     }
     return {status:200,body:{ok:true,
       authorizationReleased:out.status==='released',capturedCents:gross,
-      operatorNetCents:gross?OPERATOR_NET_CENTS:0,refunded:false}};
+      operatorNetCents:gross?OPERATOR_NET_CENTS:0,
+      operatorPaymentPending,refunded:false}};
   }
   let refundable, reason;
   try { ({ cents: refundable, reason } = await deps.refundableFor({ paymentIntentId, expectUid: String(currentRide.travelerUid) })); }
