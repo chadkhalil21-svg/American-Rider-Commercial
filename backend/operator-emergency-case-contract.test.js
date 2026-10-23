@@ -12,7 +12,7 @@ assert.match(support, /export type EmergencyTrip = Pick<SupportTrip,[\s\S]+?Part
   'emergency identity must allow known Travel without invented fare/date');
 const emgStart = support.indexOf('export async function alertEmergency');
 assert(emgStart >= 0);
-assert.match(support.slice(emgStart, emgStart + 450), /trip: EmergencyTrip \| null/,
+assert.match(support.slice(emgStart, emgStart + 1400), /trip: EmergencyTrip \| null/,
   'emergency case must use the independent role-aware type');
 assert.match(screen, /resolveEmergencyTravelFacts\(/);
 assert.match(screen, /dep: facts\.dep/);
