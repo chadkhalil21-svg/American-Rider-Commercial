@@ -284,7 +284,10 @@ async function cancelTravel({ db, uid, rideId, deps, stripeConfigured = true, no
       if(accountId) {
         const paid=await deps.transferFixed({paymentIntentId,
           operatorStripeAccount:accountId,amountCents:OPERATOR_NET_CENTS,
-          rideId:id,expectedUid:String(uid),
+          // A verified Operator may report a no-show, but the Stripe charge
+          // always belongs to the Traveler. Bind any earned compensation to
+          // that original payer, never to the Operator's auth identity.
+          rideId:id,expectedUid:String(currentRide.travelerUid),
           reference:`verified service cancellation ${currentRide.tripNo||id}`});
         // The durable transfer guard writes success to the same Travel.
         // Only persist a pending exception here; do not repeat a success write.

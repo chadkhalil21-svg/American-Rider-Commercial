@@ -301,11 +301,15 @@ const rides = (over = {}) => ({
       result.body.capturedCents===400&&result.body.operatorNetCents===300&&
       calls.length===1&&calls[0].action==='fee'&&
       calls[0].uid==='alice'&&calls[0].verifiedFeeCents===400&&
-      st.log.refunds.length===0&&st.log.transfers[0]?.amountCents===300);
+      st.log.refunds.length===0&&st.log.transfers[0]?.amountCents===300&&
+      st.log.transfers[0]?.expectedUid==='alice'&&
+      st.log.transfers[0]?.rideId==='A',
+      'Operator no-show caller is op1, but captured Stripe payment belongs to Traveler alice');
     const again=await cancelTravel({db,uid:'op1',operatorNoShowUid:'op1',
       rideId:'A',deps:st,now:at+1000,enableManualCancellationFee:true});
     check('no-show repeat keeps frozen $4 and original Traveler/Travel ownership',
-      again.status===200&&calls[1]?.verifiedFeeCents===400&&calls[1]?.uid==='alice');
+      again.status===200&&calls[1]?.verifiedFeeCents===400&&calls[1]?.uid==='alice'&&
+      st.log.transfers.every(t=>t.expectedUid==='alice'&&t.rideId==='A'));
   }
   {
     const at=1790390000000;
