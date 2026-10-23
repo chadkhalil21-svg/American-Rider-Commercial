@@ -797,7 +797,7 @@ async function refundTravel({ paymentIntentId, amountCents, expectUid, idempoten
 // server never sees an operator's SSN or account number. That is the correct division.
 
 /** Create (or reuse) the operator's connected account. Keyed on their Firebase uid. */
-async function connectAccountFor({ uid, email, existingAccountId }) {
+async function connectAccountFor({ uid, email, existingAccountId, creationKey }) {
   const stripe = getStripe();
   if (existingAccountId) {
     // An outage, timeout, permission error, or deleted account is NOT permission
@@ -805,6 +805,10 @@ async function connectAccountFor({ uid, email, existingAccountId }) {
     // until Stripe and the Operator's actual record can be reconciled.
     return stripe.accounts.retrieve(existingAccountId);
   }
+  // The caller must first durably reserve this unique creation key against
+  // users/{uid}. A mobile retry or a lost provider response reuses the same key.
+  if (!creationKey || !/^ar_connect_[a-f0-9]{32}$/.test(creationKey))
+    throw Error('Connect creation is not safely reserved');
   return stripe.accounts.create({
     type: 'express',
     country: 'US',
@@ -812,7 +816,7 @@ async function connectAccountFor({ uid, email, existingAccountId }) {
     business_type: 'individual',
     capabilities: { transfers: { requested: true }, card_payments: { requested: true } },
     metadata: { uid: String(uid) },
-  });
+  }, { idempotencyKey: creationKey });
 }
 
 /**
