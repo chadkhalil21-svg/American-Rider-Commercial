@@ -51,6 +51,12 @@ function page(title, bodyHtml, active = '') {
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="light">
+<meta name="theme-color" content="#F7F7F5">
+<meta name="description" content="American Rider. National Transportation. Considered Travel, clear pricing, independent professional Operators and thoughtful service.">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="American Rider">
+<meta property="og:title" content="American Rider | National Transportation">
+<meta property="og:description" content="Travel, considered. A national transportation platform with clear pricing and independent professional Operators.">
 <title>${title === 'American Rider' ? title : `${title} — American Rider`}</title>
 <style>
   /* src/theme.ts, hex for hex. Cards: white, radius 16, 1px hairline, NO shadow.
@@ -336,6 +342,7 @@ a:focus-visible{outline:3px solid #2e5fe0;outline-offset:4px}
   margin-right:0;
 }
 
+.site-header nav .nav{min-height:44px;display:inline-flex;align-items:center}
 </style>
 </head>
 <body>
