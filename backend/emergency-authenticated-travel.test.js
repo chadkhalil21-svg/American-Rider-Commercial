@@ -11,7 +11,7 @@ const RIDE = 'a'.repeat(40);
 const OTHER = 'b'.repeat(40);
 const CASE = 'AR-C-' + 'A'.repeat(24);
 const rides = new Map([[RIDE, {
-  travelerUid: 'traveler-one', operatorId: 'operator-one',
+  travelerUid: 'traveler-one', operatorId: 'operator-one', status: 'onboard',
   party: { teenUid: 'teen-one', guardianUid: 'guardian-one' },
   tripNo: 'AR-VERIFIED-100', dep: 'Pickup from record', dest: 'Destination from record',
   operatorName: 'Operator From Record', operatorCar: 'Car From Record',
@@ -68,6 +68,20 @@ const read = (uid, rideId = RIDE) => emergencyTravelContext({ db, uid, rideId })
     trip: { no: 'AR-VERIFIED-100' }, alertAcceptedAt: 1 });
   assert.equal((await read('operator-one')).monitoredCase, null,
     'a closed monitored Emergency cannot suppress a fresh urgent report');
+
+  // Previous-trip pushes may refer to real cases, but never to a CURRENT car.
+  tickets.set(CASE, { uid: 'traveler-one', kind: 'emergency', status: 'open',
+    trip: { no: 'AR-VERIFIED-100' }, alertAcceptedAt: 12345 });
+  rides.get(RIDE).status = 'completed';
+  const oldTrip = await read('operator-one');
+  assert.equal(oldTrip.active, false);
+  assert.equal(oldTrip.tripNo, '');
+  assert.equal(oldTrip.plate, '', 'never present a past plate as current');
+  assert.equal(oldTrip.monitoredCase?.caseNo, CASE, 'reuse genuine unresolved case');
+  rides.get(RIDE).monitor = { state: 'escalated', caseNo: CASE };
+  assert.equal(await read('traveler-one'), null, 'old ordinary Travel cannot be verified as underway');
+  rides.get(RIDE).monitor = { state: 'emergency', caseNo: CASE };
+  rides.get(RIDE).status = 'onboard';
 
   const root = path.resolve(__dirname, '..');
   const source = x => fs.readFileSync(path.join(root, x), 'utf8');
