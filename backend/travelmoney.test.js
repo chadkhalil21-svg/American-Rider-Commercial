@@ -314,6 +314,36 @@ const rides = (over = {}) => ({
       db.data.rides.A.payoutPending===true&&st.log.transfers.length===0);
   }
 
+  // Turning on a paid no-show feature must NEVER change the rules of a
+  // Traveler's pre-existing booking or close the Travel on false fee terms.
+  for(const [label,record] of [
+    ['legacy captured booking',{status:'arrived'}],
+    ['manual hold without accepted fee terms',{
+      status:'arrived',paymentCapturePolicy:'manual_v1',
+    }],
+  ]) {
+    const at=1790390000000;
+    const db=fakeDb({...rides({A:{
+      ...record,acceptedAt:at-540000,arrivedAt:at-360000,
+      pickupContactAt:at-60000,pickupContactBy:'op1',
+      pickupLat:25.7617,pickupLng:-80.1918,
+    }}),operators:{op1:{
+      currentRideId:'A',lat:25.7617,lng:-80.1918,onlineAt:at-1000,
+    }}});
+    const st=stripe(),captures=[];
+    st.settleUncapturedTravel=async args=>{
+      captures.push(args);
+      return {manual:true,ok:true,status:'captured',captureCents:400};
+    };
+    const out=await cancelTravel({db,uid:'op1',operatorNoShowUid:'op1',
+      rideId:'A',deps:st,now:at,enableManualCancellationFee:true});
+    check('new paid no-show never applies retroactively: '+label,
+      out.status===409&&out.body.code==='no_show_terms_unavailable'&&
+      db.data.rides.A.status==='arrived'&&
+      db.data.operators.op1.currentRideId==='A'&&
+      captures.length===0&&st.log.transfers.length===0);
+  }
+
   // ——— Same-Travel 5-minute Operator no-show: strict proof, $4/$3 capture ———
   {
     const at=1790390000000;
