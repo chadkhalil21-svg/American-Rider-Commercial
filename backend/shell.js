@@ -322,6 +322,20 @@ a:focus-visible{outline:3px solid #2e5fe0;outline-offset:4px}
  .site-main .ar-recruit{padding-top:45px}
 }
 
+
+/* Make new full-width editorial sections override the legacy 830px article constraint. */
+.site-main > section.ar-hero,
+.site-main > section.ar-manifesto,
+.site-main > section.ar-offerings,
+.site-main > section.ar-note,
+.site-main > section.ar-vision,
+.site-main > section.ar-lastline,
+.site-main > section.ar-recruit {
+  max-width:none;
+  margin-left:0;
+  margin-right:0;
+}
+
 </style>
 </head>
 <body>
