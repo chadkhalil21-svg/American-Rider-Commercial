@@ -55,4 +55,8 @@ for(const page of [SAFETY_HTML,SUPPORT_HTML]){
   expectText(page,'suspect impairment','Florida report procedure');
   expectText(page,'support@americanrider.app','Florida reporting email');
 }
+assert.match(HOME_HTML,/ar-photo/,'professional editorial hero');
+assert.match(HOME_HTML,/ar-vision/,'national brand panel');
+assert.match(RECRUITMENT_HTML,/ar-display/,'editorial recruitment introduction');
+assert.match(RECRUITMENT_HTML,/Payout timing, minimums, and provider have not been selected/,'no invented Friday schedule');
 console.log('PASS: public backend routes, current pricing and geography, Stripe Operator payout truth, no false recruiter/store claims');

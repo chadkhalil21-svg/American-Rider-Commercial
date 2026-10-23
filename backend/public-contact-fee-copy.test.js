@@ -17,7 +17,10 @@ assert.ok(support.includes('private in-app upload process'));
 assert.ok(home.includes('at least $2.50 per Travel'));
 assert.ok(!home.includes('$1.50 or 5% of the travel fare'),'stale fee is prohibited');
 assert.ok(!home.includes('Brickell to Dadeland journey'),'Smart Travel comparative claim not yet publicly bookable');
-assert.ok(home.includes('$24.26')&&home.includes('$2.74')&&home.includes('$27.00'));
+assert.ok(home.includes('One all-in Total'),'Traveler Total is clearly disclosed');
+assert.ok(home.includes('99% of the Travel Fare'),'Operator share remains explicit');
+assert.ok(!home.includes('$24.26')&&!home.includes('$2.74')&&!home.includes('$27.00'),
+  'homepage must not publish illustrative route fares as live offers');
 assert.ok(economics.includes('const MIN_PLATFORM_FEE_CENTS = 250'));
 assert.ok(ledger.includes('Previously earned Stripe transfers and bank payouts are never hostage')||ledger.includes('previously earned Stripe transfers and bank payouts are never hostage'));
 console.log('PASS: public contact/fee/store scope matches current founder decisions');
