@@ -13,7 +13,6 @@ const app=read('app/operator/invite.tsx');
 const translations=read('src/i18n/en.ts');
 for(const value of [
   'Invitations','Invite a Traveler','Invite an Operator',
-  'Send a link privately. American Rider does not request your contacts.',
   'Invitations are not yet available.'
 ]){
   assert.ok(html.includes(value),'preview missing exact visible copy: '+value);
@@ -22,6 +21,11 @@ for(const value of [
 assert.match(alias,/url=\/operator\/invite\.html/);
 assert.match(app,/referralInviteUnavailable/);
 assert.match(html,/WEB PREVIEW/);
+assert.doesNotMatch(html,/does not request your contacts|referralInviteIntro/i);
+assert.doesNotMatch(app,/referralInviteIntro/);
+assert.match(app,/accessibilityRole="button"/);
+assert.match(html,/class="rule"/);
+assert.match(html,/class="chevron"/);
 assert.doesNotMatch(html,/Stripe|commission|\$30|\$0\.15|QR code|createPaymentIntent/i);
 assert.doesNotMatch(html,/<form|fetch\(|XMLHttpRequest|data:text\/html/i);
 console.log('PASS: static nested Operator invitations preview, no payment promises');
