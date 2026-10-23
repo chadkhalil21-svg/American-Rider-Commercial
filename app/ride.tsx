@@ -611,25 +611,16 @@ export default function RideScreen() {
       {cancelAsk && canCancel ? (
         <View style={styles.cancelCard}>
           <Text style={styles.cancelTitle}>{t('traveler.cancelThisTravel')}</Text>
-          {/* WHAT THIS SAID, AND WHY IT COULD NOT STAND. "Free to cancel" was untrue of the
-              money: the fare is charged at confirmation, and cancelling refunded nothing. The
-              other branch offered a "$3 fee — it goes to them, not us" that was never charged
-              and never paid, promised to the operator in the Terms as well. Both are now one
-              sentence that matches what the server actually does. The $3 returns when the
-              operator app reports arrival and the money can follow it. */}
-          {/* Status-aware, because the answer genuinely differs. Before the operator arrives
-              the fare comes back whole. Once they are at the kerb they have driven there and
-              spent the journey waiting, and $3 of the fare goes to them — which the server can
-              now substantiate, because the operator reported arriving. */}
+          {/* The server freezes the original fee decision when the Travel
+              closes. Arrival alone never authorizes a new charge. Native status
+              cannot reconstruct a booking's fee evidence after an outage. */}
           <Text style={styles.cancelNote}>
             {ride.payment.status !== 'paid'
               ? t('traveler.rideNotCharged')
               : ride.payment.authorizationOnly
                 ? t(st >= 2?'traveler.authorizationBookingTerms':'traveler.authorizationFreeCancel')
-              : st >= 2
-                ? t('traveler.rideFareReturnedLessArrival', {
-                    name: ride.matchedOp?.name ?? t('traveler.yourOperatorFallback'),
-                  })
+              : st >= 1
+                ? t('traveler.cancellationAmountVerified')
                 : t('traveler.rideFareReturned')}
           </Text>
           <View style={styles.cancelBtns}>
