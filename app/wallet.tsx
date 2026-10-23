@@ -16,7 +16,7 @@
 // monthly statements and expense-system integrations (none exist), and card artwork drawn
 // for instruments the record does not hold.
 import { useFocusEffect } from 'expo-router';
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 import { Modal, Platform, Pressable, StyleSheet, View } from 'react-native';
 import { Text } from '../src/components/AppText';
 import {
@@ -30,7 +30,7 @@ import {
 } from '../src/backend/payments';
 import { useGoBack } from '../src/components/nav';
 import { Card, Chev, LetterheadBar, PrimaryButton, Screen, SectionLabel, Sub, Title } from '../src/components/UI';
-import { paymentModeNote, usePaymentConfig } from '../src/state/PaymentConfigContext';
+import { usePaymentConfig, usePaymentConfigRefresh } from '../src/state/PaymentConfigContext';
 import { useLanguage } from '../src/state/LanguageContext';
 import { colors } from '../src/theme';
 
@@ -38,6 +38,7 @@ export default function PaymentAndSettlement() {
   const { t } = useLanguage();
   const goBack = useGoBack();
   const payConfig = usePaymentConfig();
+  const refreshPaymentConfig = usePaymentConfigRefresh();
   // Wallet has a narrower capability than booking. Unrelated operational dependencies
   // must not disable Stripe setup, but Stripe itself must still be configured.
   const modeNote = !payConfig.canManagePaymentMethods
@@ -53,29 +54,48 @@ export default function PaymentAndSettlement() {
   const [adding, setAdding] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pendingRemove, setPendingRemove] = useState<SavedMethod | null>(null);
+  const [retrying, setRetrying] = useState(false);
+  const readSequence = useRef(0);
 
   const load = useCallback(async () => {
+    // A late response from focus must not erase newer data after Add/Retry.
+    const sequence = ++readSequence.current;
+    setState('loading');
     const r = await fetchPaymentMethods();
+    if (sequence !== readSequence.current) return;
     setMethods(r.methods);
     setState(r.unavailable ? 'unreadable' : 'ready');
   }, []);
 
-  // Re-read on focus: what Stripe holds is the truth, and it may have changed elsewhere.
+  // Re-read on focus; invalidate a pending read when this screen loses focus.
   useFocusEffect(
     useCallback(() => {
       let live = true;
-      setState('loading');
-      fetchPaymentMethods().then((r) => {
-        if (!live) return;
-        setMethods(r.methods);
-        setState(r.unavailable ? 'unreadable' : 'ready');
-      });
-      if (Platform.OS !== 'web') platformPaySupported().then((ok) => live && setWalletReady(ok));
+      void load();
+      if (Platform.OS !== 'web')
+        void platformPaySupported().then(ok => { if (live) setWalletReady(ok); });
       return () => {
         live = false;
+        readSequence.current++;
       };
-    }, []),
+    }, [load]),
   );
+
+  const retry = async () => {
+    if (retrying) return;
+    setRetrying(true);
+    setError(null);
+    try {
+      // A Stripe /config outage can disable payment throughout this session;
+      // refresh that gate before checking methods, without allowing a bypass.
+      await refreshPaymentConfig();
+      await load();
+    } catch {
+      setState('unreadable');
+    } finally {
+      setRetrying(false);
+    }
+  };
 
   const add = async () => {
     setAdding(true);
@@ -90,7 +110,7 @@ export default function PaymentAndSettlement() {
     setError(null);
     const r = await setDefaultPaymentMethod(id);
     setBusyId(null);
-    if (r.ok && r.methods) setMethods(r.methods);
+    if (r.ok && r.methods) { readSequence.current++; setMethods(r.methods); setState('ready'); }
     else if (!r.ok) setError(t('traveler.couldNotChangeMethod'));
   };
   const remove = async (id: string) => {
@@ -98,7 +118,7 @@ export default function PaymentAndSettlement() {
     setError(null);
     const r = await removePaymentMethod(id);
     setBusyId(null);
-    if (r.ok && r.methods) setMethods(r.methods);
+    if (r.ok && r.methods) { readSequence.current++; setMethods(r.methods); setState('ready'); }
     else if (!r.ok) setError(t('traveler.couldNotChangeMethod'));
   };
 
@@ -184,6 +204,14 @@ export default function PaymentAndSettlement() {
         onPress={add}
         style={{ marginTop: 14 }}
       />
+      {(state === 'unreadable' || !payConfig.canManagePaymentMethods) && (
+        <PrimaryButton
+          label={retrying ? t('traveler.busyChecking') : t('traveler.tryAgain')}
+          disabled={retrying || state === 'loading'}
+          onPress={() => { void retry(); }}
+          style={{ marginTop: 12 }}
+        />
+      )}
       {error && <Text style={styles.errorNote}>{error}</Text>}
       {modeNote && <Text style={styles.modeNote}>{modeNote}</Text>}
 
