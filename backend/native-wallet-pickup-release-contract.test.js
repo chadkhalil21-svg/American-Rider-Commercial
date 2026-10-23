@@ -71,6 +71,32 @@ for(const lang of ['es','fr','it','de'])
   assert(read('src/i18n/'+lang+'.ts').includes('confirmTravelerName:'),
     'localized Operator guidance is required for '+lang);
 
+// No-show payment is a separate, normally OFF feature. The Operator
+// pickup screen must never offer a control the server intentionally rejects.
+const paymentConfigServer=read('backend/server.js');
+const paymentConfigClient=read('src/backend/payments.ts');
+const paymentConfigProvider=read('src/state/PaymentConfigContext.tsx');
+const operatorApi=read('src/backend/operatorInbox.ts');
+assert(paymentConfigServer.includes('verifiedNoShowEnabled:') &&
+  paymentConfigServer.includes("process.env.AR_VERIFIED_NO_SHOW==='true'") &&
+  paymentConfigServer.includes("process.env.AR_MANUAL_CANCELLATION_FEE==='true'"),
+  'no-show exposure must require both server fee and no-show permissions');
+assert(paymentConfigClient.includes("verifiedNoShowEnabled: d?.verifiedNoShowEnabled === true"),
+  'unknown no-show status must fail closed');
+assert(paymentConfigProvider.includes("const UNKNOWN: PaymentConfig ="),
+  'server unavailability must never invent no-show permission');
+assert(operator.includes('usePaymentConfig()') &&
+  operator.includes('payConfig.verifiedNoShowEnabled === true'),
+  'five-minute no-show control must be hidden unless server permits it');
+assert(operator.includes("op.withdrawAcceptedOp()"),
+  'existing Operator withdrawal remains visible when no-show is unavailable');
+assert(operatorApi.includes('operatorPaymentPending:out.operatorPaymentPending===true') &&
+  operator.includes("t('operatorNoShow.compensationPending')"),
+  'unpaid Operator compensation must not be described as settled');
+for(const language of ['en','es','fr','it','de']){
+  assert(read('src/i18n/'+language+'.ts').includes('compensationPending:'),
+    language+' must describe pending compensation');
+}
 // Existing Firestore query budgets and money guards stay in place.
 // Do not migrate to H3 or degrade lossless payouts to save document reads.
 const geo=read('backend/geooperators.js');
