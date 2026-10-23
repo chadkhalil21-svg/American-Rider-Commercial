@@ -1,0 +1,60 @@
+'use strict';
+const assert=require('node:assert/strict');
+const {formatLink,shareLink,claim,CLAIM_WINDOW_MS}=require('./referral-service');
+class MemoryDb {
+  constructor(){this.rows=new Map();this.reads=0;this.writes=0;}
+  collection(collection){
+    return {doc:(key)=>({path:collection+'/'+key})};
+  }
+  async runTransaction(fn){
+    const writes=[];
+    const tx={
+      get:async ref=>{
+        this.reads++;
+        const val=this.rows.get(ref.path);
+        return {exists:val!==undefined,data:()=>val};
+      },
+      create:(ref,val)=>writes.push({ref,val,create:true}),
+      set:(ref,val,opts)=>writes.push({ref,val,merge:!!opts?.merge}),
+    };
+    const result=await fn(tx);
+    for(const w of writes){
+      if(w.create&&this.rows.has(w.ref.path))throw Error('duplicate');
+      const prior=this.rows.get(w.ref.path)||{};
+      this.rows.set(w.ref.path,w.merge?{...prior,...w.val}:w.val);
+      this.writes++;
+    }
+    return result;
+  }
+}
+(async()=>{
+  const db=new MemoryDb(),now=Date.now(),uid='inviter';
+  assert.equal(formatLink('abc12345','traveler'),
+    'https://americanrider.app/join?r=ABC12345&role=traveler');
+  assert.equal(formatLink('abc12345','unknown'),null);
+  const first=await shareLink({db,uid,role:'traveler',now});
+  assert.equal(first.ok,true);
+  assert.match(first.url,/^https:\/\/americanrider\.app\/join\?r=[0-9A-F]{24}&role=traveler$/);
+  const afterFirst=db.writes;
+  const second=await shareLink({db,uid,role:'operator',now});
+  assert.equal(second.ok,true);
+  assert.equal(db.writes,afterFirst,'same inviter must not write per share');
+  const code=first.url.match(/r=([^&]+)/)[1];
+  assert.equal((await claim({db,uid:'inviter',code,role:'traveler',authCreatedAtMs:now,now})).ok,false);
+  const newTravel=await claim({db,uid:'new-traveler',code,role:'traveler',authCreatedAtMs:now-2000,now});
+  assert.deepEqual(newTravel,{ok:true,role:'traveler',recorded:true,rewardEnabled:false});
+  assert.equal((await claim({db,uid:'new-traveler',code,role:'traveler',authCreatedAtMs:now-2000,now})).reason,'already_attributed');
+  assert.equal((await claim({db,uid:'old-traveler',code,role:'traveler',
+    authCreatedAtMs:now-CLAIM_WINDOW_MS-1,now})).reason,'existing_traveler');
+  assert.equal((await claim({db,uid:'new-user',code:'INVALID?',role:'operator',authCreatedAtMs:now,now})).ok,false);
+  db.rows.set('operators/old-operator',{commissioned:true});
+  assert.equal((await claim({db,uid:'old-operator',code,role:'operator',
+    authCreatedAtMs:now-365*24*3600_000,now})).reason,'role_already_active');
+  const transfer=await claim({db,uid:'new-traveler',code,role:'operator',
+    authCreatedAtMs:now-2000,now});
+  assert.equal(transfer.ok,true,'existing Traveler can later join as new Operator');
+  assert.equal(db.rows.get('referral_attributions/new-traveler_operator').role,'operator');
+  assert.equal(db.rows.get('referral_attributions/new-traveler_operator').rewardEnabled,false);
+  assert.equal(db.rows.get('referral_attributions/new-traveler_traveler').rewardEnabled,false);
+  console.log('PASS referral-service: fixed claims, roles, no share-click writes, no money');
+})().catch(e=>{console.error(e);process.exitCode=1;});
