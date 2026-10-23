@@ -20,7 +20,8 @@ for (let pass = 1; pass <= 2; pass++) {
   assert.doesNotMatch(wallet, /m\.isDefault \? \(\s*<Text[^]*?\) : \(\s*<View style=\{styles\.actions\}>/);
   assert.match(wallet, /traveler\.removeDefaultCardNotice/);
   assert.match(wallet, /traveler\.removeCardNotice/);
-  assert.match(wallet, /if \(r\.ok && r\.methods\) setMethods\(r\.methods\)/);
+  assert.match(wallet, /if \(r\.ok && r\.methods\)\s*\{[^}]*setMethods\(r\.methods\)/,
+    'successful default/removal updates saved methods, even with stale-read protection');
   assert.match(payments, /const wasDefault = defaultMethodId\(customer\) === owned\.pm\.id/);
   assert.match(payments, /replacement \? replacement\.id : ''/);
   assert.ok(payments.indexOf('invoice_settings: { default_payment_method: replacement ? replacement.id') <
