@@ -9,6 +9,7 @@ const ROOT = __dirname;
 
 const rides = new Map();
 const users = new Map();
+const cursors = new Map();
 const transfers = [];
 let transferResult = { ok: true, transferId: 'tr_test', amountCents: 1777 };
 
@@ -18,25 +19,26 @@ const docFor = (map, id) => ({
 });
 const fakeDb = {
   collection: (name) => {
-    const map = name === 'rides' ? rides : users;
+    const map = name === 'rides' ? rides : name === 'scheduler_state' ? cursors : users;
     return {
       doc: (id) => docFor(map, id),
       where: (field, _op, value) => {
-        // Chainable, like the real thing: the sweep bounds its scan with orderBy().limit(),
-        // and a fake that ignored those would let an unbounded query pass its own test.
         const q = {
           _order: null,
           _limit: Infinity,
-          orderBy(f, dir) { q._order = { f, dir }; return q; },
+          _after: null,
+          orderBy(f) { q._order = f; return q; },
+          startAfter(id) { q._after = id; return q; },
           limit(n) { q._limit = n; return q; },
           get: async () => {
             let hits = [...map.entries()].filter(([, v]) => v[field] === value);
-            if (q._order) {
-              const { f, dir } = q._order;
-              hits.sort((a, b) => ((a[1][f] ?? 0) - (b[1][f] ?? 0)) * (dir === 'desc' ? -1 : 1));
-            }
+            // Production uses orderBy(FieldPath.documentId()), not client data.
+            // Respect stable document-ID ordering, startAfter, and the read cap.
+            if (q._order) hits.sort(([a], [b]) => a.localeCompare(b));
+            if (q._after != null) hits = hits.filter(([id]) => id > q._after);
             hits = hits.slice(0, q._limit);
-            return { forEach: (fn) => hits.forEach(([id, v]) => fn({ id, data: () => v })) };
+            const docs = hits.map(([id, v]) => ({ id, data: () => v }));
+            return { docs, forEach: fn => docs.forEach(fn), size: docs.length };
           },
         };
         return q;
@@ -56,7 +58,7 @@ for (const [rel, exports] of [
       users.get(opId)?.stripeAccountId
         ? { accountId: users.get(opId).stripeAccountId }
         : { accountId: null, reason: 'that operator has no payout account' },
-    transferToOperator: async (args) => { transfers.push(args); return transferResult; },
+    transferToOperator: async (args) => { transfers.push(args); return typeof transferResult === 'function' ? transferResult(args) : transferResult; },
   }],
 ]) {
   const p = require.resolve(path.join(ROOT, rel));
@@ -71,7 +73,7 @@ const check = (l, ok, d) => R.push({ l, ok: !!ok, d });
 (async () => {
 
   const reset = () => {
-    rides.clear(); users.clear(); transfers.length = 0;
+    rides.clear(); users.clear(); cursors.clear(); transfers.length = 0;
     transferResult = { ok: true, transferId: 'tr_test', amountCents: 1777 };
     users.set('marcus', { stripeAccountId: 'acct_marcus' });
   };
@@ -130,6 +132,60 @@ const check = (l, ok, d) => R.push({ l, ok: !!ok, d });
   check('a travel with no payment recorded stops being swept', rides.get('r7').needsPayout === false);
   check('  and is raised for a person rather than dropped', rides.get('r7').payoutPending === true);
   check('  and is named in the report', out.blocked?.some((b) => b.tripNo === 'AR-3002-MIA'), JSON.stringify(out));
+
+  // FAIRNESS UNDER A REAL BOUNDED QUERY. The first 25 unpaid completed
+  // Travels are blocked on nonexistent Connect accounts. Fifteen newer
+  // Operators are eligible. A first-page-only sweep starves all fifteen.
+  reset();
+  transferResult = (args) => ({ ok: true, transferId: 'tr_' + args.rideId, amountCents: 1777 });
+  for (let i = 0; i < 25; i++) {
+    rides.set('a' + String(i).padStart(3, '0'), {
+      status: 'completed', needsPayout: true,
+      paymentIntentId: 'pi_blocked_' + i, operatorId: 'newbie_' + i,
+      travelerUid: 'synthetic', tripNo: 'AR-B-' + i,
+    });
+  }
+  for (let i = 0; i < 15; i++) {
+    const id = 'z' + String(i).padStart(3, '0');
+    users.set('eligible_' + i, { stripeAccountId: 'acct_eligible_' + i });
+    rides.set(id, {
+      status: 'completed', needsPayout: true,
+      paymentIntentId: 'pi_eligible_' + i, operatorId: 'eligible_' + i,
+      travelerUid: 'synthetic', tripNo: 'AR-E-' + i,
+    });
+  }
+  const fairNow = 100000000;
+  out = await sweepSettlements({ now: fairNow });
+  check('first bounded page holds 25 blocked debts without a transfer',
+    out.settled === 0 && out.examined === 25 && out.blocked.length === 25,
+    JSON.stringify(out));
+  check('the persisted cursor advances only after the page is processed',
+    cursors.get('operator_payout_page')?.lastRideId === 'a024',
+    JSON.stringify(cursors.get('operator_payout_page')));
+  out = await sweepSettlements({ now: fairNow + 60_000 });
+  check('next minute reaches all 15 eligible Operators beyond the blocked first page',
+    out.settled === 15 && out.examined === 15 &&
+    transfers.length === 15 && rides.get('z014').transferId === 'tr_z014',
+    JSON.stringify(out));
+  check('all eligible original debts are cleared; 25 blocked debts remain recorded',
+    [...rides.entries()].filter(([id, v]) => id.startsWith('z') && v.needsPayout).length === 0 &&
+    [...rides.entries()].filter(([id, v]) => id.startsWith('a') && v.needsPayout).length === 25);
+  const afterSuccesses = transfers.length;
+  out = await sweepSettlements({ now: fairNow + 120_000 });
+  check('cursor wraps after the last live document without duplicate transfers',
+    out.wrapped === true && out.settled === 0 && transfers.length === afterSuccesses,
+    JSON.stringify(out));
+  // An eligible late arrival is not permanently excluded just because it sorts
+  // before a cursor from a previous sweep.
+  users.set('arrival', { stripeAccountId: 'acct_arrival' });
+  rides.set('b-late', {
+    status: 'completed', needsPayout: true, paymentIntentId: 'pi_late',
+    operatorId: 'arrival', travelerUid: 'synthetic', tripNo: 'AR-LATE',
+  });
+  out = await sweepSettlements({ now: fairNow + 180_000 });
+  check('a newly eligible debt inserted after the blocked page is reached next',
+    out.settled === 1 && rides.get('b-late').transferId === 'tr_b-late',
+    JSON.stringify(out));
 
   // THE WIRING ITSELF. Three defects this month were code that existed and was never called.
   const serverSrc = require('fs').readFileSync(path.join(ROOT, 'server.js'), 'utf8');

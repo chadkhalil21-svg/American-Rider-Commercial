@@ -597,22 +597,22 @@ async function sweepSettlements({ now = Date.now(), limit = 25 } = {}) {
     //
     // `needsPayout` is set when the operator completes the travel (see operatorInbox.ts) and
     // cleared here once paid, so a quiet minute costs nothing at all.
-    const snap = await db
-      .collection('rides')
-      .where('needsPayout', '==', true)
-      .limit(SETTLE_SCAN_LIMIT)
-      .get();
+    // A durable document-ID cursor rotates across ALL outstanding Travels.
+    // Repeatedly inspecting the same first 25 blocked Connect accounts would
+    // otherwise prevent newer qualified Operators from ever being paid.
+    const { payoutPage } = require('./payout-fair-page');
+    const page = await payoutPage({ db, pageSize: Math.min(SETTLE_SCAN_LIMIT, Math.max(1, limit)) });
     const owed = [];
     const unsettleable = [];
-    snap.forEach((d) => {
+    for (const d of page.docs) {
       const x = d.data() || {};
-      if (x.transferId) return; // already paid; the flag is cleared below
+      if (x.transferId) continue; // already paid; the flag is cleared below
       // SETTLEMENT FOLLOWS COMPLETION, here as at /travel/settle (travelmoney.js). The rules let
       // only the operator set needsPayout, and only with status 'completed' — checked again
       // rather than trusted.
       if (x.status !== 'completed') {
         unsettleable.push({ rideId: d.id, tripNo: x.tripNo || d.id, reason: `status is ${x.status || 'unknown'}, not completed` });
-        return;
+        continue;
       }
       // A FLAG THAT CANNOT BE ACTED ON MUST NOT BE READ FOREVER. Without a payment or an
       // operator there is nothing this sweep can ever do, so leaving needsPayout set would
@@ -620,10 +620,10 @@ async function sweepSettlements({ now = Date.now(), limit = 25 } = {}) {
       // person instead — which is the honest answer, because somebody may still be owed.
       if (!x.paymentIntentId || !x.operatorId) {
         unsettleable.push({ rideId: d.id, tripNo: x.tripNo || d.id });
-        return;
+        continue;
       }
       owed.push({ rideId: d.id, ...x });
-    });
+    }
 
     for (const u of unsettleable) {
       const why = u.reason || 'no payment or operator recorded — needs a person';
@@ -722,7 +722,12 @@ async function sweepSettlements({ now = Date.now(), limit = 25 } = {}) {
         );
       }
     }
-    return { ok: true, considered: owed.length, settled, centsPaid, blocked };
+    // Advance only after this page's capture/transfer/reconciliation writes.
+    // A crashed sweep repeats a page safely through the existing Stripe
+    // transfer-once guard, instead of skipping obligations.
+    await page.checkpoint();
+    return { ok: true, considered: owed.length, examined: page.inspected,
+      wrapped: page.wrapped, settled, centsPaid, blocked };
   } catch (e) {
     // Loudly. The whole point of this sweep is that nobody is watching.
     console.error('[sweep] settlement failed:', e.message);
