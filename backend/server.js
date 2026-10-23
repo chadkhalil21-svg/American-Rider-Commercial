@@ -1814,6 +1814,9 @@ app.post('/emergency/location', requireAuth, async (req, res) => {
   const out = await updateTicketLocation({
     caseNo: b.caseNo,
     uid: req.uid,
+    // The Operator's rideId is only a hint; the ticket service checks active
+    // canonical Travel membership and the exact monitored-case identity.
+    rideId: typeof b.rideId === 'string' ? b.rideId : null,
     address: typeof b.address === 'string' ? b.address.slice(0, 300) : null,
     coords:
       b.coords && Number.isFinite(b.coords.lat) && Number.isFinite(b.coords.lng)
