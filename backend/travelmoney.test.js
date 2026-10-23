@@ -303,7 +303,8 @@ const rides = (over = {}) => ({
       calls[0].uid==='alice'&&calls[0].verifiedFeeCents===400&&
       st.log.refunds.length===0&&st.log.transfers[0]?.amountCents===300&&
       st.log.transfers[0]?.expectedUid==='alice'&&
-      st.log.transfers[0]?.rideId==='A',
+      st.log.transfers[0]?.rideId==='A'&&
+      result.body.operatorPaymentPending===false,
       'Operator no-show caller is op1, but captured Stripe payment belongs to Traveler alice');
     const again=await cancelTravel({db,uid:'op1',operatorNoShowUid:'op1',
       rideId:'A',deps:st,now:at+1000,enableManualCancellationFee:true});
@@ -337,7 +338,28 @@ const rides = (over = {}) => ({
       db.data.rides.A.arrivalFeePending===true&&
       db.data.rides.A.arrivalFeeBlockedReason==='compensation_provider_unavailable'&&
       capture.length===1&&capture[0].uid==='alice'&&
+      result.body.operatorPaymentPending===true&&
       st.log.transfers.length===0);
+  }
+  {
+    // Successful $4 capture with missing Connect payout remains an owed $3,
+    // not a completed Operator payment. The phone must see this distinction.
+    const at=1790390000000;
+    const db=fakeDb(rides({A:{
+      status:'cancelled',paymentCapturePolicy:'manual_v1',
+      cancellationFeeCaptureCents:400,arrivalFeeCents:300,
+      cancellationFeeDisclosureVersion:'net3-allin400-v1',
+      cancelledFrom:'arrived',
+    }}));
+    const st=stripe();
+    st.settleUncapturedTravel=async()=>({
+      manual:true,ok:true,status:'captured',captureCents:400,
+    });
+    st.operatorPayoutAccount=async()=>({accountId:null});
+    const result=await cancelTravel({db,uid:'alice',rideId:'A',deps:st,now:at});
+    check('captured cancellation is not represented as paid to Operator if Connect missing',
+      result.status===200&&result.body.operatorPaymentPending===true&&
+      result.body.refunded===false&&db.data.rides.A.arrivalFeePending===true);
   }
   {
     // A concurrent retry may have recorded pending after an earlier worker
