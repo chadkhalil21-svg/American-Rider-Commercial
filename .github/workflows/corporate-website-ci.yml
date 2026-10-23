@@ -1,0 +1,44 @@
+name: Corporate Website Acceptance
+
+on:
+  pull_request:
+    paths:
+      - 'scripts/build-corporate-website.cjs'
+      - 'scripts/test-corporate-website.cjs'
+      - 'backend/legal*.js'
+      - 'backend/shell.js'
+      - 'firebase.json'
+      - '.github/workflows/corporate-website-ci.yml'
+  push:
+    branches:
+      - 'website/**'
+    paths:
+      - 'scripts/build-corporate-website.cjs'
+      - 'scripts/test-corporate-website.cjs'
+      - 'backend/legal*.js'
+      - 'backend/shell.js'
+      - 'firebase.json'
+      - '.github/workflows/corporate-website-ci.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify website copy, content and static routes
+        run: node scripts/test-corporate-website.cjs
+      - name: Validate Firebase configuration
+        run: node -e 'const f=require("./firebase.json"); if(f.hosting.public!=="dist-corporate")process.exit(1)'
+      - name: Upload website preview artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: american-rider-corporate-preview
+          path: dist-corporate
+          retention-days: 7
