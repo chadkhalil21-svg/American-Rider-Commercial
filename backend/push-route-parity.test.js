@@ -54,8 +54,13 @@ assert.match(monitor, /kind:\s*'guardian_travel'[\s\S]{0,350}screen:\s*'\/family
 assert(layout.includes("recipientUid !== user.uid"),
   'do not open another account\'s notification');
 const uidGuard = layout.indexOf('recipientUid !== user.uid');
-const navigation = layout.indexOf('router.navigate(screen as never)');
+const navigation = layout.indexOf('router.navigate(destination as never)');
 assert(uidGuard >= 0 && navigation > uidGuard, 'account check precedes navigation');
+assert(layout.includes("screen === '/receipt' ? '/history' : screen"),
+  'completion alert must open the server-backed Travel Log after a cold start');
+assert(read('app/history.tsx').includes('ride.refreshMyRides({ useCache: true })') &&
+  read('app/history.tsx').includes('receiptFromRide(r, language, t)'),
+  'the fallback must load actual completed Travel records and open real receipts');
 assert(receiver.includes('DEFAULT_ACTION_IDENTIFIER') &&
   receiver.includes('navigatedNotificationIds.has(id)'),
   'no silent action or duplicate cold-start delivery');
