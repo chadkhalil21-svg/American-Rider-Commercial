@@ -9,6 +9,7 @@ import { OperatorMap } from '../../src/components/operator';
 import { Avatar, Card, Mono, Num, PrimaryButton, Screen, SectionLabel } from '../../src/components/UI';
 import { CheckInCard } from '../../src/components/CheckInCard';
 import { useOperator } from '../../src/state/OperatorContext';
+import { usePaymentConfig } from '../../src/state/PaymentConfigContext';
 import { useLanguage } from '../../src/state/LanguageContext';
 import { colors } from '../../src/theme';
 
@@ -16,6 +17,7 @@ export default function OperatorPickup() {
   const { t } = useLanguage();
   const router = useRouter();
   const op = useOperator();
+  const payConfig = usePaymentConfig();
   const active = op.op;
   const [transitioning, setTransitioning] = useState(false);
   const [transitionError, setTransitionError] = useState<string | null>(null);
@@ -171,7 +173,10 @@ export default function OperatorPickup() {
       ) : null}
 
       <View style={{ flex: 1 }} />
-      {arrived && active.rideId && !active.teen ? (
+      {/* A paid no-show control must follow the real server release gate.
+          During OFF/unreadable configuration the existing Operator withdrawal
+          remains available; do not invite a tap that only returns 503. */}
+      {arrived && active.rideId && !active.teen && payConfig.verifiedNoShowEnabled === true ? (
         <View style={styles.waitArea}>
           <Text style={styles.waitText}>
             {waitSeconds === null
