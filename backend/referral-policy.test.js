@@ -56,4 +56,10 @@ const op=decision(operator,{}, {availableContributionCents:35});
 const tr=decision(traveler,{}, {availableContributionCents:35-op.rewardCents});
 assert.equal(op.rewardCents,25);
 assert.equal(tr.rewardCents,0);
+
+const proposal={enabled:true,perTravelCents:15,maxTravels:200,maxCents:3000};
+const maxed=rewardDecision({attribution:operator,travel,program:proposal,priorQualifiedTravels:199,earnedCents:2985,availableContributionCents:30});
+assert.equal(maxed.rewardCents,15);
+const capped=rewardDecision({attribution:operator,travel,program:proposal,priorQualifiedTravels:200,earnedCents:3000,availableContributionCents:30});
+assert.equal(capped.rewardCents,0);
 console.log('PASS referral-policy: '+count+' synthetic scenarios, no provider/db/money calls');
