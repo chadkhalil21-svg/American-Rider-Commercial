@@ -8,11 +8,12 @@ import { Text } from '../../src/components/AppText';
 import { OperatorBar, OperatorDrawer, OperatorScreen } from '../../src/components/operator';
 import { BackLink, Card, PrimaryButton } from '../../src/components/UI';
 import { useLanguage } from '../../src/state/LanguageContext';
+import { useOperator } from '../../src/state/OperatorContext';
 import { personalInvitation, type InviteRole } from '../../src/backend/referrals';
 import { colors } from '../../src/theme';
 
 export default function OperatorInvitations(){
-  const router=useRouter(), {t}=useLanguage();
+  const router=useRouter(), {t}=useLanguage(), op=useOperator();
   const [menuOpen,setMenuOpen]=useState(false);
   const [busy,setBusy]=useState(false);
   const share=async(role:InviteRole)=>{
@@ -27,7 +28,7 @@ export default function OperatorInvitations(){
   };
   return (
     <OperatorScreen nav="profile">
-      <OperatorBar onMenu={()=>setMenuOpen(true)} />
+      <OperatorBar onMenu={()=>setMenuOpen(true)} initials={op.opInitials} />
       <BackLink label={t('common.back')} onPress={()=>router.back()} />
       <Text style={{fontSize:24,fontWeight:'600',color:colors.ink,marginTop:14}}>
         {t('operator.referralInviteTitle')}
