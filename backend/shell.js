@@ -260,7 +260,7 @@ ${bodyHtml}
 <a href="/privacy">Privacy Policy</a><br>
 <a href="mailto:support@americanrider.app">support@americanrider.app</a><br>
 <a href="mailto:relations@americanrider.app">relations@americanrider.app</a><br>
-<span class="stamp">AMERICAN RIDER · MIAMI, FL</span></div>
+<span class="stamp">AMERICAN RIDER · UNITED STATES</span></div>
 </footer></body></html>`;
 }
 
