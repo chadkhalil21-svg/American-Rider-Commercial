@@ -52,9 +52,8 @@ is paid from that fee.</li>
 
 <section><h2>4 · Cancellations</h2>
 <ul>
-<li>Before your operator arrives, you may cancel and your fare is returned in full.</li>
-<li>Once your operator has arrived, cancelling returns your fare less a $3.00 arrival fee. That
-fee is paid to the operator, who drove to you and waited.</li>
+<li>A temporary card authorization may be placed before an Operator is assigned. It is not a completed charge; an unused hold is released under bank processing times.</li>
+<li>Before a Travel begins, you may cancel. An Operator's arrival does not automatically create a fee. An optional verified $4 cancellation or no-show fee, including $3 for the Operator, applies only if the policy is enabled, disclosed and accepted before booking, and qualifying evidence is verified. Otherwise, a hold release or refund follows the applicable booking terms.</li>
 <li>Once a travel has begun it cannot be cancelled. Patron Support settles anything that goes
 wrong with a travel already underway.</li>
 </ul></section>
@@ -211,16 +210,18 @@ paid for it. The company's principal place of business is Miami, Florida, and se
 the South Florida market before any further market opens.</p></section>
 
 <section><h2>What a traveler pays</h2>
-<p>One all-in amount, quoted before the travel is reserved, and it is the whole cost of the
-travel. A platform fee is inside that amount; it is not itemised and nothing is added on top.
-The amount shown at reservation is the amount charged. The Operator retains 99% of the travel
-fare.</p></section>
+<p>One all-in Total is quoted before each Travel is reserved. The Platform Fee
+has a minimum of $2.50 and is included within the Total, never added on top
+after the Traveler agrees to it. Any changed Total must be shown and agreed
+to before booking. The Operator retains 99% of the travel fare.</p></section>
 
 <section><h2>How payment is settled</h2>
-<p>American Rider settles by bank transfer. Cards are accepted and cost more to process;
-that difference is absorbed by the platform fee, never added to a traveler's price.</p>
-<p>The amount quoted at reservation is the amount charged, whichever method is used. Card
-details are held by our payment processor and never by American Rider.</p></section>
+<p>American Rider processes Traveler card payments through Stripe.
+After a qualifying completed paid Travel, the Operator's share is transferred to the
+Operator's connected Stripe account; the subsequent bank payout follows that account's
+payout schedule.</p>
+<p>The quoted Total includes processing-related platform costs. Full card numbers
+are held by the payment processor, not by American Rider.</p></section>
 
 <section><h2>Operator framework</h2>
 <p>American Rider operators retain 99% of the travel fare.</p>
@@ -231,10 +232,9 @@ Operators can reconcile every travel against this in their own records.</p>
 registration, insurance, and license, and chooses which travel to accept.</p></section>
 
 <section><h2>Qualification and coverage</h2>
-<p>An operator is commissioned only after every part of qualification is complete: driver
-license, vehicle registration, vehicle inspection, commercial for-hire insurance, identity
-verification, and a multi-state criminal and driving record check performed by an accredited
-screening company and paid for by the operator.</p>
+<p>An Operator is commissioned only after the required qualification is complete:
+driver license, vehicle registration and inspection, qualifying insurance,
+identity verification, and legally required screening by an approved provider.</p>
 <p>Commercial coverage is verified before commissioning and on a continuing basis. Travel is
 not assigned to an operator whose coverage has lapsed or expired. The background check is
 repeated every three years.</p></section>
@@ -248,9 +248,8 @@ operator, the vehicle, the license plate and the traveler's location, for readin
 dispatcher.</p></section>
 
 <section><h2>Contact</h2>
-<p>Patron Support is reached from within the application. Every matter is answered by a
-person, and any matter concerning safety is directed to a person and never settled
-automatically.</p>
+<p>Patron Support is available from within the application. Safety concerns
+receive human review; immediate emergencies require local emergency services.</p>
 <p>Legal documents: <a href="/terms">Terms of Service</a> and
 <a href="/privacy">Privacy Policy</a>.</p></section>
 `,

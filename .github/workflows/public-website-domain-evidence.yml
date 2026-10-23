@@ -1,0 +1,80 @@
+name: Public website domain evidence (read only)
+on:
+  pull_request:
+    branches: [release/current]
+    paths:
+      - backend/site.js
+      - backend/legal.js
+      - .github/workflows/public-website-domain-evidence.yml
+  workflow_run:
+    workflows:
+      - 'Founder-approved ONE-TIME paid Cloud Run source synchronization (22 Oct 2026)'
+    types: [completed]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  probe-public-brand-domain:
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - name: Inspect HTTPS, redirects, page contents, no production writes
+        run: |
+          node - <<'NODE'
+          const fs=require('node:fs');
+          const crypto=require('node:crypto');
+          const dns=require('node:dns').promises;
+          const base='https://americanrider.app';
+          const pages=['/','/operate','/about','/terms','/privacy'];
+          let domainRootHash=null;
+          const sha=text=>crypto.createHash('sha256').update(text).digest('hex').slice(0,20);
+          const write=(x)=>{console.log(x);fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY,x+'\n')};
+          const safe=v=>String(v||'').slice(0,160).replace(/[\r\n|]/g,' ');
+          (async()=>{
+            write('## Read-only public website evidence');
+            write('Checked '+new Date().toISOString()+' from a GitHub runner; NOT a deployment.');
+            for(const [label,fn] of [['A',()=>dns.resolve4('americanrider.app')],['NS',()=>dns.resolveNs('americanrider.app')],['www CNAME',()=>dns.resolveCname('www.americanrider.app')]]){
+              try{write('DNS '+label+': '+JSON.stringify((await fn()).slice(0,12)));}
+              catch(error){write('DNS '+label+': unavailable ('+safe(error.code||error.message)+')');}
+            }
+            for(const path of pages){
+              let item;
+              try{
+                const res=await fetch(base+path,{redirect:'follow',headers:{'Cache-Control':'no-cache'},signal:AbortSignal.timeout(12000)});
+                const html=(await res.text()).slice(0,200000);
+                if(path==='/')domainRootHash=sha(html);
+                const markers=path==='/'?['National Transportation','across the United States','99%','$2.50']
+                  :path==='/operate'?['99%','$2.50']
+                  :path==='/about'?['Stripe','$2.50']
+                  :path==='/terms'?['Terms of Service']:['Privacy'];
+                const missing=markers.filter(mark=>!html.includes(mark));
+                const sameOrigin=new URL(res.url).hostname==='americanrider.app';
+                item={status:res.status,origin:safe(new URL(res.url).host),type:safe(res.headers.get('content-type')),
+                  headers:{server:safe(res.headers.get('server')),via:safe(res.headers.get('via')),
+                    cache:safe(res.headers.get('cf-cache-status')),age:safe(res.headers.get('age')),
+                    poweredBy:safe(res.headers.get('x-powered-by')),etag:safe(res.headers.get('etag'))},
+                  bytes:html.length,expected_copy:res.ok&&sameOrigin&&missing.length===0?'MATCH':'NOT VERIFIED',
+                  missing:missing.join(', ')||'none'};
+              }catch(err){item={status:'unreachable',expected_copy:'NOT VERIFIED',error:safe(err?.cause?.code||err?.message)};}
+              write('- '+path+': '+JSON.stringify(item));
+            }
+            for(const uri of ['/join?r=TEST_ONLY','/.well-known/apple-app-site-association','/.well-known/assetlinks.json','/recruiter']){
+              try{
+                const res=await fetch(base+uri,{redirect:'manual',signal:AbortSignal.timeout(12000)});
+                write('- Recruiter/app handoff probe '+uri.split('?')[0]+': '+JSON.stringify({
+                  status:res.status,type:safe(res.headers.get('content-type')),
+                  redirect:safe(res.headers.get('location'))}));
+              }catch(error){write('- Recruiter/app handoff probe '+uri.split('?')[0]+': unreachable ('+safe(error?.cause?.code||error?.message)+')');}
+            }
+            for(const [name,origin] of [['Google Cloud Run','https://american-rider-api-production-623854974930.us-east1.run.app'],['Commercial Render backend','https://american-rider-server-3d7x.onrender.com'],['Legacy Render hostname from www DNS','https://american-rider-server.onrender.com']]){
+              try{
+                const response=await fetch(origin+'/',{signal:AbortSignal.timeout(12000)});
+                const textBody=(await response.text()).slice(0,200000);
+                const fingerprint=sha(textBody);
+                write('- '+name+' root: '+JSON.stringify({status:response.status,bytes:textBody.length,bodyHash:fingerprint,
+                  equalsPublicRoot:Boolean(domainRootHash&&domainRootHash===fingerprint)}));
+              }catch(error){write('- '+name+' root: '+JSON.stringify({status:'unreachable',error:safe(error?.cause?.code||error?.message)}));}
+            }
+            write('Comparison is by HTML fingerprint only. Same content does not prove DNS origin, deployed SHA, payment readiness or commercial operation.');
+          })().catch(err=>write('Audit error: '+safe(err?.message)));
+          NODE
