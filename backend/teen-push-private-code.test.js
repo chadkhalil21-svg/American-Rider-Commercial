@@ -27,7 +27,7 @@ for (const [i, snippet] of snippets.entries()) {
     'notification '+i+' should direct the user to the private code');
   assert.doesNotMatch(snippet, /body\s*:\s*`[^;]*\$\{[^}]*\.pin\}/s,
     'notification '+i+' must not interpolate the pickup PIN');
-  assert.match(snippet, /screen:\s*'\/ride'/,
-    'notification '+i+' should open the existing authenticated Travel');
+  assert.match(snippet, /screen:\s*'\/teen-pickup'/,
+    'notification '+i+' must open the authenticated Teen code screen');
 }
 console.log('PASS: private Teen PIN stays off notifications; authenticated retrieval remains available');
