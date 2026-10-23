@@ -726,7 +726,10 @@ async function sweepAssignments({ now = Date.now(), checkMarket } = {}) {
 
     // RELEASED BY POST /travel/accept: the operator it was offered to is no longer eligible.
     // Neither notified nor given the answer window — it goes straight to somebody else.
-    if (!ride.notifiedOperatorAt && !ride.releasedAt) {
+    // A notification sent AFTER its acceptance deadline would tell an Operator
+    // to respond to an offer that may already be being reassigned. Never start
+    // a fresh answer window based only on a late push acknowledgment.
+    if (since < ANSWER_WINDOW_SEC && !ride.notifiedOperatorAt && !ride.releasedAt) {
       const operatorNotice = await notify({
         uid: ride.operatorId,
         kind: 'travel_assigned',
