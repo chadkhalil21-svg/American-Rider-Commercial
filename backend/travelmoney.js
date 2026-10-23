@@ -273,30 +273,40 @@ async function cancelTravel({ db, uid, rideId, deps, stripeConfigured = true, no
     if(!out?.manual || !out?.ok) return pendingRefund(out?.code||'Manual authorization unconfirmed');
     await rideRef.set({
       refundPending:false,
+      // Queue an owed Operator fee BEFORE contacting the payout provider. A crash,
+      // missing Stripe account or network timeout must not orphan captured funds.
+      // The durable fixed-fee transfer guard clears this after verified success.
+      arrivalFeePending:!!gross&&!currentRide.arrivalFeeTransferId,
       authorizationState:out.status==='released'?'released':'captured',
       ...(out.status==='released'
         ? {paymentIntentCancelledAt:now,cancellationFeeCaptureCents:0}
         : {capturedCents:gross,cancellationFeeCaptureCents:gross,
            arrivalFeeCents:OPERATOR_NET_CENTS}),
     },{merge:true});
-    if(gross) {
-      const {accountId}=await deps.operatorPayoutAccount(db,currentRide.operatorId);
-      if(accountId) {
-        const paid=await deps.transferFixed({paymentIntentId,
-          operatorStripeAccount:accountId,amountCents:OPERATOR_NET_CENTS,
-          // A verified Operator may report a no-show, but the Stripe charge
-          // always belongs to the Traveler. Bind any earned compensation to
-          // that original payer, never to the Operator's auth identity.
-          rideId:id,expectedUid:String(currentRide.travelerUid),
-          reference:`verified service cancellation ${currentRide.tripNo||id}`});
-        // The durable transfer guard writes success to the same Travel.
-        // Only persist a pending exception here; do not repeat a success write.
-        if(!paid.ok)await rideRef.set({arrivalFeePending:true,
-          arrivalFeeBlockedReason:paid.code||paid.error||'transfer_failed'},
+    if(gross&&!currentRide.arrivalFeeTransferId) {
+      try {
+        const {accountId}=await deps.operatorPayoutAccount(db,currentRide.operatorId);
+        if(accountId) {
+          const paid=await deps.transferFixed({paymentIntentId,
+            operatorStripeAccount:accountId,amountCents:OPERATOR_NET_CENTS,
+            // A verified Operator may report a no-show, but the Stripe charge
+            // always belongs to the Traveler. Bind earned compensation to that payer.
+            rideId:id,expectedUid:String(currentRide.travelerUid),
+            reference:`verified service cancellation ${currentRide.tripNo||id}`});
+          // The durable transfer guard records and clears verified success.
+          if(!paid.ok)await rideRef.set({arrivalFeePending:true,
+            arrivalFeeBlockedReason:paid.code||paid.error||'transfer_failed'},
+            {merge:true});
+        } else await rideRef.set({
+          arrivalFeePending:true,arrivalFeeBlockedReason:'no payout account',
+        },{merge:true});
+      } catch(e) {
+        // The Travel is already cancelled and the $4 capture was verified.
+        // Preserve the $3 obligation for the bounded recovery worker.
+        await rideRef.set({arrivalFeePending:true,
+          arrivalFeeBlockedReason:'compensation_provider_unavailable'},
           {merge:true});
-      } else await rideRef.set({
-        arrivalFeePending:true,arrivalFeeBlockedReason:'no payout account',
-      },{merge:true});
+      }
     }
     return {status:200,body:{ok:true,
       authorizationReleased:out.status==='released',capturedCents:gross,
