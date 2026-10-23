@@ -101,5 +101,7 @@ const ok = value => ({ ok: true, json: async () => value });
   assert(wallet.includes('await refreshPaymentConfig();'), 'retry rechecks configuration');
   assert(wallet.includes("t('traveler.tryAgain')"), 'visible Retry control');
   assert(wallet.includes('readSequence.current++'), 'ignore stale Wallet results');
+  assert(wallet.includes("state !== 'ready' || !payConfig.canManagePaymentMethods"),
+    'unreadable account cannot open card mutations while provider state is uncertain');
   console.log('PASS: configuration and Wallet success, outage, timeout and recovery; safe source wiring');
 })().catch(error => { console.error(error); process.exitCode = 1; });
