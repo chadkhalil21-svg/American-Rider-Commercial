@@ -62,6 +62,10 @@ const HOME_HTML = page('American Rider', `
 </section>
 <section class="ar-lastline"><div><p class="ar-kicker">FOR INDEPENDENT OPERATORS</p><h2>The work behind<br>every journey.</h2></div><a class="ar-outline" href="/operate">Explore Operating ↗</a></section>
 
+<section class="ar-recruitment-footer" aria-label="Company recruiting opportunities">
+ <p class="ar-kicker">COMPANY OPPORTUNITIES</p>
+ <p>Independent recruiting is developed separately from Traveler invitations. <a href="/recruitment">Recruitment information ↗</a></p>
+</section>
 `, '/');
 
 const OPERATE_HTML = page(
@@ -333,6 +337,31 @@ const SMART_HTML = page(
   '/smart-travel',
 );
 
+
+const RECRUITMENT_HTML = page(
+  'Recruitment',
+  `
+<h1>Recruitment</h1>
+<p class="lede">Represent American Rider with clarity and professionalism.</p>
+<section aria-labelledby="recruitment-overview">
+  <h2 id="recruitment-overview">Independent recruiting</h2>
+  <p>American Rider is developing a separate program for independent representatives who may introduce prospective Operators and Travelers to our national transportation platform. Service begins in selected markets; an introduction does not establish that Travel is available in a location.</p>
+  <p>Recruiters are distinct from Travelers using the ordinary Invite a Traveler feature.</p>
+</section>
+<section aria-labelledby="recruitment-process">
+  <h2 id="recruitment-process">Approval and representation</h2>
+  <p>Recruiter identity, approval, permitted activities and written terms must be established before anyone represents American Rider as an approved recruiter. Personal attribution links, QR codes, recruiter accounts and commission statements will be made available only after their systems have been tested and activated.</p>
+  <p>Compensation, eligibility and payout frequency are not yet announced. No person should promise payments or recruiting status on our behalf.</p>
+</section>
+<section aria-labelledby="recruitment-contact">
+  <h2 id="recruitment-contact">Business inquiries</h2>
+  <p>The recruiter program is not yet open for enrollment. For an initial business inquiry, contact <a href="mailto:relations@americanrider.app?subject=Recruitment%20inquiry">relations@americanrider.app</a>.</p>
+  <p>Do not send identity documents, bank information or tax records by ordinary email.</p>
+</section>
+`,
+  '/recruitment',
+);
+
 // Neutral holding page only; does not complete invitations or pay recruiters.
 const JOIN_HTML = page(
   'Invitation',
@@ -348,18 +377,5 @@ const JOIN_HTML = page(
 </section>
 `,
 );
-const RECRUIT_HTML = page('Recruiter Opportunities', `
-
-<section class="ar-recruit" aria-labelledby="recruit-title">
- <p class="ar-kicker">AMERICAN RIDER / COMPANY OPPORTUNITIES</p>
- <h1 id="recruit-title" class="ar-display">Help build<br><em>what comes next.</em></h1>
- <p class="ar-lead">American Rider is preparing an independent recruiter program to introduce qualified Operators to our transportation platform.</p>
- <div class="ar-recruit-status"><strong>Recruiter onboarding is not open yet.</strong><p>Personal invitations, verified recruiter accounts, unique sharing links, QR codes, private earnings records and bank payouts are being prepared. No earnings are promised, and no recruiter account is activated through this page. Payout timing, minimums, and provider have not been selected.</p></div>
- <div class="ar-recruit-steps"><h2>A considered process.</h2><ol><li><strong>Personal invitation.</strong> Each recruiter will be individually authorized by American Rider.</li><li><strong>Independent identity.</strong> A secure account will be tied to the verified invited email.</li><li><strong>Shareable introduction.</strong> One verified personal link will work by text or QR code, with the required commercial disclosures.</li><li><strong>Transparent reporting.</strong> Referral eligibility, payment status and settlement will be available in a private workspace after commissioning.</li></ol></div>
- <p>For business inquiries, write to <a href="mailto:relations@americanrider.app?subject=Recruiter%20opportunities">relations@americanrider.app</a>. Do not email banking or identification documents.</p>
-</section>
-
-`, '/recruit');
-
-module.exports = { RECRUIT_HTML, HOME_HTML, OPERATE_HTML, SUPPORT_HTML, TRAVEL_HTML, SAFETY_HTML, SMART_HTML, JOIN_HTML };
+module.exports = { HOME_HTML, OPERATE_HTML, SUPPORT_HTML, TRAVEL_HTML, SAFETY_HTML, SMART_HTML, JOIN_HTML, RECRUITMENT_HTML };
 

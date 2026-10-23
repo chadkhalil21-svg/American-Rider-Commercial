@@ -219,6 +219,12 @@ body{min-width:280px}
 .service-panel h2{font-size:22px;color:#fff;text-transform:none;letter-spacing:-.035em;margin:0 0 9px}
 .service-panel p{font-size:14px;color:#cad4df;max-width:60ch;margin:0}
 .service-panel a{color:#fff;text-decoration:underline;text-underline-offset:6px;white-space:nowrap;font-size:14px}
+
+.site-main .recruitment-feature{margin-top:18px;max-width:none;display:flex;align-items:center;justify-content:space-between;gap:24px;background:#fff;border:1px solid var(--hairline);border-radius:16px;padding:27px 32px}
+.recruitment-feature h2{margin:0 0 8px;font-size:21px;line-height:1.22;color:var(--ink);text-transform:none;letter-spacing:-.035em}
+.recruitment-feature p:not(.eyebrow){font-size:14px;color:#515b6a;max-width:60ch}
+.recruitment-feature .more{flex:none;font-size:14px;font-weight:600}
+@media(max-width:650px){.site-main .recruitment-feature{flex-direction:column;align-items:flex-start;padding:23px}}
 .site-footer{max-width:1160px;margin:auto;padding:24px 28px 42px;border-top:1px solid var(--hairline)}
 .site-footer .foot{text-align:left;margin:0;line-height:2}
 .site-footer .foot a{color:#4a5365;text-underline-offset:4px}
@@ -246,7 +252,6 @@ a:focus-visible,button:focus-visible{outline:3px solid var(--blue);outline-offse
   .site-footer{padding:22px 20px 35px}
 }
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}*,*:before,*:after{animation:none!important;transition:none!important}}
-
 
 /* Founder-directed editorial system. All buttons are real links; no fake booking. */
 :root{--ar-night:#132238;--ar-slate:#536174}
@@ -343,6 +348,13 @@ a:focus-visible{outline:3px solid #2e5fe0;outline-offset:4px}
 }
 
 .site-header nav .nav{min-height:44px;display:inline-flex;align-items:center}
+
+.site-main > section.ar-recruitment-footer{max-width:none;border:0;border-top:1px solid #d7dce0;background:transparent;margin:25px 0 40px;padding:25px 0;display:flex;gap:28px;align-items:baseline}
+.ar-recruitment-footer .ar-kicker{min-width:200px}
+.ar-recruitment-footer p{margin:0;font-size:14px;color:#566378}
+.ar-recruitment-footer a{color:#214c7f}
+@media(max-width:620px){.site-main > section.ar-recruitment-footer{display:block}}
+
 </style>
 </head>
 <body>
@@ -358,7 +370,7 @@ a:focus-visible{outline:3px solid #2e5fe0;outline-offset:4px}
 ${bodyHtml}
 </main>
 <footer class="site-footer"><div class="foot">
-<a href="/about">About</a> · <a href="/recruit">Recruiter opportunities</a> · <a href="/terms">Terms of Service</a> ·
+<a href="/about">About</a> · <a href="/recruitment">Recruitment</a> · <a href="/terms">Terms of Service</a> ·
 <a href="/privacy">Privacy Policy</a><br>
 <a href="mailto:support@americanrider.app">support@americanrider.app</a><br>
 <a href="mailto:relations@americanrider.app">relations@americanrider.app</a><br>
