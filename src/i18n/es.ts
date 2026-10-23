@@ -67,6 +67,11 @@ export default {
   },
 
   operator: {
+    referralInviteTitle: "Invitaciones",
+    referralInviteTraveler: "Invitar a un Viajero",
+    referralInviteOperator: "Invitar a un Operador",
+    referralInviteUnavailable: "Las invitaciones aún no están disponibles.",
+    referralInviteIntro: "Comparta un enlace en privado. American Rider no solicita sus contactos.",
     fareResearchLink: "Ayude a mantener tarifas justas",
     fareResearchCountyUnavailable: "No se pudo obtener la lista de condados. Inténtelo de nuevo.",
     fareResearchReceiptUnconfirmed: "No se confirmó el envío de la información.",
