@@ -312,6 +312,60 @@ const rides = (over = {}) => ({
       st.log.transfers.every(t=>t.expectedUid==='alice'&&t.rideId==='A'));
   }
   {
+    // Provider lookup may throw after Stripe has already captured the $4
+    // disclosed fee. A HTTP error must not erase the owed $3 or re-bill.
+    const at=1790390000000;
+    const db=fakeDb({...rides({A:{
+      status:'arrived',paymentCapturePolicy:'manual_v1',
+      cancellationFeeDisclosureVersion:'net3-allin400-v1',
+      acceptedAt:at-540000,arrivedAt:at-360000,
+      pickupContactAt:at-60000,pickupContactBy:'op1',
+      pickupLat:25.7617,pickupLng:-80.1918,
+    }}),operators:{op1:{
+      currentRideId:'A',lat:25.7617,lng:-80.1918,onlineAt:at-1000,
+    }}});
+    const st=stripe(),capture=[];
+    st.settleUncapturedTravel=async args=>{
+      capture.push(args);return {manual:true,ok:true,status:'captured',captureCents:400};
+    };
+    st.operatorPayoutAccount=async()=>{throw Error('synthetic payout provider outage');};
+    const result=await cancelTravel({db,uid:'op1',operatorNoShowUid:'op1',
+      rideId:'A',deps:st,now:at,enableManualCancellationFee:true});
+    check('captured cancellation fee survives payout-provider exception without duplicate charge',
+      result.status===200&&result.body.capturedCents===400&&
+      db.data.rides.A.refundPending===false&&
+      db.data.rides.A.arrivalFeePending===true&&
+      db.data.rides.A.arrivalFeeBlockedReason==='compensation_provider_unavailable'&&
+      capture.length===1&&capture[0].uid==='alice'&&
+      st.log.transfers.length===0);
+  }
+  {
+    // A concurrent retry may have recorded pending after an earlier worker
+    // completed the transfer. The provider guard then reports already settled.
+    const at=1790390000000;
+    const db=fakeDb(rides({A:{
+      status:'cancelled',paymentCapturePolicy:'manual_v1',
+      cancellationFeeCaptureCents:400,arrivalFeeCents:300,
+      arrivalFeePending:true,arrivalFeeBlockedReason:'prior_lookup_timeout',
+      cancelledFrom:'arrived',
+    }}));
+    const st=stripe(),calls=[];
+    st.settleUncapturedTravel=async args=>{
+      calls.push(args);return {manual:true,ok:true,status:'captured',captureCents:400};
+    };
+    st.transferFixed=async args=>{
+      st.log.transfers.push(args);
+      return {ok:true,alreadySettled:true,transferId:'tr_verified'};
+    };
+    const recovered=await cancelTravel({db,uid:'alice',rideId:'A',deps:st,now:at});
+    check('concurrent already-paid cancellation clears stale pending marker',
+      recovered.status===200&&recovered.body.capturedCents===400&&
+      db.data.rides.A.arrivalFeePending===false&&
+      db.data.rides.A.arrivalFeeBlockedReason===null&&
+      st.log.transfers.length===1&&st.log.transfers[0].expectedUid==='alice'&&
+      calls.length===1&&calls[0].action==='fee');
+  }
+  {
     const at=1790390000000;
     const base={status:'arrived',paymentCapturePolicy:'manual_v1',
       cancellationFeeDisclosureVersion:'net3-allin400-v1',

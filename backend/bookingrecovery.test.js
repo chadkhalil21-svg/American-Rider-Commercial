@@ -227,6 +227,67 @@ async function main() {
     assert.equal(result.ok,false);
     assert.ok(result.errors.some(e=>e.includes('checkpoint not persisted')));
   }
+  // A verified cancellation may already have captured $4, while its $3
+  // Operator transfer awaits a previously missing payout account. Refund
+  // recovery does not see this (refundPending=false): it needs its own queue.
+  {
+    const feeDb=store(), captures=[], transfers=[];
+    feeDb.rows.set('rides/fee-retry',{
+      travelerUid:'u',operatorId:'op1',status:'cancelled',createdAt:now-100000,
+      paymentIntentId:'pi_fee',costCents:2350,paymentCapturePolicy:'manual_v1',
+      cancellationFeeCaptureCents:400,cancellationFeeCents:300,arrivalFeeCents:300,
+      arrivalFeePending:true,refundPending:false,authorizationState:'captured',
+      noShowBy:'op1',noShowAt:now-300000,
+    });
+    let recipientReady=false;
+    const feeDeps={...deps,
+      settleUncapturedTravel:async args=>{
+        captures.push(args);
+        return {manual:true,ok:true,status:'captured',captureCents:400};
+      },
+      operatorPayoutAccount:async()=>recipientReady?{accountId:'acct_op1'}:{accountId:null},
+      transferFixed:async args=>{
+        transfers.push(args);
+        await feeDb.collection('rides').doc('fee-retry').set({
+          arrivalFeeTransferId:'tr_owed',arrivalFeePending:false,arrivalFeePaidAt:now,
+        });
+        return {ok:true,transferId:'tr_owed'};
+      },
+    };
+    const first=await sweepBookingRecovery({db:feeDb,deps:feeDeps,stripeConfigured:true,now});
+    assert(first.pending.includes('fee-retry'),'unpaid $3 must remain in recovery');
+    assert.equal(feeDb.rows.get('rides/fee-retry').arrivalFeePending,true);
+    assert.equal(transfers.length,0,'cannot transfer to an unverified/missing recipient');
+    recipientReady=true;
+    const second=await sweepBookingRecovery({db:feeDb,deps:feeDeps,
+      stripeConfigured:true,now:now+1000});
+    assert(second.closed.includes('fee-retry'),JSON.stringify(second));
+    assert.equal(feeDb.rows.get('rides/fee-retry').arrivalFeePending,false);
+    assert.equal(transfers.length,1,'exactly one Operator transfer');
+    assert.equal(transfers[0].expectedUid,'u','Stripe payer must be the Traveler');
+    assert.equal(transfers[0].rideId,'fee-retry','same Travel binding');
+    assert.equal(transfers[0].amountCents,300);
+    assert(captures.every(x=>x.uid==='u'&&x.rideId==='fee-retry'&&
+      x.action==='fee'&&x.verifiedFeeCents===400),
+    'recovery must reuse only the frozen, original $4 authorization');
+    const third=await sweepBookingRecovery({db:feeDb,deps:feeDeps,
+      stripeConfigured:true,now:now+2000});
+    assert(!third.closed.includes('fee-retry')&&!third.pending.includes('fee-retry'));
+    assert.equal(transfers.length,1,'no second transfer after verified recovery');
+  }
+  // A stale marker on a non-manual or non-cancelled ride cannot authorize money.
+  {
+    const suspect=store(),attempts=[];
+    suspect.rows.set('rides/noncancelled',{travelerUid:'u',status:'accepted',
+      arrivalFeePending:true,paymentCapturePolicy:'manual_v1'});
+    suspect.rows.set('rides/unverified-fee',{travelerUid:'u',status:'cancelled',
+      arrivalFeePending:true,paymentCapturePolicy:'manual_v1',arrivalFeeCents:300});
+    const out=await sweepBookingRecovery({db:suspect,deps:{
+      ...deps,transferFixed:async x=>{attempts.push(x);return {ok:true};},
+    },stripeConfigured:true,now});
+    assert(out.ok,JSON.stringify(out));
+    assert.equal(attempts.length,0,'invalid fee markers must never trigger Stripe transfer');
+  }
   console.log('PASS unattended prepared-booking closure, paid-unmatched refund and pending retry');
 }
 main().catch((e) => { console.error(e); process.exitCode=1; });
