@@ -19,10 +19,10 @@
     .avatar{border-radius:50%;background:var(--ink);color:white;min-width:34px;height:34px;display:flex;align-items:center;justify-content:center;font-size:11px}
     .back{border:0;background:none;padding:8px 0;font:inherit;color:var(--ink);font-size:15px;cursor:pointer}
     h1{font-size:24px;font-weight:600;line-height:1.25;margin:14px 0 12px;letter-spacing:-.35px}
-    .intro{font-size:14px;line-height:22px;color:var(--muted);margin:0}
-    .card{margin-top:24px;background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px}
-    .action{display:block;width:100%;min-height:52px;border:0;border-radius:13px;background:var(--ink);color:#fff;font-size:15px;font-weight:600;padding:15px;cursor:pointer}
-    .action+.action{margin-top:14px}
+    .card{margin-top:24px;background:var(--card);border:1px solid var(--line);border-radius:16px;overflow:hidden}
+    .action{display:flex;width:100%;min-height:60px;border:0;background:#fff;color:var(--ink);font-size:15px;font-weight:500;padding:16px 18px;cursor:pointer;align-items:center;justify-content:space-between;text-align:left}
+    .chevron{font-size:24px;font-weight:300;color:var(--muted)}
+    .rule{height:1px;background:var(--line);margin:0 18px}
     .action:focus-visible,.back:focus-visible{outline:3px solid #36516F;outline-offset:3px}
     .notice{display:none;margin-top:14px;border:1px solid var(--line);border-radius:12px;padding:13px;background:white;font-size:13px;color:#3A3F49;line-height:1.45}
     .notice.visible{display:block}
@@ -43,10 +43,10 @@
     </header>
     <button class="back" type="button" onclick="history.length>1?history.back():location.assign('/')">‹ Back</button>
     <h1>Invitations</h1>
-    <p class="intro">Send a link privately. American Rider does not request your contacts.</p>
     <section class="card" aria-label="Choose invitation">
-      <button class="action" type="button" data-invite="traveler">Invite a Traveler</button>
-      <button class="action" type="button" data-invite="operator">Invite an Operator</button>
+      <button class="action" type="button" data-invite="traveler"><span>Invite a Traveler</span><span class="chevron" aria-hidden="true">›</span></button>
+      <div class="rule" aria-hidden="true"></div>
+      <button class="action" type="button" data-invite="operator"><span>Invite an Operator</span><span class="chevron" aria-hidden="true">›</span></button>
     </section>
     <p id="notice" class="notice" role="status" aria-live="polite">Invitations are not yet available.</p>
     <nav class="nav" aria-label="Operator tabs (visual preview only)">
