@@ -340,6 +340,32 @@ const rides = (over = {}) => ({
       st.log.transfers.length===0);
   }
   {
+    // A concurrent retry may have recorded pending after an earlier worker
+    // completed the transfer. The provider guard then reports already settled.
+    const at=1790390000000;
+    const db=fakeDb(rides({A:{
+      status:'cancelled',paymentCapturePolicy:'manual_v1',
+      cancellationFeeCaptureCents:400,arrivalFeeCents:300,
+      arrivalFeePending:true,arrivalFeeBlockedReason:'prior_lookup_timeout',
+      cancelledFrom:'arrived',
+    }}));
+    const st=stripe(),calls=[];
+    st.settleUncapturedTravel=async args=>{
+      calls.push(args);return {manual:true,ok:true,status:'captured',captureCents:400};
+    };
+    st.transferFixed=async args=>{
+      st.log.transfers.push(args);
+      return {ok:true,alreadySettled:true,transferId:'tr_verified'};
+    };
+    const recovered=await cancelTravel({db,uid:'alice',rideId:'A',deps:st,now:at});
+    check('concurrent already-paid cancellation clears stale pending marker',
+      recovered.status===200&&recovered.body.capturedCents===400&&
+      db.data.rides.A.arrivalFeePending===false&&
+      db.data.rides.A.arrivalFeeBlockedReason===null&&
+      st.log.transfers.length===1&&st.log.transfers[0].expectedUid==='alice'&&
+      calls.length===1&&calls[0].action==='fee');
+  }
+  {
     const at=1790390000000;
     const base={status:'arrived',paymentCapturePolicy:'manual_v1',
       cancellationFeeDisclosureVersion:'net3-allin400-v1',
