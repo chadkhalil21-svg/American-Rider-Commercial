@@ -110,13 +110,36 @@ export function watchAssignedTravel(
     onError?.(t('traveler.errNotSignedIn'));
     return () => {};
   }
-  try {
-    const q = query(collection(db, 'rides'),
-      where('operatorId', '==', uid),
-      where('status', 'in', ['assigned', 'accepted', 'arrived', 'onboard']));
-    return onSnapshot(
+  // Firestore calls a snapshot error callback when that listener is terminal.
+  // Without a fresh subscription, an on-duty Operator can silently lose offers
+  // for the rest of the session. Keep the last known records and report the outage.
+  // Reattach with bounded backoff, never poll the fleet or pretend it is empty.
+  let disposed = false;
+  let failures = 0;
+  let retryTimer: ReturnType<typeof setTimeout> | null = null;
+  let stopListening: (() => void) | null = null;
+  const retry = (reason: string) => {
+    if (disposed) return;
+    onError?.(reason);
+    if (retryTimer) return;
+    const delay = Math.min(3_000 * 2 ** Math.min(failures++, 6), 120_000);
+    retryTimer = setTimeout(() => {
+      retryTimer = null;
+      listen();
+    }, delay);
+  };
+  const listen = () => {
+    if (disposed) return;
+    try {
+      const q = query(collection(db, 'rides'),
+        where('operatorId', '==', uid),
+        where('status', 'in', ['assigned', 'accepted', 'arrived', 'onboard']));
+      stopListening = onSnapshot(
       q,
       (snap) => {
+        if (disposed) return;
+        failures = 0;
+        onError?.('');
         const open = snap.docs
           .map((d) => {
             const x = d.data() as Record<string, unknown>;
@@ -175,15 +198,24 @@ export function watchAssignedTravel(
       // That is the same shape as the firebase-admin outage that hid for weeks because the
       // failure was reported honestly at every step except the one that mattered.
       (e) => {
-        onChange([]);
-        onError?.(e?.message || t('traveler.errReadTravel'));
+        if (disposed) return;
+        // Error callbacks terminate the listener. Do not replace real assignments
+        // with an invented empty inbox, and do not retry without a bounded delay.
+        stopListening?.();
+        stopListening = null;
+        retry(e?.message || t('traveler.errReadTravel'));
       },
     );
-  } catch (e) {
-    onChange([]);
-    onError?.(e instanceof Error ? e.message : t('traveler.errReadTravel'));
-    return () => {};
-  }
+    } catch (e) {
+      retry(e instanceof Error ? e.message : t('traveler.errReadTravel'));
+    }
+  };
+  listen();
+  return () => {
+    disposed = true;
+    if (retryTimer) clearTimeout(retryTimer);
+    stopListening?.();
+  };
 }
 
 /**
