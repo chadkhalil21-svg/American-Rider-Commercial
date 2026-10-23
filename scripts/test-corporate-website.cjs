@@ -49,5 +49,6 @@ assert.match(css,/@media\(max-width:700px\)/);
 assert.match(css,/focus-visible/);
 assert.match(css,/prefers-reduced-motion/);
 assert.match(css,/\.heritage-hero/);
+assert.match(css,/clamp\(58px,18vw,105px\)/,"small mobile headings must fit");
 assert.ok(!fs.existsSync(path.join(root,".env")),"no server secrets in site");
 console.log("PASS: corporate website, recruitment, accessible CSS, local legal pages, and domain truth");
