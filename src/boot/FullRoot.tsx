@@ -20,6 +20,8 @@ import { OperatorProvider } from '../state/OperatorContext';
 import { RideProvider } from '../state/RideContext';
 import { VoiceProvider } from '../state/VoiceContext';
 import { colors } from '../theme';
+import { readPendingInvite, clearPendingInvite } from '../backend/referralPending';
+import { recordInvitation } from '../backend/referrals';
 
 // The Stack is always mounted (so expo-router routing works). Until the user is
 // signed in, the sign-up screen is shown as a full-screen overlay on top of it.
@@ -35,6 +37,23 @@ function AppGate() {
     process.env.EXPO_PUBLIC_AUTH_PREVIEW_BYPASS === '1' &&
     typeof window !== 'undefined' &&
     new URLSearchParams(window.location.search).get('preview') === 'app';
+
+  // After ordinary signup, a server-owned claim attaches an invitation once.
+  // No new form, polling listener or contact permissions.
+  useEffect(() => {
+    if (!user || initializing || onboarding) return;
+    let active = true;
+    (async () => {
+      const pending = await readPendingInvite();
+      if (!pending || !active) return;
+      const status = await recordInvitation(pending.code, pending.role);
+      if (!active) return;
+      if (status !== 'retry') await clearPendingInvite();
+      if (active && status === 'recorded' && pending.role === 'operator')
+        router.replace('/operator/qualify');
+    })();
+    return () => { active = false; };
+  }, [user?.uid, user?.emailVerified, initializing, onboarding, router]);
 
   // REGISTERED ONCE THERE IS AN ACCOUNT TO REGISTER AGAINST, not at launch. The token is
   // stored on `users/{uid}`, so asking before sign-in would have nowhere to put it — and
