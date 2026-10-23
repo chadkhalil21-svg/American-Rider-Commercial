@@ -131,7 +131,7 @@ const { authorizeVoiceTravel, lostItemTravel, authorizeAnnouncement, claimAnnoun
 const { authorizeTravelMessage } = require('./travel-message-policy');
 const { TERMS_HTML, PRIVACY_HTML, ABOUT_HTML, ACCOUNT_DELETION_HTML, legalPage, LEGAL_LANGUAGES } = require('./legal');
 const {
-  HOME_HTML, OPERATE_HTML, SUPPORT_HTML, TRAVEL_HTML, SAFETY_HTML, SMART_HTML,
+  HOME_HTML, OPERATE_HTML, SUPPORT_HTML, TRAVEL_HTML, SAFETY_HTML, SMART_HTML, RECRUITMENT_HTML,
 } = require('./site');
 const { smartQuote, revalidateTransit } = require('./smart');
 const { transitHealth } = require('./transit');
@@ -665,6 +665,7 @@ app.post('/account/delete', requireAuth, requireFreshAuth, async (req, res) => {
 app.get('/', (req, res) => res.type('html').send(HOME_HTML));
 app.get('/travel', (req, res) => res.type('html').send(TRAVEL_HTML));
 app.get('/operate', (req, res) => res.type('html').send(OPERATE_HTML));
+app.get('/recruitment', (req, res) => res.type('html').send(RECRUITMENT_HTML));
 app.get('/safety', (req, res) => res.type('html').send(SAFETY_HTML));
 app.get('/support', (req, res) => res.type('html').send(SUPPORT_HTML));
 app.get('/smart-travel', (req, res) => res.type('html').send(SMART_HTML));
