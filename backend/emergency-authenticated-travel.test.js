@@ -108,19 +108,19 @@ const read = (uid, rideId = RIDE) => emergencyTravelContext({ db, uid, rideId })
     push.includes("pathname: '/emergency', params: { rideId }"),
     'cold-start emergency push preserves canonical Travel for both roles');
   const support = source('src/backend/support.ts');
-  const tickets = source('backend/tickets.js');
+  const ticketsSource = source('backend/tickets.js');
   assert(screen.includes('rideId: currentVerified?.rideId ?? null') &&
     screen.includes('[notify.state, notify.caseNo, currentVerified?.rideId]'),
     'a verified late-loading Operator Travel must refresh active GPS case updates');
   assert(support.includes('rideId?: string | null;') &&
     server.includes("rideId: typeof b.rideId === 'string' ? b.rideId : null"),
     'native GPS updates send a bounded untrusted hint to the server');
-  assert(tickets.includes("context.role !== 'operator'") &&
-    tickets.includes('context.monitoredCase?.caseNo !== String(caseNo)') &&
-    tickets.includes("['resolved', 'closed'].includes(existing.status)"),
+  assert(ticketsSource.includes("context.role !== 'operator'") &&
+    ticketsSource.includes('context.monitoredCase?.caseNo !== String(caseNo)') &&
+    ticketsSource.includes("['resolved', 'closed'].includes(existing.status)"),
     'Operator GPS requires the exact live monitored case and cannot reopen closed incidents');
-  assert(tickets.includes("'emergency.operatorLocation': position") &&
-    tickets.includes("'emergency.coords': position.coords"),
+  assert(ticketsSource.includes("'emergency.operatorLocation': position") &&
+    ticketsSource.includes("'emergency.coords': position.coords"),
     'Operator and Traveler GPS must be stored separately, not overwritten');
   assert(screen.includes("Linking.openURL('tel:911')"),
     'Call 911 must remain immediately available');
