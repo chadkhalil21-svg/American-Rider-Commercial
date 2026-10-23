@@ -727,16 +727,22 @@ async function sweepAssignments({ now = Date.now(), checkMarket } = {}) {
     // RELEASED BY POST /travel/accept: the operator it was offered to is no longer eligible.
     // Neither notified nor given the answer window — it goes straight to somebody else.
     if (!ride.notifiedOperatorAt && !ride.releasedAt) {
-      await notify({
+      const operatorNotice = await notify({
         uid: ride.operatorId,
         kind: 'travel_assigned',
         title: 'Travel assigned',
         body: `${ride.dep || 'Pickup'} to ${ride.dest || 'destination'}. Open to accept.`,
         data: { screen: '/operator', rideId: ride.id, tripNo: ride.tripNo || '' },
       });
-      await write(db, ride.id, { notifiedOperatorAt: now });
-      out.notified.push(ride.id);
-      continue; // give them the window before anything is taken away
+      if (operatorNotice?.ok === true) {
+        await write(db, ride.id, { notifiedOperatorAt: now });
+        out.notified.push(ride.id);
+        continue; // an accepted notification gets its ordinary answer window
+      }
+      // If the device or Expo rejects the notice, do not claim it was delivered.
+      // Before the normal answer deadline the Operator can still see the assigned
+      // Travel in their live inbox. Afterwards, fall through to re-offer the SAME
+      // paid Travel. Never retry a nonexistent push token forever at this gate.
     }
 
     if (since < ANSWER_WINDOW_SEC && !ride.releasedAt) continue;
