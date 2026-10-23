@@ -153,12 +153,13 @@ async function cancelTravel({ db, uid, rideId, deps, stripeConfigured = true, no
   // Settled travels are finished journeys; cancelling one is a support matter, not this route.
   if (ride.transferId) return fail(409, 'That travel has already been completed and paid out', 'already_settled');
 
-  // Before arrival: full refund. After arrival: less a $3 arrival fee paid to the operator.
-  // Onboard or completed: refused, and directed to Patron Support. (Unchanged.)
+  // A legacy captured-fare cancellation retains a fee ONLY when the server
+  // verified it under the commissioned policy and froze that decision at closure.
+  // Arrival alone is not proof or permission to charge a fee.
+  // Onboard or completed: refused, and directed to Patron Support.
   if (ride.status === 'onboard' || ride.status === 'completed') {
     return fail(409, 'This travel is already underway and cannot be cancelled. Patron Support can settle anything that went wrong with it.', 'travel_underway');
   }
-  const ARRIVAL_FEE_CENTS = 300;
 
   // Close and release the one-Operator reservation together. A concurrent completion or
   // payment claim cannot be raced by an out-of-date read above.
@@ -213,6 +214,21 @@ async function cancelTravel({ db, uid, rideId, deps, stripeConfigured = true, no
     // and a genuine, upfront Traveler disclosure were already stored.
     // Once closed, retry the ORIGINAL frozen fee. Never re-price after the
     // Operator slot has been released, GPS has aged, or a later flag changes.
+    // A pre-captured legacy Travel never gets the newer manual $4 fee.
+    // Freeze its independently verified $3/zero outcome atomically with
+    // cancellation, so recovery cannot invent a fee after flags, GPS, or
+    // Operator availability change. Old cancelled records without an original
+    // fee decision fail closed at zero, never retroactively charge.
+    const legacyFeeCents=current.paymentCapturePolicy==='manual_v1' ? 0
+      : current.status==='cancelled'
+        ? (priorDecision?.feeCents ?? 0)
+        : enableVerifiedProgressFee
+          ? (feeDecision?.feeCents ?? 0)
+          : 0;
+    const legacyFeeReason=priorDecision?.reason ||
+      (current.status==='cancelled'?'unverified_legacy_cancellation'
+        : enableVerifiedProgressFee?(feeDecision?.reason||'fee_unverified')
+          :'fee_not_commissioned');
     const grossManual=current.status==='cancelled' &&
       Number.isSafeInteger(current.cancellationFeeCaptureCents)
       ? current.cancellationFeeCaptureCents
@@ -230,19 +246,24 @@ async function cancelTravel({ db, uid, rideId, deps, stripeConfigured = true, no
         ? {cancellationFeeCaptureCents:grossManual}:{}),
       cancelledFrom: current.cancelledFrom || current.status,
       refundPending: !!current.paymentIntentId,
-      ...(!noShowOperator&&enableVerifiedProgressFee ? {
+      ...(current.paymentCapturePolicy!=='manual_v1' ? {
+        cancellationFeeCents:legacyFeeCents,
+        cancellationFeeReason:legacyFeeReason,
+        ...(feeDecision?.evidence ? {cancellationFeeEvidence:feeDecision.evidence} : {}),
+      } : !noShowOperator&&enableVerifiedProgressFee ? {
         cancellationFeeCents:feeDecision.feeCents,
         cancellationFeeReason:feeDecision.reason,
         cancellationFeeEvidence:feeDecision.evidence||null,
-      }:{}),
+      } : {}),
     });
-    return { current, feeDecision, grossManual };
+    return { current, feeDecision, grossManual, legacyFeeCents };
   });
   if (closed.status) return closed;
   const currentRide = closed.current;
-  const arrivalFee = noShowOperator?NO_SHOW_NET_CENTS:enableVerifiedProgressFee
-    ? closed.feeDecision.feeCents
-    : (String(currentRide.cancelledFrom || currentRide.status || '') === 'arrived' ? ARRIVAL_FEE_CENTS : 0);
+  // Frozen when the Travel first closes. Feature flags must never
+  // retroactively change a promised refund or invent an arrival fee.
+  const arrivalFee = currentRide.paymentCapturePolicy==='manual_v1'
+    ? 0 : closed.legacyFeeCents;
 
   // THE PAYMENT IS THE TRAVEL'S OWN. Never the request's: see the header.
   const paymentIntentId = String(currentRide.paymentIntentId || '');
