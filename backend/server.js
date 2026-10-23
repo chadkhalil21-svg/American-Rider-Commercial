@@ -692,6 +692,14 @@ app.post('/referrals/claim',requireAuth,requireFreshAuth,requireVerifiedEmail,
     const db=adminDb();
     if(!db)return res.status(503).json({ok:false,code:'database_unavailable'});
     try {
+      // A current American Rider Traveler cannot be re-labelled as a new
+      // recruit after placing any Travel. One bounded indexed read, only
+      // during authenticated claim, never on click or ordinary app launch.
+      if(role==='traveler'){
+        const prior=await db.collection('rides')
+          .where('travelerUid','==',String(req.uid)).limit(1).get();
+        if(!prior.empty)return res.status(409).json({ok:false,reason:'existing_traveler'});
+      }
       const authUser=await require('firebase-admin/auth').getAuth().getUser(String(req.uid));
       if(authUser.disabled)return res.status(403).json({ok:false,code:'account_disabled'});
       const createdAt=Date.parse(authUser.metadata.creationTime||'');
