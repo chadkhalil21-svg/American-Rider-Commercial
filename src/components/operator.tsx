@@ -186,7 +186,10 @@ export function OperatorDrawer({
           router.replace('/');
         }),
     },
-    { label: t('operator.referralInviteTitle'), onPress: () => go(() => router.navigate('/operator/invite')) },
+    // Hide the not-yet-commissioned feature rather than exposing dead buttons.
+    ...(process.env.EXPO_PUBLIC_REFERRALS_ENABLED === '1'
+      ? [{ label: t('operator.referralInviteTitle'), onPress: () => go(() => router.navigate('/operator/invite')) }]
+      : []),
     { label: 'Documents', onPress: () => go(() => router.navigate('/operator/documents')) },
     { label: 'Insurance', onPress: () => go(() => router.navigate('/operator/insurance')) },
     { label: 'Communications', onPress: () => go(() => router.navigate('/operator/inbox')) },
