@@ -9,7 +9,8 @@
 // the traveler sees exactly what the recipient receives. An invitation that grants access and
 // is recorded against the inviter is a feature with a cost, and can be named once it exists.
 import React, { useState } from 'react';
-import { Share, StyleSheet } from 'react-native';
+import { Platform, Share, StyleSheet } from 'react-native';
+import { personalInvitation } from '../src/backend/referrals';
 import { Text } from '../src/components/AppText';
 import { useGoBack } from '../src/components/nav';
 import { Card, LetterheadBar, PrimaryButton, Screen, SectionLabel, Sub, Title } from '../src/components/UI';
@@ -29,7 +30,14 @@ export default function Invitations() {
   const sendInvitation = async () => {
     setShareFailed(false);
     try {
-      await Share.share({ message });
+      // Keep the existing screen and its invitation text exactly as designed.
+      // Where the account has a real enabled referral link, attach it in the
+      // native share sheet; otherwise ordinary untracked sharing still works.
+      // Never claim the link has generated rewards or ask for contacts.
+      const link = await personalInvitation('traveler');
+      await Share.share(link && Platform.OS === 'ios'
+        ? { message, url: link }
+        : { message: link ? `${message} ${link}` : message });
     } catch {
       setShareFailed(true);
     }
