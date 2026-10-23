@@ -2,10 +2,12 @@
 const assert=require('node:assert/strict');
 const path=require('node:path');
 const ROOT=__dirname;
-const data=new Map(),sent=[];
+const data=new Map(),rides=new Map(),sent=[];
+const RIDE='a'.repeat(40), WRONG='b'.repeat(40);
 const fakeDb={
   collection(name) {
-    assert.equal(name,'support_tickets');
+    assert(['support_tickets','rides'].includes(name));
+    if(name==='rides')return{doc(id){return{async get(){const v=rides.get(id);return{exists:!!v,data:()=>({...v})};}};}};
     return {
       doc(id) {
         return {
@@ -75,6 +77,37 @@ const {fileTicket,updateTicketLocation}=require('./tickets');
  const reused=await updateTicketLocation({caseNo:first.caseNo,uid:'u-fixture',
    address:'Synthetic position later',coords:{lat:25.8,lng:-80.4}});
  assert.equal(reused.ok,true);assert.equal(sent.length,3,'location update is not repeatedly mailed');
+ // MONITORED EMERGENCY: the ticket belongs to the Traveler, but the
+ // assigned Operator may share live GPS ONLY for that active Travel/case.
+ rides.set(RIDE,{
+   travelerUid:'u-fixture',operatorId:'op-fixture',status:'onboard',
+   tripNo:'fixture-ride',monitor:{state:'emergency',caseNo:first.caseNo},
+ });
+ const opUpdated=await updateTicketLocation({caseNo:first.caseNo,uid:'op-fixture',
+   rideId:RIDE,address:'Operator GPS',coords:{lat:25.81,lng:-80.37}});
+ assert.equal(opUpdated.ok,true,'active assigned Operator may update verified monitored case');
+ assert.equal(data.get(first.caseNo).emergency.coords.lat,25.81);
+ assert.equal(sent.length,3,'existing location is updated without duplicate email');
+ const unrelated=await updateTicketLocation({caseNo:first.caseNo,uid:'intruder',
+   rideId:RIDE,address:'Forged location',coords:{lat:0,lng:0}});
+ assert.equal(unrelated.ok,false,'guessed case and ride IDs are not authorization');
+ const wrongRide=await updateTicketLocation({caseNo:first.caseNo,uid:'op-fixture',
+   rideId:WRONG,address:'Forged location',coords:{lat:0,lng:0}});
+ assert.equal(wrongRide.ok,false,'an unrelated Travel ID cannot authorize Operator GPS');
+ rides.get(RIDE).monitor.caseNo=second.caseNo;
+ const wrongIncident=await updateTicketLocation({caseNo:first.caseNo,uid:'op-fixture',
+   rideId:RIDE,address:'Old incident',coords:{lat:0,lng:0}});
+ assert.equal(wrongIncident.ok,false,'a different incident in the same Travel is not authorized');
+ rides.get(RIDE).monitor.caseNo=first.caseNo;
+ rides.get(RIDE).status='completed';
+ const oldOperator=await updateTicketLocation({caseNo:first.caseNo,uid:'op-fixture',
+   rideId:RIDE,address:'Late after Travel',coords:{lat:0,lng:0}});
+ assert.equal(oldOperator.ok,false,'a completed Travel is no longer live Operator GPS evidence');
+ rides.get(RIDE).status='onboard';
+ const restore=await updateTicketLocation({caseNo:first.caseNo,uid:'u-fixture',
+   address:'Traveler GPS restored',coords:{lat:25.8,lng:-80.4}});
+ assert.equal(restore.ok,true,'original Traveler can always update their own open Emergency');
+ assert.equal(sent.length,3);
  const scheduled={
    uid:'u-fixture',kind:'support',reason:'Scheduled Travel requires Operations review',
    idempotencyKey:'scheduled-review-1234567890abcdef1234567890abcdef',
@@ -100,6 +133,11 @@ const {fileTicket,updateTicketLocation}=require('./tickets');
    address:'Moved after closure',coords:{lat:25.9,lng:-80.3}});
  assert.equal(closedPosition.ok,false,'closed Emergency is not silently reopened by GPS timer');
  assert.equal(data.get(first.caseNo).emergency.coords.lat,25.8);
+ data.set(first.caseNo,{...data.get(first.caseNo),status:'closed'});
+ const administrativelyClosed=await updateTicketLocation({caseNo:first.caseNo,uid:'u-fixture',
+   address:'GPS after administrative close',coords:{lat:25.9,lng:-80.3}});
+ assert.equal(administrativelyClosed.ok,false,
+   'administratively closed case is just as closed as a resolved case');
  const afterScheduled=sent.length;
  const scheduledAgain=await fileTicket(scheduled);
  assert.equal(scheduledAgain.caseNo,scheduledFirst.caseNo);
