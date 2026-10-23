@@ -124,6 +124,7 @@ function reset(pass) {
     tripNo:'AR-SYN-'+pass, status:'accepted',costCents:1900,
     paymentIntentId:null,dep:'Synthetic A',dest:'Synthetic B',
   };
+  data.users.op={stripeAccountId:'acct_fake_operator'};
   data.operators.op={available:true};
 }
 async function run(pass){

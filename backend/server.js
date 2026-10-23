@@ -1052,16 +1052,51 @@ app.post('/connect/onboard', requireAuth, LIMITS.connect, requireActiveOperating
       return res.status(409).json({code:'payout_fee_consent_required',
         error:'Review and agree to the separately billed Connect account and payout charges before opening the payout account.'});
     }
-    const existing = operator?.stripeAccountId || null;
-    const account = await connectAccountFor({
-      uid: req.uid,
-      email: req.email,
-      existingAccountId: existing,
+    const userRef = db.collection('users').doc(String(req.uid));
+    const claim = await db.runTransaction(async tx => {
+      const snap = await tx.get(userRef);
+      const current = snap.exists ? (snap.data() || {}) : {};
+      if (!require('./connect-fee-consent').currentConnectFeeConsent(current.stripeFeeConsent))
+        return { consentRequired: true };
+      if (current.stripeAccountId) return { existing: current.stripeAccountId };
+      const started = Number(current.stripeAccountCreateStartedAt || 0);
+      const now = Date.now();
+      // Stripe only guarantees a reused idempotency key for 24 hours.
+      // After 23 hours of uncertainty, stop: an automatic retry could create
+      // a second account. This is a rare reconciliation exception, not a new fee.
+      if (started && (started > now || now - started >= 23 * 60 * 60 * 1000))
+        return { reconciliationRequired: true };
+      if (!started)
+        tx.set(userRef, { stripeAccountCreateStartedAt: now }, { merge: true });
+      return { existing: null };
     });
-    await db.collection('users').doc(String(req.uid)).set(
-      { stripeAccountId: account.id, stripeAccountAt: Date.now() },
-      { merge: true },
-    );
+    if (claim.consentRequired) return res.status(409).json({
+      code: 'payout_fee_consent_required',
+      error: 'Review and agree to the Connect account and payout charges.',
+    });
+    if (claim.reconciliationRequired) return res.status(409).json({
+      code: 'connect_account_reconciliation_required',
+      error: 'We could not confirm the payout account. Contact Support before retrying account creation.',
+    });
+    // Concurrent first-time calls share one persisted claim and one Stripe
+    // idempotency key. Existing accounts are retrieved, never silently replaced.
+    const account = await connectAccountFor({
+      uid: String(req.uid),
+      email: req.email,
+      existingAccountId: claim.existing,
+    });
+    await db.runTransaction(async tx => {
+      const snap = await tx.get(userRef);
+      const current = snap.exists ? (snap.data() || {}) : {};
+      if (current.stripeAccountId && current.stripeAccountId !== account.id)
+        throw new Error('Payout account changed during onboarding; reconcile first');
+      if (!current.stripeAccountId && !current.stripeAccountCreateStartedAt)
+        throw new Error('Payout account creation claim missing; reconcile first');
+      tx.set(userRef, {
+        stripeAccountId: account.id, stripeAccountAt: Date.now(),
+        stripeAccountCreateStartedAt: null,
+      }, { merge: true });
+    });
     // Save the account ID BEFORE an optional schedule change. If Stripe refuses
     // the update, retrying onboarding resumes this account, never creates a duplicate.
     // Unconfigured deployments preserve the current provider payout cadence.

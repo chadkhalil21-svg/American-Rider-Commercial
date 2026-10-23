@@ -799,21 +799,29 @@ async function refundTravel({ paymentIntentId, amountCents, expectUid, idempoten
 /** Create (or reuse) the operator's connected account. Keyed on their Firebase uid. */
 async function connectAccountFor({ uid, email, existingAccountId }) {
   const stripe = getStripe();
+  if (!uid || typeof uid !== 'string') throw new Error('Operator identity required');
   if (existingAccountId) {
-    try {
-      return await stripe.accounts.retrieve(existingAccountId);
-    } catch {
-      // Deleted or from the other mode — fall through and make a fresh one.
-    }
+    // A timeout, temporary Stripe outage or revoked permission is not proof
+    // that an existing bank/payout account was deleted. NEVER replace it.
+    const existing = await stripe.accounts.retrieve(existingAccountId);
+    if (existing.id !== existingAccountId ||
+        (existing.metadata?.uid && String(existing.metadata.uid) !== uid))
+      throw new Error('Stored Operator account identity requires reconciliation');
+    return existing;
   }
+  // The server stores a Firestore creation claim BEFORE this Stripe request.
+  // During Stripe's 24-hour idempotency period, retries return the same
+  // account. After 23 hours, the server stops rather than risk a second one.
+  const { createHash } = require('node:crypto');
+  const key = 'ar_connect_account_v1_' + createHash('sha256').update(uid).digest('hex');
   return stripe.accounts.create({
     type: 'express',
     country: 'US',
     email: email || undefined,
     business_type: 'individual',
     capabilities: { transfers: { requested: true }, card_payments: { requested: true } },
-    metadata: { uid: String(uid) },
-  });
+    metadata: { uid },
+  }, { idempotencyKey: key });
 }
 
 /**

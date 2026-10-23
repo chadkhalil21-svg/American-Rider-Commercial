@@ -10,6 +10,9 @@ const root=path.resolve(__dirname,'..');
 const tests=[
   'backend/native-route-target-audit.test.js',
   'backend/payout-status-outage-truth.test.js',
+  'backend/connect-account-identity.test.js',
+  'backend/connect-onboard-atomic.test.js',
+  'backend/webhookdurability.test.js',
   'backend/visible-control-action-audit.test.js',
   'backend/operator-review-feedback.test.js',
   'backend/native-wallet-pickup-release-contract.test.js',
