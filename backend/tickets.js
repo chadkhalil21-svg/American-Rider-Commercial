@@ -164,21 +164,35 @@ async function fileTicket({ uid, email, description, trip, reason, kind, emergen
  * Returns { ok }. Best-effort by design: the app has already told the traveler where the
  * notification stands, and a dropped update must not change that.
  */
-async function updateTicketLocation({ caseNo, uid, address, coords }) {
+async function updateTicketLocation({ caseNo, uid, address, coords, rideId = null }) {
   const d = db();
   if (!d || !caseNo || !uid) return { ok: false };
   try {
     const ref = d.collection('support_tickets').doc(String(caseNo));
     const snap = await ref.get();
-    if (!snap.exists || snap.data()?.uid !== uid) return { ok: false };
+    if (!snap.exists) return { ok: false };
     const existing = snap.data() || {};
-    // A support/dispute case is never an Emergency location feed, even when
-    // the requester owns it. A closed Emergency cannot be silently revived.
-    if (existing.kind !== 'emergency' || existing.status === 'resolved') return { ok: false };
+    // Neither an ordinary support record nor a closed incident may receive
+    // GPS updates, regardless of the caller's role or knowledge of a case ID.
+    if (existing.kind !== 'emergency' ||
+        ['resolved', 'closed'].includes(existing.status)) return { ok: false };
     if (coords && (!Number.isFinite(coords.lat) || !Number.isFinite(coords.lng) ||
         Math.abs(coords.lat) > 90 || Math.abs(coords.lng) > 180))
       return { ok: false };
     if (!coords && !address) return { ok: false };
+
+    if (existing.uid !== uid) {
+      // Route monitoring creates the Emergency ticket under the Traveler UID.
+      // The assigned Operator may have the most accurate live position, but
+      // must prove membership in THAT active Travel and THAT monitored case.
+      // Neither a case number nor an arbitrary rideId grants access.
+      const { emergencyTravelContext } = require('./emergency-travel-context');
+      const context = await emergencyTravelContext({ db: d, uid, rideId });
+      if (!context || context.active !== true ||
+          context.role !== 'operator' ||
+          context.monitoredCase?.caseNo !== String(caseNo))
+        return { ok: false };
+    }
 
     await ref.update({
       'emergency.address': address || null,
