@@ -370,7 +370,7 @@ async function sweepScheduled({ now = Date.now(), checkMarket } = {}) {
         if (teenPickup.required && r.party?.teenUid) await notify({ uid: r.party.teenUid,
           kind: 'teen_pickup_code', title: 'Your pickup code',
           body: 'Your private pickup code is available inside American Rider. Confirm the vehicle and Operator before sharing it.',
-          data: { screen: '/ride', rideId, tripNo: r.tripNo || '' } });
+          data: { screen: '/teen-pickup', rideId, tripNo: r.tripNo || '' } });
         if (teenPickup.required && r.party?.guardianUid && r.party.guardianUid !== r.party.teenUid) {
           await notify({ uid: r.party.guardianUid, kind: 'guardian_travel',
             title: 'Teen Travel assigned', body: `${r.party.travelerName || 'Teen Traveler'}'s scheduled Travel has been assigned.`,
