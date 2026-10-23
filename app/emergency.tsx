@@ -19,11 +19,12 @@
 import * as Location from 'expo-location';
 import * as Crypto from 'expo-crypto';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { useLocalSearchParams } from 'expo-router';
 import { Linking, Platform, Pressable, Share, StyleSheet, View } from 'react-native';
 import { Text } from '../src/components/AppText';
 import { useGoBack } from '../src/components/nav';
 import { Card, Display, LetterheadBar, Mono, Screen, SectionLabel, Sub } from '../src/components/UI';
-import { alertEmergency, updateEmergencyLocation } from '../src/backend/support';
+import { alertEmergency, fetchEmergencyTravelContext, updateEmergencyLocation, type VerifiedEmergencyTravel } from '../src/backend/support';
 import { loadContacts, type TrustedContact } from '../src/contacts';
 import { useRide } from '../src/state/RideContext';
 import { useOperator } from '../src/state/OperatorContext';
@@ -65,7 +66,34 @@ export default function Emergency() {
     matchedOperator: ride.matchedOp,
     travelerTrip: ride.lastTrip,
   });
-  const { hasOperator, operator, vehicle, plate, tripNo } = facts;
+  // A push can wake an Operator before their usual live Travel state restores.
+  // The incoming ID is a hint only; the backend independently proves membership.
+  const params = useLocalSearchParams<{ rideId?: string }>();
+  const pushedRide = typeof params.rideId === 'string' && /^[a-f0-9]{40}$/.test(params.rideId)
+    ? params.rideId : null;
+  const localRide = operatorState.role === 'operator'
+    ? operatorState.op?.rideId : ride.matchedOp?.rideId;
+  const candidateRideId = pushedRide ||
+    (typeof localRide === 'string' && /^[a-f0-9]{40}$/.test(localRide) ? localRide : null);
+  const [verifiedTravel, setVerifiedTravel] = useState<VerifiedEmergencyTravel | null>(null);
+  useEffect(() => {
+    let active = true;
+    setVerifiedTravel(null);
+    if (candidateRideId) {
+      void fetchEmergencyTravelContext(candidateRideId).then(next => {
+        if (active) setVerifiedTravel(next);
+      });
+    }
+    return () => { active = false; };
+  }, [candidateRideId]);
+
+  const hasOperator = verifiedTravel
+    ? !!(verifiedTravel.operator && verifiedTravel.vehicle && verifiedTravel.plate)
+    : facts.hasOperator;
+  const operator = verifiedTravel ? verifiedTravel.operator : facts.operator;
+  const vehicle = verifiedTravel ? verifiedTravel.vehicle : facts.vehicle;
+  const plate = verifiedTravel ? verifiedTravel.plate : facts.plate;
+  const tripNo = verifiedTravel ? verifiedTravel.tripNo : facts.tripNo;
   const hasVehicleFacts = !!(vehicle && plate);
   const hasOperatorName = !!operator;
 
@@ -155,6 +183,7 @@ export default function Emergency() {
     try {
       const result = await alertEmergency({
       requestId,
+      rideId: candidateRideId,
       // Send ONLY an actual active Traveler/Operator Travel. Never manufacture
       // a previous or demonstration journey for an Emergency record.
       trip: tripNo
@@ -181,7 +210,7 @@ export default function Emergency() {
     } finally {
       alertBusy.current = false;
     }
-  }, [requestId, tripNo, operator, vehicle, plate, facts]);
+  }, [requestId, candidateRideId, tripNo, operator, vehicle, plate, facts]);
   const alerted = useRef(false);
   useEffect(() => {
     if (alerted.current) return;
@@ -226,7 +255,7 @@ export default function Emergency() {
     t('traveler.emgWhereIAm', { place: locationLine }) +
     (fix ? ' ' + t('traveler.emgAsOf', { time: clockLabel(fix.at) }) : '') +
     (tripNo
-      ? '\n' + t('traveler.emgRouteLine', { from: facts.dep, to: facts.arr })
+      ? '\n' + t('traveler.emgRouteLine', { from: verifiedTravel?.dep || facts.dep, to: verifiedTravel?.dest || facts.arr })
       : '') +
     (hasVehicleFacts ? '\n' + t('traveler.emgVehicleLine', { vehicle, plate }) : '') +
     (hasOperatorName ? '\n' + t('traveler.emgOperatorLine', { name: operator }) : '') +
