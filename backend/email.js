@@ -83,6 +83,20 @@ const row = (k, v, mono) =>
  * receipt that itemises what the screens do not is a second version of the price.
  */
 function receiptEmail(ride) {
+  // Fla. Stat. 627.748(6) requires time and distance as well as endpoints
+  // and fare in the transmitted electronic receipt. Use server-stored facts:
+  // ride time is boarded-to-completed, route miles come from the quoted route.
+  // Never derive invented measurements from dates, nearby points or a phone.
+  const onboard = Number(ride.onboardAt);
+  const completed = Number(ride.completedAt);
+  const measuredMinutes = Number.isSafeInteger(onboard) && onboard > 0 &&
+    Number.isSafeInteger(completed) && completed > onboard
+      ? Math.max(1, Math.round((completed - onboard) / 60000)) : null;
+  const milesValue = ride.miles == null ? NaN : Number(ride.miles);
+  const routeDistance = Number.isFinite(milesValue) && milesValue >= 0
+    ? `${milesValue.toFixed(1)} miles (recorded route)` : 'Not recorded';
+  const travelTime = measuredMinutes !== null
+    ? `${measuredMinutes} minutes (boarding to completion)` : 'Not recorded';
   const total = money(ride.costCents);
   const when = new Date(Number(ride.completedAt) || Number(ride.createdAt) || Date.now())
     .toLocaleString('en-US', {
@@ -97,6 +111,8 @@ function receiptEmail(ride) {
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:20px;">
       ${row('From', ride.dep || '—')}
       ${row('To', ride.dest || '—')}
+      ${row('Travel time', travelTime)}
+      ${row('Route distance', routeDistance)}
       ${row('Class', ride.travelClass || 'Standard')}
       ${row('Operator', ride.operatorName || '—')}
       ${row('Travel Number', ride.tripNo || '—', true)}
@@ -113,6 +129,8 @@ function receiptEmail(ride) {
     `TRAVEL RECEIPT\n${total}\n${when}\n\n` +
     `From:          ${ride.dep || '—'}\n` +
     `To:            ${ride.dest || '—'}\n` +
+    `Travel time:   ${travelTime}\n` +
+    `Route distance:${' '}${routeDistance}\n` +
     `Class:         ${ride.travelClass || 'Standard'}\n` +
     `Operator:      ${ride.operatorName || '—'}\n` +
     `Travel Number: ${ride.tripNo || '—'}\n` +
