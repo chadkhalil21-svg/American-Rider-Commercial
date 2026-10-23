@@ -102,7 +102,7 @@ const read = (uid, rideId = RIDE) => emergencyTravelContext({ db, uid, rideId })
   assert(screen.includes('useOperator()') &&
     screen.includes('fetchEmergencyTravelContext(candidateRideId)'));
   assert(screen.includes('rideId: candidateRideId') && screen.includes('trip: null') &&
-    screen.includes("const tripNo = verifiedTravel?.tripNo || ''"),
+    screen.includes("const tripNo = currentVerified?.tripNo || ''"),
     'Emergency lookup hint is not unverified client Travel evidence');
   assert(push.includes("if (screen === '/emergency')") &&
     push.includes("pathname: '/emergency', params: { rideId }"),
