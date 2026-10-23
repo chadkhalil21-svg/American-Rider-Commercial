@@ -125,6 +125,55 @@ export async function fetchMyCases(): Promise<{ cases: SupportCase[]; unavailabl
   }
 }
 
+export type VerifiedEmergencyTravel = {
+  rideId: string;
+  tripNo: string;
+  dep: string;
+  dest: string;
+  operator: string;
+  vehicle: string;
+  plate: string;
+  role: 'operator' | 'traveler';
+  monitoredCase: { caseNo: string; stored: boolean; emailed: boolean } | null;
+};
+
+/** Only the backend may attest Emergency Travel identity or an existing incident.
+ * An unavailable lookup never yields imaginary vehicle details. */
+export async function fetchEmergencyTravelContext(
+  rideId: string,
+): Promise<VerifiedEmergencyTravel | null> {
+  if (!/^[a-f0-9]{40}$/.test(rideId)) return null;
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 5000);
+  try {
+    const res = await fetch(
+      `${PAYMENT_SERVER_URL}/emergency/context?rideId=${encodeURIComponent(rideId)}`,
+      { headers: await authHeaders(), signal: controller.signal },
+    );
+    if (!res.ok) return null;
+    const data = await res.json();
+    const v = data?.context;
+    if (!v || v.rideId !== rideId || typeof v.tripNo !== 'string') return null;
+    return {
+      rideId, tripNo: v.tripNo, dep: typeof v.dep === 'string' ? v.dep : '',
+      dest: typeof v.dest === 'string' ? v.dest : '',
+      operator: typeof v.operator === 'string' ? v.operator : '',
+      vehicle: typeof v.vehicle === 'string' ? v.vehicle : '',
+      plate: typeof v.plate === 'string' ? v.plate : '',
+      role: v.role === 'operator' ? 'operator' : 'traveler',
+      monitoredCase: v.monitoredCase?.stored === true &&
+        typeof v.monitoredCase.caseNo === 'string'
+          ? { caseNo: v.monitoredCase.caseNo, stored: true,
+              emailed: v.monitoredCase.emailed === true }
+          : null,
+    };
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 export type EmergencyReport = {
   ok: boolean;
   caseNo: string | null;
@@ -142,6 +191,7 @@ export type EmergencyReport = {
  */
 export async function alertEmergency(args: {
   requestId: string;
+  rideId?: string | null;
   // NULL WHEN NO TRAVEL IS UNDERWAY. An emergency can be raised from the safety screen with
   // nothing booked, and until 19 Sept 2026 that case was filed against the seeded
   // demonstration journey because the screen read it out of `lastTrip`. A case describing a
