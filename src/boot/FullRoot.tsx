@@ -61,8 +61,30 @@ function AppGate() {
       const recipientUid = typeof data?.recipientUid === 'string' ? data.recipientUid : null;
       if (!user || !recipientUid || recipientUid !== user.uid) return;
       const screen = typeof data?.screen === 'string' ? data.screen : null;
-      const allowed = new Set(['/ride', '/receipt', '/operator', '/operator/insurance', '/family']);
-      if (screen && allowed.has(screen)) router.navigate(screen as never);
+      // Keep the list explicit and auditable. Every route is a real screen
+      // authored by our notification publishers. A push may NAVIGATE only;
+      // it never accepts Travel, transfers funds, or bypasses account security.
+      const allowed = new Set([
+        '/ride', '/receipt', '/operator', '/operator/insurance', '/family',
+        '/operator/trip', '/emergency', '/wallet', '/', '/history', '/teen-pickup',
+      ]);
+      if (screen && allowed.has(screen)) {
+        // The Teen notification carries only a Travel ID, not the pickup PIN.
+        // Validate the format and require a fresh authenticated server lookup.
+        // An arbitrary push cannot reveal another account's secret.
+        if (screen === '/teen-pickup') {
+          const rideId = typeof data?.rideId === 'string' ? data.rideId : '';
+          if (!/^[a-f0-9]{40}$/.test(rideId)) return;
+          router.navigate({ pathname: '/teen-pickup', params: { rideId } } as never);
+          return;
+        }
+        // A receipt needs a selected, server-backed Travel. After a cold
+        // start there is no selected record yet, so going straight to the
+        // receipt renders a blank frame. The Travel Log loads actual history
+        // and lets the Traveler select the correct receipt instead.
+        const destination = screen === '/receipt' ? '/history' : screen;
+        router.navigate(destination as never);
+      }
     };
     const unsubscribe = onNotificationTap(open);
     // Expo may have launched us FROM a notification before React subscribed.

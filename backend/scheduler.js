@@ -369,17 +369,20 @@ async function sweepScheduled({ now = Date.now(), checkMarket } = {}) {
         const teenPickup = await provisionTeenPin({ rideRef, rideId, party: r.party || null, now });
         if (teenPickup.required && r.party?.teenUid) await notify({ uid: r.party.teenUid,
           kind: 'teen_pickup_code', title: 'Your pickup code',
-          body: `Give ${teenPickup.pin} to your Operator after confirming the vehicle and Operator.`,
-          data: { screen: '/ride', rideId, tripNo: r.tripNo || '' } });
+          body: 'Your private pickup code is available inside American Rider. Confirm the vehicle and Operator before sharing it.',
+          data: { screen: '/teen-pickup', rideId, tripNo: r.tripNo || '' } });
         if (teenPickup.required && r.party?.guardianUid && r.party.guardianUid !== r.party.teenUid) {
           await notify({ uid: r.party.guardianUid, kind: 'guardian_travel',
             title: 'Teen Travel assigned', body: `${r.party.travelerName || 'Teen Traveler'}'s scheduled Travel has been assigned.`,
             data: { screen: '/family', rideId, tripNo: r.tripNo || '' } });
         }
-        await notify({ uid: assigned.body.matched.id, kind: 'travel_assigned',
+        const operatorNotice = await notify({ uid: assigned.body.matched.id, kind: 'travel_assigned',
           title: 'Scheduled travel assigned', body: `${r.dep || 'Pickup'} to ${r.dest || 'destination'}. Open to accept.`,
           data: { screen: '/operator', rideId, tripNo: r.tripNo || '' } });
-        await rideRef.set({ notifiedOperatorAt: Date.now() }, { merge: true });
+        // An unavailable device/token does not certify an accepted notification.
+        // Preserve the assigned Travel and let sweepAssignments recover it.
+        if (operatorNotice?.ok === true)
+          await rideRef.set({ notifiedOperatorAt: Date.now() }, { merge: true });
         await notify({ uid: r.travelerUid, kind: 'operator_assigned',
           title: 'Your operator is on the way',
           body: `${assigned.body.matched.name || 'An operator'} is ${assigned.body.matched.etaMin} minutes from ${r.dep || 'your pickup'}.`,

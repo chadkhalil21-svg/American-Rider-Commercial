@@ -355,7 +355,7 @@ async function sweepMonitor({ now = Date.now() } = {}) {
         body: `Your travel has been stationary for ${Math.round(stillMin)} minutes. Is everything alright?`,
         data: { screen: '/ride', rideId: ride.id },
       });
-      if (ride.party?.teen && ride.party?.guardianUid && String(ride.party.guardianUid) !== String(ride.travelerUid)) await notify({ uid: ride.party.guardianUid, kind:'guardian_travel', title:'Teen Travel check-in', body:`${ride.party.travelerName || 'The Teen Traveler'}'s Travel has been stationary and American Rider has started a check-in.`, data:{screen:'/ride',rideId:ride.id,tripNo:ride.tripNo||''} });
+      if (ride.party?.teen && ride.party?.guardianUid && String(ride.party.guardianUid) !== String(ride.travelerUid)) await notify({ uid: ride.party.guardianUid, kind:'guardian_travel', title:'Teen Travel check-in', body:`${ride.party.travelerName || 'The Teen Traveler'}'s Travel has been stationary and American Rider has started a check-in.`, data:{screen:'/family',rideId:ride.id,tripNo:ride.tripNo||''} });
             report.asked.push({ rideId: ride.id, who: 'traveler' });
       continue;
     }
@@ -726,17 +726,26 @@ async function sweepAssignments({ now = Date.now(), checkMarket } = {}) {
 
     // RELEASED BY POST /travel/accept: the operator it was offered to is no longer eligible.
     // Neither notified nor given the answer window — it goes straight to somebody else.
-    if (!ride.notifiedOperatorAt && !ride.releasedAt) {
-      await notify({
+    // A notification sent AFTER its acceptance deadline would tell an Operator
+    // to respond to an offer that may already be being reassigned. Never start
+    // a fresh answer window based only on a late push acknowledgment.
+    if (since < ANSWER_WINDOW_SEC && !ride.notifiedOperatorAt && !ride.releasedAt) {
+      const operatorNotice = await notify({
         uid: ride.operatorId,
         kind: 'travel_assigned',
         title: 'Travel assigned',
         body: `${ride.dep || 'Pickup'} to ${ride.dest || 'destination'}. Open to accept.`,
         data: { screen: '/operator', rideId: ride.id, tripNo: ride.tripNo || '' },
       });
-      await write(db, ride.id, { notifiedOperatorAt: now });
-      out.notified.push(ride.id);
-      continue; // give them the window before anything is taken away
+      if (operatorNotice?.ok === true) {
+        await write(db, ride.id, { notifiedOperatorAt: now });
+        out.notified.push(ride.id);
+        continue; // an accepted notification gets its ordinary answer window
+      }
+      // If the device or Expo rejects the notice, do not claim it was delivered.
+      // Before the normal answer deadline the Operator can still see the assigned
+      // Travel in their live inbox. Afterwards, fall through to re-offer the SAME
+      // paid Travel. Never retry a nonexistent push token forever at this gate.
     }
 
     if (since < ANSWER_WINDOW_SEC && !ride.releasedAt) continue;

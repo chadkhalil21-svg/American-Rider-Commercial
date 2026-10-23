@@ -3926,14 +3926,16 @@ app.post('/travel/dispatch', requireAuth, LIMITS.dispatch, requireFreshAuth, req
     if (outcome.body.matched && !outcome.body.reused) {
       // Non-delivery cannot roll back the money/assignment transaction. The assignment sweep
       // retries missing notifications. The Teen code was provisioned before the offer.
-      if (teen.required && ride.party?.teenUid) await notify({ uid: ride.party.teenUid, kind: 'teen_pickup_code', title: 'Your pickup code', body: `Give ${teen.pin} to your Operator after confirming the vehicle and Operator.`, data: { screen: '/ride', rideId: id, tripNo: ride.tripNo } });
+      if (teen.required && ride.party?.teenUid) await notify({ uid: ride.party.teenUid, kind: 'teen_pickup_code', title: 'Your pickup code', body: 'Your private pickup code is available inside American Rider. Confirm the vehicle and Operator before sharing it.', data: { screen: '/teen-pickup', rideId: id, tripNo: ride.tripNo } });
       if (teen.required && ride.party?.guardianUid && ride.party.guardianUid !== ride.party.teenUid) {
         await notify({ uid: ride.party.guardianUid, kind: 'guardian_travel', title: 'Teen Travel assigned',
           body: `${ride.party.travelerName || 'Teen Traveler'}'s Travel has been assigned. You can follow it in American Rider.`,
           data: { screen: '/family', rideId: id, tripNo: ride.tripNo } });
       }
-      await notify({ uid: outcome.body.matched.id, kind: 'travel_assigned', title: 'Travel assigned', body: `${ride.dep || 'Pickup'} to ${ride.dest || 'destination'}. Open to accept.`, data: { screen: '/operator', rideId: id, tripNo: ride.tripNo } });
-      await ref.update({ notifiedOperatorAt: Date.now() });
+      const operatorNotice = await notify({ uid: outcome.body.matched.id, kind: 'travel_assigned', title: 'Travel assigned', body: `${ride.dep || 'Pickup'} to ${ride.dest || 'destination'}. Open to accept.`, data: { screen: '/operator', rideId: id, tripNo: ride.tripNo } });
+      // An attempted push is not an Expo-accepted push. Keep the absence
+      // visible to the assignment sweep, while preserving this SAME paid Travel.
+      if (operatorNotice?.ok === true) await ref.update({ notifiedOperatorAt: Date.now() });
     }
     return res.json(outcome.body);
   } catch (e) { return res.status(502).json({ error: e.message, code: 'dispatch_unavailable' }); }
@@ -4452,7 +4454,8 @@ app.post('/travel/announce', requireAuth, LIMITS.announce, async (req, res) => {
         body: `${ride.dep || 'Pickup'} to ${ride.dest || 'destination'}. Open to accept.`,
         data: { screen: '/operator', rideId, tripNo: trip },
       });
-      await ref.set({ notifiedOperatorAt: Date.now() }, { merge: true });
+      // Failed push remains eligible for the existing server re-offer sweep.
+      if (sent?.ok === true) await ref.set({ notifiedOperatorAt: Date.now() }, { merge: true });
     } else if (event === 'arrived') {
       if (ride.party?.teen && ride.party?.guardianUid && String(ride.party.guardianUid) !== String(ride.travelerUid)) await notify({ uid: ride.party.guardianUid, kind:'guardian_travel', title:'Operator arrived', body:`${ride.operatorName || 'The Operator'} has arrived for ${ride.party.travelerName || 'the Teen Traveler'}.`, data:{screen:'/family',rideId,tripNo:trip} });
       sent = await notify({
