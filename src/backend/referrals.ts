@@ -25,6 +25,6 @@ export async function personalInvitation(role:InviteRole):Promise<string|null>{
 }
 export async function recordInvitation(code:string,role:InviteRole):Promise<'recorded'|'finished'|'retry'>{
   const out=await deadline(`${PAYMENT_SERVER_URL}/referrals/claim`,'POST',{code,role});
-  if(!out||out.status>=500)return 'retry';
+  if(!out||out.status>=500||out.status===401||out.status===403)return 'retry';
   return out.status===200&&out.data?.recorded===true?'recorded':'finished';
 }
