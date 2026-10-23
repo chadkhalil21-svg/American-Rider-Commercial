@@ -925,6 +925,7 @@ export default {
     authorizationAmount: '%{amount} autorisiert. Nicht abgebucht.',
     authorizationFreeCancel: 'Wenn keine Stornierungsgebühr anfällt, gibt die Bank die vollständige Reservierung frei.',
     authorizationBookingTerms: "Die Kartenautorisierung wird gemäß den bei der Buchung akzeptierten Stornobedingungen freigegeben oder angepasst.",
+    cancellationAmountVerified: "Die Erstattung richtet sich nach den bei der Buchung vereinbarten Bedingungen. Eine Gebühr wird nur bei bestätigtem Anspruch einbehalten; den endgültigen Erstattungsbetrag bestätigt der Dienst.",
     cancellationFeeNet3Disclosure: 'Bei berechtigter Stornierung oder Nichterscheinen können 4,00 $ anfallen; 3,00 $ erhält der Operator. Andernfalls wird der reservierte Betrag freigegeben.',
     paymentStatusUnverified: 'Der Zahlungsstatus ist noch nicht bestätigt. Stornieren Sie die Fahrt, damit der Server die Zahlung vor dem Verlassen klärt.',
     keepTravel: 'Fahrt behalten',
