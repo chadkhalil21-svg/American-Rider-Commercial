@@ -317,7 +317,7 @@ export async function withdrawAcceptedTravel(rideId: string): Promise<{ok:boolea
 
 // An exceptional Operator action. No charge, refund or terminal status is
 // written by the phone. The authenticated server decides eligibility and money.
-export async function markNoShow(rideId: string): Promise<{ok:boolean;code?:string;refundPending?:boolean}> {
+export async function markNoShow(rideId: string): Promise<{ok:boolean;code?:string;refundPending?:boolean;operatorPaymentPending?:boolean}> {
   if (!rideId) return {ok:false,code:'missing_travel'};
   try {
     const token=await auth.currentUser?.getIdToken();
@@ -329,7 +329,8 @@ export async function markNoShow(rideId: string): Promise<{ok:boolean;code?:stri
     const out=await res.json().catch(()=>({}));
     return {ok:res.ok && out.ok===true,
       code:res.ok?undefined:String(out.code||'no_show_unavailable'),
-      refundPending:out.refundPending===true};
+      refundPending:out.refundPending===true,
+      operatorPaymentPending:out.operatorPaymentPending===true};
   } catch { return {ok:false,code:'network_unavailable'}; }
 }
 
