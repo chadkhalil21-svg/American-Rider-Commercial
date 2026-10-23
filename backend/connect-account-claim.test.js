@@ -85,7 +85,7 @@ users.set(uid,{stripeFeeConsent:consent});
   assert.equal(users.get(uid).stripeAccountId,created.id);
   const existing=await reserveConnectAccount({db,uid,now:start+3000});
   assert.equal(existing.existingAccountId,created.id);
-  assert.equal(await connectAccountFor({uid,existingAccountId:created.id}),created.id);
+  assert.equal((await connectAccountFor({uid,existingAccountId:created.id})).id,created.id);
   // The returned account object is the preserved original account, not another creation.
   assert.equal(createCalls,1);
   retrievalThrows=true;
