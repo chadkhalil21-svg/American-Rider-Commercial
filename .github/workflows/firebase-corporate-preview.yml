@@ -1,0 +1,40 @@
+name: American Rider corporate site preview (Google Firebase)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: american-rider-firebase-corporate-preview
+  cancel-in-progress: false
+
+jobs:
+  website-preview:
+    if: ${{ github.ref == 'refs/heads/release/current' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: american-rider-commercial-live
+    steps:
+      - name: Use approved website source
+        uses: actions/checkout@v4
+      - name: Build and test static website only
+        run: |
+          set -euo pipefail
+          node backend/corporate-website.test.js
+          test -f dist-corporate/index.html
+      - name: Authenticate existing Google identity (no new key)
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: projects/623854974930/locations/global/workloadIdentityPools/github-production/providers/github
+          service_account: ar-production-deployer@american-rider-35688.iam.gserviceaccount.com
+      - name: Prepare Firebase command-line tool
+        run: npm install --global firebase-tools
+      - name: Deploy temporary website preview only
+        env:
+          GOOGLE_CLOUD_PROJECT: american-rider-35688
+        run: |
+          set -euo pipefail
+          firebase hosting:channel:deploy corporate-review --project american-rider-35688 --expires 7d --non-interactive
