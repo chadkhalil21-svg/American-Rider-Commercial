@@ -694,6 +694,14 @@ app.post('/referrals/claim',requireReferralLaunch,requireAuth,
     const db=adminDb();
     if(!db)return res.status(503).json({ok:false,code:'database_unavailable'});
     try{
+      // New Traveler attribution must not claim an existing person who has
+      // already booked Travel. This indexed, bounded lookup runs on claim only.
+      if(role==='traveler'){
+        const previousTravel=await db.collection('rides')
+          .where('travelerUid','==',String(req.uid)).limit(1).get();
+        if(!previousTravel.empty)
+          return res.status(409).json({ok:false,reason:'existing_traveler'});
+      }
       // Immutable Auth creation timestamp; the phone cannot invent a "new" user.
       const verified=await require('firebase-admin/auth').getAuth().getUser(String(req.uid));
       if(verified.disabled)return res.status(403).json({ok:false,code:'account_disabled'});
