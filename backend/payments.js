@@ -800,11 +800,10 @@ async function refundTravel({ paymentIntentId, amountCents, expectUid, idempoten
 async function connectAccountFor({ uid, email, existingAccountId }) {
   const stripe = getStripe();
   if (existingAccountId) {
-    try {
-      return await stripe.accounts.retrieve(existingAccountId);
-    } catch {
-      // Deleted or from the other mode — fall through and make a fresh one.
-    }
+    // An outage, timeout, permission error, or deleted account is NOT permission
+    // to create another Operator identity. Preserve the canonical account link
+    // until Stripe and the Operator's actual record can be reconciled.
+    return stripe.accounts.retrieve(existingAccountId);
   }
   return stripe.accounts.create({
     type: 'express',
