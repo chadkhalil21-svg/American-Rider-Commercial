@@ -14,6 +14,8 @@ const db = { collection(name) {
         if (failRead) throw new Error('database query unavailable');
         if (name === 'rides' && field === 'paymentIntentId' && value === 'pi_one')
           return { docs: [{ id: 'r1', data: () => ({ ...ride }) }] };
+        if (name === 'users' && field === 'stripeAccountId' && value === 'acct_1')
+          return { docs: [{ id: 'op1', data: () => ({ stripeAccountId: 'acct_1' }) }] };
         return { docs: [] };
       } }; } };
     },
@@ -73,5 +75,16 @@ const dispute = { id:'evt_dispute_1', type:'charge.dispute.created', data:{objec
   failFleetWrite=false;
   assert.equal((await handleEvent(restricted)).ok,true);
   assert.equal(fleet.available,false,'a restriction is not acknowledged before Operator availability is revoked');
-  console.log('PASS Stripe dispute alerts and account restriction retry until durable state; no duplicate case key');
+  fleet.available=true;
+  const forged={...restricted,id:'evt_unrelated_account',
+    data:{object:{...restricted.data.object,id:'acct_other',metadata:{uid:'op1'}}}};
+  const ignored=await handleEvent(forged);
+  assert.equal(ignored.action,'account not linked to an Operator');
+  assert.equal(fleet.available,true,'unlinked account metadata cannot disable an Operator');
+  const wrongMetadata={...restricted,id:'evt_wrong_metadata',
+    data:{object:{...restricted.data.object,metadata:{uid:'some_other_operator'}}}};
+  const verified=await handleEvent(wrongMetadata);
+  assert.equal(verified.ok,true);
+  assert.equal(fleet.available,false,'only canonical account mapping controls account restriction');
+  console.log('PASS Stripe dispute alerts, authentic account-link restrictions, spoofed metadata ignored; no duplicate case key');
 })().catch((e)=>{console.error(e);process.exitCode=1;});

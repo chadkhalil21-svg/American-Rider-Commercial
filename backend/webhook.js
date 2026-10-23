@@ -256,8 +256,11 @@ async function handleEvent(event) {
     // ---- Stripe changed its mind about an operator. ---------------------------------
     case 'account.updated': {
       const enabled = !!obj.payouts_enabled && !!obj.charges_enabled;
-      const uid = obj.metadata?.uid || (await uidByStripeAccount(db, obj.id));
-      if (!uid) return { ok: true, action: 'account not ours' };
+      // The Stripe object's mutable metadata is NOT proof of which Operator
+      // owns a payout account. Only the account ID in our authenticated
+      // users/{uid} record may authorize a fleet change.
+      const uid = await uidByStripeAccount(db, obj.id);
+      if (!uid) return { ok: true, action: 'account not linked to an Operator' };
 
       // AN OPERATOR STRIPE HAS RESTRICTED MUST NOT KEEP TAKING TRAVEL. They would be driving
       // for money that cannot reach them, which is the one thing the 99% promise cannot
