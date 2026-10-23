@@ -64,6 +64,11 @@ export default {
   // is deliberate and it translates as vocabulary, not as description — "Commence Operations"
   // becomes the equivalent formal undertaking in each language, never "start working".
   operator: {
+    referralInviteTitle: "Invitations",
+    referralInviteTraveler: "Invite a Traveler",
+    referralInviteOperator: "Invite an Operator",
+    referralInviteUnavailable: "Invitations are not yet available.",
+    referralInviteIntro: "Send a link privately. American Rider does not request your contacts.",
     fareResearchLink: "Help keep fares fair",
     fareResearchCountyUnavailable: "County list unavailable. Please try again.",
     fareResearchReceiptUnconfirmed: "Research submission not confirmed.",
