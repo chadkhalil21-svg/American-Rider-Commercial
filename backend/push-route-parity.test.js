@@ -26,7 +26,7 @@ for (const filename of publishers) {
   }
 }
 const required = ['/', '/wallet', '/operator/trip', '/emergency', '/ride', '/receipt',
-  '/operator', '/operator/insurance', '/family'];
+  '/operator', '/operator/insurance', '/family', '/teen-pickup'];
 for (const route of required) {
   assert(published.has(route) || route === '/receipt',
     route + ' should be used by existing publishers');
