@@ -186,6 +186,7 @@ export function OperatorDrawer({
           router.replace('/');
         }),
     },
+    { label: t('operator.referralInviteTitle'), onPress: () => go(() => router.navigate('/operator/invite')) },
     { label: 'Documents', onPress: () => go(() => router.navigate('/operator/documents')) },
     { label: 'Insurance', onPress: () => go(() => router.navigate('/operator/insurance')) },
     { label: 'Communications', onPress: () => go(() => router.navigate('/operator/inbox')) },
