@@ -120,6 +120,7 @@ const { resolveOperatorIssue } = require('./operatorsupport');
 const { fileTicket, updateTicketLocation, listTickets, resolveTicket } = require('./tickets');
 const { lostItemTicket, stampLostItemCase, notifyLostItemOperators, operatorLostItem, respondLostItem } = require('./lostitem');
 const { adminDb, adminStatus, accountDisabled } = require('./firebase-admin');
+const referrals = require('./referral-service');
 const { closeOperationalAccount } = require('./accountclosure');
 const { finalizeAccountDeletion, sweepAccountDeletion } = require('./accountdeletion');
 const { acceptOffer } = require('./eligibility');
@@ -665,6 +666,43 @@ app.get('/smart-travel', (req, res) => res.type('html').send(SMART_HTML));
 // Three screens in the app link to it (`${LEGAL_URL}/about`), so it has been a dead link
 // everywhere it appears.
 app.get('/about', (req, res) => res.type('html').send(ABOUT_HTML));
+// Referral enrollment is prepared but NEVER silently launches as a money scheme.
+// Enable only after web/store paths, signed-device tests, budget and counsel review.
+// The toggle controls links + claims; no incentive payout occurs in either state.
+const REFERRALS_ENABLED=readKey('AR_REFERRALS_ENABLED')==='1';
+const referralsLimit=perAccount({name:'referrals',limit:12,windowMs:60*60*1000});
+app.get('/referrals/share',requireAuth,requireFreshAuth,requireVerifiedEmail,
+  referralsLimit,async(req,res)=>{
+    if(!REFERRALS_ENABLED)return res.status(503).json({ok:false,code:'referrals_not_launched'});
+    const role=req.query?.role;
+    if(role!=='traveler'&&role!=='operator')
+      return res.status(400).json({ok:false,code:'invalid_role'});
+    const db=adminDb();
+    if(!db)return res.status(503).json({ok:false,code:'database_unavailable'});
+    const out=await referrals.shareLink({db,uid:String(req.uid),role});
+    return res.status(out.ok?200:503).json(out);
+  });
+app.post('/referrals/claim',requireAuth,requireFreshAuth,requireVerifiedEmail,
+  referralsLimit,async(req,res)=>{
+    if(!REFERRALS_ENABLED)return res.status(503).json({ok:false,code:'referrals_not_launched'});
+    const role=req.body?.role,code=req.body?.code;
+    if((role!=='traveler'&&role!=='operator')||
+       typeof code!=='string'||code.length>32)
+      return res.status(400).json({ok:false,code:'invalid_invitation'});
+    const db=adminDb();
+    if(!db)return res.status(503).json({ok:false,code:'database_unavailable'});
+    try {
+      const authUser=await require('firebase-admin/auth').getAuth().getUser(String(req.uid));
+      if(authUser.disabled)return res.status(403).json({ok:false,code:'account_disabled'});
+      const createdAt=Date.parse(authUser.metadata.creationTime||'');
+      const out=await referrals.claim({db,uid:String(req.uid),code,role,
+        authCreatedAtMs:createdAt});
+      return res.status(out.ok?200:out.reason==='claim_unavailable'?503:409).json(out);
+    } catch{
+      return res.status(503).json({ok:false,code:'account_verification_unavailable'});
+    }
+  });
+
 // ?lang=es serves the Spanish document. Apple opens these links by hand during review and a
 // traveler opens them from sign-up; both get English unless they ask otherwise, and asking for
 // a language we do not have returns English rather than a half-translated page.
