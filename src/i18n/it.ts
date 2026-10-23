@@ -1348,6 +1348,7 @@ export default {
     record: "Segnalare l’assenza",
     closed: "Viaggio chiuso",
     refundPending: "Il rimborso al Viaggiatore è in attesa di verifica.",
+    compensationPending: "Il compenso dell’Operatore è in attesa di verifica. Il Viaggio è chiuso.",
     paymentReconciled: "Il pagamento del Viaggiatore è stato riconciliato.",
     messageRequired: "Invii prima un messaggio al Viaggiatore tramite Contatta.",
     unavailable: "La gestione delle assenze non è ancora disponibile. Contatti l’assistenza.",
