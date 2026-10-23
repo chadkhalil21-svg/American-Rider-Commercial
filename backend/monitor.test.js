@@ -577,6 +577,42 @@ const check = (l, c, d) => results.push({ l, ok: !!c, d });
     check('an unpaid Travel is never reoffered', rep.stranded.includes('r1') && !rep.reoffered.length);
   }
 
+  // An attempted notification is not an accepted notification. The offer
+  // still exists in the Operator inbox and keeps its normal answer window.
+  {
+    const h = makeDb({ rides: { r1: assigned({
+      createdAt: now - 20_000, offeredAt: now - 20_000,
+      notifiedOperatorAt: null,
+    }) }, operators: {} });
+    const rep = await inject(h.db, { pushFails: ['op1'] }).sweepAssignments({ now });
+    check('failed Operator push does not invent notification success or prematurely reassign',
+      h.data.rides.r1.notifiedOperatorAt == null &&
+      rep.notified.length === 0 && rep.reoffered.length === 0 &&
+      h.data.rides.r1.status === 'assigned', JSON.stringify(rep));
+  }
+  {
+    const h = makeDb({ rides: { r1: assigned({
+      createdAt: now - 20_000, offeredAt: now - 20_000,
+      notifiedOperatorAt: null,
+    }) }, operators: {} });
+    const rep = await inject(h.db).sweepAssignments({ now });
+    check('provider-accepted Operator push records the attempt for the existing answer window',
+      h.data.rides.r1.notifiedOperatorAt === now &&
+      rep.notified.includes('r1') && h.data.rides.r1.status === 'assigned', JSON.stringify(rep));
+  }
+  {
+    const h = makeDb({ rides: { r1: assigned({
+      createdAt: now - 70_000, offeredAt: now - 70_000,
+      notifiedOperatorAt: null,
+    }) }, operators: {} });
+    const rep = await inject(h.db, { pushFails: ['op1'] }).sweepAssignments({ now });
+    check('failed push past answer window reaches normal replacement handling, not endless Retry',
+      h.data.rides.r1.notifiedOperatorAt == null &&
+      rep.stranded.includes('r1') && rep.notified.length === 0 &&
+      h.data.rides.r1.status === 'assigned' &&
+      h.data.rides.r1.paymentIntentId === 'pi_r1', JSON.stringify(rep));
+  }
+
   // 15. A fleet flag alone is not qualification. The replacement has no authoritative user
   // record in this fixture, so the hardened sweep must refuse it rather than re-offer blindly.
   {
