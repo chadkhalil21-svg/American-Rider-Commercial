@@ -23,8 +23,9 @@
 // not a framing one: an operator in another state reading it would be misinformed. Minimums
 // are set state by state and are named as Florida's.
 //
-// The figures are real, verified against Stripe on 19 Aug 2026: a $24.50 travel charges
-// $26.00, transfers $24.26, and leaves $1.74. If the fare model changes, change them here.
+// October 2026 website correction: remove obsolete fixed-value examples and avoid claiming
+// a successful App Store launch, live capacity, or service outside verified geography.
+// The canonical backend owns each actual all-in Travel Total; this page has no quote engine.
 const { page } = require('./shell');
 
 const HOME_HTML = page(
@@ -32,54 +33,51 @@ const HOME_HTML = page(
   `
 <div class="hero">
   <div class="name">American Rider</div>
-  <div class="line">Transportation arranged between travelers and independent operators.</div>
+  <div class="line">Considered travel. Clear terms. Independent operators.</div>
   <div class="rule"></div>
 </div>
 
 <div class="statement">
-  <div class="lbl">The operator retains</div>
+  <div class="lbl">The Operator retains</div>
   <div class="figure">99%</div>
-  <div class="note">of every travel fare</div>
+  <div class="note">of the Travel Fare</div>
 </div>
 
 <section>
-  <h2>A travel in full</h2>
-  <p>One price, quoted before the travel and covering the journey in full.</p>
-  <div class="rows" style="margin-top:16px">
-    <div><span class="k">Travel fare</span><span class="amount">$24.50</span></div>
-    <div class="split"><span class="k">To the operator</span><span class="amount">$24.26</span></div>
-    <div><span class="k">American Rider commission</span><span class="amount">$0.24</span></div>
-  </div>
-  <p style="margin-top:16px">The traveler is quoted one Total before reservation. A platform
-  fee funds payment and platform infrastructure without reducing the operator's 99% share of
-  the travel fare. Government fees and tolls, when applicable, are passed through to their
-  beneficiaries rather than retained by American Rider.</p>
+  <h2>One clear Total</h2>
+  <p>Review the complete price before reserving. The Total includes the Travel Fare,
+  a separately stated Platform Fee, and any applicable government fees and tolls.</p>
+  <p>Operators retain 99% of the Travel Fare. The Platform Fee, which starts at
+  $2.50 per Travel, supports payment processing and the service.</p>
 </section>
 
 <section>
   <h2>Travel</h2>
-  <p>A traveler names a destination, is shown the price, and is assigned the nearest qualified
-  operator. Standard, Large Vehicle and Pet Friendly are available.</p>
-  <a class="more" href="/travel">How a travel works &rsaquo;</a>
+  <p>Choose a destination and available vehicle class, review the quoted Total,
+  then request a qualified Operator. Availability depends on your pickup location
+  and the Operators currently eligible for service.</p>
+  <a class="more" href="/travel">How Travel works &rsaquo;</a>
+</section>
+
+<section>
+  <h2>Operate</h2>
+  <p>Independent Operators choose their work and retain 99% of each Travel Fare.
+  Qualification includes screening, vehicle requirements and verified
+  insurance appropriate to the location and service.</p>
+  <a class="cta" href="/operate">About operating</a>
+</section>
+
+<section>
+  <h2>Where we begin</h2>
+  <p>Our initial service region is South Florida: Miami-Dade, Broward and
+  Palm Beach counties. Current booking availability is determined in the app.
+  The public app-store release has not yet been verified.</p>
 </section>
 
 <section>
   <h2>Smart Travel</h2>
-  <p>Currently unavailable. We are verifying transit schedules and journey connections
-  before introducing this option. Ordinary American Rider Travel remains available.</p>
-</section>
-
-<section>
-  <h2>Operators</h2>
-  <p>Operators are independent contractors. They own their vehicles, carry their own commercial
-  coverage. On completion of each Travel, American Rider initiates the Operator’s earnings transfer to the Operator’s Stripe connected account; bank payout timing follows the Operator’s Stripe payout schedule.</p>
-  <a class="cta" href="/operate">Operate with American Rider</a>
-</section>
-
-<section>
-  <h2>Service</h2>
-  <p>American Rider begins service in Miami, Florida. The app is in its test program and is
-  not yet published on the App Store.</p>
+  <p>Smart Travel is temporarily unavailable while transit information and
+  journey connections are verified.</p>
 </section>
 `,
   '/',
@@ -92,22 +90,18 @@ const OPERATE_HTML = page(
 <p class="lede">The fare is the operator's, less a 1% coordination commission.</p>
 
 <div class="statement">
-  <div class="lbl">On a $24.50 travel</div>
-  <div class="figure">$24.26</div>
-  <div class="note">to the operator</div>
+  <div class="lbl">Operator share</div>
+  <div class="figure">99%</div>
+  <div class="note">of each Travel Fare</div>
 </div>
 
 <section>
-  <h2>The whole travel</h2>
-  <div class="rows">
-    <div><span class="k">Travel fare</span><span class="amount">$24.50</span></div>
-    <div><span class="k">Coordination commission (1%)</span><span class="amount">$0.24</span></div>
-    <div><span class="k">Operator receives</span><span class="amount">$24.26</span></div>
-  </div>
-  <p style="margin-top:16px">The platform fee is added to the fare and charged to the traveler.
-  It is never taken from the operator's share, and it is what pays for card processing.</p>
-  <p>The commission is 1% of the fare at every amount. A $200.00 travel returns $198.00. There
-  is no tier and no cap.</p>
+  <h2>Fare and Platform Fee</h2>
+  <p>American Rider retains a 1% coordination commission from the Travel Fare.
+  The separate Platform Fee starts at $2.50 per Travel, is shown in the
+  Traveler's quoted Total, and is not deducted from the Operator's 99% share.</p>
+  <p>Actual earnings depend on completed eligible Travels. Vehicle, insurance,
+  taxes and other operating expenses remain the Operator's responsibility.</p>
 </section>
 
 <section>
