@@ -90,17 +90,10 @@ const HOME_HTML = page(
   <div>
     <h2 id="network-heading">Designed to serve the nation.</h2>
     <p>American Rider is building a transportation network across the United States.
-    Service begins in Miami-Dade, Broward and Palm Beach counties. Actual availability
-    depends on your pickup location and qualified Operators.
+    Actual availability depends on location and qualified Operators.
     We are preparing the public mobile-app release.</p>
   </div>
   <a href="/travel">Explore Travel &rsaquo;</a>
-</section>
-
-<section aria-labelledby="smart-heading" style="margin-top:22px">
-  <h2 id="smart-heading">Smart Travel</h2>
-  <p>Currently unavailable. Transit connections remain paused while live schedules
-  and journey reliability are verified. Ordinary American Rider Travel remains the alternative.</p>
 </section>
 `,
   '/',
