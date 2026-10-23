@@ -241,6 +241,87 @@ a:focus-visible,button:focus-visible{outline:3px solid var(--blue);outline-offse
 }
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}*,*:before,*:after{animation:none!important;transition:none!important}}
 
+
+/* Founder-directed editorial system. All buttons are real links; no fake booking. */
+:root{--ar-night:#132238;--ar-slate:#536174}
+.site-header{background:#f7f7f5;border-bottom:1px solid #e1e4e5}
+.header-inner,.site-main,.site-footer{max-width:1320px}
+.site-header .brand{font-weight:740;letter-spacing:.26em}
+.site-header .tagline{letter-spacing:.22em}
+.site-main{padding-top:0}
+.site-main .ar-hero{max-width:none;display:grid;grid-template-columns:1.04fr .96fr;align-items:stretch;gap:clamp(24px,5vw,76px);padding:clamp(45px,6vw,88px) 0 clamp(60px,7vw,105px);background:transparent;border:0}
+.ar-hero-copy{display:flex;flex-direction:column;justify-content:center;padding:14px 0 22px}
+.ar-kicker{font-size:11px;font-weight:720;letter-spacing:.18em;color:#677184;text-transform:uppercase;margin:0 0 25px}
+.ar-display{font-size:clamp(62px,8vw,114px);line-height:.96;font-weight:530;letter-spacing:-.075em;margin:0 0 32px;color:#172031}
+.ar-display em{font-style:normal;color:#646f80}
+.ar-lead{font-size:clamp(18px,1.8vw,23px);line-height:1.55;max-width:28em;color:#455164;margin:0 0 34px}
+.ar-actions{display:flex;align-items:center;flex-wrap:wrap;gap:14px 28px;margin-bottom:30px}
+.ar-actions a,.ar-offerings a,.ar-vision a,.ar-outline{text-decoration:none;font-weight:630;text-underline-offset:6px}
+.ar-primary{background:#142238;color:#fff!important;display:inline-flex;align-items:center;justify-content:space-between;gap:30px;padding:17px 23px;min-height:54px;border-radius:4px}
+.ar-primary:hover{background:#263b56}
+.ar-textlink{color:#1e334c;border-bottom:1px solid #b0bcc9;display:inline-flex;align-items:center;gap:24px;min-height:46px}
+.ar-smallnote{font-size:13px;color:#697587;line-height:1.65;max-width:36em}
+.ar-photo{margin:0;position:relative;min-height:580px;overflow:hidden;background:linear-gradient(135deg,#253448,#76838c);border-radius:4px}
+.ar-photo img{width:100%;height:100%;min-height:580px;object-fit:cover;object-position:center;display:block;filter:saturate(.72) contrast(1.05)}
+.ar-photo:after{content:"";position:absolute;inset:55% 0 0;pointer-events:none;background:linear-gradient(transparent,rgba(7,14,26,.7))}
+.ar-photo figcaption{position:absolute;z-index:1;left:24px;right:24px;bottom:22px;display:flex;justify-content:space-between;gap:12px;color:#fff;font-size:10px;font-weight:700;letter-spacing:.15em}
+.site-main .ar-manifesto{max-width:none;margin:0 0 66px;padding:12px 0 26px;background:transparent;border:0;display:grid;grid-template-columns:.8fr 2.7fr 1.4fr;gap:24px;align-items:start}
+.ar-manifesto .ar-kicker{padding-top:12px}
+.site-main .ar-manifesto h2{font-size:clamp(32px,3.4vw,48px);line-height:1.13;font-weight:560;letter-spacing:-.055em;margin:0;color:#162235}
+.ar-manifesto p:last-child{font-size:15px;line-height:1.75;color:#596579;margin:0}
+.site-main .ar-offerings{max-width:none;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));padding:0;margin:0 0 58px;background:transparent;border:0;border-top:1px solid #d7dce0;border-bottom:1px solid #d7dce0}
+.ar-offerings article{display:flex;flex-direction:column;min-height:310px;padding:34px 28px 34px 0}
+.ar-offerings article+article{border-left:1px solid #d7dce0;padding-left:29px}
+.ar-index{color:#69778a;letter-spacing:.14em;font-size:11px;font-weight:740}
+.site-main .ar-offerings h2{font-size:clamp(23px,2.5vw,31px);line-height:1.19;font-weight:590;letter-spacing:-.04em;margin:32px 0 14px;color:#162235}
+.ar-offerings p{font-size:15px;line-height:1.75;color:#586576;margin:0 0 32px}
+.ar-offerings a{margin-top:auto;color:#214c7f;font-size:14px}
+.site-main .ar-note{max-width:none;display:flex;gap:20px;align-items:baseline;padding:0 0 60px;margin:0;background:transparent;border:0}
+.ar-note span{min-width:165px;font-size:11px;letter-spacing:.17em;color:#626e7c;font-weight:750}
+.ar-note p{font-size:14px;color:#586576;margin:0}
+.ar-note a{color:#225184}
+.site-main .ar-vision{max-width:none;padding:clamp(30px,6vw,76px);margin:0 0 94px;background:#142238;color:#fff;border:0;border-radius:4px}
+.ar-vision-top{display:flex;justify-content:space-between;gap:20px;color:#b6c3d4;font-weight:750;letter-spacing:.16em;font-size:10px}
+.site-main .ar-vision h2{color:#fff!important;font-size:clamp(46px,7vw,92px);line-height:1.03;font-weight:525;letter-spacing:-.065em;margin:83px 0 26px}
+.site-main .ar-vision p{color:#dce4f0;font-size:clamp(17px,1.7vw,21px);line-height:1.65;max-width:31em;margin:0 0 36px}
+.site-main .ar-vision a{color:#fff;display:inline-flex;border-bottom:1px solid #9dacc3;padding-bottom:9px;font-size:15px}
+.site-main .ar-lastline{max-width:none;padding:0 0 54px;margin:0;display:flex;align-items:center;justify-content:space-between;gap:30px;border:0;background:transparent}
+.site-main .ar-lastline h2{font-size:clamp(33px,4.3vw,56px);line-height:1.15;letter-spacing:-.05em;color:#152237;margin:0;font-weight:550}
+.ar-outline{display:inline-flex;gap:28px;color:#142238;border:1px solid #aebdc9;padding:18px 24px;border-radius:3px;white-space:nowrap}
+.site-main .ar-recruit{max-width:1000px;background:transparent;border:0;padding:70px 0}
+.ar-recruit .ar-display{font-size:clamp(52px,7vw,90px)}
+.ar-recruit-status{margin:30px 0;padding:25px;background:#e9eef2;border-left:3px solid #2a4f82}
+.ar-recruit-status p{color:#505c6c;margin-bottom:0}
+.ar-recruit-steps{padding:22px 0}
+.ar-recruit-steps h2{font-size:27px}
+.ar-recruit-steps li{padding:10px 0;line-height:1.6}
+.site-footer .foot a{display:inline-block;padding:2px 0}
+a:focus-visible{outline:3px solid #2e5fe0;outline-offset:4px}
+@media(max-width:900px){
+ .site-main .ar-hero{grid-template-columns:1fr;gap:28px;padding:46px 0 70px}
+ .ar-photo,.ar-photo img{min-height:460px;height:460px}
+ .site-main .ar-manifesto{grid-template-columns:1fr 2fr}
+ .ar-manifesto p:last-child{grid-column:2}
+}
+@media(max-width:620px){
+ .site-main .ar-hero{padding:40px 0 56px}
+ .ar-display{font-size:clamp(56px,12.8vw,76px)}
+ .ar-lead{font-size:18px}
+ .ar-photo,.ar-photo img{height:375px;min-height:375px}
+ .site-main .ar-manifesto{grid-template-columns:1fr;gap:10px;margin-bottom:33px}
+ .ar-manifesto p:last-child{grid-column:auto}
+ .site-main .ar-offerings{grid-template-columns:1fr;margin-bottom:38px}
+ .ar-offerings article{min-height:0;padding:25px 0 30px}
+ .ar-offerings article+article{padding:25px 0 30px;border-left:0;border-top:1px solid #d7dce0}
+ .site-main .ar-offerings h2{margin:14px 0 10px}
+ .site-main .ar-note{display:block;padding:0 0 42px}
+ .site-main .ar-vision{margin-bottom:59px;padding:32px 27px}
+ .ar-vision-top{font-size:9px}
+ .site-main .ar-vision h2{margin-top:65px;font-size:clamp(46px,11vw,65px)}
+ .site-main .ar-lastline{align-items:flex-start;flex-direction:column;padding-bottom:20px}
+ .site-main .ar-recruit{padding-top:45px}
+}
+
 </style>
 </head>
 <body>
@@ -256,7 +337,7 @@ a:focus-visible,button:focus-visible{outline:3px solid var(--blue);outline-offse
 ${bodyHtml}
 </main>
 <footer class="site-footer"><div class="foot">
-<a href="/about">About</a> · <a href="/terms">Terms of Service</a> ·
+<a href="/about">About</a> · <a href="/recruit">Recruiter opportunities</a> · <a href="/terms">Terms of Service</a> ·
 <a href="/privacy">Privacy Policy</a><br>
 <a href="mailto:support@americanrider.app">support@americanrider.app</a><br>
 <a href="mailto:relations@americanrider.app">relations@americanrider.app</a><br>
