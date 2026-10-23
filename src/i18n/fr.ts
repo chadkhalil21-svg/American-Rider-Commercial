@@ -1355,6 +1355,7 @@ export default {
     record: "Signaler l’absence",
     closed: "Voyage clôturé",
     refundPending: "Le remboursement du Voyageur est en attente de vérification.",
+    compensationPending: "Le paiement de l’Opérateur est en attente de vérification. Le Voyage est clôturé.",
     paymentReconciled: "Le paiement du Voyageur a été rapproché.",
     messageRequired: "Envoyez d’abord un message au Voyageur via Contacter.",
     unavailable: "La gestion des absences n’est pas encore disponible. Contactez l’assistance.",
