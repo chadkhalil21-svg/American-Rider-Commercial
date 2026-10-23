@@ -38,24 +38,22 @@ function AppGate() {
     typeof window !== 'undefined' &&
     new URLSearchParams(window.location.search).get('preview') === 'app';
 
-  // A link opened before account creation has no permission to attribute anybody.
-// After the normal sign-up and verification, the authenticated server claims it
-// ONCE. Do not poll Firestore, fetch contacts, or create an invite for an
-// existing Traveler. A temporary network failure keeps it for a later retry.
-  useEffect(()=>{
-    if(!user||initializing||onboarding)return;
-    let live=true;
-    (async()=>{
-      const pending=await readPendingInvite();
-      if(!pending||!live)return;
-      const result=await recordInvitation(pending.code,pending.role);
-      if(!live)return;
-      if(result!=='retry')await clearPendingInvite();
-      if(live&&result==='recorded'&&pending.role==='operator')
+  // Resume a verified referral after the unchanged native signup journey.
+  // No contact access, signup form or payout is introduced.
+  useEffect(() => {
+    if (!user || initializing || onboarding) return;
+    let active = true;
+    (async () => {
+      const pending = await readPendingInvite();
+      if (!pending || !active) return;
+      const status = await recordInvitation(pending.code, pending.role);
+      if (!active) return;
+      if (status !== 'retry') await clearPendingInvite();
+      if (active && status === 'recorded' && pending.role === 'operator')
         router.replace('/operator/qualify');
     })();
-    return()=>{live=false;};
-  },[user?.uid,user?.emailVerified,initializing,onboarding,router]);
+    return () => { active = false; };
+  }, [user?.uid, user?.emailVerified, initializing, onboarding, router]);
 
   // REGISTERED ONCE THERE IS AN ACCOUNT TO REGISTER AGAINST, not at launch. The token is
   // stored on `users/{uid}`, so asking before sign-in would have nowhere to put it — and
@@ -82,8 +80,30 @@ function AppGate() {
       const recipientUid = typeof data?.recipientUid === 'string' ? data.recipientUid : null;
       if (!user || !recipientUid || recipientUid !== user.uid) return;
       const screen = typeof data?.screen === 'string' ? data.screen : null;
-      const allowed = new Set(['/ride', '/receipt', '/operator', '/operator/insurance', '/family']);
-      if (screen && allowed.has(screen)) router.navigate(screen as never);
+      // Keep the list explicit and auditable. Every route is a real screen
+      // authored by our notification publishers. A push may NAVIGATE only;
+      // it never accepts Travel, transfers funds, or bypasses account security.
+      const allowed = new Set([
+        '/ride', '/receipt', '/operator', '/operator/insurance', '/family',
+        '/operator/trip', '/emergency', '/wallet', '/', '/history', '/teen-pickup',
+      ]);
+      if (screen && allowed.has(screen)) {
+        // The Teen notification carries only a Travel ID, not the pickup PIN.
+        // Validate the format and require a fresh authenticated server lookup.
+        // An arbitrary push cannot reveal another account's secret.
+        if (screen === '/teen-pickup') {
+          const rideId = typeof data?.rideId === 'string' ? data.rideId : '';
+          if (!/^[a-f0-9]{40}$/.test(rideId)) return;
+          router.navigate({ pathname: '/teen-pickup', params: { rideId } } as never);
+          return;
+        }
+        // A receipt needs a selected, server-backed Travel. After a cold
+        // start there is no selected record yet, so going straight to the
+        // receipt renders a blank frame. The Travel Log loads actual history
+        // and lets the Traveler select the correct receipt instead.
+        const destination = screen === '/receipt' ? '/history' : screen;
+        router.navigate(destination as never);
+      }
     };
     const unsubscribe = onNotificationTap(open);
     // Expo may have launched us FROM a notification before React subscribed.
