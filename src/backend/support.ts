@@ -233,6 +233,9 @@ export async function alertEmergency(args: {
  */
 export async function updateEmergencyLocation(args: {
   caseNo: string;
+  // A hint only. The server independently verifies Operator membership,
+  // monitored incident, and active Travel before accepting any position.
+  rideId?: string | null;
   address: string | null;
   coords: { lat: number; lng: number } | null;
 }): Promise<void> {

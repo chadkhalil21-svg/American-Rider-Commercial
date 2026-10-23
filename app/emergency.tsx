@@ -221,8 +221,11 @@ export default function Emergency() {
     const push = () => {
       const f = fixRef.current;
       if (!f) return;
-      updateEmergencyLocation({
+      void updateEmergencyLocation({
         caseNo,
+        // A monitored incident belongs to the Traveler, so an Operator needs
+        // the server-verified active Travel to add their own live position.
+        rideId: currentVerified?.rideId ?? null,
         address: [f.address, f.region].filter(Boolean).join(', ') || null,
         coords: f.coords,
       });
@@ -230,7 +233,7 @@ export default function Emergency() {
     push();
     const t = setInterval(push, 15000);
     return () => clearInterval(t);
-  }, [notify.state, notify.caseNo]);
+  }, [notify.state, notify.caseNo, currentVerified?.rideId]);
 
   // ---- The facts, as one block of text a contact can read. --------------------------------
   const locationLine = fix

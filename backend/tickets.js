@@ -164,27 +164,49 @@ async function fileTicket({ uid, email, description, trip, reason, kind, emergen
  * Returns { ok }. Best-effort by design: the app has already told the traveler where the
  * notification stands, and a dropped update must not change that.
  */
-async function updateTicketLocation({ caseNo, uid, address, coords }) {
+async function updateTicketLocation({ caseNo, uid, address, coords, rideId = null }) {
   const d = db();
   if (!d || !caseNo || !uid) return { ok: false };
   try {
     const ref = d.collection('support_tickets').doc(String(caseNo));
     const snap = await ref.get();
-    if (!snap.exists || snap.data()?.uid !== uid) return { ok: false };
+    if (!snap.exists) return { ok: false };
     const existing = snap.data() || {};
-    // A support/dispute case is never an Emergency location feed, even when
-    // the requester owns it. A closed Emergency cannot be silently revived.
-    if (existing.kind !== 'emergency' || existing.status === 'resolved') return { ok: false };
+    // Neither an ordinary support record nor a closed incident may receive
+    // GPS updates, regardless of the caller's role or knowledge of a case ID.
+    if (existing.kind !== 'emergency' ||
+        ['resolved', 'closed'].includes(existing.status)) return { ok: false };
     if (coords && (!Number.isFinite(coords.lat) || !Number.isFinite(coords.lng) ||
         Math.abs(coords.lat) > 90 || Math.abs(coords.lng) > 180))
       return { ok: false };
     if (!coords && !address) return { ok: false };
 
-    await ref.update({
-      'emergency.address': address || null,
-      'emergency.coords': coords || null,
-      'emergency.locationAt': Date.now(),
-    });
+    const fromAssignedOperator = existing.uid !== uid;
+    if (fromAssignedOperator) {
+      // Route monitoring creates the Emergency ticket under the Traveler UID.
+      // The assigned Operator may have the most accurate live position, but
+      // must prove membership in THAT active Travel and THAT monitored case.
+      // Neither a case number nor an arbitrary rideId grants access.
+      const { emergencyTravelContext } = require('./emergency-travel-context');
+      const context = await emergencyTravelContext({ db: d, uid, rideId });
+      if (!context || context.active !== true ||
+          context.role !== 'operator' ||
+          context.monitoredCase?.caseNo !== String(caseNo))
+        return { ok: false };
+    }
+
+    // An Operator's handset is not the Traveler's handset, especially before
+    // pickup. Keep each reported position separate and label the reporter.
+    const position = { address: address || null, coords: coords || null, at: Date.now() };
+    if (fromAssignedOperator) {
+      await ref.update({ 'emergency.operatorLocation': position });
+    } else {
+      await ref.update({
+        'emergency.address': position.address,
+        'emergency.coords': position.coords,
+        'emergency.locationAt': position.at,
+      });
+    }
 
     // THE FIRST LOCATION HAS TO BE EMAILED, NOT JUST STORED.
     //
@@ -197,9 +219,20 @@ async function updateTicketLocation({ caseNo, uid, address, coords }) {
     //
     // So: the first time a location lands on an emergency case, send it. Later movement
     // stays in the document — two emails is right, forty is noise.
-    const hadLocation = !!(existing.emergency && (existing.emergency.address || existing.emergency.coords));
-    if (!hadLocation && (address || coords) && existing.kind === 'emergency') {
-      await notifyLocationByEmail({ ...existing, emergency: { ...existing.emergency, address, coords } });
+    // Each person's FIRST known position warrants a separate, clearly labeled
+    // notice. Two useful positions are possible, but repeated five-second GPS
+    // updates must not flood Operations with email.
+    const earlier = existing.emergency || {};
+    const hadLocation = fromAssignedOperator
+      ? !!(earlier.operatorLocation?.address || earlier.operatorLocation?.coords)
+      : !!(earlier.address || earlier.coords);
+    if (!hadLocation && (address || coords)) {
+      const emergency = fromAssignedOperator
+        ? { ...earlier, operatorLocation: position }
+        : { ...earlier, address: position.address, coords: position.coords };
+      await notifyLocationByEmail({ ...existing, emergency }, {
+        source: fromAssignedOperator ? 'operator' : 'case_reporter',
+      });
     }
     return { ok: true };
   } catch {
@@ -208,27 +241,38 @@ async function updateTicketLocation({ caseNo, uid, address, coords }) {
 }
 
 /** The follow-up an emergency case sends the moment it learns where the traveler is. */
-async function notifyLocationByEmail(ticket) {
+async function notifyLocationByEmail(ticket, { source = 'case_reporter' } = {}) {
   const to = readKey('SUPPORT_EMAIL');
   const key = readKey('RESEND_API_KEY');
   if (!to || !key) return false;
   const e = ticket.emergency || {};
+  // Explicit source wins over whether another person's location already
+  // happens to be stored. Never email old Traveler GPS as if it were fresh
+  // Operator telemetry (or vice versa).
+  const operatorOnly = source === 'operator';
+  const reported = operatorOnly ? e.operatorLocation : e;
+  const sourceLabel = operatorOnly ? 'Assigned Operator device' : 'Case reporter device';
   try {
     const r = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json',
         // Resend deduplicates equal requests for 24h; stable incident/case ID
         // prevents a one-minute monitor retry from spamming emergency email.
-        'Idempotency-Key': `case-location/${ticket.caseNo}` },
+        // Separate, bounded first-position alerts: one Operator and one
+        // case-owner location, each idempotent across crashes/retries.
+        'Idempotency-Key': source === 'operator'
+          ? `case-location/operator/${ticket.caseNo}`
+          : `case-location/${ticket.caseNo}` },
       body: JSON.stringify({
         from: 'American Rider <support@americanrider.app>',
         to: [to],
         subject: `EMERGENCY LOCATION · ${ticket.caseNo} · ${ticket.trip?.no || 'no travel number'}`,
         text:
-          `Case ${ticket.caseNo} — the traveler's position has been established.\n\n` +
-          `Location: ${e.address || '—'}\n` +
-          `Coordinates: ${e.coords ? `${e.coords.lat}, ${e.coords.lng}` : '—'}\n` +
-          (e.coords ? `Map: https://maps.google.com/?q=${e.coords.lat},${e.coords.lng}\n` : '') +
+          `Case ${ticket.caseNo} — a reported device position has been recorded.\n\n` +
+          `Position source: ${sourceLabel}\n` +
+          `Location: ${reported.address || '—'}\n` +
+          `Coordinates: ${reported.coords ? `${reported.coords.lat}, ${reported.coords.lng}` : '—'}\n` +
+          (reported.coords ? `Map: https://maps.google.com/?q=${reported.coords.lat},${reported.coords.lng}\n` : '') +
           `\nVehicle: ${e.vehicle || '—'}  PLATE ${e.plate || '—'}\n` +
           `Operator: ${e.operator || '—'}\n` +
           `Traveler: ${ticket.email || ticket.uid}\n\n` +
