@@ -293,8 +293,12 @@ async function cancelTravel({ db, uid, rideId, deps, stripeConfigured = true, no
             // always belongs to the Traveler. Bind earned compensation to that payer.
             rideId:id,expectedUid:String(currentRide.travelerUid),
             reference:`verified service cancellation ${currentRide.tripNo||id}`});
-          // The durable transfer guard records and clears verified success.
-          if(!paid.ok)await rideRef.set({arrivalFeePending:true,
+          // The guard records new success. On an already-settled retry it
+          // returns early; clear a stale pending marker from another caller.
+          if(paid.ok && paid.alreadySettled)
+            await rideRef.set({arrivalFeePending:false,
+              arrivalFeeBlockedReason:null},{merge:true});
+          else if(!paid.ok)await rideRef.set({arrivalFeePending:true,
             arrivalFeeBlockedReason:paid.code||paid.error||'transfer_failed'},
             {merge:true});
         } else await rideRef.set({
