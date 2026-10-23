@@ -63,7 +63,7 @@ async function claim({db,uid,code,role,authCreatedAtMs,now=Date.now()}){
         fleet?.everCommissioned===true||qualified);
       const decision=claimDecision({
         referrerUid:entry.ownerUid,inviteeUid:uid,targetRole:role,
-        alreadyClaimed:false,alreadyActivatedRole:role==='operator'&&isActive,
+        alreadyClaimed:false,alreadyActivatedRole:role==='operator'&&(!!fleetSnap?.exists||isActive),
         referrerEligible:entry.status==='active',
       });
       if(!decision.ok)return decision;
