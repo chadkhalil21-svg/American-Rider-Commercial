@@ -103,6 +103,8 @@ export default {
         activeAccountCostBody: "Su parte bruta de la Tarifa es el 99 %. Según el plan Connect aplicable: $2 por mes con pago al banco, pago estándar 0,25 % + $0,25, distribución de fondos 0,25 % y pago instantáneo opcional +1 %. Solo los cargos aplicables, verificados y aceptados pueden reducir el depósito neto. No requiere otra tarjeta.",
     feeConsentAccept: "Acepto el costo separado de $2 y los cargos por pagos indicados",
     feeConsentRequired: "Debe aceptar los costos de la cuenta Connect y los pagos antes de configurarlos.",
+    payoutStatusUnavailable: "Los datos de pago no están disponibles temporalmente. Su cuenta existente no se ha eliminado. Vuelva a intentarlo.",
+    payoutStatusStillPending: "Estado consultado. Stripe todavía está verificando su cuenta para recibir pagos.",
     operatingArea: 'Zona de Operación',
     marketUnknownSoon: "Próximamente en más zonas. El registro de Operadores solo está disponible donde American Rider ya presta servicio. Seleccione un condado abierto.",
     marketNotActive: 'Próximamente en %{name}. El registro de Operadores comenzará cuando se habilite el servicio.',

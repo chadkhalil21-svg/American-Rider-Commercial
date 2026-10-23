@@ -27,24 +27,48 @@ async function authHeaders(): Promise<Record<string, string>> {
   };
 }
 
-/** Never throws. Unreachable server reads as "cannot be paid", which is the safe direction. */
-export async function connectStatus(): Promise<ConnectStatus> {
-  try {
+/**
+ * Read the Operator's actual Stripe payout state, distinguishing a genuinely
+ * nonexistent account from an unavailable provider. Never grants payout access.
+ * The deadline covers Firebase token retrieval, network and response parsing.
+ */
+export async function readConnectStatus(): Promise<ConnectStatus | null> {
+  const controller = new AbortController();
+  let timeout: ReturnType<typeof setTimeout> | undefined;
+  const request: Promise<ConnectStatus | null> = (async () => {
+    const headers = await authHeaders();
     const res = await fetch(`${PAYMENT_SERVER_URL}/connect/status`, {
-      headers: await authHeaders(),
+      headers, signal: controller.signal,
     });
-    if (!res.ok) return NONE;
+    if (!res.ok) return null;
     const d = await res.json();
+    if (typeof d?.exists !== 'boolean' || typeof d?.payoutsEnabled !== 'boolean' ||
+        d?.error || d?.reason) return null;
     return {
-      exists: d?.exists === true,
-      payoutsEnabled: d?.payoutsEnabled === true,
+      exists: d.exists,
+      payoutsEnabled: d.payoutsEnabled,
       chargesEnabled: d?.chargesEnabled === true,
       feeConsentAccepted: d?.feeConsentAccepted === true,
       due: Array.isArray(d?.due) ? d.due : [],
     };
+  })().catch(() => null);
+  try {
+    return await Promise.race([
+      request,
+      new Promise<null>(resolve => {
+        timeout = setTimeout(() => { controller.abort(); resolve(null); }, 12_000);
+      }),
+    ]);
   } catch {
-    return NONE;
+    return null;
+  } finally {
+    if (timeout) clearTimeout(timeout);
   }
+}
+
+/** Existing conservative eligibility helper: do not change its callers' type. */
+export async function connectStatus(): Promise<ConnectStatus> {
+  return (await readConnectStatus()) ?? NONE;
 }
 
 /** Separate express consent; never imply it from opening the Stripe browser. */

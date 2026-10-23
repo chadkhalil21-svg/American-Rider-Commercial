@@ -90,6 +90,8 @@ export default {
         activeAccountCostBody: "La Sua quota lorda della Tariffa è il 99 %. Secondo i costi Connect applicabili: $2 per mese con accredito bancario, pagamento standard 0,25 % + $0,25, trasferimento fondi 0,25 % e pagamento istantaneo facoltativo +1 %. Solo i costi applicabili, verificati e accettati possono ridurre l’accredito netto. Non è richiesta una seconda carta.",
     feeConsentAccept: "Accetto i 2 $ separati e i costi di versamento dichiarati",
     feeConsentRequired: "Accetti i costi dell'account Connect e dei versamenti prima di configurarli.",
+    payoutStatusUnavailable: "I dettagli dei pagamenti non sono temporaneamente disponibili. Il suo account esistente non è stato eliminato. Riprovi.",
+    payoutStatusStillPending: "Stato verificato. Stripe sta ancora verificando il suo account per i pagamenti.",
     operatingArea: 'Area Operativa',
     marketUnknownSoon: "Prossimamente in altre aree. La registrazione degli Operatori è disponibile solo dove American Rider è attivo. Scelga una contea aperta.",
     marketNotActive: "Prossimamente nella contea di %{name}. La registrazione degli Operatori inizierà all'apertura del servizio.",
