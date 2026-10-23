@@ -14,6 +14,8 @@ const db = { collection(name) {
         if (failRead) throw new Error('database query unavailable');
         if (name === 'rides' && field === 'paymentIntentId' && value === 'pi_one')
           return { docs: [{ id: 'r1', data: () => ({ ...ride }) }] };
+        if (name === 'users' && field === 'stripeAccountId' && value === 'acct_1')
+          return { docs: [{ id: 'op1', data: () => ({ stripeAccountId: 'acct_1' }) }] };
         return { docs: [] };
       } }; } };
     },
@@ -73,5 +75,16 @@ const dispute = { id:'evt_dispute_1', type:'charge.dispute.created', data:{objec
   failFleetWrite=false;
   assert.equal((await handleEvent(restricted)).ok,true);
   assert.equal(fleet.available,false,'a restriction is not acknowledged before Operator availability is revoked');
-  console.log('PASS Stripe dispute alerts and account restriction retry until durable state; no duplicate case key');
+  // Metadata may contain an obsolete or malicious uid: canonical account owner wins.
+  fleet.available=true;
+  const stale={...restricted, id:'evt_wrong_metadata',
+    data:{object:{...restricted.data.object,metadata:{uid:'some-other-operator'}}}};
+  assert.equal((await handleEvent(stale)).action,'operator taken off duty');
+  assert.equal(fleet.available,false,'verified account owner is used, not provider uid metadata');
+  fleet.available=true;
+  const stranger={...restricted,id:'evt_unbound_account',
+    data:{object:{...restricted.data.object,id:'acct_unlinked',metadata:{uid:'op1'}}}};
+  assert.equal((await handleEvent(stranger)).action,'account not bound to an Operator');
+  assert.equal(fleet.available,true,'an unbound Stripe event cannot suspend a metadata-named Operator');
+  console.log('PASS Stripe dispute retries and account restrictions bound only to canonical account owner');
 })().catch((e)=>{console.error(e);process.exitCode=1;});
