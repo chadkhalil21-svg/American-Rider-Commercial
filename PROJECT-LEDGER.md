@@ -1,3 +1,9 @@
+## 23 October 2026 | RECRUITER PAYOUT TIMING NOT SET — FOUNDER CORRECTION
+
+The founder explicitly withdraws any implied fixed Friday/weekly ACH recruiter payout choice. **Recruiter payout cadence, provider, threshold and funds flow remain undecided and must not be represented as commissioned or promised.** Preserve the paused recruiter onboarding process while building the professional public website. The public Recruiter Opportunities page states this and no bank/payout switch is enabled. Historical audit mentions of proposed Friday ACH remain historical proposals only, not active or binding policy.
+
+---
+
 ## 23 October 2026 | EDITORIAL NATIONAL WEBSITE AND DISTINCT RECRUITER INTEREST PAGE — SOURCE REVIEW
 
 **Founder direction:** Keep `americanrider.app`, build a professional national transportation corporate website now, and retain recruiter operations as a distinct business workflow, not a Traveler referral proposition. The existing navy national-platform section remains but moves below the primary Traveler/Operator introduction with accessible high-contrast type.

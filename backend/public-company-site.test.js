@@ -57,4 +57,5 @@ assert.match(RECRUIT_HTML,/not open yet/,'recruiters not commercially commission
 assert.match(RECRUIT_HTML,/QR codes/,'recruiter journey explained');
 assert.doesNotMatch(RECRUIT_HTML,/Join now|Start earning now/i,'no fake recruiting activation');
 assert.match(HOME_HTML,/illustrative photograph/i,'photograph not an Operator fleet promise');
+assert.match(RECRUIT_HTML,/Payout timing, minimums, and provider have not been selected/,'no fixed recruiter payout schedule');
 console.log('PASS: public backend routes, current pricing and geography, Stripe Operator payout truth, no false recruiter/store claims');
