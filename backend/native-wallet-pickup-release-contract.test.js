@@ -93,12 +93,17 @@ assert(operator.includes("op.withdrawAcceptedOp()"),
 assert(operatorApi.includes('operatorPaymentPending:out.operatorPaymentPending===true') &&
   operator.includes("t('operatorNoShow.compensationPending')"),
   'unpaid Operator compensation must not be described as settled');
+assert(traveler.includes("t('traveler.cancellationAmountVerified')") &&
+  !traveler.includes("t('traveler.rideFareReturnedLessArrival'"),
+  'Traveler cancellation cannot promise an unverified $3 deduction based only on arrival');
 assert(traveler.includes("st >= 2?'traveler.authorizationBookingTerms':'traveler.authorizationFreeCancel'") &&
   !traveler.includes("st >= 2?'traveler.authorizationPossibleFee'"),
   'do not advertise a conditional $4 fee without knowing the Terms accepted for that Travel');
 for(const language of ['en','es','fr','it','de']){
   assert(read('src/i18n/'+language+'.ts').includes('compensationPending:'),
     language+' must describe pending compensation');
+  assert(read('src/i18n/'+language+'.ts').includes('cancellationAmountVerified:'),
+    language+' must describe actual verified refund terms');
   assert(read('src/i18n/'+language+'.ts').includes('authorizationBookingTerms:'),
     language+' must describe booking-specific authorization terms');
 }
