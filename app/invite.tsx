@@ -10,6 +10,7 @@
 // is recorded against the inviter is a feature with a cost, and can be named once it exists.
 import React, { useState } from 'react';
 import { Share, StyleSheet } from 'react-native';
+import { personalInvitation } from '../src/backend/referrals';
 import { Text } from '../src/components/AppText';
 import { useGoBack } from '../src/components/nav';
 import { Card, LetterheadBar, PrimaryButton, Screen, SectionLabel, Sub, Title } from '../src/components/UI';
@@ -29,7 +30,11 @@ export default function Invitations() {
   const sendInvitation = async () => {
     setShareFailed(false);
     try {
-      await Share.share({ message });
+      // No change to the visible Traveler screen or wording; referrals are OFF
+      // by default, so a normal share takes no extra network call.
+      const link = process.env.EXPO_PUBLIC_REFERRALS_ENABLED === '1'
+        ? await personalInvitation('traveler') : null;
+      await Share.share({ message: link ? `${message} ${link}` : message });
     } catch {
       setShareFailed(true);
     }
