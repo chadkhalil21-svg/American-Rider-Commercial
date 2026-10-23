@@ -1,0 +1,33 @@
+'use strict';
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+const { build } = require('../scripts/build-corporate-website.cjs');
+
+build();
+const root = path.join(__dirname, '..', 'dist-corporate');
+const paths = ['', 'travel', 'operate', 'safety', 'company', 'support', 'recruitment', 'smart-travel', 'join', 'terms', 'privacy', 'account-deletion', 'terms/es', 'privacy/fr'];
+for (const route of paths) {
+  const p = path.join(root, route, 'index.html');
+  assert.ok(fs.existsSync(p), 'Missing public route: ' + route);
+  const html = fs.readFileSync(p, 'utf8');
+  assert.match(html, /<main id="main">/);
+  assert.match(html, /<title>/);
+  assert.ok(!html.includes('americanrider.app'), 'Old domain leaked into ' + route);
+  assert.ok(!html.includes('onrender.com'), 'Render link leaked into ' + route);
+}
+const home = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
+assert.match(home, /Designed to serve the nation\./);
+assert.match(home, /99%/);
+assert.match(home, /independent professional Operators/i);
+assert.doesNotMatch(home, /Book now|Download on the App Store|nationwide bookings are available/i);
+const operators = fs.readFileSync(path.join(root, 'operate', 'index.html'), 'utf8');
+assert.match(operators, /\$2\.50/);
+const recruiter = fs.readFileSync(path.join(root, 'recruitment', 'index.html'), 'utf8');
+assert.match(recruiter, /not yet open for enrollment/i);
+assert.doesNotMatch(recruiter, /Friday payout|earn \$\d+/i);
+const terms = fs.readFileSync(path.join(root, 'terms', 'index.html'), 'utf8');
+assert.match(terms, /Terms of Service/);
+const privacy = fs.readFileSync(path.join(root, 'privacy', 'index.html'), 'utf8');
+assert.match(privacy, /Privacy Policy/);
+console.log('Corporate website routes, attribution language, domain isolation and legal continuity: PASS');

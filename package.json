@@ -60,7 +60,9 @@
     "commission:deterministic": "node scripts/run-deterministic-commissioning.mjs",
     "commission:whole-platform-twice": "node scripts/run-double-whole-platform-trace.mjs",
     "calibrate:miami-fares": "node scripts/calibrate-market-fares.mjs data/miami-fare-calibration.json",
-    "calibrate:market-fares": "node scripts/calibrate-market-fares.mjs"
+    "calibrate:market-fares": "node scripts/calibrate-market-fares.mjs",
+    "build:corporate-website": "node scripts/build-corporate-website.cjs",
+    "test:corporate-website": "node backend/corporate-website.test.js"
   },
   "private": true,
   "allowScripts": {

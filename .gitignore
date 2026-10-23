@@ -12,3 +12,6 @@ android/
 # These disposable caches must not trigger the preflight clean-release guard.
 __pycache__/
 *.py[cod]
+
+# Generated independent static corporate website (Firebase Hosting output)
+dist-corporate/
