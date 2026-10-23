@@ -125,6 +125,9 @@ function reset(pass) {
     paymentIntentId:null,dep:'Synthetic A',dest:'Synthetic B',
   };
   data.operators.op={available:true};
+  // Connect webhooks must match the platform-owned account identity; provider
+  // metadata.uid is never authority to disable a different Operator.
+  data.users.op={stripeAccountId:'acct_fake_operator'};
 }
 async function run(pass){
   reset(pass);
