@@ -31,6 +31,7 @@ const {
   defaultCardCountry, chargeOperatorAccountFee,
 } = require('./payments');
 const { readKey } = require('./env');
+const { reserveConnectAccount, saveConnectedAccount } = require('./connect-account-claim');
 const { requireAuth, requireFreshAuth, attachAuth, requireVerifiedEmail } = require('./auth');
 const { perAccount, countOnly, perIp } = require('./ratelimit');
 const { operatorPayoutRecords } = require('./operator-payout-records');
@@ -1052,16 +1053,28 @@ app.post('/connect/onboard', requireAuth, LIMITS.connect, requireActiveOperating
       return res.status(409).json({code:'payout_fee_consent_required',
         error:'Review and agree to the separately billed Connect account and payout charges before opening the payout account.'});
     }
-    const existing = operator?.stripeAccountId || null;
+    // Reserve one durable creation identity BEFORE talking to Stripe. Multiple
+    // devices, expired requests, and lost responses must never open new accounts.
+    const claim = await reserveConnectAccount({ db, uid: req.uid });
+    if (claim.blocked) {
+      return res.status(409).json({
+        code: claim.blocked,
+        error: claim.blocked === 'payout_fee_consent_required'
+          ? 'Review the payout account fees before continuing.'
+          : 'Payout account setup needs reconciliation. Contact Support; do not start again.',
+      });
+    }
     const account = await connectAccountFor({
       uid: req.uid,
       email: req.email,
-      existingAccountId: existing,
+      existingAccountId: claim.existingAccountId || null,
+      creationKey: claim.creationKey,
     });
-    await db.collection('users').doc(String(req.uid)).set(
-      { stripeAccountId: account.id, stripeAccountAt: Date.now() },
-      { merge: true },
-    );
+    // Persist the provider identity in a second transaction; an account linked
+    // concurrently by another request cannot silently be overwritten.
+    if (claim.creationKey) {
+      await saveConnectedAccount({ db, uid: req.uid, account, creationKey: claim.creationKey });
+    }
     // Save the account ID BEFORE an optional schedule change. If Stripe refuses
     // the update, retrying onboarding resumes this account, never creates a duplicate.
     // Unconfigured deployments preserve the current provider payout cadence.
