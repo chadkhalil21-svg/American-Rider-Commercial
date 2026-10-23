@@ -606,13 +606,13 @@ async function sweepSettlements({ now = Date.now(), limit = 25 } = {}) {
     const unsettleable = [];
     for (const d of page.docs) {
       const x = d.data() || {};
-      if (x.transferId) return; // already paid; the flag is cleared below
+      if (x.transferId) continue; // already paid; the flag is cleared below
       // SETTLEMENT FOLLOWS COMPLETION, here as at /travel/settle (travelmoney.js). The rules let
       // only the operator set needsPayout, and only with status 'completed' — checked again
       // rather than trusted.
       if (x.status !== 'completed') {
         unsettleable.push({ rideId: d.id, tripNo: x.tripNo || d.id, reason: `status is ${x.status || 'unknown'}, not completed` });
-        return;
+        continue;
       }
       // A FLAG THAT CANNOT BE ACTED ON MUST NOT BE READ FOREVER. Without a payment or an
       // operator there is nothing this sweep can ever do, so leaving needsPayout set would
@@ -620,7 +620,7 @@ async function sweepSettlements({ now = Date.now(), limit = 25 } = {}) {
       // person instead — which is the honest answer, because somebody may still be owed.
       if (!x.paymentIntentId || !x.operatorId) {
         unsettleable.push({ rideId: d.id, tripNo: x.tripNo || d.id });
-        return;
+        continue;
       }
       owed.push({ rideId: d.id, ...x });
     }
