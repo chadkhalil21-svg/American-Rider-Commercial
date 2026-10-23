@@ -30,4 +30,16 @@ for (const [i, snippet] of snippets.entries()) {
   assert.match(snippet, /screen:\s*'\/teen-pickup'/,
     'notification '+i+' must open the authenticated Teen code screen');
 }
-console.log('PASS: private Teen PIN stays off notifications; authenticated retrieval remains available');
+const root = read('../src/boot/FullRoot.tsx');
+const codeScreen = read('../app/teen-pickup.tsx');
+assert(root.includes("recipientUid !== user.uid") &&
+  root.includes("screen === '/teen-pickup'") &&
+  root.includes("router.navigate({ pathname: '/teen-pickup', params: { rideId } }"),
+  'Teen push must open only an allowlisted route after the same account binding');
+assert(codeScreen.includes('fetchTeenPickupCode(rideId)') &&
+  codeScreen.includes('currentRideId.current === rideId') &&
+  !codeScreen.includes('params.pin'),
+  'private code is fetched server-side and stale requests cannot expose prior Travel');
+assert(read('../src/backend/family.ts').includes('export async function fetchTeenPickupCode(rideId:string)'),
+  're-use existing authenticated, protected Teen code endpoint');
+console.log('PASS: private Teen PIN stays off notifications; matched recipient routes to authenticated, stale-safe code retrieval');
