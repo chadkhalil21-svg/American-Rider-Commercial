@@ -251,7 +251,7 @@ async function notifyLocationByEmail(ticket, { source = 'case_reporter' } = {}) 
   // Operator telemetry (or vice versa).
   const operatorOnly = source === 'operator';
   const reported = operatorOnly ? e.operatorLocation : e;
-  const source = operatorOnly ? 'Assigned Operator device' : 'Case reporter device';
+  const sourceLabel = operatorOnly ? 'Assigned Operator device' : 'Case reporter device';
   try {
     const r = await fetch('https://api.resend.com/emails', {
       method: 'POST',
@@ -269,7 +269,7 @@ async function notifyLocationByEmail(ticket, { source = 'case_reporter' } = {}) 
         subject: `EMERGENCY LOCATION · ${ticket.caseNo} · ${ticket.trip?.no || 'no travel number'}`,
         text:
           `Case ${ticket.caseNo} — a reported device position has been recorded.\n\n` +
-          `Position source: ${source}\n` +
+          `Position source: ${sourceLabel}\n` +
           `Location: ${reported.address || '—'}\n` +
           `Coordinates: ${reported.coords ? `${reported.coords.lat}, ${reported.coords.lng}` : '—'}\n` +
           (reported.coords ? `Map: https://maps.google.com/?q=${reported.coords.lat},${reported.coords.lng}\n` : '') +
