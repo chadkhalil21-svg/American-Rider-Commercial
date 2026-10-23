@@ -3926,7 +3926,7 @@ app.post('/travel/dispatch', requireAuth, LIMITS.dispatch, requireFreshAuth, req
     if (outcome.body.matched && !outcome.body.reused) {
       // Non-delivery cannot roll back the money/assignment transaction. The assignment sweep
       // retries missing notifications. The Teen code was provisioned before the offer.
-      if (teen.required && ride.party?.teenUid) await notify({ uid: ride.party.teenUid, kind: 'teen_pickup_code', title: 'Your pickup code', body: 'Your private pickup code is available inside American Rider. Confirm the vehicle and Operator before sharing it.', data: { screen: '/ride', rideId: id, tripNo: ride.tripNo } });
+      if (teen.required && ride.party?.teenUid) await notify({ uid: ride.party.teenUid, kind: 'teen_pickup_code', title: 'Your pickup code', body: 'Your private pickup code is available inside American Rider. Confirm the vehicle and Operator before sharing it.', data: { screen: '/teen-pickup', rideId: id, tripNo: ride.tripNo } });
       if (teen.required && ride.party?.guardianUid && ride.party.guardianUid !== ride.party.teenUid) {
         await notify({ uid: ride.party.guardianUid, kind: 'guardian_travel', title: 'Teen Travel assigned',
           body: `${ride.party.travelerName || 'Teen Traveler'}'s Travel has been assigned. You can follow it in American Rider.`,
