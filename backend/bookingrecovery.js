@@ -12,6 +12,7 @@ const CURSOR_FIELDS = Object.freeze({
   awaiting_payment: 'preparedAfterId',
   awaiting_assignment: 'assignmentAfterId',
   refund_pending: 'refundAfterId',
+  compensation_pending: 'compensationAfterId',
 });
 
 /**
@@ -37,6 +38,9 @@ async function sweepBookingRecovery({ db, deps, stripeConfigured, now = Date.now
     { field: 'status', value: 'awaiting_payment', ttl: PREPARED_TTL_MS, cursor: CURSOR_FIELDS.awaiting_payment },
     { field: 'status', value: 'awaiting_assignment', ttl: PAID_UNMATCHED_TTL_MS, cursor: CURSOR_FIELDS.awaiting_assignment },
     { field: 'refundPending', value: true, ttl: 0, cursor: CURSOR_FIELDS.refund_pending },
+    // Captured $4 fees awaiting their verified $3 Operator transfer require
+    // independent recovery even when the Traveler refund is already settled.
+    { field: 'arrivalFeePending', value: true, ttl: 0, cursor: CURSOR_FIELDS.compensation_pending },
   ];
   for (const group of groups) {
     let snap;
@@ -69,6 +73,10 @@ async function sweepBookingRecovery({ db, deps, stripeConfigured, now = Date.now
     for (const doc of snap.docs) {
       let ride = doc.data() || {};
       if (group.field === 'refundPending' && ride.status !== 'cancelled') continue;
+      if (group.field === 'arrivalFeePending' &&
+          !(ride.status === 'cancelled' && ride.paymentCapturePolicy === 'manual_v1' &&
+            Number(ride.cancellationFeeCaptureCents) === 400 &&
+            Number(ride.arrivalFeeCents) === 300 && !ride.arrivalFeeTransferId)) continue;
       if (ride.reservationId && !ride.paymentIntentId) {
         try {
           const reservation = await db.collection('scheduled_rides').doc(String(ride.reservationId)).get();
@@ -124,8 +132,15 @@ async function sweepBookingRecovery({ db, deps, stripeConfigured, now = Date.now
       try {
         const result = await cancelTravel({ db, uid: ride.travelerUid, rideId: doc.id,
           deps, stripeConfigured, now });
-        if (result.status === 200 && !result.body.pending) out.closed.push(doc.id);
-        else if (result.status === 202 || result.body.pending) out.pending.push(doc.id);
+        // The cancellation endpoint can return 200 even while the Operator's
+        // compensation is separately owed. Trust the updated server record.
+        const compensationStillPending = group.field === 'arrivalFeePending' &&
+          result.status === 200 && !result.body.pending &&
+          (await db.collection('rides').doc(doc.id).get()).data()?.arrivalFeePending === true;
+        if (result.status === 200 && !result.body.pending && !compensationStillPending)
+          out.closed.push(doc.id);
+        else if (result.status === 202 || result.body.pending || compensationStillPending)
+          out.pending.push(doc.id);
         else { out.ok = false; out.errors.push(`${doc.id}: ${result.body.code || result.body.error}`); }
       } catch (e) { out.ok = false; out.errors.push(`${doc.id}: ${String(e.message || e)}`); }
     }
