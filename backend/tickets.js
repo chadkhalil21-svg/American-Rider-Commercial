@@ -181,7 +181,8 @@ async function updateTicketLocation({ caseNo, uid, address, coords, rideId = nul
       return { ok: false };
     if (!coords && !address) return { ok: false };
 
-    if (existing.uid !== uid) {
+    const fromAssignedOperator = existing.uid !== uid;
+    if (fromAssignedOperator) {
       // Route monitoring creates the Emergency ticket under the Traveler UID.
       // The assigned Operator may have the most accurate live position, but
       // must prove membership in THAT active Travel and THAT monitored case.
@@ -194,11 +195,18 @@ async function updateTicketLocation({ caseNo, uid, address, coords, rideId = nul
         return { ok: false };
     }
 
-    await ref.update({
-      'emergency.address': address || null,
-      'emergency.coords': coords || null,
-      'emergency.locationAt': Date.now(),
-    });
+    // An Operator's handset is not the Traveler's handset, especially before
+    // pickup. Keep each reported position separate and label the reporter.
+    const position = { address: address || null, coords: coords || null, at: Date.now() };
+    if (fromAssignedOperator) {
+      await ref.update({ 'emergency.operatorLocation': position });
+    } else {
+      await ref.update({
+        'emergency.address': position.address,
+        'emergency.coords': position.coords,
+        'emergency.locationAt': position.at,
+      });
+    }
 
     // THE FIRST LOCATION HAS TO BE EMAILED, NOT JUST STORED.
     //
@@ -211,9 +219,14 @@ async function updateTicketLocation({ caseNo, uid, address, coords, rideId = nul
     //
     // So: the first time a location lands on an emergency case, send it. Later movement
     // stays in the document — two emails is right, forty is noise.
-    const hadLocation = !!(existing.emergency && (existing.emergency.address || existing.emergency.coords));
-    if (!hadLocation && (address || coords) && existing.kind === 'emergency') {
-      await notifyLocationByEmail({ ...existing, emergency: { ...existing.emergency, address, coords } });
+    const hadLocation = !!(existing.emergency && (existing.emergency.address ||
+      existing.emergency.coords || existing.emergency.operatorLocation?.address ||
+      existing.emergency.operatorLocation?.coords));
+    if (!hadLocation && (address || coords)) {
+      const emergency = fromAssignedOperator
+        ? { ...existing.emergency, operatorLocation: position }
+        : { ...existing.emergency, address: position.address, coords: position.coords };
+      await notifyLocationByEmail({ ...existing, emergency });
     }
     return { ok: true };
   } catch {
@@ -227,6 +240,11 @@ async function notifyLocationByEmail(ticket) {
   const key = readKey('RESEND_API_KEY');
   if (!to || !key) return false;
   const e = ticket.emergency || {};
+  // Never call an Operator handset's GPS the Traveler's location.
+  const operatorOnly = !(e.coords || e.address) &&
+    !!(e.operatorLocation?.coords || e.operatorLocation?.address);
+  const reported = operatorOnly ? e.operatorLocation : e;
+  const source = operatorOnly ? 'Assigned Operator device' : 'Case reporter device';
   try {
     const r = await fetch('https://api.resend.com/emails', {
       method: 'POST',
@@ -239,10 +257,11 @@ async function notifyLocationByEmail(ticket) {
         to: [to],
         subject: `EMERGENCY LOCATION · ${ticket.caseNo} · ${ticket.trip?.no || 'no travel number'}`,
         text:
-          `Case ${ticket.caseNo} — the traveler's position has been established.\n\n` +
-          `Location: ${e.address || '—'}\n` +
-          `Coordinates: ${e.coords ? `${e.coords.lat}, ${e.coords.lng}` : '—'}\n` +
-          (e.coords ? `Map: https://maps.google.com/?q=${e.coords.lat},${e.coords.lng}\n` : '') +
+          `Case ${ticket.caseNo} — a reported device position has been recorded.\n\n` +
+          `Position source: ${source}\n` +
+          `Location: ${reported.address || '—'}\n` +
+          `Coordinates: ${reported.coords ? `${reported.coords.lat}, ${reported.coords.lng}` : '—'}\n` +
+          (reported.coords ? `Map: https://maps.google.com/?q=${reported.coords.lat},${reported.coords.lng}\n` : '') +
           `\nVehicle: ${e.vehicle || '—'}  PLATE ${e.plate || '—'}\n` +
           `Operator: ${e.operator || '—'}\n` +
           `Traveler: ${ticket.email || ticket.uid}\n\n` +
