@@ -61,7 +61,13 @@ function AppGate() {
       const recipientUid = typeof data?.recipientUid === 'string' ? data.recipientUid : null;
       if (!user || !recipientUid || recipientUid !== user.uid) return;
       const screen = typeof data?.screen === 'string' ? data.screen : null;
-      const allowed = new Set(['/ride', '/receipt', '/operator', '/operator/insurance', '/family']);
+      // Keep the list explicit and auditable. Every route is a real screen
+      // authored by our notification publishers. A push may NAVIGATE only;
+      // it never accepts Travel, transfers funds, or bypasses account security.
+      const allowed = new Set([
+        '/ride', '/receipt', '/operator', '/operator/insurance', '/family',
+        '/operator/trip', '/emergency', '/wallet', '/',
+      ]);
       if (screen && allowed.has(screen)) router.navigate(screen as never);
     };
     const unsubscribe = onNotificationTap(open);
