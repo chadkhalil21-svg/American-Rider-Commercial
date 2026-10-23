@@ -96,6 +96,15 @@ const HOME_HTML = page(
   </div>
   <a href="/travel">Explore Travel &rsaquo;</a>
 </section>
+
+<section class="recruitment-feature" aria-labelledby="recruitment-heading">
+  <div>
+    <p class="eyebrow">Work with American Rider</p>
+    <h2 id="recruitment-heading">Help build the network.</h2>
+    <p>Learn about independent recruiting opportunities and how approved representatives will introduce people to American Rider. This is separate from Traveler invitations.</p>
+  </div>
+  <a class="more" href="/recruitment">Recruitment information &rsaquo;</a>
+</section>
 `,
   '/',
 );
@@ -369,6 +378,31 @@ const SMART_HTML = page(
   '/smart-travel',
 );
 
+
+const RECRUITMENT_HTML = page(
+  'Recruitment',
+  `
+<h1>Recruitment</h1>
+<p class="lede">Represent American Rider with clarity and professionalism.</p>
+<section aria-labelledby="recruitment-overview">
+  <h2 id="recruitment-overview">Independent recruiting</h2>
+  <p>American Rider is developing a separate program for independent representatives who may introduce prospective Operators and Travelers to our national transportation platform. Service begins in selected markets; an introduction does not establish that Travel is available in a location.</p>
+  <p>Recruiters are distinct from Travelers using the ordinary Invite a Traveler feature.</p>
+</section>
+<section aria-labelledby="recruitment-process">
+  <h2 id="recruitment-process">Approval and representation</h2>
+  <p>Recruiter identity, approval, permitted activities and written terms must be established before anyone represents American Rider as an approved recruiter. Personal attribution links, QR codes, recruiter accounts and commission statements will be made available only after their systems have been tested and activated.</p>
+  <p>Compensation, eligibility and payout frequency are not yet announced. No person should promise payments or recruiting status on our behalf.</p>
+</section>
+<section aria-labelledby="recruitment-contact">
+  <h2 id="recruitment-contact">Business inquiries</h2>
+  <p>The recruiter program is not yet open for enrollment. For an initial business inquiry, contact <a href="mailto:relations@americanrider.app?subject=Recruitment%20inquiry">relations@americanrider.app</a>.</p>
+  <p>Do not send identity documents, bank information or tax records by ordinary email.</p>
+</section>
+`,
+  '/recruitment',
+);
+
 // Neutral holding page only; does not complete invitations or pay recruiters.
 const JOIN_HTML = page(
   'Invitation',
@@ -384,5 +418,5 @@ const JOIN_HTML = page(
 </section>
 `,
 );
-module.exports = { HOME_HTML, OPERATE_HTML, SUPPORT_HTML, TRAVEL_HTML, SAFETY_HTML, SMART_HTML, JOIN_HTML };
+module.exports = { HOME_HTML, OPERATE_HTML, SUPPORT_HTML, TRAVEL_HTML, SAFETY_HTML, SMART_HTML, JOIN_HTML, RECRUITMENT_HTML };
 
