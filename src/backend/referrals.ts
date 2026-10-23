@@ -18,12 +18,14 @@ const deadline=async (url:string, method:'GET'|'POST',body?:Record<string,string
   }catch{return null;}finally{clearTimeout(timeout);}
 };
 export async function personalInvitation(role:InviteRole):Promise<string|null>{
+  if (process.env.EXPO_PUBLIC_REFERRALS_ENABLED !== '1') return null;
   const out=await deadline(`${PAYMENT_SERVER_URL}/referrals/share?role=${role}`,'GET');
   const url=out?.status===200?out.data?.url:null;
   return typeof url==='string'&&
     /^https:\/\/americanrider\.app\/join\?r=[0-9A-F]{24}&role=(traveler|operator)$/.test(url)?url:null;
 }
 export async function recordInvitation(code:string,role:InviteRole):Promise<'recorded'|'finished'|'retry'>{
+  if (process.env.EXPO_PUBLIC_REFERRALS_ENABLED !== '1') return 'retry';
   const out=await deadline(`${PAYMENT_SERVER_URL}/referrals/claim`,'POST',{code,role});
   if(!out||out.status>=500||out.status===401||out.status===403)return 'retry';
   return out.status===200&&out.data?.recorded===true?'recorded':'finished';
