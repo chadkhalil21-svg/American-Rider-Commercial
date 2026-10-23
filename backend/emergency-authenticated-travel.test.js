@@ -64,6 +64,11 @@ const read = (uid, rideId = RIDE) => emergencyTravelContext({ db, uid, rideId })
   assert.equal((await read('traveler-one')).monitoredCase, null,
     'a support case is not an already reported emergency');
 
+  tickets.set(CASE, { uid: 'traveler-one', kind: 'emergency', status: 'resolved',
+    trip: { no: 'AR-VERIFIED-100' }, alertAcceptedAt: 1 });
+  assert.equal((await read('operator-one')).monitoredCase, null,
+    'a closed monitored Emergency cannot suppress a fresh urgent report');
+
   const root = path.resolve(__dirname, '..');
   const source = x => fs.readFileSync(path.join(root, x), 'utf8');
   const server = source('backend/server.js');
