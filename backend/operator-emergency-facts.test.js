@@ -50,8 +50,8 @@ const screen = fs.readFileSync(path.join(root, 'app/emergency.tsx'), 'utf8');
 assert(screen.includes('useOperator()') && screen.includes('resolveEmergencyTravelFacts('));
 assert(screen.includes('trip: null') && screen.includes('rideId: candidateRideId'),
   'Emergency submits a lookup hint only, not local Operator or Traveler claims');
-assert(screen.includes('const operator = verifiedTravel?.operator ||') &&
-  screen.includes('const tripNo = verifiedTravel?.tripNo ||'),
+assert(screen.includes('const operator = currentVerified?.operator ||') &&
+  screen.includes('const tripNo = currentVerified?.tripNo ||'),
   'vehicle and Travel Number are shown only after server attestation');
 assert(screen.includes('hasVehicleFacts &&') && screen.includes('hasOperatorName &&'),
   'never show empty or unverified identity fields');
