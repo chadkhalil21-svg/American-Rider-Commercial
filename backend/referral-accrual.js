@@ -71,7 +71,7 @@ async function recordHeldAccrual({db,rideId,program=PROGRAM,now=Date.now()}={}){
           role:item.role,programVersion:program.version,
           amountCents:decision.rewardCents,status:'held',createdAt:now,
         });
-        tx.update(item.claim,{
+        tx.update(item.claimRef,{
           qualifiedTravels:Number(item.claim.qualifiedTravels||0)+1,
           earnedCents:Number(item.claim.earnedCents||0)+decision.rewardCents,
         });
