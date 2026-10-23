@@ -20,6 +20,8 @@ import { OperatorProvider } from '../state/OperatorContext';
 import { RideProvider } from '../state/RideContext';
 import { VoiceProvider } from '../state/VoiceContext';
 import { colors } from '../theme';
+import { readPendingInvite, clearPendingInvite } from '../backend/referralPending';
+import { recordInvitation } from '../backend/referrals';
 
 // The Stack is always mounted (so expo-router routing works). Until the user is
 // signed in, the sign-up screen is shown as a full-screen overlay on top of it.
@@ -35,6 +37,25 @@ function AppGate() {
     process.env.EXPO_PUBLIC_AUTH_PREVIEW_BYPASS === '1' &&
     typeof window !== 'undefined' &&
     new URLSearchParams(window.location.search).get('preview') === 'app';
+
+  // A link opened before account creation has no permission to attribute anybody.
+// After the normal sign-up and verification, the authenticated server claims it
+// ONCE. Do not poll Firestore, fetch contacts, or create an invite for an
+// existing Traveler. A temporary network failure keeps it for a later retry.
+  useEffect(()=>{
+    if(!user||initializing||onboarding)return;
+    let live=true;
+    (async()=>{
+      const pending=await readPendingInvite();
+      if(!pending||!live)return;
+      const result=await recordInvitation(pending.code,pending.role);
+      if(!live)return;
+      if(result!=='retry')await clearPendingInvite();
+      if(live&&result==='recorded'&&pending.role==='operator')
+        router.replace('/operator/qualify');
+    })();
+    return()=>{live=false;};
+  },[user?.uid,user?.emailVerified,initializing,onboarding,router]);
 
   // REGISTERED ONCE THERE IS AN ACCOUNT TO REGISTER AGAINST, not at launch. The token is
   // stored on `users/{uid}`, so asking before sign-in would have nowhere to put it — and
