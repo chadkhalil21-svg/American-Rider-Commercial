@@ -91,7 +91,14 @@ const {fileTicket,updateTicketLocation}=require('./tickets');
  assert.equal(data.get(first.caseNo).emergency.operatorLocation.coords.lat,25.81);
  assert.equal(data.get(first.caseNo).emergency.coords.lat,25.8,
    'Operator GPS must never overwrite the Traveler phone position');
- assert.equal(sent.length,3,'existing location is updated without duplicate email');
+ assert.equal(sent.length,4,'each role may announce its first separately verified location');
+ assert.equal(sent.at(-1).key,'case-location/operator/'+first.caseNo);
+ assert.match(sent.at(-1).payload.text,/Position source: Assigned Operator device/);
+ assert.match(sent.at(-1).payload.text,/25\.81, -80\.37/);
+ const opAgain=await updateTicketLocation({caseNo:first.caseNo,uid:'op-fixture',
+   rideId:RIDE,address:'Operator GPS again',coords:{lat:25.82,lng:-80.35}});
+ assert.equal(opAgain.ok,true);
+ assert.equal(sent.length,4,'continuous Operator GPS must not send repeated emails');
  const unrelated=await updateTicketLocation({caseNo:first.caseNo,uid:'intruder',
    rideId:RIDE,address:'Forged location',coords:{lat:0,lng:0}});
  assert.equal(unrelated.ok,false,'guessed case and ride IDs are not authorization');
@@ -111,9 +118,20 @@ const {fileTicket,updateTicketLocation}=require('./tickets');
  assert.equal(data.get(second.caseNo).emergency.coords,undefined,
    'Operator-only location is stored separately from Traveler GPS');
  assert.equal(data.get(second.caseNo).emergency.operatorLocation.coords.lat,25.83);
- assert.equal(sent.length,4,'first Operator GPS is emailed once');
+ assert.equal(sent.length,5,'first Operator GPS is emailed once');
+ assert.equal(sent.at(-1).key,'case-location/operator/'+second.caseNo);
  assert.match(sent.at(-1).payload.text,/Position source: Assigned Operator device/);
  assert.doesNotMatch(sent.at(-1).payload.text,/traveler.s position has been established/i);
+ const travelerAfterOperator=await updateTicketLocation({caseNo:second.caseNo,
+   uid:'u-fixture',address:'Traveler GPS independently',coords:{lat:25.70,lng:-80.20}});
+ assert.equal(travelerAfterOperator.ok,true,
+   'Traveler may still report their own different location after an Operator');
+ assert.equal(data.get(second.caseNo).emergency.coords.lat,25.70);
+ assert.equal(data.get(second.caseNo).emergency.operatorLocation.coords.lat,25.83);
+ assert.equal(sent.length,6,'each role first GPS emails separately, without losing either');
+ assert.equal(sent.at(-1).key,'case-location/'+second.caseNo);
+ assert.match(sent.at(-1).payload.text,/Position source: Case reporter device/);
+ assert.match(sent.at(-1).payload.text,/25\.7, -80\.2/);
  rides.get(RIDE).monitor.caseNo=first.caseNo;
  rides.get(RIDE).status='completed';
  const oldOperator=await updateTicketLocation({caseNo:first.caseNo,uid:'op-fixture',
@@ -123,7 +141,7 @@ const {fileTicket,updateTicketLocation}=require('./tickets');
  const restore=await updateTicketLocation({caseNo:first.caseNo,uid:'u-fixture',
    address:'Traveler GPS restored',coords:{lat:25.8,lng:-80.4}});
  assert.equal(restore.ok,true,'original Traveler can always update their own open Emergency');
- assert.equal(sent.length,4);
+ assert.equal(sent.length,6);
  const scheduled={
    uid:'u-fixture',kind:'support',reason:'Scheduled Travel requires Operations review',
    idempotencyKey:'scheduled-review-1234567890abcdef1234567890abcdef',
