@@ -87,14 +87,18 @@ export default function Emergency() {
     return () => { active = false; };
   }, [candidateRideId]);
 
+  // Ignore the previous Travel while React processes a newly opened push.
+  // Clearing state in useEffect happens after render; this identity gate is
+  // immediate and prevents one frame of stale emergency vehicle details.
+  const currentVerified = verifiedTravel?.rideId === candidateRideId ? verifiedTravel : null;
   // A locally cached Travel is a lookup hint, not verified emergency identity.
   // Keep 911 and an ordinary Emergency report available during a server outage,
   // without presenting an obsolete vehicle or Travel Number as confirmed.
-  const hasOperator = !!(verifiedTravel?.operator && verifiedTravel.vehicle && verifiedTravel.plate);
-  const operator = verifiedTravel?.operator || '';
-  const vehicle = verifiedTravel?.vehicle || '';
-  const plate = verifiedTravel?.plate || '';
-  const tripNo = verifiedTravel?.tripNo || '';
+  const hasOperator = !!(currentVerified?.operator && currentVerified.vehicle && currentVerified.plate);
+  const operator = currentVerified?.operator || '';
+  const vehicle = currentVerified?.vehicle || '';
+  const plate = currentVerified?.plate || '';
+  const tripNo = currentVerified?.tripNo || '';
   const hasVehicleFacts = !!(vehicle && plate);
   const hasOperatorName = !!operator;
 
@@ -240,14 +244,14 @@ export default function Emergency() {
   const contactMessage =
     (hasOperator
       ? t('traveler.emgHelpIntro')
-      : verifiedTravel
+      : currentVerified
         ? t('traveler.emgHelpTravel')
         : t('traveler.emgHelpGeneral')) +
     '\n\n' +
     t('traveler.emgWhereIAm', { place: locationLine }) +
     (fix ? ' ' + t('traveler.emgAsOf', { time: clockLabel(fix.at) }) : '') +
-    (verifiedTravel?.tripNo
-      ? '\n' + t('traveler.emgRouteLine', { from: verifiedTravel.dep, to: verifiedTravel.dest })
+    (currentVerified?.tripNo
+      ? '\n' + t('traveler.emgRouteLine', { from: currentVerified.dep, to: currentVerified.dest })
       : '') +
     (hasVehicleFacts ? '\n' + t('traveler.emgVehicleLine', { vehicle, plate }) : '') +
     (hasOperatorName ? '\n' + t('traveler.emgOperatorLine', { name: operator }) : '') +
