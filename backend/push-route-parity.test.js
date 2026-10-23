@@ -36,8 +36,10 @@ for (const [route, senders] of published) {
     route + ' from ' + senders.join(', '));
 }
 for (const route of allowed) {
-  const screen = route === '/' ? 'app/index.tsx' : 'app' + route + '.tsx';
-  assert(fs.existsSync(path.join(root, screen)),
+  // Expo Router resolves both app/route.tsx and app/route/index.tsx.
+  const screens = route === '/' ? ['app/index.tsx'] :
+    ['app' + route + '.tsx', 'app' + route + '/index.tsx'];
+  assert(screens.some(screen => fs.existsSync(path.join(root, screen))),
     'notification allowlist points to a screen that does not exist: ' + route);
 }
 for (const route of ['/wallet', '/operator/trip', '/emergency', '/']) {
