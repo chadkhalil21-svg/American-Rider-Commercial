@@ -1,7 +1,7 @@
 // The authenticated Teen's private pickup code. Never place this PIN in an Expo
 // notification or trust a deep-link ride ID as authorization.
 import { useLocalSearchParams } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { Text } from '../src/components/AppText';
 import { useGoBack } from '../src/components/nav';
@@ -17,12 +17,15 @@ export default function TeenPickupCode() {
   const rideId = typeof params.rideId === 'string' && /^[a-f0-9]{40}$/.test(params.rideId)
     ? params.rideId : '';
   const [code, setCode] = useState<string | null>(null);
+  const currentRideId = useRef(rideId);
+  currentRideId.current = rideId;
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState(false);
 
   // Never display a previous Travel's code when the route changes.
   useEffect(() => {
     setCode(null);
+    setBusy(false);
     setFailed(false);
   }, [rideId]);
 
@@ -35,11 +38,11 @@ export default function TeenPickupCode() {
       // The server independently checks verified authentication, Teen/guardian
       // membership, active ride state, PIN provision and attempt lockout.
       const privateCode = await fetchTeenPickupCode(rideId);
-      setCode(privateCode);
+      if (currentRideId.current === rideId) setCode(privateCode);
     } catch {
-      setFailed(true);
+      if (currentRideId.current === rideId) setFailed(true);
     } finally {
-      setBusy(false);
+      if (currentRideId.current === rideId) setBusy(false);
     }
   };
 
