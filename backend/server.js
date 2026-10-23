@@ -585,6 +585,12 @@ app.get('/config', async (req, res) => {
     cancellationFeeGrossCents:
       process.env.AR_MANUAL_TRAVEL_CAPTURE==='true'&&
       process.env.AR_MANUAL_CANCELLATION_FEE==='true'?400:null,
+    // The Operator no-show action must not appear usable in a signed client
+    // when this paid endpoint is deliberately not commissioned.
+    verifiedNoShowEnabled:
+      process.env.AR_VERIFIED_NO_SHOW==='true'&&
+      process.env.AR_MANUAL_TRAVEL_CAPTURE==='true'&&
+      process.env.AR_MANUAL_CANCELLATION_FEE==='true',
     // Managing a saved method is a Stripe capability, not a whole-platform capability.
     // Screening, HERE, scheduler, market-reference and Ops readiness must never disable Wallet.
     // A Travel charge remains stricter: create-payment-intent is still protected by

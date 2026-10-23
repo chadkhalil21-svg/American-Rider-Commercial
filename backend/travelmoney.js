@@ -153,12 +153,13 @@ async function cancelTravel({ db, uid, rideId, deps, stripeConfigured = true, no
   // Settled travels are finished journeys; cancelling one is a support matter, not this route.
   if (ride.transferId) return fail(409, 'That travel has already been completed and paid out', 'already_settled');
 
-  // Before arrival: full refund. After arrival: less a $3 arrival fee paid to the operator.
-  // Onboard or completed: refused, and directed to Patron Support. (Unchanged.)
+  // A legacy captured-fare cancellation retains a fee ONLY when the server
+  // verified it under the commissioned policy and froze that decision at closure.
+  // Arrival alone is not proof or permission to charge a fee.
+  // Onboard or completed: refused, and directed to Patron Support.
   if (ride.status === 'onboard' || ride.status === 'completed') {
     return fail(409, 'This travel is already underway and cannot be cancelled. Patron Support can settle anything that went wrong with it.', 'travel_underway');
   }
-  const ARRIVAL_FEE_CENTS = 300;
 
   // Close and release the one-Operator reservation together. A concurrent completion or
   // payment claim cannot be raced by an out-of-date read above.
@@ -168,6 +169,13 @@ async function cancelTravel({ db, uid, rideId, deps, stripeConfigured = true, no
     const current = currentSnap.data();
     if(String(noShowOperator?current.operatorId:current.travelerUid)!==String(uid))
       return fail(403,'Caller does not own this Travel','not_yours');
+    // The paid no-show route is ONLY for a Travel booked under the exact
+    // original manual authorization and accepted $4 fee policy. Activating
+    // the feature later cannot make old, already-captured bookings liable.
+    if (noShowOperator && (current.paymentCapturePolicy!=='manual_v1' ||
+        current.cancellationFeeDisclosureVersion!=='net3-allin400-v1'))
+      return fail(409,'This Travel was not booked with the verified no-show terms',
+        'no_show_terms_unavailable');
     if (current.paymentClaim) return fail(409, 'Payment is still being prepared; retry cancellation shortly', 'payment_in_progress');
     if (['onboard', 'completed'].includes(current.status) || current.transferId) {
       return fail(409, 'This travel is underway or settled', 'travel_underway');
@@ -213,6 +221,21 @@ async function cancelTravel({ db, uid, rideId, deps, stripeConfigured = true, no
     // and a genuine, upfront Traveler disclosure were already stored.
     // Once closed, retry the ORIGINAL frozen fee. Never re-price after the
     // Operator slot has been released, GPS has aged, or a later flag changes.
+    // A pre-captured legacy Travel never gets the newer manual $4 fee.
+    // Freeze its independently verified $3/zero outcome atomically with
+    // cancellation, so recovery cannot invent a fee after flags, GPS, or
+    // Operator availability change. Old cancelled records without an original
+    // fee decision fail closed at zero, never retroactively charge.
+    const legacyFeeCents=current.paymentCapturePolicy==='manual_v1' ? 0
+      : current.status==='cancelled'
+        ? (priorDecision?.feeCents ?? 0)
+        : enableVerifiedProgressFee
+          ? (feeDecision?.feeCents ?? 0)
+          : 0;
+    const legacyFeeReason=priorDecision?.reason ||
+      (current.status==='cancelled'?'unverified_legacy_cancellation'
+        : enableVerifiedProgressFee?(feeDecision?.reason||'fee_unverified')
+          :'fee_not_commissioned');
     const grossManual=current.status==='cancelled' &&
       Number.isSafeInteger(current.cancellationFeeCaptureCents)
       ? current.cancellationFeeCaptureCents
@@ -230,19 +253,24 @@ async function cancelTravel({ db, uid, rideId, deps, stripeConfigured = true, no
         ? {cancellationFeeCaptureCents:grossManual}:{}),
       cancelledFrom: current.cancelledFrom || current.status,
       refundPending: !!current.paymentIntentId,
-      ...(!noShowOperator&&enableVerifiedProgressFee ? {
+      ...(current.paymentCapturePolicy!=='manual_v1' ? {
+        cancellationFeeCents:legacyFeeCents,
+        cancellationFeeReason:legacyFeeReason,
+        ...(feeDecision?.evidence ? {cancellationFeeEvidence:feeDecision.evidence} : {}),
+      } : !noShowOperator&&enableVerifiedProgressFee ? {
         cancellationFeeCents:feeDecision.feeCents,
         cancellationFeeReason:feeDecision.reason,
         cancellationFeeEvidence:feeDecision.evidence||null,
-      }:{}),
+      } : {}),
     });
-    return { current, feeDecision, grossManual };
+    return { current, feeDecision, grossManual, legacyFeeCents };
   });
   if (closed.status) return closed;
   const currentRide = closed.current;
-  const arrivalFee = noShowOperator?NO_SHOW_NET_CENTS:enableVerifiedProgressFee
-    ? closed.feeDecision.feeCents
-    : (String(currentRide.cancelledFrom || currentRide.status || '') === 'arrived' ? ARRIVAL_FEE_CENTS : 0);
+  // Frozen when the Travel first closes. Feature flags must never
+  // retroactively change a promised refund or invent an arrival fee.
+  const arrivalFee = currentRide.paymentCapturePolicy==='manual_v1'
+    ? 0 : closed.legacyFeeCents;
 
   // THE PAYMENT IS THE TRAVEL'S OWN. Never the request's: see the header.
   const paymentIntentId = String(currentRide.paymentIntentId || '');
@@ -283,6 +311,7 @@ async function cancelTravel({ db, uid, rideId, deps, stripeConfigured = true, no
         : {capturedCents:gross,cancellationFeeCaptureCents:gross,
            arrivalFeeCents:OPERATOR_NET_CENTS}),
     },{merge:true});
+    let operatorPaymentPending=!!gross&&!currentRide.arrivalFeeTransferId;
     if(gross&&!currentRide.arrivalFeeTransferId) {
       try {
         const {accountId}=await deps.operatorPayoutAccount(db,currentRide.operatorId);
@@ -295,10 +324,12 @@ async function cancelTravel({ db, uid, rideId, deps, stripeConfigured = true, no
             reference:`verified service cancellation ${currentRide.tripNo||id}`});
           // The guard records new success. On an already-settled retry it
           // returns early; clear a stale pending marker from another caller.
-          if(paid.ok && paid.alreadySettled)
-            await rideRef.set({arrivalFeePending:false,
-              arrivalFeeBlockedReason:null},{merge:true});
-          else if(!paid.ok)await rideRef.set({arrivalFeePending:true,
+          if(paid.ok) {
+            operatorPaymentPending=false;
+            if(paid.alreadySettled)
+              await rideRef.set({arrivalFeePending:false,
+                arrivalFeeBlockedReason:null},{merge:true});
+          } else await rideRef.set({arrivalFeePending:true,
             arrivalFeeBlockedReason:paid.code||paid.error||'transfer_failed'},
             {merge:true});
         } else await rideRef.set({
@@ -314,7 +345,8 @@ async function cancelTravel({ db, uid, rideId, deps, stripeConfigured = true, no
     }
     return {status:200,body:{ok:true,
       authorizationReleased:out.status==='released',capturedCents:gross,
-      operatorNetCents:gross?OPERATOR_NET_CENTS:0,refunded:false}};
+      operatorNetCents:gross?OPERATOR_NET_CENTS:0,
+      operatorPaymentPending,refunded:false}};
   }
   let refundable, reason;
   try { ({ cents: refundable, reason } = await deps.refundableFor({ paymentIntentId, expectUid: String(currentRide.travelerUid) })); }

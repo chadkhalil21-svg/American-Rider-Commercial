@@ -99,8 +99,9 @@ const rides = (over = {}) => ({
     const db = fakeDb(rides({ A: { status: 'arrived' } }));
     const s = stripe();
     const out = await cancelTravel({ db, uid: 'alice', rideId: 'A', deps: s });
-    check('after arrival: refunded less the $3 arrival fee, which goes to the operator (unchanged)',
-      out.body.amountCents === 1644 && out.body.arrivalFeeCents === 300 && s.log.transfers.some((t) => t.kind === 'fee' && t.amountCents === 300));
+    check('disabled fee: reported arrival alone never withholds $3 from legacy captured Travel',
+      out.body.amountCents === 1944 && out.body.arrivalFeeCents === 0 &&
+      db.data.rides.A.cancellationFeeCents===0 && s.log.transfers.length===0);
   }
   {
     const db = fakeDb(rides({ A: { status: 'accepted', paymentIntentId: null } }));
@@ -127,13 +128,48 @@ const rides = (over = {}) => ({
     const out = await cancelTravel({ db, uid: 'alice', rideId: 'A', deps: s });
     check('payment attached between cancel reads is refunded from the transactional Travel',
       out.status === 200 && out.body.refunded === true && s.log.refunds[0]?.paymentIntentId === 'pi_A');
-    check('arrival between cancel reads retains the earned $3 Operator fee',
-      out.body.amountCents === 1644 && s.log.transfers[0]?.amountCents === 300);
+    check('arrival between cancellation reads does not bypass disabled verification',
+      out.body.amountCents === 1944 && out.body.arrivalFeeCents===0 &&
+      s.log.transfers.length===0);
   }
   {
     const db = fakeDb(rides({ A: { status: 'onboard' } }));
     const out = await cancelTravel({ db, uid: 'alice', rideId: 'A', deps: stripe() });
     check('onboard: cancellation refused (unchanged)', out.status === 409 && db.data.rides.A.status === 'onboard');
+  }
+
+  // A failed Stripe refund can be retried after the deployment flags change.
+  // The original no-fee decision is frozen, not recomputed from a now-arrived
+  // Operator or newly enabled charge policy.
+  {
+    const db=fakeDb(rides({A:{status:'arrived',acceptedAt:1000,arrivedAt:1100}}));
+    const st=stripe(),original=st.refundTravel;
+    let outage=true;
+    st.refundTravel=async args=>{
+      if(outage){outage=false;throw Error('synthetic refund outage');}
+      return original(args);
+    };
+    const first=await cancelTravel({db,uid:'alice',rideId:'A',deps:st,now:1400});
+    check('disabled arrival fee frozen at zero before refund outage',
+      first.status===202&&db.data.rides.A.cancellationFeeCents===0&&
+      db.data.rides.A.cancellationFeeReason==='fee_not_commissioned');
+    const retry=await cancelTravel({db,uid:'alice',rideId:'A',deps:st,
+      now:1500,enableVerifiedProgressFee:true});
+    check('fee toggle after refund outage cannot newly deduct from Traveler',
+      retry.status===200&&retry.body.amountCents===1944&&
+      retry.body.arrivalFeeCents===0&&st.log.transfers.length===0);
+  }
+  // An older already-cancelled payment whose fee was never recorded cannot
+  // acquire a new $3 charge merely because the recovery worker runs later.
+  {
+    const db=fakeDb(rides({A:{status:'cancelled',cancelledFrom:'arrived',
+      refundPending:true,cancellationFeeCents:undefined}}));
+    const st=stripe();
+    const retry=await cancelTravel({db,uid:'alice',rideId:'A',deps:st,
+      enableVerifiedProgressFee:true});
+    check('unproven historic legacy fee cannot be reconstructed after closure',
+      retry.status===200&&retry.body.amountCents===1944&&
+      db.data.rides.A.cancellationFeeCents===0&&st.log.transfers.length===0);
   }
 
   // ——— 1b. Future ENROUTE fees: consent/terms gated, same existing Operator read ———
@@ -278,6 +314,36 @@ const rides = (over = {}) => ({
       db.data.rides.A.payoutPending===true&&st.log.transfers.length===0);
   }
 
+  // Turning on a paid no-show feature must NEVER change the rules of a
+  // Traveler's pre-existing booking or close the Travel on false fee terms.
+  for(const [label,record] of [
+    ['legacy captured booking',{status:'arrived'}],
+    ['manual hold without accepted fee terms',{
+      status:'arrived',paymentCapturePolicy:'manual_v1',
+    }],
+  ]) {
+    const at=1790390000000;
+    const db=fakeDb({...rides({A:{
+      ...record,acceptedAt:at-540000,arrivedAt:at-360000,
+      pickupContactAt:at-60000,pickupContactBy:'op1',
+      pickupLat:25.7617,pickupLng:-80.1918,
+    }}),operators:{op1:{
+      currentRideId:'A',lat:25.7617,lng:-80.1918,onlineAt:at-1000,
+    }}});
+    const st=stripe(),captures=[];
+    st.settleUncapturedTravel=async args=>{
+      captures.push(args);
+      return {manual:true,ok:true,status:'captured',captureCents:400};
+    };
+    const out=await cancelTravel({db,uid:'op1',operatorNoShowUid:'op1',
+      rideId:'A',deps:st,now:at,enableManualCancellationFee:true});
+    check('new paid no-show never applies retroactively: '+label,
+      out.status===409&&out.body.code==='no_show_terms_unavailable'&&
+      db.data.rides.A.status==='arrived'&&
+      db.data.operators.op1.currentRideId==='A'&&
+      captures.length===0&&st.log.transfers.length===0);
+  }
+
   // ——— Same-Travel 5-minute Operator no-show: strict proof, $4/$3 capture ———
   {
     const at=1790390000000;
@@ -303,7 +369,8 @@ const rides = (over = {}) => ({
       calls[0].uid==='alice'&&calls[0].verifiedFeeCents===400&&
       st.log.refunds.length===0&&st.log.transfers[0]?.amountCents===300&&
       st.log.transfers[0]?.expectedUid==='alice'&&
-      st.log.transfers[0]?.rideId==='A',
+      st.log.transfers[0]?.rideId==='A'&&
+      result.body.operatorPaymentPending===false,
       'Operator no-show caller is op1, but captured Stripe payment belongs to Traveler alice');
     const again=await cancelTravel({db,uid:'op1',operatorNoShowUid:'op1',
       rideId:'A',deps:st,now:at+1000,enableManualCancellationFee:true});
@@ -337,7 +404,28 @@ const rides = (over = {}) => ({
       db.data.rides.A.arrivalFeePending===true&&
       db.data.rides.A.arrivalFeeBlockedReason==='compensation_provider_unavailable'&&
       capture.length===1&&capture[0].uid==='alice'&&
+      result.body.operatorPaymentPending===true&&
       st.log.transfers.length===0);
+  }
+  {
+    // Successful $4 capture with missing Connect payout remains an owed $3,
+    // not a completed Operator payment. The phone must see this distinction.
+    const at=1790390000000;
+    const db=fakeDb(rides({A:{
+      status:'cancelled',paymentCapturePolicy:'manual_v1',
+      cancellationFeeCaptureCents:400,arrivalFeeCents:300,
+      cancellationFeeDisclosureVersion:'net3-allin400-v1',
+      cancelledFrom:'arrived',
+    }}));
+    const st=stripe();
+    st.settleUncapturedTravel=async()=>({
+      manual:true,ok:true,status:'captured',captureCents:400,
+    });
+    st.operatorPayoutAccount=async()=>({accountId:null});
+    const result=await cancelTravel({db,uid:'alice',rideId:'A',deps:st,now:at});
+    check('captured cancellation is not represented as paid to Operator if Connect missing',
+      result.status===200&&result.body.operatorPaymentPending===true&&
+      result.body.refunded===false&&db.data.rides.A.arrivalFeePending===true);
   }
   {
     // A concurrent retry may have recorded pending after an earlier worker

@@ -96,6 +96,7 @@ export type PaymentConfig = {
   canTakePayment: boolean;
   manualTravelAuthorization?:boolean;
   cancellationFeeGrossCents?:number|null;
+  verifiedNoShowEnabled?: boolean;
 };
 
 /**
@@ -142,6 +143,9 @@ export async function fetchPaymentConfig(): Promise<PaymentConfig> {
       canTakePayment: d?.canTakePayment === true,
       manualTravelAuthorization: d?.manualTravelAuthorization === true,
       cancellationFeeGrossCents: Number(d?.cancellationFeeGrossCents) === 400 ? 400 : null,
+      verifiedNoShowEnabled: d?.verifiedNoShowEnabled === true &&
+        Number(d?.cancellationFeeGrossCents) === 400 &&
+        d?.manualTravelAuthorization === true,
     };
   }, unavailable);
 }

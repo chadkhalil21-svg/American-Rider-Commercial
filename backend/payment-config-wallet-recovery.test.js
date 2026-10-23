@@ -49,16 +49,28 @@ const ok = value => ({ ok: true, json: async () => value });
     stripePublishableKey: 'pk_live_synthetic',
     mode: 'live', canManagePaymentMethods: true,
     canTakePayment: true, manualTravelAuthorization: true,
+    cancellationFeeGrossCents:400,verifiedNoShowEnabled:true,
   }));
   const configured = await live.fetchPaymentConfig();
   assert.equal(configured.mode, 'live');
   assert.equal(configured.canTakePayment, true);
+  assert.equal(configured.verifiedNoShowEnabled,true,
+    'verified release flags can enable the Operator control only after server authorization');
+  const unrelated = await harness(async()=>ok({
+    canTakePayment:true,manualTravelAuthorization:true,
+    cancellationFeeGrossCents:null,verifiedNoShowEnabled:true,
+  })).fetchPaymentConfig();
+  assert.equal(unrelated.verifiedNoShowEnabled,false,
+    'a partial, inconsistent fee configuration must not expose paid no-show');
+
 
   const down = harness(async () => { throw new Error('simulated outage'); });
   const unavailable = await down.fetchPaymentConfig();
   assert.equal(unavailable.canTakePayment, false);
   assert.equal(unavailable.canManagePaymentMethods, false);
   assert.equal(unavailable.stripePublishableKey, null);
+  assert.notEqual(unavailable.verifiedNoShowEnabled,true,
+    'unavailable config must not expose the paid no-show control');
   const unreadable = await down.fetchPaymentMethods();
   assert.notEqual(unreadable.unavailable, undefined);
   assert.equal(unreadable.methods.length, 0);

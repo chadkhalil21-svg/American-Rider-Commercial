@@ -296,7 +296,7 @@ type OperatorState = {
   confirmArrival: () => Promise<boolean>;
   cancelOp: () => void;
   withdrawAcceptedOp: () => Promise<{ok:boolean;code?:string}>;
-  noShowOp: () => Promise<{ok:boolean;code?:string;refundPending?:boolean}>;
+  noShowOp: () => Promise<{ok:boolean;code?:string;refundPending?:boolean;operatorPaymentPending?:boolean}>;
   completeOp: () => Promise<boolean>;
   lastCompleted: CompletedOp | null;
   msgs: OpMsg[];
