@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="robots" content="noindex,nofollow">
+  <meta name="referrer" content="no-referrer">
+  <title>Operator Invitations · American Rider Preview</title>
+  <style>
+    :root{color-scheme:light;--ink:#14171F;--muted:#8A8A82;--bg:#F7F7F5;--line:#ECEBE6;--card:#fff;}
+    *{box-sizing:border-box}
+    html,body{margin:0;min-height:100%;background:#E7E6E1;color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+    .preview-label{padding:12px 16px;text-align:center;background:#eae9e4;color:#3A3F49;font-size:12px;letter-spacing:.035em;border-bottom:1px solid #d8d7d0}
+    .screen{position:relative;max-width:440px;min-height:calc(100dvh - 42px);margin:auto;background:var(--bg);padding:calc(44px + env(safe-area-inset-top)) 24px calc(120px + env(safe-area-inset-bottom))}
+    .bar{display:flex;align-items:center;justify-content:space-between;min-height:34px;margin-bottom:22px;gap:12px}
+    .menu{font-size:21px;line-height:1;display:block;width:22px;letter-spacing:-2px;color:#B4B3AB}
+    .wordmark{font-size:12px;letter-spacing:2.2px;font-weight:600;white-space:nowrap}
+    .wordmark span{letter-spacing:0;color:var(--muted);font-size:11px}
+    .avatar{border-radius:50%;background:var(--ink);color:white;min-width:34px;height:34px;display:flex;align-items:center;justify-content:center;font-size:11px}
+    .back{border:0;background:none;padding:8px 0;font:inherit;color:var(--ink);font-size:15px;cursor:pointer}
+    h1{font-size:24px;font-weight:600;line-height:1.25;margin:14px 0 12px;letter-spacing:-.35px}
+    .intro{font-size:14px;line-height:22px;color:var(--muted);margin:0}
+    .card{margin-top:24px;background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px}
+    .action{display:block;width:100%;min-height:52px;border:0;border-radius:13px;background:var(--ink);color:#fff;font-size:15px;font-weight:600;padding:15px;cursor:pointer}
+    .action+.action{margin-top:14px}
+    .action:focus-visible,.back:focus-visible{outline:3px solid #36516F;outline-offset:3px}
+    .notice{display:none;margin-top:14px;border:1px solid var(--line);border-radius:12px;padding:13px;background:white;font-size:13px;color:#3A3F49;line-height:1.45}
+    .notice.visible{display:block}
+    .nav{display:flex;align-items:center;justify-content:space-around;position:absolute;bottom:0;left:0;right:0;min-height:calc(76px + env(safe-area-inset-bottom));padding-bottom:env(safe-area-inset-bottom);background:rgba(255,255,255,.96);border-top:1px solid var(--line)}
+    .nav-item{text-align:center;font-size:11px;font-weight:600;color:#B4B3AB;min-width:30%}
+    .nav-item svg{display:block;margin:0 auto 5px}
+    .nav-item.active{color:var(--ink)}
+    @media (min-width:600px){.screen{min-height:780px;max-height:900px;box-shadow:0 10px 40px #00000017}.preview-label{max-width:440px;margin:auto}}
+  </style>
+</head>
+<body>
+  <div class="preview-label">WEB PREVIEW · INVITATIONS NOT YET ACTIVE</div>
+  <main class="screen">
+    <header class="bar" aria-label="American Rider Operator">
+      <span class="menu" aria-hidden="true">☰</span>
+      <span class="wordmark">AMERICAN RIDER <span>· OPERATOR</span></span>
+      <span class="avatar" aria-hidden="true">AR</span>
+    </header>
+    <button class="back" type="button" onclick="history.length>1?history.back():location.assign('/')">‹ Back</button>
+    <h1>Invitations</h1>
+    <p class="intro">Send a link privately. American Rider does not request your contacts.</p>
+    <section class="card" aria-label="Choose invitation">
+      <button class="action" type="button" data-invite="traveler">Invite a Traveler</button>
+      <button class="action" type="button" data-invite="operator">Invite an Operator</button>
+    </section>
+    <p id="notice" class="notice" role="status" aria-live="polite">Invitations are not yet available.</p>
+    <nav class="nav" aria-label="Operator tabs (visual preview only)">
+      <div class="nav-item"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M4 11l8-7 8 7M6 10v9h12v-9"/></svg>Operations</div>
+      <div class="nav-item"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 3v18M6 8h9a2.5 2.5 0 010 5H6h11"/></svg>Revenue</div>
+      <div class="nav-item active" aria-current="page"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="8" r="3.4"/><path d="M5.5 20c1.4-3.3 11.6-3.3 13 0"/></svg>Profile</div>
+    </nav>
+  </main>
+  <script>
+    for(const button of document.querySelectorAll('[data-invite]')){
+      button.addEventListener('click',()=>{
+        document.getElementById('notice').classList.add('visible');
+      });
+    }
+  </script>
+</body>
+</html>
