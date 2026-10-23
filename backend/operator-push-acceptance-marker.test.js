@@ -25,8 +25,10 @@ acceptMarker(scheduler.slice(scheduler.indexOf('// ---- 3. Off-session'),schedul
   ? scheduler.indexOf('// THE CHARGE',scheduler.indexOf('// ---- 3. Off-session'))
   : scheduler.length),'scheduled dispatch');
 acceptMarker(announcements,'idempotent announcement');
-acceptMarker(monitor.slice(monitor.indexOf('if (!ride.notifiedOperatorAt'),
-  monitor.indexOf('if (since < ANSWER_WINDOW_SEC',monitor.indexOf('if (!ride.notifiedOperatorAt'))),
+const sweepPushStart = monitor.indexOf('const operatorNotice = await notify(', monitor.indexOf('async function sweepAssignments'));
+assert(sweepPushStart > 0, 'assignment sweep has a real push outcome');
+acceptMarker(monitor.slice(sweepPushStart,
+  monitor.indexOf('if (since < ANSWER_WINDOW_SEC && !ride.releasedAt)', sweepPushStart)),
   'assignment sweep');
 assert(monitor.includes('if (since < ANSWER_WINDOW_SEC && !ride.releasedAt) continue;'),
   'failed push preserves the existing short answer window');
