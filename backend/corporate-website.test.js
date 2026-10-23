@@ -17,9 +17,9 @@ for (const route of paths) {
   assert.ok(!html.includes('onrender.com'), 'Render link leaked into ' + route);
 }
 const home = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
-assert.match(home, /Designed to serve the nation\./);
-assert.match(home, /99%/);
-assert.match(home, /independent professional Operators/i);
+assert.match(home, /American<br>Rider/);
+assert.doesNotMatch(home, /99%|Traveler Total|One confirmed Total/);
+assert.match(home, /qualified independent Operators/i);
 assert.doesNotMatch(home, /Book now|Download on the App Store|nationwide bookings are available/i);
 const operators = fs.readFileSync(path.join(root, 'operate', 'index.html'), 'utf8');
 assert.match(operators, /\$2\.50/);

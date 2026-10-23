@@ -20,10 +20,10 @@ for (const route of pages) {
   assert.match(html,/href="\/assets\/site.css"/,route+" shared CSS");
 }
 const home=page();
-assert.match(home,/A national transportation platform\./);
-assert.match(home,/SAFE\.<\/span><span>RELIABLE\.<\/span><span>AMERICAN\./);
-assert.match(home,/99%/);
-assert.match(home,/beginning in select markets|begin in select areas/i);
+assert.match(home,/American<br>Rider/);
+assert.doesNotMatch(home,/SAFE\.<\/span><span>RELIABLE\.<\/span><span>AMERICAN\./);
+assert.doesNotMatch(home,/99%|Traveler Total|One confirmed Total/,"pricing details should not lead the homepage");
+assert.match(home,/Beginning in select communities/i);
 assert.doesNotMatch(home,/Book now|Book a ride now|Reserve now/i,"no fictitious booking");
 const recruiter=page("recruitment");
 assert.match(recruiter,/Email Recruitment Relations/);
@@ -48,6 +48,7 @@ const css=fs.readFileSync(path.join(root,"assets/site.css"),"utf8");
 assert.match(css,/@media\(max-width:700px\)/);
 assert.match(css,/focus-visible/);
 assert.match(css,/prefers-reduced-motion/);
-assert.match(css,/\.credo/);
+assert.match(css,/\.heritage-hero/);
+assert.match(css,/clamp\(58px,18vw,105px\)/,"small mobile headings must fit");
 assert.ok(!fs.existsSync(path.join(root,".env")),"no server secrets in site");
 console.log("PASS: corporate website, recruitment, accessible CSS, local legal pages, and domain truth");
