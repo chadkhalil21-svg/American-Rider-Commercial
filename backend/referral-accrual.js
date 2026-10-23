@@ -35,8 +35,7 @@ async function recordHeldAccrual({db,rideId,program=PROGRAM,now=Date.now()}={}){
   try{
     return await db.runTransaction(async tx=>{
       const rideRef=db.collection('rides').doc(rideId);
-      const opRef=db.collection('referral_attributions').doc(rideId+'-unused'); // overwritten after actual ride
-      void opRef; // No queries, scans or fixed hot global counter.
+      // No queries, scans or fixed hot global counter.
       const snap=await tx.get(rideRef);
       const ride=snap.exists?snap.data():null;
       const travel=evidence(ride,rideId);
