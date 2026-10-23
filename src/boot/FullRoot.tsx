@@ -66,9 +66,16 @@ function AppGate() {
       // it never accepts Travel, transfers funds, or bypasses account security.
       const allowed = new Set([
         '/ride', '/receipt', '/operator', '/operator/insurance', '/family',
-        '/operator/trip', '/emergency', '/wallet', '/',
+        '/operator/trip', '/emergency', '/wallet', '/', '/history',
       ]);
-      if (screen && allowed.has(screen)) router.navigate(screen as never);
+      if (screen && allowed.has(screen)) {
+        // A receipt needs a selected, server-backed Travel. After a cold
+        // start there is no selected record yet, so going straight to the
+        // receipt renders a blank frame. The Travel Log loads actual history
+        // and lets the Traveler select the correct receipt instead.
+        const destination = screen === '/receipt' ? '/history' : screen;
+        router.navigate(destination as never);
+      }
     };
     const unsubscribe = onNotificationTap(open);
     // Expo may have launched us FROM a notification before React subscribed.
