@@ -376,10 +376,13 @@ async function sweepScheduled({ now = Date.now(), checkMarket } = {}) {
             title: 'Teen Travel assigned', body: `${r.party.travelerName || 'Teen Traveler'}'s scheduled Travel has been assigned.`,
             data: { screen: '/family', rideId, tripNo: r.tripNo || '' } });
         }
-        await notify({ uid: assigned.body.matched.id, kind: 'travel_assigned',
+        const operatorNotice = await notify({ uid: assigned.body.matched.id, kind: 'travel_assigned',
           title: 'Scheduled travel assigned', body: `${r.dep || 'Pickup'} to ${r.dest || 'destination'}. Open to accept.`,
           data: { screen: '/operator', rideId, tripNo: r.tripNo || '' } });
-        await rideRef.set({ notifiedOperatorAt: Date.now() }, { merge: true });
+        // An unavailable device/token does not certify an accepted notification.
+        // Preserve the assigned Travel and let sweepAssignments recover it.
+        if (operatorNotice?.ok === true)
+          await rideRef.set({ notifiedOperatorAt: Date.now() }, { merge: true });
         await notify({ uid: r.travelerUid, kind: 'operator_assigned',
           title: 'Your operator is on the way',
           body: `${assigned.body.matched.name || 'An operator'} is ${assigned.body.matched.etaMin} minutes from ${r.dep || 'your pickup'}.`,
