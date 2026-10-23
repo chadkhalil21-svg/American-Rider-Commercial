@@ -23,15 +23,21 @@ async function emergencyTravelContext({ db, uid, rideId }) {
   ].some(v => typeof v === 'string' && v.length > 0 && v === who);
   if (!member) return null;
 
+  // A historic, canceled or declined Travel is NOT today's active emergency
+  // vehicle. A previously monitored emergency may still have an open case
+  // after the Travel ends; preserve case reuse but not stale vehicle facts.
+  const active = new Set(['assigned', 'accepted', 'arrived', 'onboard']).has(r.status);
+  if (!active && r.monitor?.state !== 'emergency') return null;
   const text = (v, max = 100) => typeof v === 'string' ? v.slice(0, max) : '';
   const context = {
     rideId,
-    tripNo: text(r.tripNo, 80),
-    dep: text(r.dep, 150),
-    dest: text(r.dest, 150),
-    operator: text(r.operatorName, 120),
-    vehicle: text(r.operatorCar, 120),
-    plate: text(r.operatorPlate, 32),
+    active,
+    tripNo: active ? text(r.tripNo, 80) : '',
+    dep: active ? text(r.dep, 150) : '',
+    dest: active ? text(r.dest, 150) : '',
+    operator: active ? text(r.operatorName, 120) : '',
+    vehicle: active ? text(r.operatorCar, 120) : '',
+    plate: active ? text(r.operatorPlate, 32) : '',
     role: r.operatorId === who ? 'operator' : 'traveler',
     // Does not attest actual 911 or handset delivery.
     monitoredCase: null,
@@ -53,6 +59,9 @@ async function emergencyTravelContext({ db, uid, rideId }) {
       };
     }
   }
+  // A stale "emergency" marker without its matching owned ticket is not
+  // proof of a live incident; do not return this old Travel as present-day help.
+  if (!active && !context.monitoredCase) return null;
   return context;
 }
 
