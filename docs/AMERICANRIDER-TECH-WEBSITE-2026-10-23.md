@@ -11,6 +11,17 @@
 - Hero photo is the previously accepted licensed Unsplash editorial image, labeled illustrative. Do not imply American Rider operates a luxury fleet.
 - Follow Apple writing/accessibility recommendations and the repository Council design standard as *reference frameworks*, not approvals from actual advisers.
 
+
+## Council design refinement (October 23)
+- **NASA:** Large, readable mission-led opening, a clear hierarchy, and straightforward navigation; reference: https://www.nasa.gov/nasa-missions/ . No NASA relationship or endorsement is claimed.
+- **Lockheed Martin:** Explain capabilities and operating requirements in plain, structured language, never treating an aspiration as verified service; reference: https://www.lockheedmartin.com/ .
+- **Emirates:** Clear service information and attentive customer pathways, without borrowing luxury cabin or company-owned fleet claims; reference: https://www.emirates.com/us/english/experience/fly-better/ .
+- **Blacklane:** Service-specific entry points and restrained travel photography, but no false booking form while public app booking is unavailable; reference: https://www.blacklane.com/en/press/releases/blacklane-unveils-new-brand-and-enhanced-corporate-travel-booking-platform/ .
+- **Apple:** Consistent vocabulary, accessible contrast, plain-language labels and actions; reference: https://developer.apple.com/design/human-interface-guidelines/writing .
+- Retain **SAFE. RELIABLE. AMERICAN.** as a restrained service-principles signature in the dark national section. These are standards American Rider intends to meet, not a promise that transportation can never be unsafe.
+- Recruitment has an email inquiry action addressed to **relations@americanrider.tech**, not an application, commission enrollment or approval workflow. The address must be verified in Cloudflare forwarding before this site is published.
+- Reuse existing source legal documents and translations; do not publish the confidential investor deck or substitute its illustrative pricing for the current minimum $2.50 Platform Fee.
+
 ## Source and verification
 Run `node scripts/build-corporate-website.cjs` to generate `dist-corporate/`. This produces a static website with routes for /, /travel/, /operate/, /safety/, /company/, /support/, /recruitment/, /smart-travel/, /join/, /terms/, /privacy/, and /account-deletion/. English and four already-source-supported legal translations are generated from the existing backend legal documents. No legal text is rewritten and no paid service is changed.
 
