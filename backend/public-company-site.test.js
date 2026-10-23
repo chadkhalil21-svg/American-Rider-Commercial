@@ -21,7 +21,7 @@ expectText(HOME_HTML,'$2.50','home');
 expectText(HOME_HTML,'National Transportation','home');
 expectText(HOME_HTML,'across the United States','home');
 assert.doesNotMatch(HOME_HTML,/South Florida|Miami-Dade|Broward|Palm Beach/i,'homepage is nationally neutral');
-expectText(HOME_HTML,'Our public mobile-app release is in preparation.','home');
+expectText(HOME_HTML,'We are preparing the public mobile-app release.','home');
 assert.doesNotMatch(HOME_HTML,/\$24\.50|launch(?:ed)? nationwide|now available nationwide/i);
 assert.doesNotMatch(HOME_HTML,/href="\/recruiter/i,'no live recruiting link');
 expectText(OPERATE_HTML,'99%','operate');
