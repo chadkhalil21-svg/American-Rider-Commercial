@@ -1365,6 +1365,7 @@ export default {
     record: "Registrar ausencia",
     closed: "Viaje cerrado",
     refundPending: "El reembolso al Viajero está pendiente de verificación.",
+    compensationPending: "La compensación al Operador está pendiente de verificación. El Viaje está cerrado.",
     paymentReconciled: "Se ha conciliado el pago del Viajero.",
     messageRequired: "Primero envíe un mensaje al Viajero desde Contactar.",
     unavailable: "La gestión de ausencias aún no está disponible. Contacte con Atención al Cliente.",
