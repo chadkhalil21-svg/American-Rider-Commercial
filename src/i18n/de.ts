@@ -1349,6 +1349,7 @@ export default {
     record: "Nichterscheinen melden",
     closed: "Fahrt abgeschlossen",
     refundPending: "Die Erstattung an den Reisenden wird noch geprüft.",
+    compensationPending: "Die Vergütung des Operators wird noch geprüft. Die Fahrt ist abgeschlossen.",
     paymentReconciled: "Die Zahlung des Reisenden wurde abgeglichen.",
     messageRequired: "Senden Sie dem Reisenden zuerst über Kontakt eine Nachricht.",
     unavailable: "Die Abwicklung bei Nichterscheinen ist noch nicht verfügbar. Wenden Sie sich an den Support.",
