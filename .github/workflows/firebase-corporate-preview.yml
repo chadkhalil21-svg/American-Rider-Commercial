@@ -1,6 +1,16 @@
 name: American Rider corporate site preview (Google Firebase)
 
 on:
+  push:
+    branches:
+      - release/current
+    paths:
+      - 'scripts/build-corporate-website.cjs'
+      - 'backend/legal*.js'
+      - 'backend/shell.js'
+      - 'firebase.json'
+      - '.firebaserc'
+      - '.github/workflows/firebase-corporate-preview.yml'
   workflow_dispatch:
 
 permissions:
