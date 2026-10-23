@@ -17,6 +17,7 @@ const tests=[
   'backend/operator-review-feedback.test.js',
   'backend/native-wallet-pickup-release-contract.test.js',
   'backend/operator-completion-money-truth.test.js',
+  'backend/statutory-receipt-contract.test.js',
   'backend/operator-first-class-onboarding.test.js',
   'backend/synthetic-travel-lifecycle.test.js',
   'backend/operator-withdraw.test.js',
