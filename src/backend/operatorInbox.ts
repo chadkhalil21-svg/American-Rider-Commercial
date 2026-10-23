@@ -97,8 +97,9 @@ export const operatorShareCents = (costCents: number) => {
  * composite Firestore index. Do not load every completed Travel into the listener.
  * No arbitrary result cap may hide an older live Travel; query errors remain visible.
  *
- * Returns an unsubscribe function. Never throws: a listener that cannot attach reports an
- * empty inbox, which shows the operator "nothing yet" rather than a scripted journey.
+ * Returns an unsubscribe function. A terminal listener error is NOT an empty
+ * inbox. Preserve the last known assignments, report the outage, and reattach
+ * with bounded backoff until a healthy server snapshot replaces that data.
  */
 export function watchAssignedTravel(
   onChange: (travels: AssignedTravel[]) => void,
@@ -110,13 +111,37 @@ export function watchAssignedTravel(
     onError?.(t('traveler.errNotSignedIn'));
     return () => {};
   }
-  try {
-    const q = query(collection(db, 'rides'),
-      where('operatorId', '==', uid),
-      where('status', 'in', ['assigned', 'accepted', 'arrived', 'onboard']));
-    return onSnapshot(
+  let disposed = false;
+  let failures = 0;
+  let retryTimer: ReturnType<typeof setTimeout> | null = null;
+  let stopListening: (() => void) | null = null;
+  let generation = 0;
+  const stillOwner = () => !disposed && auth.currentUser?.uid === uid;
+  const retry = (reason: string) => {
+    if (!stillOwner()) return;
+    onError?.(reason);
+    if (retryTimer !== null) return;
+    // Firestore's error callback TERMINATES that listener; retry must create
+    // a fresh identical per-Operator query. No whole-fleet polling or new vendor.
+    const delay = Math.min(3_000 * 2 ** Math.min(failures++, 6), 120_000);
+    retryTimer = setTimeout(() => {
+      retryTimer = null;
+      listen();
+    }, delay);
+  };
+  const listen = () => {
+    if (!stillOwner()) return;
+    const myGeneration = ++generation;
+    try {
+      const q = query(collection(db, 'rides'),
+        where('operatorId', '==', uid),
+        where('status', 'in', ['assigned', 'accepted', 'arrived', 'onboard']));
+      stopListening = onSnapshot(
       q,
       (snap) => {
+        if (!stillOwner() || myGeneration !== generation) return;
+        failures = 0;
+        onError?.('');
         const open = snap.docs
           .map((d) => {
             const x = d.data() as Record<string, unknown>;
@@ -175,15 +200,27 @@ export function watchAssignedTravel(
       // That is the same shape as the firebase-admin outage that hid for weeks because the
       // failure was reported honestly at every step except the one that mattered.
       (e) => {
-        onChange([]);
-        onError?.(e?.message || t('traveler.errReadTravel'));
+        if (!stillOwner() || myGeneration !== generation) return;
+        // A terminal listener error is not permission to erase previously
+        // observed assignments. An unreadable inbox stays visibly unavailable.
+        stopListening?.();
+        stopListening = null;
+        retry(e?.message || t('traveler.errReadTravel'));
       },
     );
-  } catch (e) {
-    onChange([]);
-    onError?.(e instanceof Error ? e.message : t('traveler.errReadTravel'));
-    return () => {};
-  }
+    } catch (e) {
+      if (stillOwner()) {
+        retry(e instanceof Error ? e.message : t('traveler.errReadTravel'));
+      }
+    }
+  };
+  listen();
+  return () => {
+    disposed = true;
+    generation++;
+    if (retryTimer !== null) clearTimeout(retryTimer);
+    stopListening?.();
+  };
 }
 
 /**
