@@ -211,16 +211,18 @@ paid for it. The company's principal place of business is Miami, Florida, and se
 the South Florida market before any further market opens.</p></section>
 
 <section><h2>What a traveler pays</h2>
-<p>One all-in amount, quoted before the travel is reserved, and it is the whole cost of the
-travel. A platform fee is inside that amount; it is not itemised and nothing is added on top.
-The amount shown at reservation is the amount charged. The Operator retains 99% of the travel
-fare.</p></section>
+<p>The Traveler sees a quoted all-in Total before reserving, including the Travel Fare,
+the Platform Fee, and applicable tolls or government charges. The Platform Fee has a minimum
+of $2.50. Any changed quote must be shown and agreed to before booking.
+The Operator retains 99% of the Travel Fare.</p></section>
 
 <section><h2>How payment is settled</h2>
-<p>American Rider settles by bank transfer. Cards are accepted and cost more to process;
-that difference is absorbed by the platform fee, never added to a traveler's price.</p>
-<p>The amount quoted at reservation is the amount charged, whichever method is used. Card
-details are held by our payment processor and never by American Rider.</p></section>
+<p>American Rider processes Traveler card payments through Stripe.
+After a qualifying completed paid Travel, the Operator's share is transferred to the
+Operator's connected Stripe account; the subsequent bank payout follows that account's
+payout schedule.</p>
+<p>The quoted Total includes processing-related platform costs. Full card numbers
+are held by the payment processor, not by American Rider.</p></section>
 
 <section><h2>Operator framework</h2>
 <p>American Rider operators retain 99% of the travel fare.</p>
@@ -231,10 +233,9 @@ Operators can reconcile every travel against this in their own records.</p>
 registration, insurance, and license, and chooses which travel to accept.</p></section>
 
 <section><h2>Qualification and coverage</h2>
-<p>An operator is commissioned only after every part of qualification is complete: driver
-license, vehicle registration, vehicle inspection, commercial for-hire insurance, identity
-verification, and a multi-state criminal and driving record check performed by an accredited
-screening company and paid for by the operator.</p>
+<p>An Operator is commissioned only after the required qualification is complete:
+driver license, vehicle registration and inspection, qualifying insurance,
+identity verification, and legally required screening by an approved provider.</p>
 <p>Commercial coverage is verified before commissioning and on a continuing basis. Travel is
 not assigned to an operator whose coverage has lapsed or expired. The background check is
 repeated every three years.</p></section>
@@ -248,9 +249,8 @@ operator, the vehicle, the license plate and the traveler's location, for readin
 dispatcher.</p></section>
 
 <section><h2>Contact</h2>
-<p>Patron Support is reached from within the application. Every matter is answered by a
-person, and any matter concerning safety is directed to a person and never settled
-automatically.</p>
+<p>Patron Support is available from within the application. Safety concerns
+receive human review; immediate emergencies require local emergency services.</p>
 <p>Legal documents: <a href="/terms">Terms of Service</a> and
 <a href="/privacy">Privacy Policy</a>.</p></section>
 `,
