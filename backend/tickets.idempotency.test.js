@@ -89,7 +89,8 @@ const {fileTicket,updateTicketLocation}=require('./tickets');
    uid:'u-fixture',address:'Falsified emergency map',coords:{lat:25.8,lng:-80.2}});
  assert.equal(invalidSupportPosition.ok,false,
    'an ordinary Support case must never accept an Emergency GPS update');
- assert.equal(data.get(scheduledFirst.caseNo)?.emergency,undefined);
+ assert.equal(data.get(scheduledFirst.caseNo)?.emergency,null,
+   'ordinary Support records retain their original null emergency field');
  const invalidGps=await updateTicketLocation({caseNo:first.caseNo,
    uid:'u-fixture',address:null,coords:{lat:120,lng:0}});
  assert.equal(invalidGps.ok,false,'invalid latitude must not overwrite an actual Emergency');
