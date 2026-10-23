@@ -256,8 +256,11 @@ async function handleEvent(event) {
     // ---- Stripe changed its mind about an operator. ---------------------------------
     case 'account.updated': {
       const enabled = !!obj.payouts_enabled && !!obj.charges_enabled;
-      const uid = obj.metadata?.uid || (await uidByStripeAccount(db, obj.id));
-      if (!uid) return { ok: true, action: 'account not ours' };
+      // Stripe's account metadata is advisory and can be stale. Only our
+      // canonical Firebase-to-Stripe account binding may suspend an Operator.
+      // Never take a different Operator off duty because an event says their uid.
+      const uid = await uidByStripeAccount(db, obj.id);
+      if (!uid) return { ok: true, action: 'account not bound to an Operator' };
 
       // AN OPERATOR STRIPE HAS RESTRICTED MUST NOT KEEP TAKING TRAVEL. They would be driving
       // for money that cannot reach them, which is the one thing the 99% promise cannot
