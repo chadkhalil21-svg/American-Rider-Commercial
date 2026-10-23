@@ -50,6 +50,7 @@ async function emergencyTravelContext({ db, uid, rideId }) {
     const ticketSnap = await db.collection('support_tickets').doc(m.caseNo).get();
     const ticket = ticketSnap.exists ? ticketSnap.data() || {} : {};
     if (ticketSnap.exists && ticket.kind === 'emergency' &&
+        !['resolved', 'closed'].includes(ticket.status) &&
         ticket.uid === r.travelerUid &&
         ticket.trip?.no === r.tripNo) {
       context.monitoredCase = {
