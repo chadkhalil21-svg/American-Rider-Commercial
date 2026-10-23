@@ -11,7 +11,8 @@ assert.match(push, /Notifications\.IosAuthorizationStatus\.EPHEMERAL/);
 assert.doesNotMatch(push, /ios\?\.status\s*===\s*3/);
 assert.match(serverPush, /recipientUid: String\(uid\)/);
 assert.match(layout, /recipientUid !== user\.uid/);
-assert.match(layout, /new Set\(\['\/ride', '\/receipt', '\/operator', '\/operator\/insurance', '\/family'\]\)/);
+assert.match(layout, /const allowed = new Set\(\[\s*'\/ride'/,
+  'notification routing uses an explicit, static allowlist; see push-route-parity.test.js for full coverage');
 assert.match(layout, /allowed\.has\(screen\)/);
 assert.match(auth, /await clearPushToken\(\);/);
 const signOutStart = auth.lastIndexOf('signOut: () =>');
