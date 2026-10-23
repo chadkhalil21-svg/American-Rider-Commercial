@@ -931,6 +931,7 @@ export default {
     authorizationAmount: '%{amount} autorisés. Non débités.',
     authorizationFreeCancel: 'Si aucun frais d’annulation ne s’applique, la banque libère la totalité de la retenue.',
     authorizationBookingTerms: "L’autorisation sur la carte sera levée ou ajustée selon les conditions d’annulation acceptées lors de la réservation.",
+    cancellationAmountVerified: "Le remboursement suit les conditions acceptées lors de la réservation du Voyage. Des frais ne sont retenus que s’ils sont vérifiés ; le montant final est confirmé par le service.",
     cancellationFeeNet3Disclosure: 'Des frais de 4,00 $ peuvent s\'appliquer en cas d\'annulation ou d\'absence admissible; 3,00 $ reviennent à l\'Opérateur. Sinon, la retenue est libérée.',
     paymentStatusUnverified: 'Le statut du paiement n’est pas encore confirmé. Annulez le Voyage pour que le serveur vérifie le paiement avant votre départ.',
     keepTravel: 'Conserver le trajet',
