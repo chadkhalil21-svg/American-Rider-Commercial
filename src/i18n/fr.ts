@@ -1183,7 +1183,6 @@ export default {
     verifyCodeIdle: 'Une fois l’Opérateur affecté, vérifiez son nom, le véhicule et la plaque avant de monter.',
     emgTextMyLocation: 'Envoyer ma position par SMS',
     emgSendMyLocation: 'Envoyer ma position',
-    rideFareReturnedLessArrival: 'Votre tarif vous est remboursé, moins des frais d’arrivée de 3,00 USD versés à %{name}.',
     noPlacesFound: 'Aucun lieu trouvé — essayez « Wynwood » ou « domicile ».',
     wallet: 'Portefeuille',
     transit: 'Transports en Commun',
