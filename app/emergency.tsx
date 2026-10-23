@@ -66,6 +66,8 @@ export default function Emergency() {
     travelerTrip: ride.lastTrip,
   });
   const { hasOperator, operator, vehicle, plate, tripNo } = facts;
+  const hasVehicleFacts = !!(vehicle && plate);
+  const hasOperatorName = !!operator;
 
   const [fix, setFix] = useState<Fix | null>(null);
   const [locationDenied, setLocationDenied] = useState(false);
@@ -153,9 +155,8 @@ export default function Emergency() {
     try {
       const result = await alertEmergency({
       requestId,
-      // NO TRAVEL, NO TRAVEL DETAILS. Sending the seeded journey's route and fare with an
-      // emergency would put a case in front of a person describing a trip to the airport on
-      // 6 July that never happened, next to a real person in real trouble.
+      // Send ONLY an actual active Traveler/Operator Travel. Never manufacture
+      // a previous or demonstration journey for an Emergency record.
       trip: tripNo
         ? {
             no: tripNo,
@@ -227,8 +228,8 @@ export default function Emergency() {
     (tripNo
       ? '\n' + t('traveler.emgRouteLine', { from: facts.dep, to: facts.arr })
       : '') +
-    (hasOperator ? '\n' + t('traveler.emgVehicleLine', { vehicle, plate }) : '') +
-    (hasOperator ? '\n' + t('traveler.emgOperatorLine', { name: operator }) : '') +
+    (hasVehicleFacts ? '\n' + t('traveler.emgVehicleLine', { vehicle, plate }) : '') +
+    (hasOperatorName ? '\n' + t('traveler.emgOperatorLine', { name: operator }) : '') +
     (tripNo ? '\n' + t('traveler.emgTravelNumberLine', { no: tripNo }) : '') +
     (mapLink ? `\n\n${mapLink}` : '');
 
@@ -317,24 +318,23 @@ export default function Emergency() {
         )}
       </Card>
 
-      {hasOperator ? (
+      {hasOperator && (hasVehicleFacts || hasOperatorName) ? (
         <>
           {/* Vehicle and Operator facts do not exist until dispatch succeeds. Omitting the
               sections before then is clearer than presenting "Not recorded" as if data were
               missing from an assigned Travel. */}
-          <SectionLabel style={styles.lbl}>{t('traveler.vehicle')}</SectionLabel>
-          <Card style={styles.factCard}>
-            <Text style={styles.vehicle}>{vehicle}</Text>
-            <Text style={styles.plateLabel}>{t('traveler.plateCaps')}</Text>
-            <Mono size={34} weight="600" style={styles.plate}>
-              {plate}
-            </Mono>
-          </Card>
-
-          <SectionLabel style={styles.lbl}>{t('traveler.operator')}</SectionLabel>
-          <Card style={styles.factCard}>
-            <Text style={styles.operator}>{operator}</Text>
-          </Card>
+          {hasVehicleFacts && <>
+            <SectionLabel style={styles.lbl}>{t('traveler.vehicle')}</SectionLabel>
+            <Card style={styles.factCard}>
+              <Text style={styles.vehicle}>{vehicle}</Text>
+              <Text style={styles.plateLabel}>{t('traveler.plateCaps')}</Text>
+              <Mono size={34} weight="600" style={styles.plate}>{plate}</Mono>
+            </Card>
+          </>}
+          {hasOperatorName && <>
+            <SectionLabel style={styles.lbl}>{t('traveler.operator')}</SectionLabel>
+            <Card style={styles.factCard}><Text style={styles.operator}>{operator}</Text></Card>
+          </>}
         </>
       ) : null}
 
