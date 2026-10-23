@@ -3,12 +3,12 @@
 // Render static Expo deployment is NOT evidence that these routes are live at americanrider.app.
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
-const {HOME_HTML,OPERATE_HTML,SUPPORT_HTML,TRAVEL_HTML,SAFETY_HTML,SMART_HTML} = require('./site');
+const {HOME_HTML,OPERATE_HTML,SUPPORT_HTML,TRAVEL_HTML,SAFETY_HTML,SMART_HTML,RECRUIT_HTML} = require('./site');
 const {ABOUT_HTML,TERMS_HTML,PRIVACY_HTML} = require('./legal');
 const server = fs.readFileSync(require.resolve('./server'), 'utf8');
 const expectText=(page,text,label)=>assert.ok(page.includes(text),label+': missing '+text);
 for(const [route,html] of [['/',HOME_HTML],['/operate',OPERATE_HTML],
-  ['/travel',TRAVEL_HTML],['/support',SUPPORT_HTML],['/safety',SAFETY_HTML],
+  ['/travel',TRAVEL_HTML],['/recruit',RECRUIT_HTML],['/support',SUPPORT_HTML],['/safety',SAFETY_HTML],
   ['/smart-travel',SMART_HTML],['/about',ABOUT_HTML],
   ['/terms',TERMS_HTML],['/privacy',PRIVACY_HTML]]){
   assert.match(html,/<!doctype html>/i,'whole HTML at '+route);
@@ -50,4 +50,11 @@ for(const page of [SAFETY_HTML,SUPPORT_HTML]){
   expectText(page,'suspect impairment','Florida report procedure');
   expectText(page,'support@americanrider.app','Florida reporting email');
 }
+assert.match(HOME_HTML,/ar-photo/,'editorial photo section');
+assert.match(HOME_HTML,/ar-vision/,'secondary national section');
+assert.match(HOME_HTML,/The journey matters/,'Traveler-first positioning');
+assert.match(RECRUIT_HTML,/not open yet/,'recruiters not commercially commissioned');
+assert.match(RECRUIT_HTML,/QR codes/,'recruiter journey explained');
+assert.doesNotMatch(RECRUIT_HTML,/Join now|Start earning now/i,'no fake recruiting activation');
+assert.match(HOME_HTML,/illustrative photograph/i,'photograph not an Operator fleet promise');
 console.log('PASS: public backend routes, current pricing and geography, Stripe Operator payout truth, no false recruiter/store claims');
