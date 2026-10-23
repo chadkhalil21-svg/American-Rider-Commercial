@@ -1377,6 +1377,7 @@ export default {
     record: "Record no-show",
     closed: "Travel closed",
     refundPending: "The Traveler refund is pending verification.",
+    compensationPending: "Operator compensation is pending verification. The Travel is closed.",
     paymentReconciled: "The Traveler payment has been reconciled.",
     messageRequired: "Please message the Traveler using Contact first.",
     unavailable: "No-show settlement is not available yet. Please contact Patron Support.",
