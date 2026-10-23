@@ -168,7 +168,7 @@ export default function PaymentAndSettlement() {
                   {m.isDefault ? (
                     <Text style={styles.defaultTag}>{t('traveler.defaultMethod')}</Text>
                   ) : (
-                    <Pressable accessibilityRole="button" disabled={busyId !== null || adding}
+                    <Pressable accessibilityRole="button" disabled={busyId !== null || adding || retrying}
                       onPress={() => makeDefault(m.id)} hitSlop={8}>
                       <Text style={styles.action}>{t('traveler.setAsDefault')}</Text>
                     </Pressable>
@@ -176,7 +176,7 @@ export default function PaymentAndSettlement() {
                   {/* Even the default card belongs to the Traveler. It must be
                       removable with confirmation, not a permanent invisible lock. */}
                   <Pressable accessibilityRole="button"
-                    disabled={busyId !== null || adding}
+                    disabled={busyId !== null || adding || retrying}
                     onPress={() => setPendingRemove(m)} hitSlop={8}>
                     <Text style={styles.removeAction}>{t('traveler.remove')}</Text>
                   </Pressable>
@@ -200,7 +200,7 @@ export default function PaymentAndSettlement() {
           does nothing. */}
       <PrimaryButton
         label={adding ? t('traveler.busyChecking') : t('traveler.addPaymentMethod')}
-        disabled={adding || !payConfig.canManagePaymentMethods}
+        disabled={adding || retrying || state !== 'ready' || !payConfig.canManagePaymentMethods}
         onPress={add}
         style={{ marginTop: 14 }}
       />
