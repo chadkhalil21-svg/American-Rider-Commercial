@@ -68,7 +68,6 @@ export default {
     referralInviteTraveler: "Invite a Traveler",
     referralInviteOperator: "Invite an Operator",
     referralInviteUnavailable: "Invitations are not yet available.",
-    referralInviteIntro: "Send a link privately. American Rider does not request your contacts.",
     fareResearchLink: "Help keep fares fair",
     fareResearchCountyUnavailable: "County list unavailable. Please try again.",
     fareResearchReceiptUnconfirmed: "Research submission not confirmed.",
