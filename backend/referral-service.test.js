@@ -40,6 +40,13 @@ class MemoryDb {
   assert.equal(second.ok,true);
   assert.equal(db.writes,afterFirst,'same inviter must not write per share');
   const code=first.url.match(/r=([^&]+)/)[1];
+  // A tampered/stale profile code must never allow sharing another inviter's URL.
+  db.rows.set('users/spoofed',{referralCode:code});
+  const corrected=await shareLink({db,uid:'spoofed',role:'traveler',now});
+  assert.equal(corrected.ok,true);
+  assert.notEqual(corrected.url,first.url);
+  const correctedCode=corrected.url.match(/r=([^&]+)/)[1];
+  assert.equal(db.rows.get('referral_codes/'+correctedCode).ownerUid,'spoofed');
   assert.equal((await claim({db,uid:'inviter',code,role:'traveler',authCreatedAtMs:now,now})).ok,false);
   const newTravel=await claim({db,uid:'new-traveler',code,role:'traveler',authCreatedAtMs:now-2000,now});
   assert.deepEqual(newTravel,{ok:true,role:'traveler',recorded:true,rewardEnabled:false});
