@@ -213,6 +213,12 @@ body{min-width:280px}
 .service-panel h2{font-size:22px;color:#fff;text-transform:none;letter-spacing:-.035em;margin:0 0 9px}
 .service-panel p{font-size:14px;color:#cad4df;max-width:60ch;margin:0}
 .service-panel a{color:#fff;text-decoration:underline;text-underline-offset:6px;white-space:nowrap;font-size:14px}
+
+.site-main .recruitment-feature{margin-top:18px;max-width:none;display:flex;align-items:center;justify-content:space-between;gap:24px;background:#fff;border:1px solid var(--hairline);border-radius:16px;padding:27px 32px}
+.recruitment-feature h2{margin:0 0 8px;font-size:21px;line-height:1.22;color:var(--ink);text-transform:none;letter-spacing:-.035em}
+.recruitment-feature p:not(.eyebrow){font-size:14px;color:#515b6a;max-width:60ch}
+.recruitment-feature .more{flex:none;font-size:14px;font-weight:600}
+@media(max-width:650px){.site-main .recruitment-feature{flex-direction:column;align-items:flex-start;padding:23px}}
 .site-footer{max-width:1160px;margin:auto;padding:24px 28px 42px;border-top:1px solid var(--hairline)}
 .site-footer .foot{text-align:left;margin:0;line-height:2}
 .site-footer .foot a{color:#4a5365;text-underline-offset:4px}
@@ -256,7 +262,7 @@ a:focus-visible,button:focus-visible{outline:3px solid var(--blue);outline-offse
 ${bodyHtml}
 </main>
 <footer class="site-footer"><div class="foot">
-<a href="/about">About</a> · <a href="/terms">Terms of Service</a> ·
+<a href="/about">About</a> · <a href="/recruitment">Recruitment</a> · <a href="/terms">Terms of Service</a> ·
 <a href="/privacy">Privacy Policy</a><br>
 <a href="mailto:support@americanrider.app">support@americanrider.app</a><br>
 <a href="mailto:relations@americanrider.app">relations@americanrider.app</a><br>
