@@ -28,15 +28,9 @@ import { loadContacts, type TrustedContact } from '../src/contacts';
 import { useRide } from '../src/state/RideContext';
 import { useLanguage } from '../src/state/LanguageContext';
 import { colors } from '../src/theme';
+import { applyEmergencyPosition, applyEmergencyStreet, type EmergencyFix } from '../src/emergencyPosition';
 
-type Fix = {
-  coords: { lat: number; lng: number };
-  /** The street line, or null when the device could not turn the position into an address. */
-  address: string | null;
-  /** "Miami, FL 33131", or null for the same reason. */
-  region: string | null;
-  at: number;
-};
+type Fix = EmergencyFix;
 
 const clockLabel = (ms: number) => {
   const d = new Date(ms);
@@ -101,27 +95,20 @@ export default function Emergency() {
     let alive = true;
     let lastGeocodeAt = 0;
 
-    const describe = async (lat: number, lng: number) => {
+    const describe = async (lat: number, lng: number, sampledAt: number) => {
+      // The phone's GPS sample time, not when a slow geocoder finishes, establishes
+      // freshness. Discard an out-of-order fix and keep the newest position.
+      const at = Number.isFinite(sampledAt) && sampledAt > 0 &&
+        sampledAt <= Date.now() + 1000 ? sampledAt : Date.now();
+      if (alive) setFix(prev => applyEmergencyPosition(prev, { lat, lng }, at));
       const now = Date.now();
-      const due = now - lastGeocodeAt >= GEOCODE_EVERY_MS;
-      // Between geocodes the coordinates still update — they are the thing a dispatcher can
-      // actually act on, and they cost nothing to refresh.
-      if (!due) {
-        if (alive) {
-          setFix((prev) => ({
-            coords: { lat, lng },
-            address: prev?.address ?? null,
-            region: prev?.region ?? null,
-            at: now,
-          }));
-        }
-        return;
-      }
+      if (now - lastGeocodeAt < GEOCODE_EVERY_MS) return;
       lastGeocodeAt = now;
       let address: string | null = null;
       let region: string | null = null;
       try {
-        // Not supported on web, and it throws there rather than returning empty.
+        // Reverse-geocoding may return after newer GPS samples. Only attach the
+        // address when it remains within 15m of the CURRENT point.
         const [place] = await Location.reverseGeocodeAsync({ latitude: lat, longitude: lng });
         if (place) {
           const street = [place.streetNumber, place.street].filter(Boolean).join(' ');
@@ -129,10 +116,9 @@ export default function Emergency() {
           region = [place.city, place.region, place.postalCode].filter(Boolean).join(', ') || null;
         }
       } catch {
-        // Keep the coordinates. They are precise, universally understood by dispatch, and
-        // better than a street name we cannot stand behind.
+        // Coordinates remain useful even if street lookup fails.
       }
-      if (alive) setFix({ coords: { lat, lng }, address, region, at: now });
+      if (alive) setFix(prev => applyEmergencyStreet(prev, { lat, lng }, address, region));
     };
 
     (async () => {
@@ -145,7 +131,7 @@ export default function Emergency() {
         }
         sub = await Location.watchPositionAsync(
           { accuracy: Location.Accuracy.High, distanceInterval: 10, timeInterval: 5000 },
-          (l) => describe(l.coords.latitude, l.coords.longitude),
+          (l) => { void describe(l.coords.latitude, l.coords.longitude, l.timestamp); },
         );
         if (!alive) {
           sub.remove();
