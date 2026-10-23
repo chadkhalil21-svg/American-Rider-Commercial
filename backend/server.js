@@ -1680,53 +1680,82 @@ app.post('/operator/lost-item/:id/respond', requireAuth, async (req, res) => {
   return res.status(out.ok ? 200 : out.status || 500).json(out);
 });
 
-// --- Emergency: a traveler has opened the emergency screen. ------------------------------
-// body: { trip, operator, vehicle, plate, address, coords }
-//
-// No model runs here and nothing is assessed. This files a case marked `emergency` and
-// reports whether that actually happened, because the screen it answers is being read by
-// someone who may be reading a plate number to a 911 dispatcher. The one thing it must
-// never do is return a comforting `ok` it has not earned.
-// NO requireVerifiedEmail AND NO REFUSAL HERE, DELIBERATELY. Somebody in trouble does not stop
-// to check their inbox, and "you have done that too many times" is not an answer an alarm may
-// give. The burst is recorded on the case so a person can see it; it is never a reason to
-// refuse one.
+// --- Emergency: authenticate canonical Travel facts, then file immediately. ---------------
+// An emergency MUST remain accessible to a signed-in person with no booking. Never
+// let failed Travel verification suppress the emergency or claim that 911 was called.
+const { emergencyTravelContext, emergencyCaseEvidence } = require('./emergency-travel-context');
+
+// A notification may arrive after the app is cold-started. The authenticated
+// recipient can retrieve the actual Travel/vehicle and whether the route monitor
+// ALREADY filed its incident. Never reveal records belonging to someone else.
+app.get('/emergency/context', requireAuth, async (req, res) => {
+  const db = adminDb();
+  if (!db) return res.status(503).json({ code: 'emergency_context_unavailable' });
+  try {
+    const context = await emergencyTravelContext({
+      db, uid: req.uid, rideId: req.query?.rideId,
+    });
+    if (!context) return res.status(404).json({ code: 'no_accessible_travel' });
+    return res.json({ context });
+  } catch (e) {
+    console.error('[emergency] verified context read unavailable:', e.message);
+    return res.status(503).json({ code: 'emergency_context_unavailable' });
+  }
+});
+
+// Never trust a phone-supplied tripNo, Operator name or plate. First read the
+// matching canonical record and prove this UID belongs to the Travel. If that
+// cannot be proved, report a GENERAL emergency without invented vehicle facts.
 app.post('/emergency', requireAuth, LIMITS.emergency, async (req, res) => {
   const b = req.body || {};
-  const trip = b.trip && typeof b.trip === 'object' ? b.trip : {};
+  let context = null;
+  try {
+    context = await emergencyTravelContext({
+      db: adminDb(), uid: req.uid,
+      rideId: typeof b.rideId === 'string' ? b.rideId : '',
+    });
+  } catch (e) {
+    console.error('[emergency] travel evidence unavailable; filing without unverified details:', e.message);
+  }
+  // Tapping a route-monitor Emergency notification should open the existing
+  // recorded incident rather than create a second emergency with a new UUID.
+  if (context?.monitoredCase) {
+    return res.json({
+      ok: context.monitoredCase.emailed, caseNo: context.monitoredCase.caseNo,
+      stored: true, emailed: context.monitoredCase.emailed, repeated: true,
+    });
+  }
+
+  const verified = emergencyCaseEvidence(context);
   const emergency = {
-    operator: String(b.operator || '').slice(0, 120) || null,
-    vehicle: String(b.vehicle || '').slice(0, 120) || null,
-    plate: String(b.plate || '').slice(0, 32) || null,
-    address: String(b.address || '').slice(0, 300) || null,
-    coords:
-      b.coords && Number.isFinite(b.coords.lat) && Number.isFinite(b.coords.lng)
-        ? { lat: b.coords.lat, lng: b.coords.lng }
-        : null,
+    operator: verified.operator,
+    vehicle: verified.vehicle,
+    plate: verified.plate,
+    // A caller can share the phone's own position; it is a user-reported fix,
+    // not independently verified operator telemetry.
+    address: typeof b.address === 'string' ? b.address.slice(0, 300) || null : null,
+    coords: b.coords && Number.isFinite(b.coords.lat) && Number.isFinite(b.coords.lng) &&
+      Math.abs(b.coords.lat) <= 90 && Math.abs(b.coords.lng) <= 180
+        ? { lat: b.coords.lat, lng: b.coords.lng } : null,
     openedAt: Date.now(),
-    // A burst of alarms from one account in an hour. Recorded so a person reading the case can
-    // see it — it may be somebody in real trouble pressing repeatedly, or it may be abuse, and
-    // that is a judgement for a person and never for a counter.
     burst: req.rateBurst ? `${req.rateBurst.count} in the last hour` : null,
   };
-
   const filed = await fileTicket({
     uid: req.uid,
     email: req.email,
     kind: 'emergency',
     idempotencyKey: String(b.requestId || ''),
     emergency,
-    trip,
-    reason: 'Traveler opened the emergency screen.',
+    trip: verified.trip,
+    reason: 'Signed-in person opened the Emergency screen.',
     description:
-      `Emergency screen opened during travel ${trip?.no || '—'}.\n` +
+      `Emergency screen opened during Travel ${verified.trip?.no || '—'}.\n` +
       `Operator: ${emergency.operator || '—'}\n` +
       `Vehicle: ${emergency.vehicle || '—'} · plate ${emergency.plate || '—'}\n` +
-      `Location: ${emergency.address || '—'}` +
+      `Location reported by phone: ${emergency.address || '—'}` +
       (emergency.coords ? ` (${emergency.coords.lat}, ${emergency.coords.lng})` : ''),
   });
-
-  res.json({ ok: filed.stored && filed.emailed, caseNo: filed.caseNo,
+  return res.json({ ok: filed.stored && filed.emailed, caseNo: filed.caseNo,
     stored: filed.stored, emailed: filed.emailed, repeated: filed.repeated === true });
 });
 
