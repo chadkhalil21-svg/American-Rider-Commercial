@@ -13,7 +13,8 @@
 //    else this build removed, pointing the other way: real money moving while the app says
 //    none is. `mode` comes from the server's own key, so the sentence cannot go stale.
 import { initStripe } from '@stripe/stripe-react-native';
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
+import { AppState } from 'react-native';
 import { fetchPaymentConfig, type PaymentConfig } from '../backend/payments';
 import { t } from '../i18n';
 
@@ -25,45 +26,77 @@ const UNKNOWN: PaymentConfig = {
 };
 
 const Ctx = createContext<PaymentConfig>(UNKNOWN);
+const RefreshCtx = createContext<() => Promise<void>>(async () => {});
 
-/** Never throws and never blocks rendering: unreachable server = "cannot take payment". */
+/** Failed startup configuration is temporary, not a permanent verdict on payment. */
 export function PaymentConfigProvider({ children }: { children: React.ReactNode }) {
   const [config, setConfig] = useState<PaymentConfig>(UNKNOWN);
+  const latest = useRef<PaymentConfig>(UNKNOWN);
+  const mounted = useRef(false);
+  const lastRead = useRef(0);
+  const inFlight = useRef<Promise<void> | null>(null);
 
-  useEffect(() => {
-    let live = true;
-    fetchPaymentConfig().then(async (c) => {
-      if (!live) return;
-      if (!c.stripePublishableKey) {
-        setConfig(c);
-        return;
+  const refresh = useCallback(async (): Promise<void> => {
+    // Initial mount, wallet Retry, and foreground resume may coincide.
+    if (inFlight.current) return inFlight.current;
+    lastRead.current = Date.now();
+    const work = (async () => {
+      let next = await fetchPaymentConfig();
+      if (next.stripePublishableKey) {
+        // Native SDK readiness is still mandatory; do not unlock Wallet or
+        // booking just because /config returned a publishable key.
+        try {
+          await initStripe({
+            publishableKey: next.stripePublishableKey,
+            merchantIdentifier: 'merchant.com.americanrider.app',
+            urlScheme: 'americanrider',
+          });
+        } catch {
+          next = { ...next, canManagePaymentMethods: false, canTakePayment: false };
+        }
       }
-      // Do not enable Add Payment or booking merely because /config answered.
-      // The native Stripe SDK must also have finished initializing. Previously
-      // its promise ran in the background while Wallet became clickable, so a
-      // fast tap could open a PaymentSheet with no initialized Stripe key.
-      try {
-        await initStripe({
-          publishableKey: c.stripePublishableKey,
-          merchantIdentifier: 'merchant.com.americanrider.app',
-          urlScheme: 'americanrider',
-        });
-        if (live) setConfig(c);
-      } catch {
-        if (live) setConfig({
-          ...c, canManagePaymentMethods: false, canTakePayment: false,
-        });
+      if (mounted.current) {
+        latest.current = next;
+        setConfig(next);
       }
-    });
-    return () => {
-      live = false;
-    };
+    })();
+    inFlight.current = work;
+    try { await work; }
+    finally { if (inFlight.current === work) inFlight.current = null; }
   }, []);
 
-  return <Ctx.Provider value={config}>{children}</Ctx.Provider>;
+  useEffect(() => {
+    mounted.current = true;
+    void refresh();
+    // The server may be waking up or momentarily unavailable at app startup.
+    // One bounded automatic retry prevents a permanent disabled payment screen.
+    const startupRetry = setTimeout(() => {
+      if (!latest.current.canManagePaymentMethods || !latest.current.canTakePayment)
+        void refresh();
+    }, 18_000);
+    // No background polling. On a later return, refresh stale configuration
+    // so a provider outage cannot require the user to force-quit the app.
+    const resume = AppState.addEventListener('change', state => {
+      if (state === 'active' && Date.now() - lastRead.current >= 60_000)
+        void refresh();
+    });
+    return () => {
+      mounted.current = false;
+      clearTimeout(startupRetry);
+      resume.remove();
+    };
+  }, [refresh]);
+
+  return (
+    <RefreshCtx.Provider value={refresh}>
+      <Ctx.Provider value={config}>{children}</Ctx.Provider>
+    </RefreshCtx.Provider>
+  );
 }
 
 export const usePaymentConfig = (): PaymentConfig => useContext(Ctx);
+/** An explicit recovery action for Wallet; never permits bypassing Stripe readiness. */
+export const usePaymentConfigRefresh = (): (() => Promise<void>) => useContext(RefreshCtx);
 
 /**
  * The one sentence about payment that every screen should use.
