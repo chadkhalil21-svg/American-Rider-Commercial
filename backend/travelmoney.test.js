@@ -99,8 +99,9 @@ const rides = (over = {}) => ({
     const db = fakeDb(rides({ A: { status: 'arrived' } }));
     const s = stripe();
     const out = await cancelTravel({ db, uid: 'alice', rideId: 'A', deps: s });
-    check('after arrival: refunded less the $3 arrival fee, which goes to the operator (unchanged)',
-      out.body.amountCents === 1644 && out.body.arrivalFeeCents === 300 && s.log.transfers.some((t) => t.kind === 'fee' && t.amountCents === 300));
+    check('disabled fee: reported arrival alone never withholds $3 from legacy captured Travel',
+      out.body.amountCents === 1944 && out.body.arrivalFeeCents === 0 &&
+      db.data.rides.A.cancellationFeeCents===0 && s.log.transfers.length===0);
   }
   {
     const db = fakeDb(rides({ A: { status: 'accepted', paymentIntentId: null } }));
@@ -127,13 +128,48 @@ const rides = (over = {}) => ({
     const out = await cancelTravel({ db, uid: 'alice', rideId: 'A', deps: s });
     check('payment attached between cancel reads is refunded from the transactional Travel',
       out.status === 200 && out.body.refunded === true && s.log.refunds[0]?.paymentIntentId === 'pi_A');
-    check('arrival between cancel reads retains the earned $3 Operator fee',
-      out.body.amountCents === 1644 && s.log.transfers[0]?.amountCents === 300);
+    check('arrival between cancellation reads does not bypass disabled verification',
+      out.body.amountCents === 1944 && out.body.arrivalFeeCents===0 &&
+      s.log.transfers.length===0);
   }
   {
     const db = fakeDb(rides({ A: { status: 'onboard' } }));
     const out = await cancelTravel({ db, uid: 'alice', rideId: 'A', deps: stripe() });
     check('onboard: cancellation refused (unchanged)', out.status === 409 && db.data.rides.A.status === 'onboard');
+  }
+
+  // A failed Stripe refund can be retried after the deployment flags change.
+  // The original no-fee decision is frozen, not recomputed from a now-arrived
+  // Operator or newly enabled charge policy.
+  {
+    const db=fakeDb(rides({A:{status:'arrived',acceptedAt:1000,arrivedAt:1100}}));
+    const st=stripe(),original=st.refundTravel;
+    let outage=true;
+    st.refundTravel=async args=>{
+      if(outage){outage=false;throw Error('synthetic refund outage');}
+      return original(args);
+    };
+    const first=await cancelTravel({db,uid:'alice',rideId:'A',deps:st,now:1400});
+    check('disabled arrival fee frozen at zero before refund outage',
+      first.status===202&&db.data.rides.A.cancellationFeeCents===0&&
+      db.data.rides.A.cancellationFeeReason==='fee_not_commissioned');
+    const retry=await cancelTravel({db,uid:'alice',rideId:'A',deps:st,
+      now:1500,enableVerifiedProgressFee:true});
+    check('fee toggle after refund outage cannot newly deduct from Traveler',
+      retry.status===200&&retry.body.amountCents===1944&&
+      retry.body.arrivalFeeCents===0&&st.log.transfers.length===0);
+  }
+  // An older already-cancelled payment whose fee was never recorded cannot
+  // acquire a new $3 charge merely because the recovery worker runs later.
+  {
+    const db=fakeDb(rides({A:{status:'cancelled',cancelledFrom:'arrived',
+      refundPending:true,cancellationFeeCents:undefined}}));
+    const st=stripe();
+    const retry=await cancelTravel({db,uid:'alice',rideId:'A',deps:st,
+      enableVerifiedProgressFee:true});
+    check('unproven historic legacy fee cannot be reconstructed after closure',
+      retry.status===200&&retry.body.amountCents===1944&&
+      db.data.rides.A.cancellationFeeCents===0&&st.log.transfers.length===0);
   }
 
   // ——— 1b. Future ENROUTE fees: consent/terms gated, same existing Operator read ———
