@@ -1,3 +1,13 @@
+## 23 October 2026 | PROFESSIONAL PUBLIC WEBSITE / MERGE OF RECRUITMENT SOURCE — CURRENT
+
+**Founder decision:** Keep americanrider.app for launch and move beyond the former card-heavy website. The new editorial page is designed using Blacklane/Wheely/Alto references, Apple HIG and Google web vitals, and the founder's Council rubric (references, not external approval). Real licensed Unsplash sedan photo identified as illustrative, confident large typography, readable national navy vision section positioned below Travel and Operate, responsive mobile layout, valid links. Pricing remains one all-in Traveler Total and 99% Operator Fare with Platform Fee **at least $2.50 per Travel**, with no unverified illustrative fare or national booking claim; Smart Travel remains disabled.
+
+**Recruiting:** Preserve the independently merged /recruitment informational route and its status. It is distinct from the Traveler Invite experience. Real recruiter invitations, identity binding, founder approval, personal QR/referral link, attribution, real earning and bank-payment flows remain uncommissioned. **No Friday or other payout schedule, threshold or provider is chosen.** Do not claim an active recruiter system or make earnings promises. The updated editorial recruitment entrance preserves the later #279 disclosures and route; do not resurrect /recruit or override subsequent recruiter fixes.
+
+**Release boundary:** Source only until exact-head checks and connected Render deployment. The public americanrider.app domain remains attached to an older Render site not in the authenticated workspace; adding it to the new service returned a duplicate-domain error. Old domain assignment must be released or ownership verified through Render Support. Cloudflare DNS and existing email records are untouched. Verify rendered page, HTTPS/TLS and all links before production domain cutover.
+
+---
+
 ## 23 October 2026 | CORPORATE WEBSITE LIVE ON CONNECTED RENDER; RECRUITMENT PAGE SOURCE REVIEW
 
 **Verified website release:** [PR #277](https://github.com/chadkhalil21-svg/American-Rider-Commercial/pull/277) merged at `b043bbc94842be27f499947f224fa2cd05dc3a9a`. Authenticated Render lists deployment `dep-dbdmg9gu01pc73ctav8g` of `American-Rider-Server` as LIVE at this exact SHA (2026-10-23T13:59:44Z), with the existing Render production website endpoint at `https://american-rider-server-3d7x.onrender.com/`. Render's Expo static platform also reports the commit live. The PR head `62cf25a` passed seven GitHub CI workflows. This verifies deployment status from Render, **not** independent rendered HTTP checks, actual `americanrider.app` routing, Google Cloud Run release, signed-device commission, or recruiter activation.

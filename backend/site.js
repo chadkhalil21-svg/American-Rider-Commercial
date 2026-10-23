@@ -28,86 +28,43 @@
 // The canonical backend owns each actual all-in Travel Total; this page has no quote engine.
 const { page } = require('./shell');
 
-const HOME_HTML = page(
-  'American Rider',
-  `
-<section class="hero-grid" aria-labelledby="home-heading">
-  <div>
-    <p class="eyebrow">American Rider · National Transportation</p>
-    <h1 class="hero-heading" id="home-heading">Travel, <span>considered.</span></h1>
-    <p class="hero-lede">Transportation with clear terms, a composed experience, and independent Operators who retain 99% of the Travel Fare.</p>
-    <div class="button-row">
-      <a class="cta" href="/travel">Explore Travel</a>
-      <a class="ghost" href="/operate">Operate with American Rider</a>
-    </div>
-  </div>
-  <div class="path-card" role="img" aria-label="An abstract illustration of a connected journey, not a live map">
-    <div class="path-label"><span>American Rider · United States</span><span>01 / 03</span></div>
-    <svg viewBox="0 0 500 290" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">
-      <defs>
-        <pattern id="ar-web-grid" width="48" height="48" patternUnits="userSpaceOnUse">
-          <path d="M 48 0 L 0 0 0 48" fill="none" stroke="#c3ced8" stroke-width=".65" opacity=".48"/>
-        </pattern>
-      </defs>
-      <rect x="0" y="0" width="500" height="290" rx="9" fill="url(#ar-web-grid)"/>
-      <path d="M53 242 C110 226 102 157 183 158 C267 158 235 57 335 67 C401 73 407 116 457 51" fill="none" stroke="#a0afc0" stroke-width="11" stroke-linecap="round" opacity=".22"/>
-      <path d="M53 242 C110 226 102 157 183 158 C267 158 235 57 335 67 C401 73 407 116 457 51" fill="none" stroke="#224d86" stroke-width="2.6" stroke-linecap="round" stroke-dasharray="7 9"/>
-      <circle cx="53" cy="242" r="14" fill="#f6f9fc" stroke="#2E5FE0" stroke-width="2.5"/>
-      <circle cx="53" cy="242" r="4" fill="#2E5FE0"/>
-      <circle cx="457" cy="51" r="14" fill="#172f4c" stroke="#f8fafc" stroke-width="3"/>
-      <circle cx="457" cy="51" r="4" fill="#f8fafc"/>
-      <rect x="188" y="128" width="114" height="38" rx="10" fill="#ffffff" stroke="#d2dce5"/>
-      <text x="245" y="151" font-family="system-ui,sans-serif" font-size="12" font-weight="600" letter-spacing="1.1" text-anchor="middle" fill="#1c3859">AMERICAN</text>
-      <path d="M72 250L100 265M420 36L441 21" stroke="#8099af" stroke-width="1.6"/>
-    </svg>
-    <p class="path-caption">The journey, thoughtfully arranged.</p>
-  </div>
-</section>
+const HOME_HTML = page('American Rider', `
 
-<div class="feature-strip" aria-label="Explore American Rider">
-  <section aria-labelledby="ar-travel">
-    <div class="number">01 / TRAVELER</div>
-    <h2 id="ar-travel">One clear Total</h2>
-    <p>Review one all-in Total before reserving. The agreed Total includes the Travel Fare, Platform Fee, and applicable charges.</p>
-    <a class="more" href="/travel">How Travel works &rsaquo;</a>
-  </section>
-  <section aria-labelledby="ar-operator">
-    <div class="number">02 / OPERATOR</div>
-    <h2 id="ar-operator">99% of the Fare</h2>
-    <p>Independent Operators retain 99% of the Travel Fare. The minimum Platform Fee is $2.50 per Travel and is not deducted from the Operator's share.</p>
-    <a class="more" href="/operate">Operating information &rsaquo;</a>
-  </section>
-  <section aria-labelledby="ar-safety">
-    <div class="number">03 / CONFIDENCE</div>
-    <h2 id="ar-safety">Qualification and care</h2>
-    <p>Operators must meet applicable insurance, screening, and vehicle requirements before becoming eligible for Travel.</p>
-    <a class="more" href="/safety">Safety standards &rsaquo;</a>
-  </section>
-</div>
-
-<div class="divider-label">A national transportation platform</div>
-<section class="service-panel" aria-labelledby="network-heading">
-  <div>
-    <h2 id="network-heading">Designed to serve the nation.</h2>
-    <p>American Rider is building a transportation network across the United States.
-    Actual availability depends on location and qualified Operators.
-    We are preparing the public mobile-app release.</p>
-    <p><a href="/smart-travel">Smart Travel</a> · Currently unavailable.</p>
-  </div>
-  <a href="/travel">Explore Travel &rsaquo;</a>
+<section class="ar-hero" aria-labelledby="home-heading">
+ <div class="ar-hero-copy">
+  <p class="ar-kicker">American Rider / National Transportation</p>
+  <h1 id="home-heading" class="ar-display">Travel,<br><em>considered.</em></h1>
+  <p class="ar-lead">The journey matters. Clear terms, independent professional Operators, and thoughtful service, together in one transportation experience.</p>
+  <div class="ar-actions"><a class="ar-primary" href="/travel">Discover Travel <span aria-hidden="true">↗</span></a><a class="ar-textlink" href="/operate">Explore Operating <span aria-hidden="true">↗</span></a></div>
+  <p class="ar-smallnote">A national platform beginning in select areas. Availability depends on location and qualified Operators.</p>
+ </div>
+ <figure class="ar-photo">
+  <img src="https://images.unsplash.com/photo-1749318398976-5a9b45307aae?auto=format&amp;fit=crop&amp;w=1500&amp;q=78" alt="Illustrative photograph of a black sedan on a city street; actual Operator vehicles vary" width="1000" height="1240" fetchpriority="high">
+  <figcaption><span>THE ART OF ARRIVING</span><span>01 / 03</span></figcaption>
+ </figure>
 </section>
-
-<section class="recruitment-feature" aria-labelledby="recruitment-heading">
-  <div>
-    <p class="eyebrow">Work with American Rider</p>
-    <h2 id="recruitment-heading">Help build the network.</h2>
-    <p>Learn about independent recruiting opportunities and how approved representatives will introduce people to American Rider. This is separate from Traveler invitations.</p>
-  </div>
-  <a class="more" href="/recruitment">Recruitment information &rsaquo;</a>
+<section class="ar-manifesto" aria-labelledby="ar-promise">
+ <p class="ar-kicker">A BETTER STANDARD OF MOVEMENT</p>
+ <h2 id="ar-promise">A journey should feel simple.<br>Even when the details are not.</h2>
+ <p>Know the Total before you reserve. Know who is arriving. Keep the information you need close from pickup to destination.</p>
 </section>
-`,
-  '/',
-);
+<section class="ar-offerings" aria-label="Explore American Rider">
+ <article><span class="ar-index">01 / TRAVELER</span><h2>Travel with clarity.</h2><p>One all-in Total, including Fare and Platform Fee, presented before you confirm. No unapproved amount added afterward.</p><a href="/travel">The Traveler experience ↗</a></article>
+ <article><span class="ar-index">02 / OPERATOR</span><h2>Keep 99% of the Fare.</h2><p>Independent Operators keep 99% of the Travel Fare. The Platform Fee is at least $2.50 per Travel, separate from their share.</p><a href="/operate">The Operator opportunity ↗</a></article>
+ <article><span class="ar-index">03 / CONFIDENCE</span><h2>Care is a standard.</h2><p>Insurance, screening and vehicle qualifications matter. Safety reporting and attentive support belong in every journey.</p><a href="/safety">Our safety standards ↗</a></article>
+</section>
+<section class="ar-note" aria-label="Smart Travel status"><span>SMART TRAVEL</span><p>Currently unavailable while schedules and connections are verified. <a href="/smart-travel">Read more ↗</a></p></section>
+<section class="ar-vision" aria-labelledby="ar-vision-heading">
+ <div class="ar-vision-top"><span>AMERICAN RIDER / UNITED STATES</span><span>THE ROAD AHEAD</span></div>
+ <h2 id="ar-vision-heading">Built for the<br>distance ahead.</h2>
+ <p>American Rider is developing a transportation network across the United States. We are preparing the public mobile-app release. Service will expand only where a qualified Operator network and local availability can support it.</p>
+ <a href="/about">About American Rider ↗</a>
+</section>
+<section class="ar-lastline"><div><p class="ar-kicker">FOR INDEPENDENT OPERATORS</p><h2>The work behind<br>every journey.</h2></div><a class="ar-outline" href="/operate">Explore Operating ↗</a></section>
+
+<section class="ar-recruit-note" aria-label="Independent recruiting"><p>Interested in representing American Rider? The independent recruiter program is not yet open for enrollment.</p><a href="/recruitment">Recruitment information ↗</a></section>
+
+`, '/');
 
 const OPERATE_HTML = page(
   'Operate',
@@ -382,8 +339,7 @@ const SMART_HTML = page(
 const RECRUITMENT_HTML = page(
   'Recruitment',
   `
-<h1>Recruitment</h1>
-<p class="lede">Represent American Rider with clarity and professionalism.</p>
+<section class="ar-recruit" aria-labelledby="recruit-title"><p class="ar-kicker">AMERICAN RIDER / COMPANY OPPORTUNITIES</p><h1 id="recruit-title" class="ar-display">Help build<br><em>what comes next.</em></h1><p class="ar-lead">Represent American Rider with clarity and professionalism. The independent recruiter program is not yet open for enrollment.</p></section>
 <section aria-labelledby="recruitment-overview">
   <h2 id="recruitment-overview">Independent recruiting</h2>
   <p>American Rider is developing a separate program for independent representatives who may introduce prospective Operators and Travelers to our national transportation platform. Service begins in selected markets; an introduction does not establish that Travel is available in a location.</p>
@@ -392,7 +348,7 @@ const RECRUITMENT_HTML = page(
 <section aria-labelledby="recruitment-process">
   <h2 id="recruitment-process">Approval and representation</h2>
   <p>Recruiter identity, approval, permitted activities and written terms must be established before anyone represents American Rider as an approved recruiter. Personal attribution links, QR codes, recruiter accounts and commission statements will be made available only after their systems have been tested and activated.</p>
-  <p>Compensation, eligibility and payout frequency are not yet announced. No person should promise payments or recruiting status on our behalf.</p>
+  <p>Compensation, eligibility and payout frequency are not yet announced. Payout timing, minimums, and provider have not been selected. No person should promise payments or recruiting status on our behalf.</p>
 </section>
 <section aria-labelledby="recruitment-contact">
   <h2 id="recruitment-contact">Business inquiries</h2>
