@@ -1177,7 +1177,6 @@ export default {
     verifyCodeIdle: 'Prüfen Sie nach der Zuweisung den Namen des Operators, das Fahrzeug und das Kennzeichen.',
     emgTextMyLocation: 'Meinen Standort per SMS senden',
     emgSendMyLocation: 'Meinen Standort senden',
-    rideFareReturnedLessArrival: 'Ihr Fahrpreis wird Ihnen abzüglich einer Anfahrtsgebühr von 3,00 USD erstattet, die an %{name} geht.',
     noPlacesFound: 'Keine Orte gefunden — versuchen Sie „Wynwood“ oder „Zuhause“.',
     wallet: 'Brieftasche',
     transit: 'Öffentlicher Nahverkehr',
