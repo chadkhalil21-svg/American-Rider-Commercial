@@ -68,7 +68,11 @@ async function mockFetch(url,opts={}){
   throw Error('unexpected route '+suffix);
 }
 const simulatedModule={exports:{}};
+// Node VM contexts do not inherit host timers or AbortController automatically.
+// Supply the same standard request primitives as React Native so the new bounded
+// Stripe reads are exercised by this existing end-to-end synthetic journey.
 const context={module:simulatedModule,exports:simulatedModule.exports,fetch:mockFetch,console,
+  AbortController,setTimeout,clearTimeout,
   require(name){
     if(name==='@stripe/stripe-react-native')return stripeNative;
     if(name==='react-native')return {Platform:{get OS(){return os;}}};
