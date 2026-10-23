@@ -17,7 +17,7 @@ assert.match(support.slice(emgStart, emgStart + 1400), /trip: EmergencyTrip \| n
 assert.match(screen, /resolveEmergencyTravelFacts\(/);
 assert.match(screen, /trip:\s*null,[\s\S]{0,120}operator:\s*''/,
   'client cannot claim Operator identity in Emergency case');
-assert.match(screen, /const tripNo = verifiedTravel\?\.tripNo \|\| ''/,
+assert.match(screen, /const tripNo = currentVerified\?\.tripNo \|\| ''/,
   'unverified past Travel never appears as a current emergency record');
 assert.match(facts, /if \(input\.role === 'operator' && current\?\.rideId && current\.tripNo\)/,
   'Operator Travel identity must be current and real');
