@@ -625,7 +625,7 @@ export default function RideScreen() {
             {ride.payment.status !== 'paid'
               ? t('traveler.rideNotCharged')
               : ride.payment.authorizationOnly
-                ? t(st >= 2?'traveler.authorizationPossibleFee':'traveler.authorizationFreeCancel')
+                ? t(st >= 2?'traveler.authorizationBookingTerms':'traveler.authorizationFreeCancel')
               : st >= 2
                 ? t('traveler.rideFareReturnedLessArrival', {
                     name: ride.matchedOp?.name ?? t('traveler.yourOperatorFallback'),
