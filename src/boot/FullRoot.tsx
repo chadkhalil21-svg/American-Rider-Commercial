@@ -66,9 +66,18 @@ function AppGate() {
       // it never accepts Travel, transfers funds, or bypasses account security.
       const allowed = new Set([
         '/ride', '/receipt', '/operator', '/operator/insurance', '/family',
-        '/operator/trip', '/emergency', '/wallet', '/', '/history',
+        '/operator/trip', '/emergency', '/wallet', '/', '/history', '/teen-pickup',
       ]);
       if (screen && allowed.has(screen)) {
+        // The Teen notification carries only a Travel ID, not the pickup PIN.
+        // Validate the format and require a fresh authenticated server lookup.
+        // An arbitrary push cannot reveal another account's secret.
+        if (screen === '/teen-pickup') {
+          const rideId = typeof data?.rideId === 'string' ? data.rideId : '';
+          if (!/^[a-f0-9]{40}$/.test(rideId)) return;
+          router.navigate({ pathname: '/teen-pickup', params: { rideId } } as never);
+          return;
+        }
         // A receipt needs a selected, server-backed Travel. After a cold
         // start there is no selected record yet, so going straight to the
         // receipt renders a blank frame. The Travel Log loads actual history
