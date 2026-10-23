@@ -19,7 +19,13 @@ async function shareLink({db,uid,role,now=Date.now()}){
     const code=await db.runTransaction(async tx=>{
       const owner=await tx.get(ownerRef);
       const existing=owner.exists?normalizedCode(owner.data()?.referralCode):null;
-      if(existing)return existing;
+      // A cached profile code is not proof that the server-owned registry
+      // still belongs to this account. Never share another person's link.
+      if(existing){
+        const registered=await tx.get(db.collection('referral_codes').doc(existing));
+        if(registered.exists&&registered.data()?.ownerUid===uid&&
+           registered.data()?.status==='active')return existing;
+      }
       const fresh=crypto.randomBytes(12).toString('hex').toUpperCase();
       const ref=db.collection('referral_codes').doc(fresh);
       const check=await tx.get(ref);
