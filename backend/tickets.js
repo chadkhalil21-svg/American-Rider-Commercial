@@ -246,9 +246,10 @@ async function notifyLocationByEmail(ticket, { source = 'case_reporter' } = {}) 
   const key = readKey('RESEND_API_KEY');
   if (!to || !key) return false;
   const e = ticket.emergency || {};
-  // Never call an Operator handset's GPS the Traveler's location.
-  const operatorOnly = !(e.coords || e.address) &&
-    !!(e.operatorLocation?.coords || e.operatorLocation?.address);
+  // Explicit source wins over whether another person's location already
+  // happens to be stored. Never email old Traveler GPS as if it were fresh
+  // Operator telemetry (or vice versa).
+  const operatorOnly = source === 'operator';
   const reported = operatorOnly ? e.operatorLocation : e;
   const source = operatorOnly ? 'Assigned Operator device' : 'Case reporter device';
   try {
