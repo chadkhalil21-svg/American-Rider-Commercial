@@ -34,7 +34,8 @@ export default function Invitations() {
       // Where the account has a real enabled referral link, attach it in the
       // native share sheet; otherwise ordinary untracked sharing still works.
       // Never claim the link has generated rewards or ask for contacts.
-      const link = await personalInvitation('traveler');
+      const link = process.env.EXPO_PUBLIC_REFERRALS_ENABLED === '1'
+        ? await personalInvitation('traveler') : null;
       await Share.share(link && Platform.OS === 'ios'
         ? { message, url: link }
         : { message: link ? `${message} ${link}` : message });
