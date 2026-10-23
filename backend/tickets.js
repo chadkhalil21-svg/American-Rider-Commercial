@@ -219,14 +219,20 @@ async function updateTicketLocation({ caseNo, uid, address, coords, rideId = nul
     //
     // So: the first time a location lands on an emergency case, send it. Later movement
     // stays in the document — two emails is right, forty is noise.
-    const hadLocation = !!(existing.emergency && (existing.emergency.address ||
-      existing.emergency.coords || existing.emergency.operatorLocation?.address ||
-      existing.emergency.operatorLocation?.coords));
+    // Each person's FIRST known position warrants a separate, clearly labeled
+    // notice. Two useful positions are possible, but repeated five-second GPS
+    // updates must not flood Operations with email.
+    const earlier = existing.emergency || {};
+    const hadLocation = fromAssignedOperator
+      ? !!(earlier.operatorLocation?.address || earlier.operatorLocation?.coords)
+      : !!(earlier.address || earlier.coords);
     if (!hadLocation && (address || coords)) {
       const emergency = fromAssignedOperator
-        ? { ...existing.emergency, operatorLocation: position }
-        : { ...existing.emergency, address: position.address, coords: position.coords };
-      await notifyLocationByEmail({ ...existing, emergency });
+        ? { ...earlier, operatorLocation: position }
+        : { ...earlier, address: position.address, coords: position.coords };
+      await notifyLocationByEmail({ ...existing, emergency }, {
+        source: fromAssignedOperator ? 'operator' : 'case_reporter',
+      });
     }
     return { ok: true };
   } catch {
@@ -235,7 +241,7 @@ async function updateTicketLocation({ caseNo, uid, address, coords, rideId = nul
 }
 
 /** The follow-up an emergency case sends the moment it learns where the traveler is. */
-async function notifyLocationByEmail(ticket) {
+async function notifyLocationByEmail(ticket, { source = 'case_reporter' } = {}) {
   const to = readKey('SUPPORT_EMAIL');
   const key = readKey('RESEND_API_KEY');
   if (!to || !key) return false;
@@ -251,7 +257,11 @@ async function notifyLocationByEmail(ticket) {
       headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json',
         // Resend deduplicates equal requests for 24h; stable incident/case ID
         // prevents a one-minute monitor retry from spamming emergency email.
-        'Idempotency-Key': `case-location/${ticket.caseNo}` },
+        // Separate, bounded first-position alerts: one Operator and one
+        // case-owner location, each idempotent across crashes/retries.
+        'Idempotency-Key': source === 'operator'
+          ? `case-location/operator/${ticket.caseNo}`
+          : `case-location/${ticket.caseNo}` },
       body: JSON.stringify({
         from: 'American Rider <support@americanrider.app>',
         to: [to],
