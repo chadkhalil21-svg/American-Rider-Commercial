@@ -1749,9 +1749,9 @@ app.post('/emergency', requireAuth, LIMITS.emergency, async (req, res) => {
     trip: verified.trip,
     reason: 'Signed-in person opened the Emergency screen.',
     description:
-      `Emergency screen opened during Travel ${verified.trip?.no || '—'}.\\n` +
-      `Operator: ${emergency.operator || '—'}\\n` +
-      `Vehicle: ${emergency.vehicle || '—'} · plate ${emergency.plate || '—'}\\n` +
+      `Emergency screen opened during Travel ${verified.trip?.no || '—'}.\n` +
+      `Operator: ${emergency.operator || '—'}\n` +
+      `Vehicle: ${emergency.vehicle || '—'} · plate ${emergency.plate || '—'}\n` +
       `Location reported by phone: ${emergency.address || '—'}` +
       (emergency.coords ? ` (${emergency.coords.lat}, ${emergency.coords.lng})` : ''),
   });
