@@ -312,6 +312,34 @@ const rides = (over = {}) => ({
       st.log.transfers.every(t=>t.expectedUid==='alice'&&t.rideId==='A'));
   }
   {
+    // Provider lookup may throw after Stripe has already captured the $4
+    // disclosed fee. A HTTP error must not erase the owed $3 or re-bill.
+    const at=1790390000000;
+    const db=fakeDb({...rides({A:{
+      status:'arrived',paymentCapturePolicy:'manual_v1',
+      cancellationFeeDisclosureVersion:'net3-allin400-v1',
+      acceptedAt:at-540000,arrivedAt:at-360000,
+      pickupContactAt:at-60000,pickupContactBy:'op1',
+      pickupLat:25.7617,pickupLng:-80.1918,
+    }}),operators:{op1:{
+      currentRideId:'A',lat:25.7617,lng:-80.1918,onlineAt:at-1000,
+    }}});
+    const st=stripe(),capture=[];
+    st.settleUncapturedTravel=async args=>{
+      capture.push(args);return {manual:true,ok:true,status:'captured',captureCents:400};
+    };
+    st.operatorPayoutAccount=async()=>{throw Error('synthetic payout provider outage');};
+    const result=await cancelTravel({db,uid:'op1',operatorNoShowUid:'op1',
+      rideId:'A',deps:st,now:at,enableManualCancellationFee:true});
+    check('captured cancellation fee survives payout-provider exception without duplicate charge',
+      result.status===200&&result.body.capturedCents===400&&
+      db.data.rides.A.refundPending===false&&
+      db.data.rides.A.arrivalFeePending===true&&
+      db.data.rides.A.arrivalFeeBlockedReason==='compensation_provider_unavailable'&&
+      capture.length===1&&capture[0].uid==='alice'&&
+      st.log.transfers.length===0);
+  }
+  {
     const at=1790390000000;
     const base={status:'arrived',paymentCapturePolicy:'manual_v1',
       cancellationFeeDisclosureVersion:'net3-allin400-v1',
