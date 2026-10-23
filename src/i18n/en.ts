@@ -1199,7 +1199,6 @@ export default {
     verifyCodeIdle: 'When an Operator is assigned, check their name, vehicle and license plate before boarding.',
     emgTextMyLocation: 'Text my location',
     emgSendMyLocation: 'Send my location',
-    rideFareReturnedLessArrival: 'Your fare is returned less a $3.00 arrival fee, which goes to %{name}.',
     noPlacesFound: 'No places found — try "Wynwood" or "home".',
     // ---- account surfaces --------------------------------------------------------------
     wallet: 'Wallet',
