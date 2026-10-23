@@ -74,7 +74,7 @@ export default function Emergency() {
   const localRide = operatorState.role === 'operator'
     ? operatorState.op?.rideId : ride.matchedOp?.rideId;
   const candidateRideId = pushedRide ||
-    (typeof localRide === 'string' && /^[a-f0-9]{40}$/.test(localRide) ? localRide : null);
+    (facts.tripNo && typeof localRide === 'string' && /^[a-f0-9]{40}$/.test(localRide) ? localRide : null);
   const [verifiedTravel, setVerifiedTravel] = useState<VerifiedEmergencyTravel | null>(null);
   useEffect(() => {
     let active = true;
@@ -87,13 +87,14 @@ export default function Emergency() {
     return () => { active = false; };
   }, [candidateRideId]);
 
-  const hasOperator = verifiedTravel
-    ? !!(verifiedTravel.operator && verifiedTravel.vehicle && verifiedTravel.plate)
-    : facts.hasOperator;
-  const operator = verifiedTravel ? verifiedTravel.operator : facts.operator;
-  const vehicle = verifiedTravel ? verifiedTravel.vehicle : facts.vehicle;
-  const plate = verifiedTravel ? verifiedTravel.plate : facts.plate;
-  const tripNo = verifiedTravel ? verifiedTravel.tripNo : facts.tripNo;
+  // A locally cached Travel is a lookup hint, not verified emergency identity.
+  // Keep 911 and an ordinary Emergency report available during a server outage,
+  // without presenting an obsolete vehicle or Travel Number as confirmed.
+  const hasOperator = !!(verifiedTravel?.operator && verifiedTravel.vehicle && verifiedTravel.plate);
+  const operator = verifiedTravel?.operator || '';
+  const vehicle = verifiedTravel?.vehicle || '';
+  const plate = verifiedTravel?.plate || '';
+  const tripNo = verifiedTravel?.tripNo || '';
   const hasVehicleFacts = !!(vehicle && plate);
   const hasOperatorName = !!operator;
 
@@ -184,21 +185,12 @@ export default function Emergency() {
       const result = await alertEmergency({
       requestId,
       rideId: candidateRideId,
-      // Send ONLY an actual active Traveler/Operator Travel. Never manufacture
-      // a previous or demonstration journey for an Emergency record.
-      trip: tripNo
-        ? {
-            no: tripNo,
-            dep: facts.dep,
-            arr: facts.arr,
-            ...(facts.totalCents != null ? { totalCents: facts.totalCents } : {}),
-            ...(facts.date ? { date: facts.date } : {}),
-            operator,
-          }
-        : null,
-      operator,
-      vehicle,
-      plate,
+      // Operator and Travel identity come ONLY from the server's authorized
+      // canonical record. The phone supplies a lookup hint, not verified facts.
+      trip: null,
+      operator: '',
+      vehicle: '',
+      plate: '',
       address: fixRef.current ? [fixRef.current.address, fixRef.current.region].filter(Boolean).join(', ') : null,
       coords: fixRef.current?.coords ?? null,
       });
@@ -210,7 +202,7 @@ export default function Emergency() {
     } finally {
       alertBusy.current = false;
     }
-  }, [requestId, candidateRideId, tripNo, operator, vehicle, plate, facts]);
+  }, [requestId, candidateRideId]);
   const alerted = useRef(false);
   useEffect(() => {
     if (alerted.current) return;
@@ -248,14 +240,14 @@ export default function Emergency() {
   const contactMessage =
     (hasOperator
       ? t('traveler.emgHelpIntro')
-      : (ride.rideActive || !!operatorState.op?.rideId)
+      : verifiedTravel
         ? t('traveler.emgHelpTravel')
         : t('traveler.emgHelpGeneral')) +
     '\n\n' +
     t('traveler.emgWhereIAm', { place: locationLine }) +
     (fix ? ' ' + t('traveler.emgAsOf', { time: clockLabel(fix.at) }) : '') +
-    (tripNo
-      ? '\n' + t('traveler.emgRouteLine', { from: verifiedTravel?.dep || facts.dep, to: verifiedTravel?.dest || facts.arr })
+    (verifiedTravel?.tripNo
+      ? '\n' + t('traveler.emgRouteLine', { from: verifiedTravel.dep, to: verifiedTravel.dest })
       : '') +
     (hasVehicleFacts ? '\n' + t('traveler.emgVehicleLine', { vehicle, plate }) : '') +
     (hasOperatorName ? '\n' + t('traveler.emgOperatorLine', { name: operator }) : '') +
