@@ -3,12 +3,12 @@
 // Render static Expo deployment is NOT evidence that these routes are live at americanrider.app.
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
-const {HOME_HTML,OPERATE_HTML,SUPPORT_HTML,TRAVEL_HTML,SAFETY_HTML,SMART_HTML} = require('./site');
+const {HOME_HTML,OPERATE_HTML,SUPPORT_HTML,TRAVEL_HTML,SAFETY_HTML,SMART_HTML,RECRUITMENT_HTML} = require('./site');
 const {ABOUT_HTML,TERMS_HTML,PRIVACY_HTML} = require('./legal');
 const server = fs.readFileSync(require.resolve('./server'), 'utf8');
 const expectText=(page,text,label)=>assert.ok(page.includes(text),label+': missing '+text);
 for(const [route,html] of [['/',HOME_HTML],['/operate',OPERATE_HTML],
-  ['/travel',TRAVEL_HTML],['/support',SUPPORT_HTML],['/safety',SAFETY_HTML],
+  ['/travel',TRAVEL_HTML],['/recruitment',RECRUITMENT_HTML],['/support',SUPPORT_HTML],['/safety',SAFETY_HTML],
   ['/smart-travel',SMART_HTML],['/about',ABOUT_HTML],
   ['/terms',TERMS_HTML],['/privacy',PRIVACY_HTML]]){
   assert.match(html,/<!doctype html>/i,'whole HTML at '+route);
@@ -17,6 +17,11 @@ for(const [route,html] of [['/',HOME_HTML],['/operate',OPERATE_HTML],
   assert.ok(server.includes("app.get('"+route+"'"), 'backend route missing: '+route);
 }
 expectText(HOME_HTML,'99%','home');
+expectText(HOME_HTML,'href="/recruitment"','home recruiter entry');
+expectText(RECRUITMENT_HTML,'not yet open for enrollment','honest recruiter status');
+expectText(RECRUITMENT_HTML,'Compensation, eligibility and payout frequency are not yet announced','no premature money promise');
+assert.doesNotMatch(RECRUITMENT_HTML,/href="\/join|apply now|Friday payouts/i);
+
 expectText(HOME_HTML,'$2.50','home');
 expectText(HOME_HTML,'National Transportation','home');
 expectText(HOME_HTML,'across the United States','home');
