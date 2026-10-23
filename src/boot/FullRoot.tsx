@@ -88,6 +88,19 @@ function AppGate() {
         '/operator/trip', '/emergency', '/wallet', '/', '/history', '/teen-pickup',
       ]);
       if (screen && allowed.has(screen)) {
+        // An Emergency push must preserve the real Travel ID on cold start.
+        // This is an untrusted lookup hint; the Emergency endpoint verifies
+        // the signed-in recipient's membership before disclosing any details.
+        if (screen === '/emergency') {
+          const rideId = typeof data?.rideId === 'string' ? data.rideId : '';
+          if (/^[a-f0-9]{40}$/.test(rideId)) {
+            router.navigate({ pathname: '/emergency', params: { rideId } } as never);
+            return;
+          }
+          // Missing/invalid context NEVER hides the one-tap 911 screen.
+          router.navigate('/emergency');
+          return;
+        }
         // The Teen notification carries only a Travel ID, not the pickup PIN.
         // Validate the format and require a fresh authenticated server lookup.
         // An arbitrary push cannot reveal another account's secret.

@@ -172,6 +172,13 @@ async function updateTicketLocation({ caseNo, uid, address, coords }) {
     const snap = await ref.get();
     if (!snap.exists || snap.data()?.uid !== uid) return { ok: false };
     const existing = snap.data() || {};
+    // A support/dispute case is never an Emergency location feed, even when
+    // the requester owns it. A closed Emergency cannot be silently revived.
+    if (existing.kind !== 'emergency' || existing.status === 'resolved') return { ok: false };
+    if (coords && (!Number.isFinite(coords.lat) || !Number.isFinite(coords.lng) ||
+        Math.abs(coords.lat) > 90 || Math.abs(coords.lng) > 180))
+      return { ok: false };
+    if (!coords && !address) return { ok: false };
 
     await ref.update({
       'emergency.address': address || null,
