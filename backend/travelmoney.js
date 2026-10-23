@@ -169,6 +169,13 @@ async function cancelTravel({ db, uid, rideId, deps, stripeConfigured = true, no
     const current = currentSnap.data();
     if(String(noShowOperator?current.operatorId:current.travelerUid)!==String(uid))
       return fail(403,'Caller does not own this Travel','not_yours');
+    // The paid no-show route is ONLY for a Travel booked under the exact
+    // original manual authorization and accepted $4 fee policy. Activating
+    // the feature later cannot make old, already-captured bookings liable.
+    if (noShowOperator && (current.paymentCapturePolicy!=='manual_v1' ||
+        current.cancellationFeeDisclosureVersion!=='net3-allin400-v1'))
+      return fail(409,'This Travel was not booked with the verified no-show terms',
+        'no_show_terms_unavailable');
     if (current.paymentClaim) return fail(409, 'Payment is still being prepared; retry cancellation shortly', 'payment_in_progress');
     if (['onboard', 'completed'].includes(current.status) || current.transferId) {
       return fail(409, 'This travel is underway or settled', 'travel_underway');
