@@ -1176,7 +1176,6 @@ export default {
     verifyCodeIdle: 'Quando viene assegnato un Operatore, verifichi il nome, il veicolo e la targa prima di salire.',
     emgTextMyLocation: 'Inviare la mia posizione via SMS',
     emgSendMyLocation: 'Inviare la mia posizione',
-    rideFareReturnedLessArrival: 'La tariffa le viene restituita meno una tariffa di arrivo di 3,00 USD, che spetta a %{name}.',
     noPlacesFound: 'Nessun luogo trovato — provi "Wynwood" o "casa".',
     wallet: 'Portafoglio',
     transit: 'Trasporto Pubblico',
