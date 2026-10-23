@@ -85,6 +85,20 @@ const {fileTicket,updateTicketLocation}=require('./tickets');
  assert.equal(scheduledFirst.ok,true);
  assert.match(sent.at(-1).payload.subject,/^SCHEDULED REVIEW · AR-C-/);
  assert(sent.at(-1).payload.subject.includes('AR-TEST-SCHEDULED'));
+ const invalidSupportPosition=await updateTicketLocation({caseNo:scheduledFirst.caseNo,
+   uid:'u-fixture',address:'Falsified emergency map',coords:{lat:25.8,lng:-80.2}});
+ assert.equal(invalidSupportPosition.ok,false,
+   'an ordinary Support case must never accept an Emergency GPS update');
+ assert.equal(data.get(scheduledFirst.caseNo)?.emergency,undefined);
+ const invalidGps=await updateTicketLocation({caseNo:first.caseNo,
+   uid:'u-fixture',address:null,coords:{lat:120,lng:0}});
+ assert.equal(invalidGps.ok,false,'invalid latitude must not overwrite an actual Emergency');
+ assert.equal(data.get(first.caseNo).emergency.coords.lat,25.8);
+ data.set(first.caseNo,{...data.get(first.caseNo),status:'resolved'});
+ const closedPosition=await updateTicketLocation({caseNo:first.caseNo,uid:'u-fixture',
+   address:'Moved after closure',coords:{lat:25.9,lng:-80.3}});
+ assert.equal(closedPosition.ok,false,'closed Emergency is not silently reopened by GPS timer');
+ assert.equal(data.get(first.caseNo).emergency.coords.lat,25.8);
  const afterScheduled=sent.length;
  const scheduledAgain=await fileTicket(scheduled);
  assert.equal(scheduledAgain.caseNo,scheduledFirst.caseNo);
