@@ -1193,7 +1193,6 @@ export default {
     verifyCodeIdle: 'Cuando se asigne un Operador, compruebe su nombre, vehículo y matrícula antes de subir.',
     emgTextMyLocation: 'Enviar mi ubicación por SMS',
     emgSendMyLocation: 'Enviar mi ubicación',
-    rideFareReturnedLessArrival: 'Se le devuelve la tarifa menos una tarifa de llegada de 3,00 USD, que se abona a %{name}.',
     noPlacesFound: 'No se han encontrado lugares — pruebe "Wynwood" o "casa".',
     wallet: 'Cartera',
     transit: 'Transporte Público',
