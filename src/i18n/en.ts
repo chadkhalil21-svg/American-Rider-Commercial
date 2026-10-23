@@ -945,6 +945,7 @@ export default {
     authorizationAmount: '%{amount} authorized. Not charged.',
     authorizationFreeCancel: 'If no cancellation fee applies, the bank releases the full payment hold.',
     authorizationBookingTerms: "The card hold will be released or adjusted under the cancellation terms you accepted when booking.",
+    cancellationAmountVerified: "The cancellation refund follows the fee terms accepted when this Travel was booked. A fee is only retained when verified; the final refund is confirmed by the server.",
     cancellationFeeNet3Disclosure: 'A $4.00 cancellation or no-show fee may apply when eligible; $3.00 goes to your Operator. Otherwise, the payment hold is released.',
     paymentStatusUnverified: 'Payment status is not yet confirmed. Cancel Travel to have the server resolve the payment before you leave.',
     keepTravel: 'Keep travel',
