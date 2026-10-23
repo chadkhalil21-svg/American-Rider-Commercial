@@ -613,6 +613,18 @@ const check = (l, c, d) => results.push({ l, ok: !!c, d });
       h.data.rides.r1.paymentIntentId === 'pi_r1', JSON.stringify(rep));
   }
 
+  {
+    const h = makeDb({ rides: { r1: assigned({
+      createdAt: now - 70_000, offeredAt: now - 70_000,
+      notifiedOperatorAt: null,
+    }) }, operators: {} });
+    const rep = await inject(h.db).sweepAssignments({ now });
+    check('a late successful push must not revive an already-expired offer',
+      h.data.rides.r1.notifiedOperatorAt == null &&
+      rep.notified.length === 0 && rep.stranded.includes('r1') &&
+      h.data.rides.r1.paymentIntentId === 'pi_r1', JSON.stringify(rep));
+  }
+
   // 15. A fleet flag alone is not qualification. The replacement has no authoritative user
   // record in this fixture, so the hardened sweep must refuse it rather than re-offer blindly.
   {
