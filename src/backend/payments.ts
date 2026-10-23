@@ -105,22 +105,45 @@ export type PaymentConfig = {
  * no-key config on any failure, which makes the app say it cannot take payment — the safe
  * direction to fail in.
  */
-export async function fetchPaymentConfig(): Promise<PaymentConfig> {
+// A temporary server stall cannot leave payment and wallet controls in an endless
+// "checking" state. Bound both authorization/configuration and saved-method reads;
+// an uncertain response never proves Stripe is configured or a Wallet is empty.
+async function paymentReadWithDeadline<T>(
+  read: (signal: AbortSignal) => Promise<T>, unavailable: T,
+): Promise<T> {
+  const controller = new AbortController();
+  let timeout: ReturnType<typeof setTimeout> | undefined;
+  const pending = read(controller.signal).catch(() => unavailable);
   try {
-    const res = await fetch(`${PAYMENT_SERVER_URL}/config`);
-    if (!res.ok) throw new Error(String(res.status));
+    return await Promise.race([
+      pending,
+      new Promise<T>(resolve => {
+        timeout = setTimeout(() => { controller.abort(); resolve(unavailable); }, 12_000);
+      }),
+    ]);
+  } finally {
+    if (timeout) clearTimeout(timeout);
+  }
+}
+
+export async function fetchPaymentConfig(): Promise<PaymentConfig> {
+  const unavailable: PaymentConfig = {
+    stripePublishableKey: null, mode: 'no-key',
+    canManagePaymentMethods: false, canTakePayment: false,
+  };
+  return paymentReadWithDeadline(async signal => {
+    const res = await fetch(`${PAYMENT_SERVER_URL}/config`, { signal });
+    if (!res.ok) return unavailable;
     const d = await res.json();
     return {
       stripePublishableKey: d?.stripePublishableKey ?? null,
       mode: d?.mode === 'live' ? 'live' : d?.mode === 'test' ? 'test' : 'no-key',
       canManagePaymentMethods: d?.canManagePaymentMethods === true,
       canTakePayment: d?.canTakePayment === true,
-      manualTravelAuthorization:d?.manualTravelAuthorization===true,
-      cancellationFeeGrossCents:Number(d?.cancellationFeeGrossCents)===400?400:null,
+      manualTravelAuthorization: d?.manualTravelAuthorization === true,
+      cancellationFeeGrossCents: Number(d?.cancellationFeeGrossCents) === 400 ? 400 : null,
     };
-  } catch {
-    return { stripePublishableKey: null, mode: 'no-key', canManagePaymentMethods: false, canTakePayment: false };
-  }
+  }, unavailable);
 }
 
 // Exported because presence.ts needs it too. There are three private copies of this in
@@ -338,14 +361,15 @@ export function brandName(brand: string): string {
 }
 
 export async function fetchPaymentMethods(): Promise<{ methods: SavedMethod[]; unavailable?: string }> {
-  try {
-    const res = await fetch(`${PAYMENT_SERVER_URL}/payment-methods`, { headers: await authHeaders() });
-    if (!res.ok) return { methods: [], unavailable: `server_${res.status}` };
+  const unavailable = { methods: [] as SavedMethod[], unavailable: 'unreachable' };
+  return paymentReadWithDeadline(async signal => {
+    const res = await fetch(`${PAYMENT_SERVER_URL}/payment-methods`, {
+      headers: await authHeaders(), signal,
+    });
+    if (!res.ok) return { methods: [] as SavedMethod[], unavailable: `server_${res.status}` };
     const data = (await res.json()) as { methods?: SavedMethod[]; unavailable?: string };
     return { methods: Array.isArray(data.methods) ? data.methods : [], unavailable: data.unavailable };
-  } catch {
-    return { methods: [], unavailable: 'unreachable' };
-  }
+  }, unavailable);
 }
 
 /** Stripe's sheet in setup mode: the card is saved to the traveler's record and nothing is charged. */
