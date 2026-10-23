@@ -207,7 +207,8 @@ export function watchAssignedTravel(
       },
     );
     } catch (e) {
-      retry(e instanceof Error ? e.message : t('traveler.errReadTravel'));
+      retry(typeof (e as { message?: unknown })?.message === 'string'
+        ? (e as { message: string }).message : t('traveler.errReadTravel'));
     }
   };
   listen();
