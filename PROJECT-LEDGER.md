@@ -8,7 +8,7 @@
 
 **Verified merged sources at this audit point:** Notification and private Teen code PR #239 at `f9b5f62` (8/8 release campaigns), moving Emergency location PR #242 at `c1359c8` (7/7), fair payout queue PR #243 at `d975cc5` (7/7). These are **source merges only**; Cloud Run runtime and signed TestFlight need independent source/build verification.
 
-**State:** SOURCE ONLY, isolated in `fix/operator-emergency-facts-20261022`, not merged or deployed. Retain paid Cloud Run/TestFlight release distinction.
+**Source merge verified:** PR #244 merged into `release/current` at `e185f1538cc6cd937fc0c8db1372f6402b31eb2d`, after all seven exact-head CI workflow campaigns passed. Source-only; no paid Cloud Run deployment or newly signed TestFlight distribution confirmed. Emergency monitored-case reuse and cold-start Operator identity remain open in issue #240. Retain paid Cloud Run/TestFlight release distinction.
 
 ---
 
@@ -1194,7 +1194,7 @@ Founder confirmed a second run of controlled source deployment. The existing pai
 
 | Function / release item | Proven status on Commercial | What remains distinct |
 | --- | --- | --- |
-| 22 Oct 2026 Operator Emergency identity on live Travel | **SOURCE CORRECTION, NOT YET MERGED:** Emergency previously read only Traveler state, hiding the current Operator's own plate/Travel Number. A role-aware source helper and two-role regression now use only current known facts and omit missing identifiers. | Require exact-head green CI, guarded merge, signed two-role device checks. A freshly opening Operator session and already-filed monitor case still need server reconciliation (issue #240); do not call the full emergency incident closed. |
+| 22 Oct 2026 Operator Emergency identity on live Travel | **SOURCE MERGED:** [PR #244](https://github.com/chadkhalil21-svg/American-Rider-Commercial/pull/244) at `e185f15`, all seven exact-head workflows passed. The signed-in Operator's live Travel Number, vehicle and plate now come from their Operator context; blank and stale Traveler/demo details are excluded; the separate Emergency request type never invents an unknown fare/date. | NOT YET PHYSICAL-DEVICE VERIFIED. A cold-start Operator's server-identity recovery and monitored-emergency duplicate-case prevention remain open in reopened [#240](https://github.com/chadkhalil21-svg/American-Rider-Commercial/issues/240). Production/TestFlight release evidence is separate. |
 | 22 Oct 2026 Operator payout queue fairness | **SOURCE MERGED:** PR #243 at `d975cc5`, seven of seven CI campaigns passed, including twice-exhaustive. Bounded rotating 25-record Firestore document-ID cursor prevents indefinitely blocked first-page debts from starving eligible Operators. Legacy Stripe transfer-once and atomic leased scheduler remain in place; 25-blocked/15-eligible synthetic regression passed. | **NOT DEPLOYED/CERTIFIED WITH REAL MONEY:** requires exact-sha Cloud Run backend rollout, Firestore query/index validation and Stripe/Connect transfer reconciliation before issue #241 can close. No bank transfers performed. |
 
 | 22 Oct 2026 moving Emergency location and slow geocoder | **SOURCE MERGED:** PR #242 at `c1359c8`, seven of seven CI campaigns passed. Latest GPS sample truth, 15m address consistency and rejection of stale street/geocoder results are present in repository. | New signed TestFlight and physical position testing are still needed. Separate Operator Emergency details/duplicate-cases issue #240 remains open. |
