@@ -92,6 +92,7 @@ const HOME_HTML = page(
     <p>American Rider is building a transportation network across the United States.
     Actual availability depends on location and qualified Operators.
     We are preparing the public mobile-app release.</p>
+    <p><a href="/smart-travel">Smart Travel</a> · Currently unavailable.</p>
   </div>
   <a href="/travel">Explore Travel &rsaquo;</a>
 </section>
