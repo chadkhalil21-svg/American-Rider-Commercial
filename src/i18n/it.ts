@@ -924,6 +924,7 @@ export default {
     authorizationAmount: '%{amount} autorizzati. Non addebitati.',
     authorizationFreeCancel: 'Se non è prevista una tariffa di annullamento, la banca rilascia l’intero importo trattenuto.',
     authorizationBookingTerms: "L’autorizzazione sulla carta sarà rilasciata o modificata secondo i termini di cancellazione accettati al momento della prenotazione.",
+    cancellationAmountVerified: "Il rimborso segue le condizioni accettate al momento della prenotazione. Una penale viene trattenuta solo se verificata; l’importo finale è confermato dal servizio.",
     cancellationFeeNet3Disclosure: 'Per annullamento o mancata presentazione, ove previsto, possono essere addebitati $4.00; $3.00 spettano all\'Operatore. Altrimenti l\'importo trattenuto viene rilasciato.',
     paymentStatusUnverified: 'Lo stato del pagamento non è ancora confermato. Annulli il Viaggio affinché il server verifichi il pagamento prima di uscire.',
     keepTravel: 'Mantenere il viaggio',
