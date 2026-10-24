@@ -157,6 +157,7 @@ async function reserveRecruiterPayout({db,uid,batchId,eventIds,authorization,
     feeDisclosureVersion:a.connectFeeConsentVersion,
     provider:'stripe_connect',currency:'usd',
     recipientRef:a.providerRecipientRef,status:'reserved',createdAt:now,
+    nextAttemptAt:now,
     // These are commitments, not proof of a connected transfer or bank deposit.
     providerPaymentId:null,providerTransferId:null});
   if(feeCents){
@@ -181,7 +182,7 @@ async function recordRecruiterPayoutSubmission({db,batchId,proof,now=Date.now()}
     return {ok:true,duplicate:true};
   if(p.status!=='reserved')return state({},'batch_state_conflict');
   tx.update(ref,{status:'submitted',providerPaymentId:proof.providerPaymentId,
-    submittedAt:now});
+    nextAttemptAt:null,submittedAt:now});
   return {ok:true,status:'submitted'};
  });}catch{return state({},'submission_record_unavailable');}
 }
