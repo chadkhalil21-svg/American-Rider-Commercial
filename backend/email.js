@@ -90,6 +90,16 @@ const row = (k, v, mono) =>
  */
 function receiptEmail(ride) {
   const total = money(ride.costCents);
+  // Origin, destination, duration, distance and total required for a Florida
+  // transmitted electronic receipt. Never invent absent telemetry.
+  const miles = Number.isFinite(ride.miles) && ride.miles >= 0
+    ? Number(ride.miles).toFixed(1) + ' miles' : 'Not recorded';
+  const firstBoardedAt = Number(ride.onboardAt);
+  const completedAt = Number(ride.completedAt);
+  const minutes = Number.isFinite(firstBoardedAt) && firstBoardedAt > 0 &&
+    Number.isFinite(completedAt) && completedAt > firstBoardedAt
+    ? Math.max(1, Math.round((completedAt - firstBoardedAt) / 60000)) + ' minutes'
+    : 'Not recorded';
   const when = new Date(Number(ride.completedAt) || Number(ride.createdAt) || Date.now())
     .toLocaleString('en-US', {
       month: 'long', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit',
@@ -103,6 +113,8 @@ function receiptEmail(ride) {
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:20px;">
       ${row('From', ride.dep || '—')}
       ${row('To', ride.dest || '—')}
+      ${row('Duration', minutes)}
+      ${row('Distance', miles)}
       ${row('Class', ride.travelClass || 'Standard')}
       ${row('Operator', ride.operatorName || '—')}
       ${row('Travel Number', ride.tripNo || '—', true)}
@@ -119,6 +131,8 @@ function receiptEmail(ride) {
     `TRAVEL RECEIPT\n${total}\n${when}\n\n` +
     `From:          ${ride.dep || '—'}\n` +
     `To:            ${ride.dest || '—'}\n` +
+    `Duration:      ${minutes}\n` +
+    `Distance:      ${miles}\n` +
     `Class:         ${ride.travelClass || 'Standard'}\n` +
     `Operator:      ${ride.operatorName || '—'}\n` +
     `Travel Number: ${ride.tripNo || '—'}\n` +

@@ -7,6 +7,10 @@
 // good Spanish and bad American Rider.
 export default {
   auth: {
+    invitationCodeOptional: "Have an invitation code? (optional)",
+    invitationCodePlaceholder: "Enter invitation code",
+    invitationCodeInvalid: "Please check the invitation code, or leave it blank to continue.",
+    invitationCodeVerifyNote: "Your code will be verified by American Rider after sign-in.",
     tagline: 'Safe. Reliable. American.',
     continueWithApple: 'Continue with Apple',
     continueWithGoogle: 'Continue with Google',
@@ -64,6 +68,14 @@ export default {
   // is deliberate and it translates as vocabulary, not as description — "Commence Operations"
   // becomes the equivalent formal undertaking in each language, never "start working".
   operator: {
+    referralQuestion: "Were you referred to American Rider?",
+    referralDescription: "If someone introduced you, enter their referral code before completing qualification.",
+    referralCodeOptional: "Referral code (optional)",
+    referralCodePlaceholder: "Enter referral code",
+    referralRecorded: "Referral recorded. This does not determine payment eligibility.",
+    referralApply: "Apply code",
+    referralChecking: "Checking code…",
+    referralFailed: "This code could not be applied. Check the code or contact Support before completing qualification.",
     referralInviteTitle: "Invitations",
     referralInviteTraveler: "Invite a Traveler",
     referralInviteOperator: "Invite an Operator",
@@ -306,6 +318,7 @@ export default {
   // Traveler surfaces speak human. Same restraint, plainer words — and the same refusal to
   // reassure: the price is stated, never defended.
   traveler: {
+    shareReceipt: "Share receipt",
     updateRequiredTitle: 'Update required',
     updateRequiredBody: 'Update American Rider to review and confirm the current Travel Total. No booking or payment was made.',
     priceChangedTitle: 'Travel Total updated',
@@ -1383,6 +1396,46 @@ export default {
     unavailable: "No-show settlement is not available yet. Please contact Patron Support.",
     unverified: "No-show could not be verified. Continue waiting or contact Patron Support.",
     action: "Traveler Did Not Arrive",
+  },
+
+  recruiter: {
+    title: "Recruitment",
+    subtitle: "A considered introduction to American Rider.",
+    loading: "Loading your recruitment information",
+    invitationRequired: "An invitation is required to enter the recruitment program.",
+    serviceUnavailable: "This service is momentarily unavailable. Please try again.",
+    infoUnavailable: "Your recruitment information is unavailable. Please try again.",
+    linksUnavailable: "Personal links are not available until account verification is complete.",
+    shareFailed: "The invitation could not be shared. Please try again.",
+    signIn: "Sign in with your verified account to review your recruitment information.",
+    programClosed: "Recruitment is not yet available.",
+    relationship: "YOUR RELATIONSHIP",
+    introductions: "YOUR INTRODUCTIONS",
+    personalInvitations: "PERSONAL INVITATIONS",
+    compensation: "COMPENSATION",
+    approved: "Approved",
+    pendingReview: "Under review",
+    suspended: "Suspended",
+    inactive: "Not currently active",
+    relationshipNote: "Introductions are recorded against your verified account. They do not establish Operator eligibility or compensation.",
+    operatorIntroductions: "Operator introductions",
+    travelerIntroductions: "Traveler introductions",
+    countsNote: "Verified Operators and qualifying Travels will appear only after independent eligibility checks.",
+    personalLinksNote: "Your personal referral links become available once enrollment, disclosures and app-link verification are complete.",
+    inviteOperator: "Invite an Operator",
+    inviteTraveler: "Invite a Traveler",
+    compensationNote: "Compensation and bank enrollment are not yet available. Any future terms will be governed by a signed agreement and verified payment arrangements. Never send bank or tax information by email.",
+    enrollmentClosed: "Recruitment enrollment is not yet open.",
+    acceptFailed: "This invitation could not be accepted. Please confirm the email address or request a new invitation.",
+    verifyFailed: "We could not verify this invitation. Please try again.",
+    yourInvitation: "Your invitation",
+    independent: "Independent recruitment at American Rider.",
+    inviteNote: "Invitations are personal, expire after 48 hours and must be accepted using the addressed, verified email account.",
+    invalidInvitation: "This invitation is incomplete or invalid.",
+    signInEmail: "Sign in to American Rider with the email address to which your invitation was sent.",
+    verifyEmail: "Verify your email address before accepting this invitation.",
+    acceptInvitation: "Accept invitation",
+    notGuarantee: "Enrollment does not guarantee compensation or authorization to recruit. Terms require separate review and acceptance.",
   },
 
   legal: {

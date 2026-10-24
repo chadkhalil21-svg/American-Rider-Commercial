@@ -11,9 +11,13 @@ function normalizedCode(value) {
   const code=value.trim().toUpperCase();
   return VALID_CODE.test(code)?code:null;
 }
-function inviteLink(code) {
+function inviteLink(code,origin='https://americanrider.app') {
   const token=normalizedCode(code);
-  return token?'https://americanrider.app/join?r='+encodeURIComponent(token):null;
+  // Retain legacy app links only for existing signed-client compatibility.
+  // New recruiter links may use the founder-owned .tech origin once native
+  // domain association + signed iOS/Android builds are independently proven.
+  if(!['https://americanrider.app','https://americanrider.tech'].includes(origin))return null;
+  return token?origin+'/join?r='+encodeURIComponent(token):null;
 }
 // Server-only decision, run after identity verification. Referrer identity must
 // come from an authenticated, server-owned referral record, never an URL UID.

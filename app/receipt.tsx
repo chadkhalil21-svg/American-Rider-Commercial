@@ -4,7 +4,7 @@
 // Support issued one, and "Ride again" when reviewing an old trip.
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { Share, StyleSheet, View } from 'react-native';
 import { Text } from '../src/components/AppText';
 import {
   Card,
@@ -187,6 +187,22 @@ export default function Receipt() {
       <Text style={styles.retainedNote}>{t('traveler.operatorRetainedNote')}</Text>
 
       <View style={styles.actions}>
+        <OutlineButton label={t('traveler.shareReceipt')} onPress={() => {
+          // User chooses the destination through the native share sheet.
+          // No contact access, automatic bulk mail, or third-party receipt storage.
+          const fields = [
+            'AMERICAN RIDER', 'TRAVEL RECEIPT',
+            view.date,
+            'Travel Number: ' + view.no,
+            'From: ' + view.dep,
+            'To: ' + view.arr,
+            'Duration: ' + (view.minutes != null ? view.minutes + ' minutes' : 'Not recorded'),
+            'Distance: ' + (view.miles != null ? view.miles + ' miles' : 'Not recorded'),
+            'Total charged: ' + fmt(view.total),
+            'Questions: support@americanrider.tech',
+          ];
+          void Share.share({ message: fields.join('\n') }).catch(() => {});
+        }} />
         {viewingOld && (
           <PrimaryButton label={t('traveler.rideToAgain', { place: prettyPlace(view.arr) })} onPress={rideAgain} />
         )}

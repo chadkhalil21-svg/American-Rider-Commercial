@@ -11,6 +11,21 @@ const pages={"":{"title":"American Rider | National Transportation","body":"\n<s
 // Founder-directed redesign: established institutional standards, no slogan or deck-driven homepage.
 css += require("./corporate-heritage-design.cjs").applyEditorialDesign(pages);
 
+pages.recruitment.body += '<section class="shell page-section"><h2>Private recruiter access</h2><p>Authorized recruiters may sign in to review their own verified introduction records. This does not open public enrollment.</p><a href="/recruiters/portal/" class="action secondary">Recruiter sign-in ↗</a></section>';
+pages.join.body = [
+  '<section class="page-hero shell"><p class="section-label">PERSONAL INVITATION</p><h1>Your introduction to American Rider.</h1><p>A single invitation for the journey ahead. Use the link you received or keep the code below when installing the app.</p></section>',
+  '<section class="shell page-section"><h2>Keep your invitation code</h2><p id="join-role">The code identifies who introduced you. It does not verify eligibility or award compensation.</p>',
+  '<div class="inset"><strong id="join-referral-code" style="font:600 23px/1.4 monospace;letter-spacing:.08em;overflow-wrap:anywhere">—</strong><p><button id="join-copy" class="action secondary" type="button" hidden>Copy code</button></p><p id="join-message" role="status" aria-live="polite">Checking invitation…</p></div>',
+  '<h2>After installing the app</h2><p>Reopen the original invitation from your message, or enter this code in American Rider during registration. An install does not automatically establish a referral.</p>',
+  '<p>Operator enrollment is available only in authorized service areas. Travelers may register independently of Operator eligibility. The company verifies all introductions after sign-in.</p>',
+  '<p class="muted">An authorized independent recruiter may receive compensation for qualifying activity under a separately approved program. Opening this page creates no reward or employment relationship.</p>',
+  '<p class="muted">App Store and Google Play installation links will appear only after official store listings and signed-device links are verified. No install link is currently offered here.</p></section>',
+  '<script>(function(){const q=new URLSearchParams(location.search);const code=String(q.get("r")||"").trim().toUpperCase();const role=q.get("role");history.replaceState(null,"",location.pathname);const ok=/^[A-Z0-9]{8,32}$/.test(code)&&["operator","traveler"].includes(role);const output=document.getElementById("join-referral-code");const message=document.getElementById("join-message");const copy=document.getElementById("join-copy");if(!ok){message.textContent="This invitation is incomplete. Please request a new link or code.";return;}document.getElementById("join-role").textContent=role==="operator"?"Invited to explore Operating? Keep this code for the optional referral step during qualification.":"Invited to Travel? Keep this code for optional entry when creating your American Rider account.";output.textContent=code;copy.hidden=false;message.textContent="Keep this code until American Rider confirms the introduction.";copy.addEventListener("click",async()=>{try{await navigator.clipboard.writeText(code);message.textContent="Code copied. Save it before installing the app."}catch{message.textContent="Select the code above to copy it."}})})();</script>'
+].join("");
+
+// Recruitment is a professional, private account, separate from the public inquiry page.
+pages.recruitment.body += '<div class="shell"><section class="page-section"><h2>Invited representatives</h2><p>Existing invited recruiters may access their private account with a verified sign-in.</p><p><a class="text-link" href="/recruiters/portal/">Private recruitment account ↗</a></p></section></div>';
+
 function escapeHtml(s){return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;")}
 
 function render(title,body,route){
@@ -31,8 +46,21 @@ const out=(route,html)=>{const dir=path.join(root,route);fs.mkdirSync(dir,{recur
 fs.mkdirSync(root,{recursive:true});
 fs.mkdirSync(path.join(root,"assets"),{recursive:true});
 fs.writeFileSync(path.join(root,"assets","site.css"),css,"utf8");
+ // QR rendering is entirely local: no third-party image API sees personal links.
+ fs.copyFileSync(path.join(__dirname,"vendor","qrcode-generator-2.0.4.js"),
+   path.join(root,"assets","qrcode-generator-2.0.4.js"));
+ fs.copyFileSync(path.join(__dirname,"vendor","LICENSE-qrcode-generator"),
+   path.join(root,"assets","LICENSE-qrcode-generator.txt"));
 fs.writeFileSync(path.join(root,"favicon.svg"),'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" fill="#101b31"/><text x="50%" y="52%" fill="#fff" font-size="23" font-family="Arial,sans-serif" font-weight="700" letter-spacing="-1" text-anchor="middle" dominant-baseline="middle">AR</text></svg>',"utf8");
 for(const [route,page] of Object.entries(pages))out(route,render(page.title,page.body,route));
+// Publish the private portal shell without exposing recruiter records in static assets.
+// Every private value is fetched only after independently verified Firebase sign-in.
+const recruiterPortal=require("./corporate-recruiter-portal.cjs").portalHtml();
+out("recruiters/portal",render("Private recruiter account | American Rider",recruiterPortal,"recruiters/portal")
+  .replace("<head>","<head><meta name=\"robots\" content=\"noindex,nofollow\"><meta name=\"referrer\" content=\"no-referrer\">"));
+const recruiterAcceptance=require("./corporate-recruiter-accept.cjs").invitationHtml();
+out("recruitment/accept",render("Private recruitment invitation | American Rider",recruiterAcceptance,"recruitment/accept")
+  .replace("<head>","<head><meta name=\"robots\" content=\"noindex,nofollow\"><meta name=\"referrer\" content=\"no-referrer\">"));
 const {legalPage,ACCOUNT_DELETION_HTML,LEGAL_LANGUAGES}=require("../backend/legal");
 const extract=(html)=>{const m=html.match(/<main[^>]*>([\s\S]*?)<\/main>/i);if(!m)throw Error("Missing source legal main content");return m[1].replace(/americanrider\.app/g,"americanrider.tech").replace(/americanrider\.communications@gmail\.com/g,"support@americanrider.tech")};
 for(const doc of ["terms","privacy"]){
@@ -43,6 +71,9 @@ out(doc+"/"+lang,render((doc==="terms"?"Terms of Service":"Privacy Policy")+" | 
 }
 out("account-deletion",render("Account deletion | American Rider",'<div class="shell"><article class="legal-body">'+extract(ACCOUNT_DELETION_HTML)+'</article></div>',"account-deletion"));
 fs.writeFileSync(path.join(root,"robots.txt"),"User-agent: *\nAllow: /\n", "utf8");
+// Signed domain associations are emitted ONLY after verified Apple/Play IDs
+// are provided. No fake fingerprint and no automatic referral activation.
+require('./build-app-links-associations.cjs').writeAssociations(root); 
 fs.writeFileSync(path.join(root,"sitemap.xml"),'<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'+["","travel","operate","safety","company","support","recruitment","smart-travel","terms","privacy","account-deletion"].map(s=>"<url><loc>https://americanrider.tech/"+(s?s+"/":"")+"</loc></url>").join("")+"</urlset>\n","utf8");
 console.log("Corporate site built:",root);
 }

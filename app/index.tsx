@@ -36,6 +36,8 @@ import {
   type FeeLine,
 } from '../src/data';
 import { useAuth } from '../src/state/AuthContext';
+import { readPendingInvite, clearPendingInvite } from '../src/backend/referralPending';
+import { recordInvitation } from '../src/backend/referrals';
 import { useOperator } from '../src/state/OperatorContext';
 import { useRide } from '../src/state/RideContext';
 import { useLanguage } from '../src/state/LanguageContext';
@@ -116,8 +118,22 @@ export default function Home() {
   const { t, language } = useLanguage();
   const router = useRouter();
   const ride = useRide();
-  const { user, signOut } = useAuth();
+  const { user, signOut, onboarding } = useAuth();
   const operator = useOperator();
+  // Recover a Traveler introduction when the verified account next opens Home.
+  // No continuous polling, no duplicate credit, and no permanent one-shot lockout
+  // if a newly created account was not verified at its first launch.
+  useFocusEffect(useCallback(() => {
+    if (!user?.emailVerified || onboarding || process.env.EXPO_PUBLIC_REFERRALS_ENABLED !== '1') return;
+    let active = true;
+    (async () => {
+      const pending = await readPendingInvite();
+      if (!pending || pending.role !== 'traveler' || !active) return;
+      const result = await recordInvitation(pending.code, 'traveler');
+      if (active && result !== 'retry') await clearPendingInvite();
+    })();
+    return () => { active = false; };
+  }, [user?.uid, user?.emailVerified, onboarding]));
 
   // A commissioned account that closed the app in Operator view reopens in it —
   // the role flag persists ('ar:role'), per the demo's role-switching pattern.

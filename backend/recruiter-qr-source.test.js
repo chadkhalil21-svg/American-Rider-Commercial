@@ -1,0 +1,41 @@
+'use strict';
+const assert=require('node:assert/strict');
+const fs=require('node:fs');
+const path=require('node:path');
+const {qrWidgetHtml}=require('../scripts/corporate-recruiter-qr.cjs');
+const {portalHtml}=require('../scripts/corporate-recruiter-portal.cjs');
+const qr=require('../scripts/vendor/qrcode-generator-2.0.4.js');
+const url='https://americanrider.tech/join?r=ABCDEFGH2345&role=operator';
+const code=qr(0,'M');
+code.addData(url);
+code.make();
+assert.ok(code.getModuleCount()>=21,'QR must have a real encoded matrix');
+assert.equal(typeof code.isDark(0,0),'boolean');
+const widget=qrWidgetHtml(),portal=portalHtml();
+for(const id of ['qr-operator','qr-traveler','qr-download','recruiter-qr-canvas'])
+  assert.ok(widget.includes(id),id+' required');
+assert.match(widget,/qrcode\(0,'M'\)/);
+assert.ok(widget.includes('americanrider')&&widget.includes('join')&&widget.includes('role='));
+assert.match(widget,/I may receive compensation/);
+assert.doesNotMatch(widget,/fetch\(|http:\/\/|api\.qrserver|qr-code-styling/,'no external QR service');
+assert.match(portal,/\/assets\/qrcode-generator-2\.0\.4\.js/);
+assert.match(portal,/__arRenderQr\(data\.url,role\)/);
+assert.match(portal,/linksAvailable/,'QR buttons must be gated with authenticated recruiter access');
+assert.match(portal,/by\('qr-operator'\)\.disabled=!data\.linksAvailable/);
+assert.match(portal,/by\('qr-traveler'\)\.disabled=!data\.linksAvailable/);
+assert.match(portal,/by\('qr-operator'\)\.disabled=true/);
+assert.match(portal,/by\('qr-traveler'\)\.disabled=true/);
+const vm=require('node:vm');
+// Parse the actual browser scripts rather than trusting mere string matches.
+// Remove only static import declarations, not application logic.
+const qrScript=widget.match(/<script>([\s\S]*?)<\/script>/);
+assert.ok(qrScript,'QR browser script available');
+assert.doesNotThrow(()=>new vm.Script(qrScript[1]),'QR browser code must parse');
+const portalScript=portal.match(/<script type="module">([\s\S]*?)<\/script>/);
+assert.ok(portalScript,'recruiter portal module available');
+const checkedJs=portalScript[1].replace(/^import [^\n]*\n/gm,'');
+assert.doesNotThrow(()=>new vm.Script(checkedJs),'private recruiter portal actions must parse');
+const builder=fs.readFileSync(path.join(__dirname,'..','scripts/build-corporate-website.cjs'),'utf8');
+assert.match(builder,/vendor","qrcode-generator-2\.0\.4\.js/);
+assert.ok(fs.readFileSync(path.join(__dirname,'..','scripts/vendor/LICENSE-qrcode-generator'),'utf8').includes('MIT License'));
+console.log('PASS local QR cards: authentic QR matrix, gated recruiter links, visible disclosure, zero third-party transmissions');

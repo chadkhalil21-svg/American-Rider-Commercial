@@ -1,0 +1,61 @@
+'use strict';
+// Source-level safety contract for the national independent recruiter foundation.
+const assert=require('node:assert/strict');
+const fs=require('node:fs'),path=require('node:path');
+const read=p=>fs.readFileSync(path.join(__dirname,'..',p),'utf8');
+const server=read('backend/server.js');
+const portal=read('backend/recruiter-portal.js');
+const approval=read('backend/recruiter-approval.js');
+const policy=read('backend/referral-policy.js');
+const app=JSON.parse(read('app.json')).expo;
+const workspace=read('app/recruitment/index.tsx');
+const accept=read('app/recruitment/accept.tsx');
+const operatorQualify=read('app/operator/qualify.tsx');
+const config=read('src/config.ts');
+
+assert.match(server,/AR_RECRUITER_INVITES_ENABLED/);
+assert.match(server,/AR_RECRUITER_WEB_ACCEPTANCE_VERIFIED/);
+assert.match(server,/AR_RECRUITER_FOUNDER_USERS/);
+assert.match(server,/requireRecruiterFounder/);
+assert.match(server,/opsAuthMode\(\)!=='named'/);
+assert.match(server,/app\.post\('\/ops\/recruiters\/invite',requireOps,requireRecruiterFounder/);
+assert.match(server,/requireOpsMutation,recruiterInviteLimit,requireRecruiterInviteLaunch/);
+assert.match(server,/app\.post\('\/recruiters\/accept',requireRecruiterInviteLaunch,requireAuth/);
+assert.match(server,/requireFreshAuth,requireVerifiedEmail,recruiterLimit/);
+assert.match(server,/app\.get\('\/recruiters\/me',requireAuth,requireVerifiedEmail,recruiterLimit/);
+assert.match(server,/AR_APP_LINKS_VERIFIED/);
+assert.match(server,/AR_RECRUITER_LEGAL_SIGNOFF/);
+assert.match(server,/AR_REFERRALS_ENABLED/);
+assert.match(server,/recruiterPortal\.recruiterSummary\(\{db:adminDb\(\),uid:String\(req\.uid\)\}\)/);
+
+assert.match(portal,/crypto\.randomBytes\(32\)/);
+assert.match(portal,/createHash\('sha256'\)/);
+assert.match(portal,/if\(emailOf\(i\.email\)!==email\)/);
+assert.match(portal,/status:'pending_review'/);
+assert.match(portal,/payoutEligibilityVerified:false/);
+assert.match(portal,/linksAvailable:false/);
+assert.match(portal,/compensation:'not_commissioned'/);
+assert.match(portal,/bankSetup:'not_commissioned'/);
+assert.doesNotMatch(portal,/stripe\.transfers\.create|payouts\.create|routingNumber|accountNumber/);
+
+assert.match(approval,/const PROGRAM_ENABLED=false/);
+assert.match(approval,/linkVerified!==true/);
+assert.match(approval,/origin:'https:\/\/americanrider\.tech'/);
+assert.match(policy,/https:\/\/americanrider\.tech/);
+assert.match(policy,/https:\/\/americanrider\.app/);
+assert.match(workspace,/recruiter\.introductions/);
+assert.match(workspace,/recruiter\.compensationNote/);
+assert.match(accept,/emailVerified/);
+assert.match(accept,/router\.replace\('\/recruitment'\)/);
+assert.match(config,/LEGAL_URL = 'https:\/\/americanrider\.tech'/);
+// Package identifier is intentionally unchanged and is NOT the web domain.
+assert.equal(app.ios.bundleIdentifier,'com.americanrider.app');
+assert.equal(app.android.package,'com.americanrider.app');
+assert.equal(app.scheme,'americanrider');
+assert.match(operatorQualify,/operator\.referralCodeOptional/);
+assert.match(operatorQualify,/recordInvitation\(code, 'operator'\)/);
+assert.match(operatorQualify,/EXPO_PUBLIC_REFERRALS_ENABLED/);
+assert.match(operatorQualify,/areaActive && process\.env/);
+assert.match(operatorQualify,/operator\.referralRecorded/);
+assert.doesNotMatch(operatorQualify,/referral.*stripe\.transfers\.create/i);
+console.log('PASS national recruiter source gates, private owner data, no bank payout, native identity and .tech web migration');

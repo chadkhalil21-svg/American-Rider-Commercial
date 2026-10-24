@@ -5,19 +5,30 @@
 // clicks, installations, QR views, or subsequent legitimate purchases.
 const crypto=require('node:crypto');
 const {normalizedCode,inviteLink,claimDecision}=require('./referral-policy');
+const {recruiterMayRefer}=require('./recruiter-eligibility');
 const CLAIM_WINDOW_MS=72*60*60*1000;
 const validRole=role=>role==='traveler'||role==='operator';
 
-function formatLink(code,role){
-  const base=inviteLink(code);
+function formatLink(code,role,origin){
+  const base=inviteLink(code,origin);
   return base&&validRole(role)?base+'&role='+role:null;
 }
-async function shareLink({db,uid,role,now=Date.now()}){
+async function shareLink({db,uid,role,now=Date.now(),origin}){
   if(!db||!uid||!validRole(role))return {ok:false,reason:'invalid_request'};
   const ownerRef=db.collection('users').doc(uid);
   try {
     const code=await db.runTransaction(async tx=>{
-      const owner=await tx.get(ownerRef);
+      // Check recruiter restrictions even if the regular share endpoint is called
+      // directly. Existing first-party Operator / Traveler invitations remain available.
+      const [owner,account,approval]=await Promise.all([
+        tx.get(ownerRef),
+        tx.get(db.collection('recruiter_accounts').doc(uid)),
+        tx.get(db.collection('recruiter_approvals').doc(uid)),
+      ]);
+      if((account.exists||approval.exists) &&
+         (!account.exists||!approval.exists||
+          !recruiterMayRefer(account.data(),approval.data(),role,now)))
+        throw Error('unapproved_recruiter');
       const existing=owner.exists?normalizedCode(owner.data()?.referralCode):null;
       // A cached profile code is not proof that the server-owned registry
       // still belongs to this account. Never share another person's link.
@@ -26,7 +37,12 @@ async function shareLink({db,uid,role,now=Date.now()}){
         if(registered.exists&&registered.data()?.ownerUid===uid&&
            registered.data()?.status==='active')return existing;
       }
-      const fresh=crypto.randomBytes(12).toString('hex').toUpperCase();
+      // 12 human-readable Crockford-style base32 characters (60 bits).
+      // Public attribution identifier, not an authorization or payment secret.
+      // Existing longer hex codes remain accepted by normalizedCode.
+      const alphabet='23456789ABCDEFGHJKLMNPQRSTUVWXYZ';
+      const bytes=crypto.randomBytes(12);
+      const fresh=Array.from(bytes,b=>alphabet[b&31]).join('');
       const ref=db.collection('referral_codes').doc(fresh);
       const check=await tx.get(ref);
       if(check.exists)throw Error('referral_code_collision');
@@ -34,7 +50,7 @@ async function shareLink({db,uid,role,now=Date.now()}){
       tx.set(ownerRef,{referralCode:fresh},{merge:true});
       return fresh;
     });
-    return {ok:true,url:formatLink(code,role)};
+    return {ok:true,url:formatLink(code,role,origin)};
   }catch{return {ok:false,reason:'share_unavailable'};}
 }
 // Firebase Auth creation time must come from the ADMIN provider and cannot be
@@ -61,6 +77,18 @@ async function claim({db,uid,code,role,authCreatedAtMs,now=Date.now()}){
       ]);
       const entry=codeSnap.exists?codeSnap.data():{};
       if(!entry?.ownerUid||entry.status!=='active')return {ok:false,reason:'invalid_invite'};
+      // Approval/contract/role/expiration is rechecked when a code is REDEEMED,
+      // not merely when it is generated. This revokes already-shared QR/link
+      // invitations after suspension or agreement expiry.
+      // These are bounded named-document reads, not a nationwide fleet scan.
+      const [recruiterSnap,approvalSnap]=await Promise.all([
+        tx.get(db.collection('recruiter_accounts').doc(entry.ownerUid)),
+        tx.get(db.collection('recruiter_approvals').doc(entry.ownerUid)),
+      ]);
+      if((recruiterSnap.exists||approvalSnap.exists) &&
+         (!recruiterSnap.exists||!approvalSnap.exists||
+          !recruiterMayRefer(recruiterSnap.data(),approvalSnap.data(),role,now)))
+        return {ok:false,reason:'referrer_not_eligible'};
       if(claimSnap.exists)return {ok:false,reason:'already_attributed'};
       // Do not reassign an already-qualified or formerly active Operator.
       const fleet=fleetSnap?.exists?fleetSnap.data():null;
@@ -69,7 +97,10 @@ async function claim({db,uid,code,role,authCreatedAtMs,now=Date.now()}){
         fleet?.everCommissioned===true||qualified);
       const decision=claimDecision({
         referrerUid:entry.ownerUid,inviteeUid:uid,targetRole:role,
-        alreadyClaimed:false,alreadyActivatedRole:role==='operator'&&(!!fleetSnap?.exists||isActive),
+        alreadyClaimed:false,
+        // A draft Operator record exists before qualification. Only a previously
+        // commissioned or qualified role is ineligible for first attribution.
+        alreadyActivatedRole:role==='operator'&&isActive,
         referrerEligible:entry.status==='active',
       });
       if(!decision.ok)return decision;

@@ -29,6 +29,7 @@ import { googleSignInConfigured, useGoogleSignIn } from '../state/googleSignIn';
 const SSO_PREVIEW = process.env.EXPO_PUBLIC_SSO_PREVIEW === '1';
 
 import { useAuth } from '../state/AuthContext';
+import { savePendingInvite } from '../backend/referralPending';
 import { useLanguage } from '../state/LanguageContext';
 import { colors } from '../theme';
 
@@ -241,6 +242,8 @@ export function AuthScreen() {
   const router = useRouter();
   const [step, setStep] = useState<Step>('welcome');
   const [name, setName] = useState('');
+  const [invitationCode, setInvitationCode] = useState('');
+  const [invitationError, setInvitationError] = useState('');
   const [mobile, setMobile] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -289,6 +292,21 @@ export function AuthScreen() {
     } else {
       await signIn(email, password);
     }
+  };
+
+  const selectRole = async (role: 'traveler' | 'operator') => {
+    if (process.env.EXPO_PUBLIC_REFERRALS_ENABLED === '1' && invitationCode.trim()) {
+      // Recovery for codes shared verbally, or after store installation.
+      // This is local staging, NOT a confirmed credit or commission.
+      const saved = await savePendingInvite(invitationCode.trim().toUpperCase(), role);
+      if (!saved) {
+        setInvitationError(t('auth.invitationCodeInvalid'));
+        return;
+      }
+    }
+    setInvitationError('');
+    setOnboarding(false);
+    if (role === 'operator') router.navigate('/operator/qualify');
   };
 
   if (step === 'welcome') {
@@ -497,11 +515,7 @@ export function AuthScreen() {
           <Text style={[s.sub, s.selectSub]}>{t('auth.chooseWhereToBegin')}</Text>
 
           <Pressable
-            onPress={() => {
-              // Traveler is the immediate service experience. Once chosen, the account is
-              // already ready; an additional ceremonial confirmation screen adds no value.
-              setOnboarding(false);
-            }}
+            onPress={() => { void selectRole('traveler'); }}
           >
             <View style={s.roleCard}>
               <View style={{ flex: 1 }}>
@@ -513,12 +527,7 @@ export function AuthScreen() {
           </Pressable>
 
           <Pressable
-            onPress={() => {
-              // The shell's rule: choosing Operator opens the qualification flow
-              // (the traveler role rides along underneath).
-              setOnboarding(false);
-              router.navigate('/operator/qualify');
-            }}
+            onPress={() => { void selectRole('operator'); }}
           >
             <View style={s.roleCard}>
               <View style={{ flex: 1 }}>
@@ -531,6 +540,24 @@ export function AuthScreen() {
             </View>
           </Pressable>
 
+          {process.env.EXPO_PUBLIC_REFERRALS_ENABLED === '1' && (
+            <View style={{ marginTop: 20 }}>
+              <Text style={s.roleSub}>{t('auth.invitationCodeOptional')}</Text>
+              <TextInput
+                accessibilityLabel="Invitation code (optional)"
+                value={invitationCode}
+                onChangeText={v => { setInvitationCode(v); setInvitationError(''); }}
+                autoCapitalize="characters"
+                autoCorrect={false}
+                maxLength={32}
+                placeholder={t('auth.invitationCodePlaceholder')}
+                placeholderTextColor={colors.faint}
+                style={[s.field, { marginTop: 10, minHeight: 48 }]}
+              />
+              {!!invitationError && <Text accessibilityRole="alert" style={s.roleSub}>{invitationError}</Text>}
+              <Text style={s.roleSub}>{t('auth.invitationCodeVerifyNote')}</Text>
+            </View>
+          )}
           <View style={{ flex: 1 }} />
         </View>
       </Screen>
