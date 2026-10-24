@@ -220,15 +220,17 @@ const PROVIDER_HANDLERS = { stripe: async event => {
   // Most Operator payouts do not belong to a Recruiter. Program flag OFF
   // means ZERO extra reads. If commissioned, only Stripe's exact automatic
   // payout inclusion proof may settle a held referral reward.
-  if(['payout.paid','payout.reconciliation_completed'].includes(event?.type)&&
-     event?.account&&readKey('AR_RECRUITER_OPERATOR_SHARED_PAYOUT_ENABLED')==='1'&&
-     recruiterRewardsEnabled()){
-    const result=await require('./recruiter-operator-transfers')
-      .reconcileOperatorReferralBankPayout({
-        db:adminDb(),stripe:stripeClient(),event,enabled:true,
-      });
+  if(event?.account&&
+     ['payout.paid','payout.reconciliation_completed','payout.failed','payout.canceled'].includes(event?.type)&&
+     readKey('AR_RECRUITER_OPERATOR_SHARED_PAYOUT_ENABLED')==='1'&&recruiterRewardsEnabled()){
+    const bank=require('./recruiter-operator-transfers');
+    const result=['payout.failed','payout.canceled'].includes(event.type)
+      ?await bank.flagOperatorAutomaticBankReturn({db:adminDb(),event,enabled:true})
+      :await bank.reconcileOperatorReferralBankPayout({
+          db:adminDb(),stripe:stripeClient(),event,enabled:true,
+        });
     if(result?.ok===false)
-      console.warn('[operator-referral-bank] automatic payout requires reconciliation',result.reason);
+      console.warn('[operator-referral-bank] payout requires reconciliation',result.reason);
   }
   return ordinary;
 },
