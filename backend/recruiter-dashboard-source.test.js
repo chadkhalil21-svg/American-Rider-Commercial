@@ -12,7 +12,7 @@ assert.match(html,/recruiters\/introductions\?role=/);
 assert.match(html,/encodeURIComponent\(introCursor\)/);
 assert.match(html,/entry\.reference/);
 assert.match(html,/No introductions recorded yet/);
-assert.match(html,/Not verified/);
+assert.match(html,/Not yet verified|Not commissioned/);
 assert.match(html,/resetIntros\(\)/);
 assert.match(html,/await loadIntroductions\(true\)/);
 assert.doesNotMatch(progress,/email address|phone number|pickup|destination|bank account number/i);
