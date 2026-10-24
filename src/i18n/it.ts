@@ -300,6 +300,7 @@ export default {
     lostRetry: "Riprova",
   },
   traveler: {
+    shareReceipt: "Condividi ricevuta",
     updateRequiredTitle: 'Aggiornamento necessario',
     updateRequiredBody: 'Aggiorni American Rider per verificare e confermare il totale attuale del viaggio. Non è stata effettuata alcuna prenotazione né alcun addebito.',
     priceChangedTitle: 'Il costo totale è cambiato',
