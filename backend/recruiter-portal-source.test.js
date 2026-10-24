@@ -14,6 +14,7 @@ const operatorQualify=read('app/operator/qualify.tsx');
 const config=read('src/config.ts');
 
 assert.match(server,/AR_RECRUITER_INVITES_ENABLED/);
+assert.match(server,/AR_RECRUITER_WEB_ACCEPTANCE_VERIFIED/);
 assert.match(server,/AR_RECRUITER_FOUNDER_USERS/);
 assert.match(server,/requireRecruiterFounder/);
 assert.match(server,/opsAuthMode\(\)!=='named'/);
