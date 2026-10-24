@@ -76,5 +76,7 @@ function database() {
  const server=fs.readFileSync(path.join(__dirname,'server.js'),'utf8');
  assert(server.includes('sanitizeReceiptEvent(verified.id, verified.event)'));
  assert(server.includes('applyReceiptDeliveryEvent({db:adminDb(),event})'));
+ assert(server.includes("from:'American Rider <receipts@americanrider.tech>'"),
+  'receipt sender matches the verified delivery callback identity');
  console.log('PASS signed receipt event scoping, provider ID correlation, inbox-delivery proof, bounces, replay/race recovery');
 })().catch(e=>{console.error(e);process.exitCode=1;});
