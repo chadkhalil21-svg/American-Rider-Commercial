@@ -92,7 +92,10 @@ async function rollReservedPayoutMonth({db,batchId,month,now}={}){
      return deny('new_month_first_payout_pending');
    if(newFee.exists&&!['released','collected'].includes(newFee.data().status))
      return deny('new_month_fee_conflict');
-   const feeCents=newFee.exists&&newFee.data().status==='collected'?0:200;
+   // A Founder-authorized 90-day residual closeout waives the $2
+   // platform reimbursement even if the bank processes in a later month.
+   const feeCents=p.residualFeeWaived===true?0:
+     newFee.exists&&newFee.data().status==='collected'?0:200;
    const netCents=p.grossCents-feeCents;
    if(netCents<=0)return deny('rollover_amount_too_small');
    if(p.feeCents===200)tx.update(oldRef,{status:'released',

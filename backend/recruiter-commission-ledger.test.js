@@ -135,5 +135,59 @@ for(const [key,n,amount] of [[id1,'ride-123456',1500],[id2,'ride-123457',1200],
  assert.equal(db.at('recruiter_commission_wallets/'+uid).recoveryDueCents,1500,
    'money already paid but disputed is an outstanding recovery, not silently reclaimed');
  assert.equal(db.at('referral_reward_events/'+id3).requiresRecovery,true);
+ const monthlyDb=new FakeDb();
+ const monthNow=Date.UTC(2026,9,24,18,0);
+ monthlyDb.set('recruiter_approvals/'+uid,{...approved});
+ monthlyDb.set('rides/ride-777777',ride('pi_777777','tr_777777'));
+ monthlyDb.set('referral_reward_events/ride-777777_operator',{
+   ...re('ride-777777',2500),createdAt:monthNow-86400000});
+ assert.equal((await releaseCommission({db:monthlyDb,
+   eventId:'ride-777777_operator',now:monthNow,
+   terms:{...terms,minimumCents:2500}})).status,'available');
+ const candidate=monthlyDb.at('recruiter_payout_candidates/'+uid);
+ assert.equal(candidate.nextAttemptAt,Date.UTC(2026,10,1),
+   'monthly Recruiter payout does not happen immediately at $25');
+ assert.equal(candidate.lastEligibleRewardAt,monthNow-86400000);
+ assert.equal((await releaseCommission({db:monthlyDb,
+   eventId:'ride-777777_operator',now:monthNow,terms:{...terms,minimumCents:2500}})).duplicate,true);
+ assert.equal(monthlyDb.at('recruiter_payout_candidates/'+uid).nextAttemptAt,
+   Date.UTC(2026,10,1),'duplicate reward cannot postpone monthly payout');
+ const residualDb=new FakeDb();
+ const residualEvent='ride-555555_operator',residualAt=Date.UTC(2026,9,24,18,0),
+   ninetyDays=90*86400000;
+ residualDb.set('recruiter_accounts/'+uid,{...account});
+ residualDb.set('recruiter_commission_wallets/'+uid,{availableCents:15,
+   reservedCents:0,paidCents:0,reversedCents:0,recoveryDueCents:0});
+ residualDb.set('referral_reward_events/'+residualEvent,{travelId:'ride-555555',
+   role:'operator',inviterUid:uid,status:'available',amountCents:15,
+   requiresRecovery:false});
+ residualDb.set('recruiter_payout_candidates/'+uid,{uid,
+   lastEligibleRewardAt:residualAt,nextAttemptAt:residualAt+ninetyDays});
+ const closeoutAuth={...auth,minimumCents:1,standardMinimumCents:2500,
+   closeout:true};
+ const closeoutArgs={db:residualDb,uid,batchId:'recruiter-residual-2027',
+   eventIds:[residualEvent],authorization:closeoutAuth};
+ assert.equal((await reserveRecruiterPayout({...closeoutArgs,
+    now:residualAt+ninetyDays-1})).reason,'residual_closeout_not_due');
+ assert.equal((await reserveRecruiterPayout({...closeoutArgs,
+    now:residualAt+ninetyDays})).reason,'bank_provider_minimum_not_met',
+    'do not strand a 15-cent payout in a Stripe account with a $1 minimum');
+ assert.equal(residualDb.at('recruiter_commission_wallets/'+uid).availableCents,15,
+    'sub-minimum money must remain owed, not reserved or transferred');
+ residualDb.set('recruiter_commission_wallets/'+uid,{
+   availableCents:105,reservedCents:0,paidCents:0,reversedCents:0,recoveryDueCents:0});
+ residualDb.set('referral_reward_events/'+residualEvent,{
+   ...residualDb.at('referral_reward_events/'+residualEvent),amountCents:105});
+ assert.equal((await reserveRecruiterPayout({...closeoutArgs,
+    now:residualAt+ninetyDays})).status,'reserved');
+ assert.equal(residualDb.at('recruiter_commission_payouts/recruiter-residual-2027').netCents,
+   105,'valid residual funds are not forfeited to the $2 fee');
+ assert.equal(residualDb.at('recruiter_commission_payouts/recruiter-residual-2027').feeCents,
+   0,'provider cost borne by platform for tiny 90-day closeout');
+ assert.equal(residualDb.at('recruiter_commission_payouts/recruiter-residual-2027').residualFeeWaived,
+   true,'bank rollover retains waiver');
+ const feeDocs=[...residualDb.data.keys()].filter(k=>k.startsWith('recruiter_connect_fee_months/'));
+ assert.equal(feeDocs.length,0,'do not reserve a second monthly fee for waived closeout');
+
  console.log('PASS recruiter reward maturity, approved accounting, exact-event reservation, failed bank return, paid proof, reversals, idempotency; NO MONEY SENT');
 })().catch(e=>{console.error(e);process.exitCode=1});

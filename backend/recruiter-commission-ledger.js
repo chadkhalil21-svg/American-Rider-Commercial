@@ -4,6 +4,7 @@
 // to known document IDs and disabled without separately approved terms.
 const {evidence}=require('./referral-accrual');
 const {validUid}=require('./recruiter-portal');
+const {nextRecruiterCandidateAt,residualCloseoutDue}=require('./recruiter-payout-policy');
 const validId=x=>typeof x==='string'&&/^[A-Za-z0-9_-]{8,128}$/.test(x);
 const validMoney=n=>Number.isSafeInteger(n)&&n>=0;
 const defaults=()=>({availableCents:0,reservedCents:0,paidCents:0,reversedCents:0,recoveryDueCents:0});
@@ -42,19 +43,35 @@ async function releaseCommission({db,eventId,terms,now=Date.now()}={}){
   if(!walletValid(w)||!Number.isSafeInteger(w.availableCents+e.amountCents))
     return state({},'wallet_requires_review');
   const journalRef=db.collection('recruiter_commission_journal').doc(eventId+'_available');
-  if((await tx.get(journalRef)).exists)return state({},'journal_conflict');
+  const min=terms.minimumCents;
+  const candidateRef=Number.isSafeInteger(min)&&min>200&&min<=3000?
+    db.collection('recruiter_payout_candidates').doc(e.inviterUid):null;
+  // Firestore transactions require all reads before the first staged write.
+  const [journalSnap,candidateSnap]=await Promise.all([
+    tx.get(journalRef),candidateRef?tx.get(candidateRef):Promise.resolve(null)]);
+  if(journalSnap.exists)return state({},'journal_conflict');
   tx.create(journalRef,{kind:'available',rewardEventId:eventId,uid:e.inviterUid,
     amountCents:e.amountCents,createdAt:now});
   const nextAvailable=w.availableCents+e.amountCents;
   tx.set(walletRef,{...w,availableCents:nextAvailable},{merge:true});
-  // Queue this Recruiter once at the contracted payout threshold. No
-  // recurring wallet scans, click events, or manual Founder payout approvals.
-  const min=terms.minimumCents;
-  if(Number.isSafeInteger(min)&&min>200&&min<=100000&&
-     w.availableCents<min&&nextAvailable>=min)
-    tx.set(db.collection('recruiter_payout_candidates').doc(e.inviterUid),{
-      uid:e.inviterUid,nextAttemptAt:now,queuedAt:now,lastError:null
-    },{merge:true});
+  // One known-recipient due document, not a recurring wallet scan:
+  // monthly >= $25; otherwise due for 90-day residual closeout.
+  // Candidate timing never itself authorizes a bank transfer.
+  if(candidateRef){
+    const before=candidateSnap?.exists?candidateSnap.data():null;
+    const lastEligibleRewardAt=Math.max(e.createdAt,
+      Number.isSafeInteger(before?.lastEligibleRewardAt)?before.lastEligibleRewardAt:0);
+    let due=nextRecruiterCandidateAt({now:nextAvailable>=min?now:lastEligibleRewardAt,
+      grossCents:nextAvailable,minimumCents:min});
+    // A scheduled monthly payout that already came due must not be delayed
+    // into another month because another commission just matured.
+    if(nextAvailable>=min&&Number.isSafeInteger(before?.nextAttemptAt)&&
+       before.nextAttemptAt>0&&before.nextAttemptAt<due&&
+       before.nextAttemptAt<=now)due=before.nextAttemptAt;
+    tx.set(candidateRef,{uid:e.inviterUid,nextAttemptAt:due,
+      lastEligibleRewardAt,queuedAt:before?.queuedAt||now,lastError:null},
+      {merge:true});
+  }
   tx.update(ref,{status:'available',availableAt:now,nextReleaseAt:null});
   return {ok:true,status:'available',amountCents:e.amountCents};
  });}catch{return state({},'release_unavailable');}
@@ -124,11 +141,13 @@ async function reserveRecruiterPayout({db,uid,batchId,eventIds,authorization,
       state({},'batch_identity_conflict');}
   const walletRef=db.collection('recruiter_commission_wallets').doc(uid);
   const accountRef=db.collection('recruiter_accounts').doc(uid);
+  const candidateRef=db.collection('recruiter_payout_candidates').doc(uid);
   const month=new Date(now).toISOString().slice(0,7).replace('-','');
   const feeRef=db.collection('recruiter_connect_fee_months').doc(uid+'_'+month);
   const userRef=db.collection('users').doc(uid);
-  const [ws,acct,feeSnap,userSnap,...rewardSnaps]=await Promise.all([
+  const [ws,acct,feeSnap,userSnap,candidateSnap,...rewardSnaps]=await Promise.all([
     tx.get(walletRef),tx.get(accountRef),tx.get(feeRef),tx.get(userRef),
+    tx.get(candidateRef),
     ...eventIds.map(id=>tx.get(db.collection('referral_reward_events').doc(id)))]);
   const a=acct.exists?acct.data():{},w=walletOf(ws);
   const shared=a.payoutMode==='existing_operator_connect';
@@ -150,6 +169,16 @@ async function reserveRecruiterPayout({db,uid,batchId,eventIds,authorization,
     amount+=e.amountCents;
     if(!Number.isSafeInteger(amount))return state({},'amount_overflow');
   }
+  // Residual payouts below the normal monthly minimum are strictly limited
+  // to a due 90-day closeout recorded in this Recruiter's own immutable queue.
+  const candidate=candidateSnap.exists?candidateSnap.data():null;
+  const closeout=authorization.closeout===true;
+  if(closeout&&(!residualCloseoutDue({candidate,now,grossCents:amount,
+       minimumCents:authorization.standardMinimumCents})||
+       !Number.isSafeInteger(authorization.standardMinimumCents)||
+       authorization.standardMinimumCents<=200||
+       authorization.minimumCents!==1))
+    return state({},'residual_closeout_not_due');
   if(amount<authorization.minimumCents||w.availableCents<amount||
      !Number.isSafeInteger(w.reservedCents+amount))
     return state({},'insufficient_available_commissions');
@@ -158,11 +187,17 @@ async function reserveRecruiterPayout({db,uid,batchId,eventIds,authorization,
   // A concurrent reserved first payout prevents a second batch evading
   // or double-paying the fee. No fee while simply enrolled or earning.
   if(fee&&fee.status==='reserved')return state({},'prior_monthly_payout_pending');
-  const feeCents=shared?0:fee?.status==='collected'?0:200;
+  const feeCents=shared||closeout?0:fee?.status==='collected'?0:200;
   if(amount<=feeCents)return state({},'bank_payout_less_than_active_fee');
   const netCents=amount-feeCents;
   if(!Number.isSafeInteger(netCents)||netCents<1)
     return state({},'invalid_net_payout');
+  // US Stripe Connect bank payouts generally require at least $1. A 15c
+  // final balance remains owed and needs an alternative lawful settlement;
+  // never transfer it to a stand-alone Stripe account it cannot pay out.
+  // Existing Operators receive commissions in an aggregate existing balance.
+  if(!shared&&netCents<100)
+    return state({},'bank_provider_minimum_not_met');
   for(let i=0;i<eventIds.length;i++)
     tx.update(db.collection('referral_reward_events').doc(eventIds[i]),
       {status:'reserved',payoutBatchId:batchId});
@@ -171,7 +206,8 @@ async function reserveRecruiterPayout({db,uid,batchId,eventIds,authorization,
     feeDisclosureVersion:a.connectFeeConsentVersion,
     provider:'stripe_connect',currency:'usd',
     payoutMode:shared?'existing_operator_connect':'independent_recruiter',
-    recipientRef:a.providerRecipientRef,status:'reserved',createdAt:now,
+    residualFeeWaived:closeout,recipientRef:a.providerRecipientRef,
+    status:'reserved',createdAt:now,
     nextAttemptAt:now,
     // These are commitments, not proof of a connected transfer or bank deposit.
     providerPaymentId:null,providerTransferId:null});

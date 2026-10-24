@@ -22,5 +22,42 @@ assert.deepEqual(await sweepRecruiterPayoutReservations({db:due,enabled:true,now
  authorization:{programEnabled:true,providerApproved:true,counselApproved:true,
  scheduleApproved:true,provider:'stripe_connect',activeMonthlyFeeCents:200,minimumCents:2500}}),
  {ok:true,reserved:0,waiting:0,errors:0});
+const now=Date.UTC(2026,10,1),eligibleAt=now-30*86400000,updates=[];
+function mockQuery(filters,docs,depth=0){
+ return {
+  where(...args){
+   assert.deepEqual(args,filters[depth]);
+   return mockQuery(filters,docs,depth+1);
+  },
+  limit(n){
+   assert.equal(depth,filters.length);
+   assert.equal(n,filters.length===1?12:200);
+   return {get:async()=>({docs})};
+  },
+ };
+}
+const candidateDb={collection(name){
+ if(name==='recruiter_payout_candidates')return {
+  ...mockQuery([['nextAttemptAt','<=',now]],[
+   {id:'recruiter-001',data:()=>({uid:'recruiter-001',
+     nextAttemptAt:now,lastEligibleRewardAt:eligibleAt})},
+  ]),
+  doc(uid){
+   assert.equal(uid,'recruiter-001');
+   return {set:async value=>{updates.push(value);}};
+  },
+ };
+ if(name==='referral_reward_events')return mockQuery([
+  ['inviterUid','==','recruiter-001'],['status','==','available'],
+ ],[{id:'ride-000000_operator',data:()=>({amountCents:15})}]);
+ throw Error('unexpected collection '+name);
+}};
+const requeued=await sweepRecruiterPayoutReservations({db:candidateDb,enabled:true,
+ now,authorization:{programEnabled:true,providerApproved:true,counselApproved:true,
+ scheduleApproved:true,provider:'stripe_connect',activeMonthlyFeeCents:200,minimumCents:2500}});
+assert.deepEqual(requeued,{ok:true,reserved:0,waiting:1,errors:0});
+assert.equal(updates[0].nextAttemptAt,eligibleAt+90*86400000,
+ 'a refunded below-threshold monthly batch must retain its 90-day residual due date');
+
 console.log('PASS: candidate-only Recruiter reservation, no extra cron or disabled reads');
 })().catch(e=>{console.error(e);process.exitCode=1;});
