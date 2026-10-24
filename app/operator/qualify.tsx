@@ -216,8 +216,9 @@ export default function OperatorQualification() {
 
       {areaActive && process.env.EXPO_PUBLIC_REFERRALS_ENABLED === '1' && (
         <Card style={styles.referralCard}>
-          <Text style={styles.rowTitle}>Referral code (optional)</Text>
-          <Text style={styles.rowSub}>If someone introduced you to American Rider, enter their code before completing qualification.</Text>
+          <Text style={styles.rowTitle}>Were you referred to American Rider?</Text>
+          <Text style={styles.rowSub}>If someone introduced you, you may enter their referral code before completing qualification.</Text>
+          <Text style={styles.rowSub}>Referral code (optional)</Text>
           <TextInput
             accessibilityLabel="Referral code"
             autoCapitalize="characters"
