@@ -120,8 +120,10 @@ async function hostedRecruiterOnboarding({db,stripe,uid,verifiedEmail,origin='ht
  try{
   const link=await stripe.accountLinks.create({
    account:account.id,type:'account_onboarding',
-   return_url:origin+'/recruitment?connect=returned',
-   refresh_url:origin+'/recruitment?connect=refresh',
+   // Return to the authenticated account: the public Recruitment page cannot
+   // verify Connect onboarding or restart an expired one-time Stripe link.
+   return_url:origin+'/recruiters/portal/?connect=returned',
+   refresh_url:origin+'/recruiters/portal/?connect=refresh',
   });
   if(typeof link?.url!=='string'||!/^https:\/\//.test(link.url))
     return {ok:false,reason:'hosted_link_unavailable'};
