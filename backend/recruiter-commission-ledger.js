@@ -128,7 +128,7 @@ async function reserveRecruiterPayout({db,uid,batchId,eventIds,authorization,
     eventIds.some(x=>!validId(x))||new Set(eventIds).size!==eventIds.length)
     return state({},'invalid_request');
  if(authorization?.programEnabled!==true||authorization?.providerApproved!==true||
-    authorization?.counselApproved!==true||authorization?.scheduleApproved!==true||
+    authorization?.scheduleApproved!==true||
     authorization?.provider!=='stripe_connect'||authorization?.activeMonthlyFeeCents!==200||
     !Number.isSafeInteger(authorization?.minimumCents)||authorization.minimumCents<1)
     return state({},'commission_program_not_approved');
