@@ -14,7 +14,29 @@ async function sweepFundedRecruiterAccrual({db,enabled=false,holdMs,now=Date.now
   for(const doc of page.docs||[]){
    const result=await recordHeldAccrual({db,rideId:doc.id,
       program:{...PROGRAM,enabled:true,holdMs},now});
-   if(!result.ok){blocked++;continue;}
+   if(!result.ok){
+     // A verified refund, dispute or cancellation permanently disqualifies
+     // a still-pending reward. Retire that named Travel once, rather than
+     // repeatedly rereading the same poisoned indexed queue every minute.
+     if(result.reason==='settlement_or_program_not_verified'){
+       const ref=db.collection('rides').doc(doc.id);
+       const retired=await db.runTransaction(async tx=>{
+         const snap=await tx.get(ref);
+         const ride=snap.exists?snap.data():null;
+         if(!ride||ride.referralAccrualPending!==true)return false;
+         const terminal=ride.recruiterRewardRefunded===true||
+           ride.refunded===true||ride.disputed===true||
+           ride.status==='cancelled';
+         if(!terminal)return false;
+         tx.update(ref,{referralAccrualPending:false,
+           referralAccrualRejectedAt:now,
+           referralAccrualRejection:'verified_refund_dispute_or_cancellation'});
+         return true;
+       });
+       if(retired){processed++;continue;}
+     }
+     blocked++;continue;
+   }
    processed++;credited+=result.events;
   }
   return {ok:blocked===0,processed,credited,blocked};
