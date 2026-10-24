@@ -32,7 +32,8 @@ class FakeDb {
 const uid='recruiter-001',terms={enabled:true,approved:true,version:'approved-test-v1',holdMs:86400000};
 const account={status:'approved',agreementAccepted:true,identityVerified:true,
  payoutEligibilityVerified:true,bankVerified:true,taxReady:true,
- providerRecipientStatus:'active',providerRecipientRef:'R-TestRecipient001'};
+ providerRecipientStatus:'active',providerRecipientRef:'acct_SyntheticRecruiter001',
+ bankProvider:'stripe_connect',connectFeeConsentVersion:'recruiter_connect_2026_10_v1'};
 const approved={status:'approved',suspended:false,identityVerified:true,
  agreementAccepted:true,payoutEligibilityVerified:true,programVersion:terms.version};
 const ride=(paymentId,transferId)=>({status:'completed',operatorId:'operator-123',
@@ -61,7 +62,7 @@ for(const [key,n,amount] of [[id1,'ride-123456',1500],[id2,'ride-123457',1200],
  assert.equal((await releaseCommission({db,eventId:id2,now,terms})).status,'available');
  assert.equal(db.at('recruiter_commission_wallets/'+uid).availableCents,2700);
  const auth={programEnabled:true,providerApproved:true,counselApproved:true,
-  scheduleApproved:true,minimumCents:2500};
+  scheduleApproved:true,minimumCents:2500,provider:'stripe_connect',activeMonthlyFeeCents:200};
  const batchId='recruiter-batch-20261024-a';
  assert.equal((await reserveRecruiterPayout({db,uid,batchId,eventIds:[id1,id2],
     authorization:{...auth,providerApproved:false},now})).reason,'commission_program_not_approved');
@@ -70,6 +71,8 @@ for(const [key,n,amount] of [[id1,'ride-123456',1500],[id2,'ride-123457',1200],
  const reserved=await reserveRecruiterPayout({db,uid,batchId,eventIds:[id1,id2],
     authorization:auth,now});
  assert.equal(reserved.status,'reserved');assert.equal(reserved.amountCents,2700);
+ assert.equal(reserved.netCents,2500);assert.equal(reserved.feeCents,200);
+ assert.equal(db.at('recruiter_connect_fee_months/'+uid+'_'+new Date(now).toISOString().slice(0,7).replace('-','')).amountCents,200);
  assert.deepEqual([db.at('recruiter_commission_wallets/'+uid).availableCents,
   db.at('recruiter_commission_wallets/'+uid).reservedCents],[0,2700]);
  const duplicate=await reserveRecruiterPayout({db,uid,batchId,eventIds:[id1,id2],
@@ -95,6 +98,7 @@ for(const [key,n,amount] of [[id1,'ride-123456',1500],[id2,'ride-123457',1200],
  const failure=await reconcileRecruiterPayout({db,batchId,now,
   proof:{verified:true,status:'failed',eventId:'evt_payment_123',providerPaymentId:'payment-123456'}});
  assert.equal(failure.status,'failed');
+ assert.equal(db.at('recruiter_connect_fee_months/'+uid+'_'+new Date(now).toISOString().slice(0,7).replace('-','')).status,'released');
  const w=db.at('recruiter_commission_wallets/'+uid);
  assert.deepEqual([w.availableCents,w.reservedCents,w.reversedCents,w.paidCents],[1200,0,1500,0]);
  assert.equal(db.at('referral_reward_events/'+id1).status,'reversed');
@@ -105,8 +109,10 @@ for(const [key,n,amount] of [[id1,'ride-123456',1500],[id2,'ride-123457',1200],
  assert.equal(db.writes,afterFailure,'duplicated signed provider event writes nothing');
  assert.equal((await releaseCommission({db,eventId:id3,now,terms})).status,'available');
  const second='recruiter-batch-20261024-b';
- assert.equal((await reserveRecruiterPayout({db,uid,batchId:second,
-  eventIds:[id2,id3],authorization:auth,now})).status,'reserved');
+ const secondReserved=await reserveRecruiterPayout({db,uid,batchId:second,
+  eventIds:[id2,id3],authorization:auth,now});
+ assert.equal(secondReserved.status,'reserved');
+ assert.equal(secondReserved.netCents,2500,'failed bank event released fee, so first successful payout still pays exactly once');
  assert.equal((await recordRecruiterPayoutSubmission({db,batchId:second,now,
   proof:{verified:true,providerPaymentId:'payment-987654',idempotencyKey:second}})).status,'submitted');
  assert.equal((await reconcileRecruiterPayout({db,batchId:second,now,
@@ -118,6 +124,8 @@ for(const [key,n,amount] of [[id1,'ride-123456',1500],[id2,'ride-123457',1200],
   proof:{verified:true,reason:'dispute',eventId:'evt_dispute_987'}});
  assert.equal(recovered.recoveryRequired,true,'do not imply returned cash was recovered');
  assert.equal(db.at('recruiter_commission_wallets/'+uid).paidCents,2700);
+ assert.equal(db.at('recruiter_commission_wallets/'+uid).connectFeesPaidCents,200);
+ assert.equal(db.at('recruiter_commission_wallets/'+uid).netPaidCents,2500);
  assert.equal(db.at('recruiter_commission_wallets/'+uid).recoveryDueCents,1500,
    'money already paid but disputed is an outstanding recovery, not silently reclaimed');
  assert.equal(db.at('referral_reward_events/'+id3).requiresRecovery,true);
