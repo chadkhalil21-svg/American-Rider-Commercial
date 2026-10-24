@@ -123,6 +123,8 @@ const { adminDb, adminStatus, accountDisabled } = require('./firebase-admin');
 const referrals = require('./referral-service');
 const {PROGRAM:RECRUITER_REWARDS}=require('./referral-accrual');
 const {fundedRecruiterSnapshot}=require('./recruiter-reward-budget');
+const {sweepFundedRecruiterAccrual,sweepMaturedRecruiterRewards}=
+  require('./recruiter-accrual-sweep');
 const { closeOperationalAccount } = require('./accountclosure');
 const { finalizeAccountDeletion, sweepAccountDeletion } = require('./accountdeletion');
 const { acceptOffer } = require('./eligibility');
@@ -810,8 +812,11 @@ const recruiterStripeEnabled=()=>readKey('AR_RECRUITER_FINANCE_ENABLED')==='1'&&
 const recruiterRewardsEnabled=()=>recruiterStripeEnabled()&&
   readKey('AR_RECRUITER_REWARDS_ENABLED')==='1'&&
   readKey('AR_RECRUITER_PAYOUT_SCHEDULE_APPROVED')==='1'&&
+  readKey('AR_RECRUITER_STRIPE_PAYOUTS_ENABLED')==='1'&&
   readKey('AR_REFERRALS_ENABLED')==='1'&&
-  readKey('AR_APP_LINKS_VERIFIED')==='1';
+  readKey('AR_APP_LINKS_VERIFIED')==='1'&&
+  Number(readKey('AR_RECRUITER_REWARD_HOLD_MS'))>=86400000&&
+  Number(readKey('AR_RECRUITER_REWARD_HOLD_MS'))<=120*86400000;
 const recruiterTerms=()=>recruiterAgreement.termsConfig({
   text:readKey('AR_RECRUITER_TERMS_TEXT'),
   version:readKey('AR_RECRUITER_TERMS_VERSION'),
@@ -2592,12 +2597,22 @@ async function runAllSweeps({criticalOnly=false}={}) {
         if(bank?.ok===false)console.warn('[recruiter-bank] exception requires review');
       }
       if(readKey('AR_RECRUITER_TRAVEL_TRACKING_ENABLED')==='1'){
-        // Retry only the indexed pending queue after a crash or outage.
-        // Private activity records do not transfer money or create rewards.
+        // Bounded, read-once activity, independent of optional Recruiter money.
         const activity=await require('./recruiter-travel-activity')
           .sweepSettledTravelActivity({db:adminDb()});
         if(!activity.ok||activity.blocked)
           console.warn('[recruiter-travel-activity] reconciliation requires review');
+      }
+      if(!criticalOnly&&recruiterRewardsEnabled()){
+        // No new clock. One indexed due page per active scheduled tick, and
+        // NOTHING queried if legal, tax/funding or launch authority is OFF.
+        const holdMs=Number(readKey('AR_RECRUITER_REWARD_HOLD_MS'));
+        const accrue=await maintenanceSweep('recruiterAccrual',()=>
+          sweepFundedRecruiterAccrual({db:adminDb(),enabled:true,holdMs}));
+        if(accrue?.ok===false)console.warn('[recruiter-accrual] needs review');
+        const release=await maintenanceSweep('recruiterRelease',()=>
+          sweepMaturedRecruiterRewards({db:adminDb(),approved:true,holdMs}));
+        if(release?.ok===false)console.warn('[recruiter-maturity] needs review');
       }
       return {...out,receipts};
     },
