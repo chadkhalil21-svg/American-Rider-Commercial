@@ -86,6 +86,23 @@ class Db {
   assert.equal(summary.counts.operatorIntroductions,1);
   assert.equal(summary.counts.travelerIntroductions,1);
   assert.equal(summary.linksAvailable,false);
+  // A live launch flag by itself must never enable a private share control.
+  const notReady=await recruiterSummary({db,uid:'recruiter-001',now:NOW+50,
+    programEnabled:true,linkVerified:true});
+  assert.equal(notReady.linksAvailable,false);
+  const completedApproval={...approval,status:'approved',suspended:false,
+    approvedAt:NOW+40,approvedBy:'founder',identityVerified:true,
+    agreementAccepted:true,agreementAcceptedAt:NOW+45,
+    payoutEligibilityVerified:true,expiresAt:NOW+90*86400000};
+  db.rows.set('recruiter_approvals/recruiter-001',completedApproval);
+  assert.equal((await recruiterSummary({db,uid:'recruiter-001',now:NOW+50,
+    programEnabled:true,linkVerified:false})).linksAvailable,false);
+  assert.equal((await recruiterSummary({db,uid:'recruiter-001',now:NOW+50,
+    programEnabled:true,linkVerified:true})).linksAvailable,true);
+  db.rows.set('recruiter_approvals/recruiter-001',
+    {...completedApproval,agreementAccepted:false});
+  assert.equal((await recruiterSummary({db,uid:'recruiter-001',now:NOW+50,
+    programEnabled:true,linkVerified:true})).linksAvailable,false);
   assert.equal(summary.verifiedOperators,null);
   assert.equal(summary.bankSetup,'not_commissioned');
   assert.equal(summary.compensation,'not_commissioned');
