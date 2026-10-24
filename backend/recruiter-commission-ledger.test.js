@@ -61,7 +61,7 @@ for(const [key,n,amount] of [[id1,'ride-123456',1500],[id2,'ride-123457',1200],
  assert.equal(db.writes,before+3,'duplicate release costs reads but zero writes');
  assert.equal((await releaseCommission({db,eventId:id2,now,terms})).status,'available');
  assert.equal(db.at('recruiter_commission_wallets/'+uid).availableCents,2700);
- const auth={programEnabled:true,providerApproved:true,counselApproved:true,
+ const auth={programEnabled:true,providerApproved:true,
   scheduleApproved:true,minimumCents:2500,provider:'stripe_connect',activeMonthlyFeeCents:200};
  const batchId='recruiter-batch-20261024-a';
  assert.equal((await reserveRecruiterPayout({db,uid,batchId,eventIds:[id1,id2],
