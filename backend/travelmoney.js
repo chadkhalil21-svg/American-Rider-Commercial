@@ -417,7 +417,19 @@ async function settleTravel({ db, uid, rideId, deps, now = Date.now() }) {
   if (!snap.exists) return fail(404, 'No such travel');
   const ride = snap.data();
   if (String(ride.travelerUid) !== String(uid)) return fail(403, 'That travel belongs to another traveler');
-  if (ride.transferId) return { status: 200, body: { ok: true, alreadySettled: true, transferId: ride.transferId } };
+  if (ride.transferId) {
+    // A successful Operator transfer must not make a failed receipt permanent.
+    // The queue transaction is idempotent and never transfers funds.
+    if (deps.queueReceipt && !ride.receiptQueuedAt && !ride.receiptSentAt &&
+        ride.status === 'completed') {
+      const queued = await deps.queueReceipt(ride);
+      if (!queued?.ok)
+        await rideRef.set({receiptQueuePending:true,
+          receiptFailed:String(queued?.reason||'receipt_queue_unavailable').slice(0,150)},
+        {merge:true});
+    }
+    return { status: 200, body: { ok: true, alreadySettled: true, transferId: ride.transferId } };
+  }
   // SETTLEMENT FOLLOWS COMPLETION. Only the operator's app or the server writes 'completed'
   // (firestore.rules); an assigned, accepted, arrived, onboard or cancelled travel owes nobody
   // its fare yet.
@@ -445,6 +457,19 @@ async function settleTravel({ db, uid, rideId, deps, now = Date.now() }) {
     }
     await rideRef.set({capturePending:false,authorizationState:'captured',
       capturedCents:captured.captureCents,capturedAt:now},{merge:true});
+  }
+
+  // Florida's electronic receipt obligation follows a captured, completed
+  // Travel, not the Operator's ability to receive a Stripe Connect transfer.
+  // A failure is recorded for recovery, never passed off as delivered.
+  if (deps.queueReceipt && !ride.receiptQueuedAt && !ride.receiptSentAt) {
+    const capturedRide=ride.paymentCapturePolicy==='manual_v1'
+      ? {...ride,authorizationState:'captured',capturedAt:now}
+      : ride;
+    const queued=await deps.queueReceipt(capturedRide);
+    if (!queued?.ok) await rideRef.set({receiptQueuePending:true,
+      receiptFailed:String(queued?.reason||'receipt_queue_unavailable').slice(0,150)},
+    {merge:true});
   }
 
   const { accountId, reason } = await deps.operatorPayoutAccount(db, ride.operatorId);
@@ -486,7 +511,7 @@ async function settleTravel({ db, uid, rideId, deps, now = Date.now() }) {
     { merge: true },
   );
   // The receipt, once.
-  if (!ride.receiptSentAt && deps.sendReceipt) {
+  if (!deps.queueReceipt && !ride.receiptSentAt && deps.sendReceipt) {
     const sent = await deps.sendReceipt({ ...ride, completedAt: now });
     await rideRef.set(sent.ok ? { receiptSentAt: now } : { receiptFailed: sent.reason || 'unknown', receiptFailedAt: now }, { merge: true });
   }
