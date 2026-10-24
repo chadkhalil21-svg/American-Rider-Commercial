@@ -57,6 +57,14 @@ class MemoryDb {
   db.rows.set('operators/old-operator',{commissioned:true});
   assert.equal((await claim({db,uid:'old-operator',code,role:'operator',
     authCreatedAtMs:now-365*24*3600_000,now})).reason,'role_already_active');
+  // Normal Operator onboarding creates a draft record before this field is shown.
+  // A draft cannot block a genuine first referral.
+  db.rows.set('operators/operator-in-progress',{verification:'draft',documentStatus:'pending'});
+  const firstOperator=await claim({db,uid:'operator-in-progress',code,role:'operator',
+    authCreatedAtMs:now-3600_000,now});
+  assert.equal(firstOperator.ok,true,'draft Operator is new to qualified role');
+  assert.equal((await claim({db,uid:'operator-in-progress',code,role:'operator',
+    authCreatedAtMs:now-3600_000,now})).reason,'already_attributed');
   const transfer=await claim({db,uid:'new-traveler',code,role:'operator',
     authCreatedAtMs:now-2000,now});
   assert.equal(transfer.ok,true,'existing Traveler can later join as new Operator');
