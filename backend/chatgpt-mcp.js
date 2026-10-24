@@ -70,7 +70,7 @@ const TOOLS = [
   { name:'invite_recruiter',title:'Invite an independent recruiter',
     description:'Send one private invitation to the email expressly provided by the Founder. Requires named MFA, recruitment legal/web launch gates, and an authorized Founder account. The invitation does not approve banking, pay commissions or activate public recruiting.',
     inputSchema:{type:'object',properties:{
-      email:{type:'string',description:'The intended recruiter's email address.'},
+      email:{type:'string',description:'Email address of the intended recruiter.'},
       allowedRoles:{type:'array',items:{type:'string',enum:['operator','traveler']},minItems:1,maxItems:2,description:'Roles the recruiter may introduce.'},
     },required:['email','allowedRoles'],additionalProperties:false},
     annotations:{readOnlyHint:false,destructiveHint:false},scope:'recruiter:invite'},
