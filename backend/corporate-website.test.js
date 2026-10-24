@@ -6,7 +6,7 @@ const { build } = require('../scripts/build-corporate-website.cjs');
 
 build();
 const root = path.join(__dirname, '..', 'dist-corporate');
-const paths = ['', 'travel', 'operate', 'safety', 'company', 'support', 'recruitment', 'recruiters/portal', 'smart-travel', 'join', 'terms', 'privacy', 'account-deletion', 'terms/es', 'privacy/fr'];
+const paths = ['', 'travel', 'operate', 'safety', 'company', 'support', 'recruitment', 'recruiters/portal', 'recruitment/accept', 'smart-travel', 'join', 'terms', 'privacy', 'account-deletion', 'terms/es', 'privacy/fr'];
 for (const route of paths) {
   const p = path.join(root, route, 'index.html');
   assert.ok(fs.existsSync(p), 'Missing public route: ' + route);
@@ -25,6 +25,12 @@ const operators = fs.readFileSync(path.join(root, 'operate', 'index.html'), 'utf
 assert.match(operators, /\$2\.50/);
 const portal=fs.readFileSync(path.join(root,'recruiters','portal','index.html'),'utf8');
 assert.match(portal,/noindex,nofollow/);
+const invitationSite=fs.readFileSync(path.join(root,'recruitment','accept','index.html'),'utf8');
+assert.match(invitationSite,/noindex,nofollow/);
+assert.match(invitationSite,/recruiters\/accept/);
+assert.match(invitationSite,/history\.replaceState/);
+assert.match(invitationSite,/emailVerified/);
+assert.match(invitationSite,/browserSessionPersistence/);
 assert.match(portal,/private recruiter|recruitment account/i);
 assert.match(portal,/recruiters\/me/);
 assert.match(portal,/getIdToken/);
