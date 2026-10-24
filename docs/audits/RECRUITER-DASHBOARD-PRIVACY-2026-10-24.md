@@ -14,7 +14,7 @@ One **Recruitment Overview** on the first-party website. It shows:
 3. Qualified Operators, qualifying Travels and paid compensation truthfully show **not verified** / **not commissioned** until authoritative sources and program approvals are deployed. No zero that could imply measured or accrued money. No speculative reward calculations.
 4. Share/QR controls remain disabled unless current legal, program, app link and recruiter identity/agreement/payout eligibility conditions *all* pass. No public self-enrollment.
 
-This is an incremental interface and private API. No new recruiter app, H3 database, cron polling, contact imports or regional dashboards. Google Firestore supports index-backed `count()` totals and cursor pagination. One new composite index is needed: `referral_attributions(inviterUid ASC, role ASC, claimedAt DESC)`. The index must be deployed independently before the new endpoint can work on a real database. No real index rollout was performed.
+This is an incremental interface and private API. No new recruiter app, H3 database, cron polling, contact imports or regional dashboards. Google Firestore supports index-backed `count()` totals and cursor pagination. **No new index needed:** the roster reuses the existing `referral_attributions(inviterUid ASC, role ASC)` index and orders by stable document ID. Records display dates but are not newest-first. Official Firestore documents confirm the index's implicit `__name__` ordering. No separate index rollout or added infrastructure is required.
 
 ## Phase 2: events required for meaningful money and qualification metrics
 - Only server-reviewed Operator eligibility may advance a record from "Introduction recorded" to "Qualified Operator"; do not disclose reasons for screening denial, insurance contents, licence IDs, personal addresses or private correspondence to recruiters.
@@ -33,5 +33,11 @@ This is an incremental interface and private API. No new recruiter app, H3 datab
 
 ## Exit criteria
 - Current source PR complete, deterministic tests pass and green exact-head CI; Founder-reviewed merge.
-- New Firestore index DEPLOYED and READY, not merely present in source; source parity with production Google Cloud Run. Authenticated negative tests (other recruiter, missing verification, changed email, wrong role, forged cursor, suspended account), real web sign-in, back navigation, mobile accessibility and account-switch leakage checks.
+- Existing indexed referral query verified against production Firestore and source parity with production Google Cloud Run; no new index needs deployment. Authenticated negative tests (other recruiter, missing verification, changed email, wrong role, forged cursor, suspended account), real web sign-in, back navigation, mobile accessibility and account-switch leakage checks.
 - Genuine consent, qualification events and financial statements *only* once policy, money events, and real bank-provider reconciliation are operating. Public recruiter program remains OFF until independently commissioned.
+
+## 24 October 2026 counsel-source refinement
+
+Official FTC FAQs say a personal code alone may not clearly disclose recruiter compensation; retain disclosure adjacent to every link/QR and train recruiters. The IRS publishes a $2,000 threshold for calendar-2026 nonemployee compensation information returns in applicable circumstances, which is **not** an exemption from taxes. The U.S. Department of Labor's February 26, 2026 independent-contractor proposal remained a **proposal** in the sources reviewed, not a blanket permission to classify recruiters as contractors; counsel must assess actual control and state law. California's CCPA may give consumers rights to know and limit personal-information sharing where applicable; do not give recruitment agents passenger route histories or contact details. Published advice is not direct attorney engagement.
+
+Sources: https://www.ftc.gov/business-guidance/resources/ftcs-endorsement-guides-what-people-are-asking ; https://www.irs.gov/businesses/small-businesses-self-employed/am-i-required-to-file-a-form-1099-or-other-information-return ; https://www.dol.gov/agencies/whd/flsa/misclassification/2026rulemaking/faqs ; https://oag.ca.gov/privacy/ccpa ; https://firebase.google.com/docs/firestore/query-data/index-overview .
