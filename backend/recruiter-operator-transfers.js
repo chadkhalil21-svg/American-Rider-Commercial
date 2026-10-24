@@ -40,9 +40,9 @@ async function operatorBatch(db,batchId){
  return {ok:true,batch:{...batch,id:batchId}};
 }
 async function submitOperatorReferralTransfer({db,stripe,batchId,
- moneyAuthorized=false,legalApproved=false,providerApproved=false,
+ moneyAuthorized=false,providerApproved=false,
  operatorSharedApproved=false,now=Date.now()}={}){
- if(!moneyAuthorized||!legalApproved||!providerApproved||!operatorSharedApproved)
+ if(!moneyAuthorized||!providerApproved||!operatorSharedApproved)
   return deny('operator_recruiter_money_off');
  if(!db||!stripe?.accounts?.retrieve||!stripe?.transfers?.list||
     !stripe?.transfers?.create||!stripe?.balance?.retrieve||!id(batchId)||
