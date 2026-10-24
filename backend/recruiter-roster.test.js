@@ -56,6 +56,7 @@ function db(){
  assert.equal(a.items[0].progress,'introduction_recorded');
  assert.equal(a.items[0].qualifyingTravels,null);
  assert.equal(a.items[0].operatorQualification,'not_currently_verified');
+ assert.equal(a.items[0].recordedSettledTravels,null);
  const recent=Date.now();
  assert.equal(observedQualification({qualification:{qualified:true,status:'qualified',qualifiedAt:recent-9000,evaluatedAt:recent-60000}},recent),'recently_verified');
  assert.equal(observedQualification({qualification:{qualified:true,status:'qualified',qualifiedAt:recent-9000,evaluatedAt:recent-QUALIFICATION_MAX_AGE_MS-1}},recent),'not_currently_verified');
@@ -64,7 +65,7 @@ function db(){
  assert.equal(a.items[0].paidCents,null);
  for(const row of a.items){
   assert.deepEqual(Object.keys(row),['reference','role','recordedAt','progress',
-    'operatorQualification','qualifyingTravels','earnedCents','paidCents']);
+    'operatorQualification','recordedSettledTravels','qualifyingTravels','earnedCents','paidCents']);
   assert.match(row.reference,/^AR-[0-9A-F]{12}$/);
   assert.equal(JSON.stringify(row).includes('private@example.org'),false);
   assert.equal(JSON.stringify(row).includes('Private street'),false);
