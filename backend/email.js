@@ -33,15 +33,21 @@ const emailReady = () => !!(readKey('RESEND_API_KEY') && readKey('MAIL_FROM'));
  * Send one message. Returns { ok, reason }. NEVER throws — a receipt that cannot be sent must
  * not undo a journey that happened or a payment that succeeded.
  */
-async function send({ to, subject, html, text, from: fromOverride, replyTo }) {
+async function send({ to, subject, html, text, from: fromOverride, replyTo, idempotencyKey }) {
   const key = readKey('RESEND_API_KEY');
-  const from = fromOverride || readKey('MAIL_FROM') || 'American Rider <receipts@americanrider.app>'; 
+  const from = fromOverride || readKey('MAIL_FROM') || 'American Rider <receipts@americanrider.tech>'; 
   if (!key) return { ok: false, reason: 'RESEND_API_KEY is not set' };
   if (!to) return { ok: false, reason: 'no address for this account' };
+  // Optional stable event key for future durable outbox retries. The provider
+  // deduplicates only for 24 hours and only for IDENTICAL message payloads.
+  if (idempotencyKey !== undefined &&
+      (typeof idempotencyKey !== 'string' || !/^[A-Za-z0-9_:/.-]{1,256}$/.test(idempotencyKey)))
+    return { ok: false, reason: 'invalid_email_idempotency_key' };
   try {
     const r = await fetch('https://api.resend.com/emails', {
       method: 'POST',
-      headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
+      headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json',
+        ...(idempotencyKey ? { 'Idempotency-Key': idempotencyKey } : {}) },
       body: JSON.stringify({ from, to: [to], subject, html, text, ...(replyTo ? { reply_to: replyTo } : {}) }),
     });
     if (!r.ok) return { ok: false, reason: `Resend ${r.status}: ${(await r.text()).slice(0, 200)}` };
@@ -105,7 +111,7 @@ function receiptEmail(ride) {
   </td></tr>
   <tr><td style="padding-top:14px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;font-size:13.5px;color:${T.muted};line-height:20px;">
     Your operator keeps 99% of the travel fare.
-    Questions about this travel: <a href="mailto:support@americanrider.app" style="color:${T.blue};">support@americanrider.app</a>, quoting the travel number.
+    Questions about this travel: <a href="mailto:support@americanrider.tech" style="color:${T.blue};">support@americanrider.tech</a>, quoting the travel number.
   </td></tr>`);
 
   const text =
@@ -118,7 +124,7 @@ function receiptEmail(ride) {
     `Travel Number: ${ride.tripNo || '—'}\n` +
     (ride.tipCents ? `Gratuity:      ${money(ride.tipCents)} (paid in full to your operator)\n` : '') +
     `\nYour operator keeps 99% of the travel fare.\n` +
-    `Questions: support@americanrider.app, quoting the travel number.\n`;
+    `Questions: support@americanrider.tech, quoting the travel number.\n`;
 
   return { subject: `Travel Receipt · ${ride.tripNo || 'American Rider'} · ${total}`, html, text };
 }

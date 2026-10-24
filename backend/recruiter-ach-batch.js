@@ -4,13 +4,14 @@
 // All balances come from a future authoritative settled commission ledger.
 // Calling this function never sends money or creates a payable.
 const DEFAULT_MINIMUM_CENTS=2500;
-function friday(date){
-  return typeof date==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(date)&&
-    !Number.isNaN(Date.parse(date+'T12:00:00Z'))&&
-    new Date(date+'T12:00:00Z').getUTCDay()===5;
+function validPayoutDate(date){
+  if(typeof date!=='string'||!/^\d{4}-\d{2}-\d{2}$/.test(date))return false;
+  const parsed=new Date(date+'T12:00:00Z');
+  return !Number.isNaN(parsed.getTime())&&parsed.toISOString().slice(0,10)===date;
 }
 function planRecruiterAchBatch({
   date,recipients=[],programEnabled=false,providerApproved=false,
+  scheduleApproved=false,
   counselApproved=false,availableFundsCents=0,
   minimumCents=DEFAULT_MINIMUM_CENTS,previousBatchIds=[],
 }={}){
@@ -18,7 +19,9 @@ function planRecruiterAchBatch({
   if(programEnabled!==true)return fail('program_off');
   if(providerApproved!==true)return fail('bank_provider_not_approved');
   if(counselApproved!==true)return fail('legal_review_not_complete');
-  if(!friday(date))return fail('not_friday');
+  // Do not encode Friday or any payout cadence before the Founder ratifies it.
+  if(scheduleApproved!==true)return fail('payout_schedule_not_approved');
+  if(!validPayoutDate(date))return fail('invalid_payout_date');
   if(!Array.isArray(recipients)||!Array.isArray(previousBatchIds)||
      !Number.isSafeInteger(availableFundsCents)||availableFundsCents<0||
      !Number.isSafeInteger(minimumCents)||minimumCents<1)

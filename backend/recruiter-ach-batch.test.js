@@ -6,13 +6,18 @@ const recipient={uid:'recruiter-001',availableCents:3400,
   approvalActive:true,bankVerified:true,taxReady:true,underReview:false,
   refundOrDisputeHold:false,settlementVerified:true,providerRecipientRef:'bank_token_001'};
 const authorized={date,programEnabled:true,providerApproved:true,counselApproved:true,
+  scheduleApproved:true,
   availableFundsCents:10000,recipients:[recipient]};
 assert.equal(DEFAULT_MINIMUM_CENTS,2500);
 const off=planRecruiterAchBatch({...authorized,programEnabled:false});
 assert.equal(off.reason,'program_off');assert.equal(off.payments.length,0);
 assert.equal(planRecruiterAchBatch({...authorized,providerApproved:false}).reason,'bank_provider_not_approved');
 assert.equal(planRecruiterAchBatch({...authorized,counselApproved:false}).reason,'legal_review_not_complete');
-assert.equal(planRecruiterAchBatch({...authorized,date:'2026-10-22'}).reason,'not_friday');
+assert.equal(planRecruiterAchBatch({...authorized,scheduleApproved:false}).reason,'payout_schedule_not_approved');
+assert.equal(planRecruiterAchBatch({...authorized,date:'2026-02-30'}).reason,'invalid_payout_date');
+assert.equal(planRecruiterAchBatch({...authorized,date:'not-a-date'}).reason,'invalid_payout_date');
+assert.equal(planRecruiterAchBatch({...authorized,date:'2026-10-22'}).ok,true,
+  'approved payout date must not be forced to Friday');
 assert.equal(planRecruiterAchBatch({...authorized,availableFundsCents:3399}).reason,'commissions_not_fully_funded');
 const ok=planRecruiterAchBatch(authorized);
 assert.equal(ok.ok,true);assert.equal(ok.totalCents,3400);
@@ -36,4 +41,4 @@ assert.equal(closing.totalCents,1500);
 const noBankDetails=JSON.stringify(ok);
 assert.equal(noBankDetails.includes('accountNumber'),false);
 assert.equal(noBankDetails.includes('routingNumber'),false);
-console.log('PASS: Friday bank preview OFF, bank/legal funding gates, $25 batching, no duplicates, held funds and no transfers');
+console.log('PASS: no forced payout weekday, approved schedule/bank/legal/funding gates, $25 batching, no duplicates, held funds and no transfers');
