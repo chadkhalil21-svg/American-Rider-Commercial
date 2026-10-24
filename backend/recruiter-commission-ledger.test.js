@@ -135,5 +135,33 @@ for(const [key,n,amount] of [[id1,'ride-123456',1500],[id2,'ride-123457',1200],
  assert.equal(db.at('recruiter_commission_wallets/'+uid).recoveryDueCents,1500,
    'money already paid but disputed is an outstanding recovery, not silently reclaimed');
  assert.equal(db.at('referral_reward_events/'+id3).requiresRecovery,true);
+ const residualDb=new FakeDb();
+ const residualEvent='ride-555555_operator',residualAt=Date.UTC(2026,9,24,18,0),
+   ninetyDays=90*86400000;
+ residualDb.set('recruiter_accounts/'+uid,{...account});
+ residualDb.set('recruiter_commission_wallets/'+uid,{availableCents:15,
+   reservedCents:0,paidCents:0,reversedCents:0,recoveryDueCents:0});
+ residualDb.set('referral_reward_events/'+residualEvent,{travelId:'ride-555555',
+   role:'operator',inviterUid:uid,status:'available',amountCents:15,
+   requiresRecovery:false});
+ residualDb.set('recruiter_payout_candidates/'+uid,{uid,
+   lastEligibleRewardAt:residualAt,nextAttemptAt:residualAt+ninetyDays});
+ const closeoutAuth={...auth,minimumCents:1,standardMinimumCents:2500,
+   closeout:true};
+ const closeoutArgs={db:residualDb,uid,batchId:'recruiter-residual-2027',
+   eventIds:[residualEvent],authorization:closeoutAuth};
+ assert.equal((await reserveRecruiterPayout({...closeoutArgs,
+    now:residualAt+ninetyDays-1})).reason,'residual_closeout_not_due');
+ assert.equal((await reserveRecruiterPayout({...closeoutArgs,
+    now:residualAt+ninetyDays})).status,'reserved');
+ assert.equal(residualDb.at('recruiter_commission_payouts/recruiter-residual-2027').netCents,
+   15,'residual funds are not forfeited to the $2 fee');
+ assert.equal(residualDb.at('recruiter_commission_payouts/recruiter-residual-2027').feeCents,
+   0,'provider cost borne by platform for tiny 90-day closeout');
+ assert.equal(residualDb.at('recruiter_commission_payouts/recruiter-residual-2027').residualFeeWaived,
+   true,'bank rollover retains waiver');
+ const feeDocs=[...residualDb.data.keys()].filter(k=>k.startsWith('recruiter_connect_fee_months/'));
+ assert.equal(feeDocs.length,0,'do not reserve a second monthly fee for waived closeout');
+
  console.log('PASS recruiter reward maturity, approved accounting, exact-event reservation, failed bank return, paid proof, reversals, idempotency; NO MONEY SENT');
 })().catch(e=>{console.error(e);process.exitCode=1});
