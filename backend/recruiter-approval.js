@@ -30,10 +30,12 @@ async function approvedRecruiterLink({
        !recruiterMayRefer(account.data(),snap.data(),role,now))
       return {ok:false,reason:'not_approved'};
     const out=await shareLink({db,uid,role,now,
-      origin:'https://americanrider.tech'});
+      origin:'https://americanrider.tech',
+      paidRecruiterProgramEnabled:compensationEnabled});
     if(!out.ok)return out;
-    // Same personal URL as the existing invitation system; a QR may encode it
-    // after app links and paid recruiting are separately commissioned.
+    if(out.compensationActive!==true)
+      return {ok:false,reason:'recruiter_compensation_not_authorized'};
+    // This confirms the source account is genuinely eligible for paid claims.
     return {ok:true,url:out.url,role,compensationActive:true};
   }catch{return {ok:false,reason:'approval_unavailable'};}
 }
