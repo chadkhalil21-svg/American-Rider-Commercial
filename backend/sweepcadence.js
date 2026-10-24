@@ -11,6 +11,7 @@ const PERIOD_MS = Object.freeze({
   recruiterBankPayouts: 60 * 60_000, // optional due-only, no second scheduler
   recruiterAccrual: 60_000, // only when the paid program is actually commissioned
   recruiterRelease: 60_000, // bounded due queue; single index, zero reads while disabled
+  recruiterReserve: 60 * 60_000, // only the existing threshold-crossing candidate queue
   familyAgeOut: 60 * 60_000,
   marketReference: 24 * 60 * 60_000,
   accountDeletion: 60 * 60_000,
