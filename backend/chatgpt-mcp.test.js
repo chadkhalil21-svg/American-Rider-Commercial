@@ -13,7 +13,7 @@ const hash=x=>crypto.createHash('sha256').update(x).digest('hex');
 const t=Date.now();
 const pending={client_id:'https://chatgpt.com/oauth/client.json',
   redirect_uri:'https://chatgpt.com/connector_platform_oauth_redirect',resource:M.RESOURCE,
-  scope:'market:read market:plan market:activate market:pause',
+  scope:'market:read market:plan market:activate market:pause recruiter:invite',
   challenge:'b'.repeat(43),state:'state-12345',nonce:'nonce-12345',expires:t+60_000};
 const signed=M.signPending(pending);
 assert.deepEqual(M.pendingFrom({headers:{cookie:'ar_mcp_pending='+signed}}),pending);
@@ -45,10 +45,16 @@ const mockApp={
  post(path,...handlers){routes.set('POST '+path,handlers.at(-1));},
 };
 const express={urlencoded:()=>()=>{}};
-let online=true, actor='founder', production=true;
+let online=true, actor='founder', production=true, inviteAuthorized=false;
 const market={id:'fl-miami-dade',regionId:'fl-southeast',status:'active',geographicStatus:'open'},region={id:'fl-southeast'};
 const deps={
  db:()=>db,opsSignedIn:()=>actor,authMode:()=>online?'named':'off',
+ founderCanInviteRecruiter:()=>inviteAuthorized,
+ inviteRecruiter:async ({email,allowedRoles,actor:principal})=>{
+   changes.push('invited');assert.equal(principal,'founder');
+   assert.equal(email,'recruiter@example.com');
+   assert.deepEqual(allowedRoles,['operator']);return {ok:true,delivery:'submitted'};
+ },
  actorFingerprint:(identity)=>identity==='founder' && online?'fingerprint123':null,isProduction:()=>production,
  markets:()=>[market], regions:[region], productionReadiness:()=>({missing:['screening_provider']}),
  inspectMarket:async()=>({status:'waitlist',readyToActivate:false,missing:[{id:'screening_agreement',reference:'secret-must-not-appear'}]}),
@@ -81,7 +87,7 @@ function request(method,path,{body={},query={},headers={}}={}){
  const metadata=await request('GET','/.well-known/oauth-authorization-server').run();
  assert.ok(metadata.body.code_challenge_methods_supported.includes('S256'));
  const tools=await request('POST','/mcp',{body:{jsonrpc:'2.0',id:1,method:'tools/list'}}).run();
- assert.equal(tools.body.result.tools.length,4);
+ assert.equal(tools.body.result.tools.length,5);
  const unauthorized=await request('POST','/mcp',{body:{id:1,method:'tools/call',params:{name:'open_region',arguments:{regionId:'fl-southeast',confirmation:'OPEN fl-southeast'}}}}).run();
  assert.equal(unauthorized.status,200);
  assert.equal(unauthorized.body.result.isError,true);
@@ -135,6 +141,14 @@ function request(method,path,{body={},query={},headers={}}={}){
  const paused=await request('POST','/mcp',{body:{id:5,method:'tools/call',params:{name:'pause_market',arguments:{marketId:market.id,reason:'Safety hold',confirmation:'PAUSE '+market.id}}},headers:bearer}).run();
  assert.equal(JSON.parse(paused.body.result.content[0].text).code,'geography_configuration_required');
  assert.equal(changes.includes('pause'),false,'obsolete approval records cannot offline Operators');
+ const failedInvite=await request('POST','/mcp',{body:{id:9,method:'tools/call',params:{name:'invite_recruiter',arguments:{email:'recruiter@example.com',allowedRoles:['operator']}}},headers:bearer}).run();
+ assert.equal(JSON.parse(failedInvite.body.result.content[0].text).code,'recruiter_invitation_not_authorized_or_not_launched');
+ assert.equal(changes.includes('invited'),false,'cannot invite when the program is closed');
+ inviteAuthorized=true;
+ const sentInvite=await request('POST','/mcp',{body:{id:10,method:'tools/call',params:{name:'invite_recruiter',arguments:{email:'recruiter@example.com',allowedRoles:['operator']}}},headers:bearer}).run();
+ assert.equal(JSON.parse(sentInvite.body.result.content[0].text).delivery,'submitted');
+ assert.equal(changes.filter(x=>x==='invited').length,1);
+ inviteAuthorized=false;
  const renewal=await request('POST','/ar/oauth/token',{body:{
   grant_type:'refresh_token',client_id:pending.client_id,resource:M.RESOURCE,
   refresh_token:tokens.body.refresh_token
