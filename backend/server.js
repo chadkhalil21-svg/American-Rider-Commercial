@@ -812,7 +812,12 @@ app.get('/referrals/share',requireReferralLaunch,requireAuth,
       return res.status(400).json({ok:false,code:'invalid_role'});
     const db=adminDb();
     if(!db)return res.status(503).json({ok:false,code:'database_unavailable'});
-    const out=await referrals.shareLink({db,uid:String(req.uid),role});
+    // New invitations use only the owned .tech domain. Old client links
+    // remain supported by the claim path, never minted for new invitations.
+    if(readKey('AR_APP_LINKS_VERIFIED')!=='1')
+      return res.status(503).json({ok:false,code:'signed_app_links_not_verified'});
+    const out=await referrals.shareLink({db,uid:String(req.uid),role,
+      origin:'https://americanrider.tech'});
     return res.status(out.ok?200:503).json(out);
   });
 
