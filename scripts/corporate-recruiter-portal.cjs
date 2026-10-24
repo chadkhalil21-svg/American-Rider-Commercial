@@ -95,6 +95,89 @@ function portalHtml(){
 `;
   html=html.replace("by('sign-out').addEventListener('click'",
     profileScript+"by('sign-out').addEventListener('click'");
+  // The lawfully approved agreement must be read before Stripe-hosted banking.
+  // The bank is collected by Stripe, never through American Rider HTML.
+  const financePanel=String.raw`<section aria-label="Recruiter agreement and banking">
+  <h3>Agreement and bank payments</h3>
+  <p>Review the complete approved agreement before joining the compensation program. Banking, identity and tax details are completed securely with our payment provider.</p>
+  <button type="button" class="action secondary" id="recruiter-review-agreement">Review agreement</button>
+  <pre id="recruiter-agreement-text" hidden style="white-space:pre-wrap;font:inherit;line-height:1.6"></pre>
+  <label id="recruiter-agreement-consent" hidden style="display:block;margin:18px 0">
+    <input type="checkbox" id="recruiter-agree-checkbox"> I have reviewed and agree to these terms.
+  </label>
+  <button type="button" class="action secondary" id="recruiter-accept-agreement" disabled>Accept agreement</button>
+  <p><button type="button" class="action secondary" id="recruiter-bank-onboard">Set up secure bank payments</button>
+  <button type="button" class="action secondary" id="recruiter-bank-status">Check payment setup</button></p>
+  <p id="recruiter-finance-status" role="status" aria-live="polite">No commission or bank payment is confirmed.</p>
+  <p>Funds sent into a connected Stripe account are not marked as deposited until the provider confirms bank payment.</p>
+</section>`;
+  html=html.replace('<section aria-label="Compensation">',
+    financePanel+'<section aria-label="Compensation">');
+  // All postbacks rely on Firebase identity and an approved server-side version.
+  const financeJs=String.raw`
+let termsVersion=null;
+const financeNote=s=>{by('recruiter-finance-status').textContent=s;};
+async function recruiterPost(path,body){
+ const person=auth.currentUser;
+ if(!person?.emailVerified)throw Error('verified_email_required');
+ const bearer=await person.getIdToken(true);
+ const response=await fetch(api+path,{method:'POST',cache:'no-store',
+  headers:{Authorization:'Bearer '+bearer,'Content-Type':'application/json'},
+  body:JSON.stringify(body||{})});
+ const data=await response.json();
+ if(!response.ok||!data.ok)throw Error(data.reason||data.code||'provider_unavailable');
+ return data;
+}
+by('recruiter-review-agreement').addEventListener('click',async()=>{
+ financeNote('Checking the approved agreement.');
+ try{
+  const data=await request('/recruiters/agreement');
+  termsVersion=data.version;
+  by('recruiter-agreement-text').textContent=data.text;
+  by('recruiter-agreement-text').hidden=false;
+  by('recruiter-agreement-consent').hidden=false;
+  by('recruiter-agree-checkbox').checked=false;
+  by('recruiter-accept-agreement').disabled=true;
+  financeNote('Review these terms before accepting.');
+ }catch{
+  termsVersion=null;
+  by('recruiter-agreement-text').hidden=true;
+  by('recruiter-agreement-consent').hidden=true;
+  financeNote('An approved agreement is not yet available. No financial authorization was recorded.');
+ }
+});
+by('recruiter-agree-checkbox').addEventListener('change',()=>{
+ by('recruiter-accept-agreement').disabled=
+ !by('recruiter-agree-checkbox').checked||!termsVersion;
+});
+by('recruiter-accept-agreement').addEventListener('click',async()=>{
+ if(!termsVersion||!by('recruiter-agree-checkbox').checked)return;
+ try{
+  await recruiterPost('/recruiters/agreement',{version:termsVersion,accepted:true});
+  financeNote('Agreement recorded securely. You may set up bank payments.');
+ }catch{financeNote('Agreement was not accepted. No financial authorization was recorded.');}
+});
+by('recruiter-bank-onboard').addEventListener('click',async()=>{
+ financeNote('Requesting secure payment setup.');
+ try{
+  const response=await recruiterPost('/recruiters/bank/onboard',{});
+  // Never navigate to a client-controlled URL or collect bank details locally.
+  const destination=new URL(response.url);
+  if(destination.protocol!=='https:'||!destination.hostname.endsWith('.stripe.com'))
+   throw Error('untrusted_financial_host');
+  window.location.assign(destination.href);
+ }catch{financeNote('Bank setup is not yet available, or the approved agreement is required.');}
+});
+by('recruiter-bank-status').addEventListener('click',async()=>{
+ try{
+  const status=await request('/recruiters/bank/status');
+  financeNote(status.ready?'Your payment account has been verified by the provider.':
+   'Bank or identity verification is still required. No deposit is confirmed.');
+ }catch{financeNote('The payment provider could not be verified. No deposit is confirmed.');}
+});
+`;
+  html=html.replace('onAuthStateChanged(auth,p=>refresh(p));',
+    financeJs+'onAuthStateChanged(auth,p=>refresh(p));');
   return html;
 }
 module.exports={portalHtml};

@@ -784,6 +784,65 @@ app.post('/recruiters/accept',requireRecruiterInviteLaunch,requireAuth,
   });
   return res.status(out.ok?200:409).json(out);
 });
+// Reuse the existing verified recruiter identity; the agreement is served from
+// one approved immutable version, not a client-submitted statement of terms.
+const recruiterFinance=require('./recruiter-connect-finance');
+const recruiterAgreement=require('./recruiter-agreement');
+function approvedRecruiterTerms(){
+  return recruiterAgreement.termsConfig({
+    text:readKey('AR_RECRUITER_TERMS_TEXT'),
+    version:readKey('AR_RECRUITER_TERMS_VERSION'),
+    expiresAt:Number(readKey('AR_RECRUITER_TERMS_EXPIRY_MS')),
+    legalApproved:readKey('AR_RECRUITER_LEGAL_SIGNOFF')==='1',
+  });
+}
+const recruiterMoneyEnabled=()=>
+  readKey('AR_RECRUITER_PROGRAM_ENABLED')==='1'&&
+  readKey('AR_RECRUITER_LEGAL_SIGNOFF')==='1';
+app.get('/recruiters/agreement',requireAuth,requireFreshAuth,
+  requireVerifiedEmail,recruiterLimit,(req,res)=>{
+  res.set('Cache-Control','private, no-store, max-age=0');
+  const terms=approvedRecruiterTerms();
+  if(!terms)return res.status(503).json({ok:false,code:'agreement_not_approved'});
+  // Recruiters read this exact text before affirmatively accepting it.
+  return res.json({ok:true,version:terms.version,text:terms.text,expiresAt:terms.expiresAt});
+});
+app.post('/recruiters/agreement',requireAuth,requireFreshAuth,
+  requireVerifiedEmail,recruiterLimit,async(req,res)=>{
+  res.set('Cache-Control','private, no-store, max-age=0');
+  if(!recruiterMoneyEnabled())
+    return res.status(503).json({ok:false,code:'recruiter_program_not_commissioned'});
+  const terms=approvedRecruiterTerms();
+  if(!terms)return res.status(503).json({ok:false,code:'agreement_not_approved'});
+  const out=await recruiterAgreement.acceptRecruiterAgreement({
+    db:adminDb(),uid:String(req.uid),verifiedEmail:req.email,
+    version:req.body?.version,accepted:req.body?.accepted===true,terms,
+  });
+  return res.status(out.ok?200:out.reason==='not_authorized'?403:409).json(out);
+});
+// Stripe-hosted bank, KYC and tax setup. Never send bank details through our API.
+app.post('/recruiters/bank/onboard',requireAuth,requireFreshAuth,
+  requireVerifiedEmail,recruiterLimit,async(req,res)=>{
+  res.set('Cache-Control','private, no-store, max-age=0');
+  if(!recruiterMoneyEnabled()||!approvedRecruiterTerms())
+    return res.status(503).json({ok:false,code:'recruiter_finance_not_commissioned'});
+  const out=await recruiterFinance.hostedRecruiterOnboarding({
+    db:adminDb(),stripe:stripeClient(),uid:String(req.uid),verifiedEmail:req.email,
+    programEnabled:true,legalApproved:true,
+  });
+  return res.status(out.ok?200:out.reason==='not_authorized'?403:409).json(out);
+});
+app.get('/recruiters/bank/status',requireAuth,requireFreshAuth,
+  requireVerifiedEmail,recruiterLimit,async(req,res)=>{
+  res.set('Cache-Control','private, no-store, max-age=0');
+  if(!recruiterMoneyEnabled())
+    return res.status(503).json({ok:false,code:'recruiter_finance_not_commissioned'});
+  const out=await recruiterFinance.verifyRecruiterBank({
+    db:adminDb(),stripe:stripeClient(),uid:String(req.uid),verifiedEmail:req.email,
+  });
+  return res.status(out.ok?200:out.reason==='not_authorized'?403:409).json(out);
+});
+
 app.get('/recruiters/link',requireAuth,requireFreshAuth,requireVerifiedEmail,
   recruiterLimit,async(req,res)=>{
   res.set('Cache-Control','private, no-store, max-age=0');
@@ -887,7 +946,9 @@ app.post('/referrals/claim',requireReferralLaunch,requireAuth,
       const verified=await require('firebase-admin/auth').getAuth().getUser(String(req.uid));
       if(verified.disabled)return res.status(403).json({ok:false,code:'account_disabled'});
       const createdAt=Date.parse(verified.metadata.creationTime||'');
-      const out=await referrals.claim({db,uid:String(req.uid),code,role,authCreatedAtMs:createdAt});
+      const program=require('./recruiter-finance-policy').fromConfig(readKey);
+      const out=await referrals.claim({db,uid:String(req.uid),code,role,
+        authCreatedAtMs:createdAt,program});
       return res.status(out.ok?200:out.reason==='claim_unavailable'?503:409).json(out);
     }catch{
       return res.status(503).json({ok:false,code:'account_verification_unavailable'});
@@ -2477,6 +2538,13 @@ async function runAllSweeps({criticalOnly=false}={}) {
           .sweepSettledTravelActivity({db:adminDb()});
         if(!activity.ok||activity.blocked)
           console.warn('[recruiter-travel-activity] reconciliation requires review');
+      }
+      const program=require('./recruiter-finance-policy').fromConfig(readKey);
+      if(program.enabled){
+        const financial=await require('./recruiter-finance-queue')
+          .sweepRecruiterFinance({db:adminDb(),program});
+        if(!financial.ok||financial.blocked||financial.maturityBlocked)
+          console.warn('[recruiter-finance] bounded reconciliation requires review');
       }
       return out;
     },
