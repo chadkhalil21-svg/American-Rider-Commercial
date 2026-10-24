@@ -138,6 +138,9 @@ async function transferRecruiterCommission({db,stripe,payableId,programEnabled=f
     if(x.uid!==payable.recruiterUid||x.amountCents!==payable.amountCents||
        x.accountId!==payable.stripeRecruiterAccountId)
       return {ok:false,reason:'immutable_transfer_conflict'};
+    if(payable.status==='transferred_to_provider' &&
+       x.state==='provider_transferred' && payable.stripeTransferId===x.transferId)
+      return {ok:true,alreadyConfirmed:true,transferId:x.transferId};
     return {ok:true,payable,newAttempt:false};
    }
    if(payable.status!=='available'||!validUid(payable.recruiterUid)||
@@ -170,6 +173,8 @@ async function transferRecruiterCommission({db,stripe,payableId,programEnabled=f
   });
  }catch{return {ok:false,reason:'ledger_unavailable'};}
  if(!state.ok)return state;
+ if(state.alreadyConfirmed)return {ok:true,status:'transferred_to_provider',
+   transferId:state.transferId,bankPaid:false,alreadyTransferred:true};
  const p=state.payable;
  // Confirm the same Stripe hosted account before transferring any platform funds.
  let account;
