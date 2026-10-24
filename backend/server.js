@@ -806,6 +806,7 @@ app.get('/recruiters/me',requireAuth,requireVerifiedEmail,recruiterLimit,async(r
   const out=await recruiterPortal.recruiterSummary({
     db:adminDb(),uid:String(req.uid),verifiedEmail:req.email,
     programEnabled,linkVerified:readKey('AR_APP_LINKS_VERIFIED')==='1',
+    trackingEnabled:readKey('AR_RECRUITER_TRAVEL_TRACKING_ENABLED')==='1',
     activityTrackingEnabled:readKey('AR_RECRUITER_TRAVEL_TRACKING_ENABLED')==='1',
   });
   return res.status(out.ok?200:out.reason==='not_enrolled'?404:
@@ -819,6 +820,7 @@ app.get('/recruiters/introductions',requireAuth,requireFreshAuth,
   const role=req.query?.role,after=req.query?.after??null;
   const result=await require('./recruiter-roster').listIntroductions({
     db:adminDb(),uid:String(req.uid),verifiedEmail:req.email,role,after,
+    trackingEnabled:readKey('AR_RECRUITER_TRAVEL_TRACKING_ENABLED')==='1',
   });
   res.set('Cache-Control','private, no-store, max-age=0');
   return res.status(result.ok?200:
