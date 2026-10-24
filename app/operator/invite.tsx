@@ -9,7 +9,7 @@ import { OperatorBar, OperatorDrawer, OperatorScreen } from '../../src/component
 import { BackLink, Card } from '../../src/components/UI';
 import { useLanguage } from '../../src/state/LanguageContext';
 import { useOperator } from '../../src/state/OperatorContext';
-import { personalInvitation, type InviteRole } from '../../src/backend/referrals';
+import { personalInvitationDetails, type InviteRole } from '../../src/backend/referrals';
 import { colors } from '../../src/theme';
 
 export default function OperatorInvitations(){
@@ -24,9 +24,12 @@ export default function OperatorInvitations(){
     }
     setBusy(true);
     try{
-      const url=await personalInvitation(role);
-      if(!url){Alert.alert(t('operator.referralInviteUnavailable'));return;}
-      await Share.share({message:`American Rider · ${url}`});
+      const invitation=await personalInvitationDetails(role);
+      if(!invitation){Alert.alert(t('operator.referralInviteUnavailable'));return;}
+      const message=invitation.compensationActive
+        ?t('recruiter.shareDisclosure')+' '+invitation.url
+        :`American Rider · ${invitation.url}`;
+      await Share.share({message});
     }catch{Alert.alert(t('operator.referralInviteUnavailable'));}
     finally{setBusy(false);}
   };

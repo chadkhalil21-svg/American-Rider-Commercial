@@ -77,6 +77,16 @@ class Db {
  assert.equal(dupe.duplicate,true);
  const gate={db,stripe,uid:UID,verifiedEmail:'recruiter@example.com',
   programEnabled:true,legalApproved:true,now:NOW};
+ // An Operator already paid through Stripe must not be enrolled into a
+ // second Recruiter Connect account, charged twice, or have the Operator's
+ // payout schedule changed.
+ db.rows.set('users/'+UID,{stripeAccountId:'acct_ExistingOperatorAccount123'});
+ const dual=await hostedRecruiterOnboarding(gate);
+ assert.equal(dual.reason,'operator_connect_already_exists_no_second_account');
+ assert.equal(counter.accounts,0);
+ assert.equal(counter.payoutConfigurations,0);
+ assert.equal(db.rows.get('recruiter_accounts/'+UID).stripeRecruiterCreateStartedAt,undefined);
+ db.rows.delete('users/'+UID);
  assert.equal((await hostedRecruiterOnboarding({...gate,legalApproved:false})).reason,'program_or_legal_off');
  let result=await hostedRecruiterOnboarding(gate);
  assert.equal(result.ok,true);

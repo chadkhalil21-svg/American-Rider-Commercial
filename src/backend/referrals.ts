@@ -17,12 +17,20 @@ const deadline=async (url:string, method:'GET'|'POST',body?:Record<string,string
     return {status:res.status,data};
   }catch{return null;}finally{clearTimeout(timeout);}
 };
-export async function personalInvitation(role:InviteRole):Promise<string|null>{
+export type PersonalInvitationDetails={url:string;compensationActive:boolean};
+// One existing authenticated API call returns URL and verified paid-program state.
+// Ordinary invitations remain free, unchanged and available without recruiter status.
+export async function personalInvitationDetails(role:InviteRole):Promise<PersonalInvitationDetails|null>{
   if (process.env.EXPO_PUBLIC_REFERRALS_ENABLED !== '1') return null;
   const out=await deadline(`${PAYMENT_SERVER_URL}/referrals/share?role=${role}`,'GET');
   const url=out?.status===200?out.data?.url:null;
-  return typeof url==='string'&&
-    /^https:\/\/americanrider\.tech\/join\?r=[A-Z0-9]{8,32}&role=(traveler|operator)$/.test(url)?url:null;
+  if(typeof url!=='string'||
+     !/^https:\/\/americanrider\.tech\/join\?r=[A-Z0-9]{8,32}&role=(traveler|operator)$/.test(url)||
+     !url.endsWith('&role='+role))return null;
+  return {url,compensationActive:out?.data?.compensationActive===true};
+}
+export async function personalInvitation(role:InviteRole):Promise<string|null>{
+  return (await personalInvitationDetails(role))?.url??null;
 }
 export async function recordInvitation(code:string,role:InviteRole):Promise<'recorded'|'finished'|'retry'>{
   if (process.env.EXPO_PUBLIC_REFERRALS_ENABLED !== '1') return 'retry';

@@ -35,6 +35,7 @@ class MemoryDb {
   const first=await shareLink({db,uid,role:'traveler',now});
   assert.equal(first.ok,true);
   assert.match(first.url,/^https:\/\/americanrider\.app\/join\?r=[23456789ABCDEFGHJKLMNPQRSTUVWXYZ]{12}&role=traveler$/);
+  assert.equal(first.compensationActive,false);
   const afterFirst=db.writes;
   const second=await shareLink({db,uid,role:'operator',now});
   assert.equal(second.ok,true);
@@ -87,6 +88,17 @@ class MemoryDb {
     approvedBy:'founder',approvedAt:now-100,agreementAcceptedAt:now-90,
     expiresAt:now+24*3600_000,allowedRoles:['operator','traveler']};
   db.rows.set('recruiter_approvals/inviter',approval);
+  const beforePaidShare=db.reads;
+  const paidShare=await shareLink({db,uid:'inviter',role:'operator',now,
+    origin:'https://americanrider.tech',paidRecruiterProgramEnabled:true});
+  assert.equal(paidShare.ok,true);
+  assert.equal(paidShare.compensationActive,true);
+  // Same number of reads as before; paid status uses the pre-existing approval lookup.
+  assert.equal(db.reads-beforePaidShare,4);
+  const unpaidShare=await shareLink({db,uid:'inviter',role:'traveler',now,
+    origin:'https://americanrider.tech',paidRecruiterProgramEnabled:false});
+  assert.equal(unpaidShare.ok,true);
+  assert.equal(unpaidShare.compensationActive,false);
   const paidTraveler=await claim({db,uid:'paid-traveler-001',code,role:'traveler',
     authCreatedAtMs:now-2000,now,
     paidRecruiterProgram:{enabled:true,version:'recruiter-15c-20261024-v1'}});

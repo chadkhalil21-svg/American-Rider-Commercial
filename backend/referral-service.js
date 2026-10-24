@@ -13,7 +13,7 @@ function formatLink(code,role,origin){
   const base=inviteLink(code,origin);
   return base&&validRole(role)?base+'&role='+role:null;
 }
-async function shareLink({db,uid,role,now=Date.now(),origin}){
+async function shareLink({db,uid,role,now=Date.now(),origin,paidRecruiterProgramEnabled=false}){
   if(!db||!uid||!validRole(role))return {ok:false,reason:'invalid_request'};
   const ownerRef=db.collection('users').doc(uid);
   try {
@@ -29,13 +29,18 @@ async function shareLink({db,uid,role,now=Date.now(),origin}){
          (!account.exists||!approval.exists||
           !recruiterMayRefer(account.data(),approval.data(),role,now)))
         throw Error('unapproved_recruiter');
+      // The account and approval records have already been read for eligibility.
+      // Return one server-authoritative compensation state without another query.
+      const compensationActive=paidRecruiterProgramEnabled===true&&
+        account.exists&&approval.exists&&
+        recruiterMayRefer(account.data(),approval.data(),role,now);
       const existing=owner.exists?normalizedCode(owner.data()?.referralCode):null;
       // A cached profile code is not proof that the server-owned registry
       // still belongs to this account. Never share another person's link.
       if(existing){
         const registered=await tx.get(db.collection('referral_codes').doc(existing));
         if(registered.exists&&registered.data()?.ownerUid===uid&&
-           registered.data()?.status==='active')return existing;
+           registered.data()?.status==='active')return {code:existing,compensationActive};
       }
       // 12 human-readable Crockford-style base32 characters (60 bits).
       // Public attribution identifier, not an authorization or payment secret.
@@ -48,9 +53,10 @@ async function shareLink({db,uid,role,now=Date.now(),origin}){
       if(check.exists)throw Error('referral_code_collision');
       tx.create(ref,{ownerUid:uid,createdAt:now,status:'active'});
       tx.set(ownerRef,{referralCode:fresh},{merge:true});
-      return fresh;
+      return {code:fresh,compensationActive};
     });
-    return {ok:true,url:formatLink(code,role,origin)};
+    return {ok:true,url:formatLink(code.code,role,origin),
+      compensationActive:code.compensationActive};
   }catch{return {ok:false,reason:'share_unavailable'};}
 }
 // Firebase Auth creation time must come from the ADMIN provider and cannot be
