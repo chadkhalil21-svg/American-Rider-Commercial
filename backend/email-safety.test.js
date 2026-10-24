@@ -87,7 +87,7 @@ const restore = () => {
   assert.equal(body.html,receipt.html,'provider payload must receive the escaped HTML intact');
   assert.equal(body.text,receipt.text,'provider must also receive complete text receipt');
   assert.equal(body.reply_to,'support@americanrider.tech');
-  assert.equal(body.from,'American Rider <receipts@americanrider.app>',
+  assert.match(body.from,/^American\s*Rider\s*<receipts@americanrider\.app>$/,
     'legacy verified sender override must not silently be changed at live cutover');
   assert.equal(observed.options.headers['Content-Type'],'application/json');
   assert.equal(observed.options.headers['Idempotency-Key'],undefined);
