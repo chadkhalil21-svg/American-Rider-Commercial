@@ -784,6 +784,7 @@ app.post('/recruiters/accept',requireRecruiterInviteLaunch,requireAuth,
 });
 app.get('/recruiters/link',requireAuth,requireFreshAuth,requireVerifiedEmail,
   recruiterLimit,async(req,res)=>{
+  res.set('Cache-Control','private, no-store, max-age=0');
   const flags=readKey('AR_RECRUITER_PROGRAM_ENABLED')==='1'&&
     readKey('AR_REFERRALS_ENABLED')==='1'&&
     readKey('AR_RECRUITER_LEGAL_SIGNOFF')==='1';
@@ -796,6 +797,7 @@ app.get('/recruiters/link',requireAuth,requireFreshAuth,requireVerifiedEmail,
   return res.status(out.ok?200:409).json(out);
 });
 app.get('/recruiters/me',requireAuth,requireVerifiedEmail,recruiterLimit,async(req,res)=>{
+  res.set('Cache-Control','private, no-store, max-age=0');
   const programEnabled=readKey('AR_RECRUITER_PROGRAM_ENABLED')==='1'&&
     readKey('AR_REFERRALS_ENABLED')==='1'&&
     readKey('AR_RECRUITER_LEGAL_SIGNOFF')==='1';
