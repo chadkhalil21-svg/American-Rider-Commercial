@@ -4,6 +4,10 @@
 // "Conformément à votre demande de transport" fails exactly as hard as "no surge".
 export default {
   auth: {
+    invitationCodeOptional: "Vous avez un code d’invitation ? (facultatif)",
+    invitationCodePlaceholder: "Saisir le code d’invitation",
+    invitationCodeInvalid: "Vérifiez le code ou laissez le champ vide pour continuer.",
+    invitationCodeVerifyNote: "American Rider vérifiera le code après la connexion.",
     tagline: 'Safe. Reliable. American.',
     continueWithApple: 'Continuer avec Apple',
     continueWithGoogle: 'Continuer avec Google',
@@ -57,6 +61,14 @@ export default {
   },
 
   operator: {
+    referralQuestion: "Avez-vous été recommandé à American Rider ?",
+    referralDescription: "Si quelqu’un vous a présenté American Rider, saisissez son code avant de terminer la qualification.",
+    referralCodeOptional: "Code de recommandation (facultatif)",
+    referralCodePlaceholder: "Saisir le code",
+    referralRecorded: "Recommandation enregistrée. Cela ne détermine pas l’admissibilité à une rémunération.",
+    referralApply: "Appliquer le code",
+    referralChecking: "Vérification du code…",
+    referralFailed: "Ce code n’a pas pu être appliqué. Vérifiez-le ou contactez l’assistance avant de terminer la qualification.",
     referralInviteTitle: "Invitations",
     referralInviteTraveler: "Inviter un Voyageur",
     referralInviteOperator: "Inviter un Opérateur",
