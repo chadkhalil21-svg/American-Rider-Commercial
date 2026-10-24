@@ -43,7 +43,7 @@ assert.equal(unavailable.reason,'not_approved');
 db.rows.set('recruiter_approvals/'+uid,approved);
 const one=await approvedRecruiterLink({db,uid,role:'operator',now,programEnabled:true,linkVerified:true});
 assert.equal(one.ok,true);
-assert.match(one.url,/^https:\/\/americanrider\.app\/join\?r=[A-F0-9]{24}&role=operator$/);
+assert.match(one.url,/^https:\/\/americanrider\.tech\/join\?r=[A-F0-9]{24}&role=operator$/);
 assert.equal(one.compensationActive,false);
 const before=db.writes;
 const other=await approvedRecruiterLink({db,uid,role:'traveler',now,programEnabled:true,linkVerified:true});
