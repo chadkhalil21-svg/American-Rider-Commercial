@@ -57,7 +57,8 @@ async function shareLink({db,uid,role,now=Date.now(),origin}){
 // supplied by the phone. Existing Travelers do NOT become new Travelers by a
 // new link. Existing Travelers becoming Operators have distinct new role intent.
 // A qualified Operator cannot be attributed to another new recruiting partner.
-async function claim({db,uid,code,role,authCreatedAtMs,now=Date.now()}){
+async function claim({db,uid,code,role,authCreatedAtMs,now=Date.now(),
+  paidRecruiterProgram={enabled:false,version:null}}){
   const token=normalizedCode(code);
   if(!db||!uid||!token||!validRole(role))return {ok:false,reason:'invalid_request'};
   if(!Number.isFinite(authCreatedAtMs)||authCreatedAtMs>now||
@@ -104,13 +105,21 @@ async function claim({db,uid,code,role,authCreatedAtMs,now=Date.now()}){
         referrerEligible:entry.status==='active',
       });
       if(!decision.ok)return decision;
+      // A verified, approved independent Recruiter MAY earn only under the
+      // separately commissioned program. Ordinary personal invitations never
+      // become paid referrals merely because the rate has been approved.
+      const paid=Boolean(recruiterSnap.exists&&approvalSnap.exists&&
+        paidRecruiterProgram?.enabled===true&&
+        typeof paidRecruiterProgram.version==='string'&&
+        paidRecruiterProgram.version.length>0);
       tx.create(claimRef,{
         inviterUid:entry.ownerUid,inviteeUid:uid,role,
-        claimedAt:now,program:'pending',rewardEnabled:false,
+        claimedAt:now,program:paid?paidRecruiterProgram.version:'pending',
+        programVersion:paid?paidRecruiterProgram.version:null,rewardEnabled:paid,
         // Never change this from a client or subsequent shared link.
         referralVersion:1,
       });
-      return {ok:true,role,recorded:true,rewardEnabled:false};
+      return {ok:true,role,recorded:true,rewardEnabled:paid};
     });
   }catch{return {ok:false,reason:'claim_unavailable'};}
 }
