@@ -802,7 +802,7 @@ app.get('/recruiters/me',requireAuth,requireVerifiedEmail,recruiterLimit,async(r
     readKey('AR_REFERRALS_ENABLED')==='1'&&
     readKey('AR_RECRUITER_LEGAL_SIGNOFF')==='1';
   const out=await recruiterPortal.recruiterSummary({
-    db:adminDb(),uid:String(req.uid),
+    db:adminDb(),uid:String(req.uid),verifiedEmail:req.email,
     programEnabled,linkVerified:readKey('AR_APP_LINKS_VERIFIED')==='1',
   });
   return res.status(out.ok?200:out.reason==='not_enrolled'?404:503).json(out);
