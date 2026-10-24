@@ -63,9 +63,16 @@ async function ensureRecruiterAccount({db,stripe,uid,verifiedEmail,programEnable
  let reserved;
  try{
   reserved=await db.runTransaction(async tx=>{
-   const [a,b]=await Promise.all([tx.get(ref),tx.get(apRef)]);
+   // One additional read only during separately approved Recruiter bank
+   // enrollment. Ordinary Operator invitations and Travel perform no new reads.
+   // Never provision a second Connect recipient to the same American Rider UID.
+   const [a,b,user]=await Promise.all([
+     tx.get(ref),tx.get(apRef),tx.get(db.collection('users').doc(uid))]);
    if(!a.exists||!b.exists||emailOf(a.data()?.verifiedEmail)!==email||
       !approved(a.data(),b.data(),now))return {ok:false,reason:'not_authorized'};
+   if(user.exists&&typeof user.data()?.stripeAccountId==='string'&&
+      user.data().stripeAccountId.trim()!=='')
+     return {ok:false,reason:'operator_connect_already_exists_no_second_account'};
    const account=a.data();
    if(validAcct(account.stripeRecruiterAccountId))
      return {ok:true,id:account.stripeRecruiterAccountId,newAttempt:false};
