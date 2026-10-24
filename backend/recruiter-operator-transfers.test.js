@@ -91,7 +91,7 @@ class Db{
   }},
  };
  const args={db,stripe,batchId:BATCH,now:NOW,moneyAuthorized:true,
-  legalApproved:true,providerApproved:true,operatorSharedApproved:true};
+  providerApproved:true,operatorSharedApproved:true};
  const closed=await submitOperatorReferralTransfer({...args,operatorSharedApproved:false});
  assert.equal(closed.reason,'operator_recruiter_money_off');assert.equal(db.writes,0);
  assert.equal((await submitOperatorReferralTransfer(args)).status,'awaiting_platform_funds');
