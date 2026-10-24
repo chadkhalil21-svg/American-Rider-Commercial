@@ -3,7 +3,6 @@
 // No referral compensation, bank collection, or public self-enrollment takes place here.
 // All Firestore operations use server privilege; input data NEVER selects an account uid.
 const crypto=require('node:crypto');
-const {eligibleApproval}=require('./recruiter-approval');
 const INVITE_MS=48*60*60*1000;
 const validUid=x=>typeof x==='string'&&/^[A-Za-z0-9_-]{4,128}$/.test(x);
 const validActor=x=>typeof x==='string'&&/^[A-Za-z0-9_-]{1,80}$/.test(x);
