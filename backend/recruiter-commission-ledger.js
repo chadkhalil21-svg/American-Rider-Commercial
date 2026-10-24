@@ -192,6 +192,12 @@ async function reserveRecruiterPayout({db,uid,batchId,eventIds,authorization,
   const netCents=amount-feeCents;
   if(!Number.isSafeInteger(netCents)||netCents<1)
     return state({},'invalid_net_payout');
+  // US Stripe Connect bank payouts generally require at least $1. A 15c
+  // final balance remains owed and needs an alternative lawful settlement;
+  // never transfer it to a stand-alone Stripe account it cannot pay out.
+  // Existing Operators receive commissions in an aggregate existing balance.
+  if(!shared&&netCents<100)
+    return state({},'bank_provider_minimum_not_met');
   for(let i=0;i<eventIds.length;i++)
     tx.update(db.collection('referral_reward_events').doc(eventIds[i]),
       {status:'reserved',payoutBatchId:batchId});
