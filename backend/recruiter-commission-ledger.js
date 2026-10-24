@@ -196,6 +196,13 @@ async function reconcileRecruiterPayout({db,batchId,proof,now=Date.now()}={}){
   if(!p||!validUid(p.uid)||!Array.isArray(p.eventIds)||
      p.providerPaymentId!==proof.providerPaymentId)return state({},'provider_payment_mismatch');
   if(p.status===proof.status)return {ok:true,duplicate:true,status:p.status};
+  // A failed bank deposit returns funds to the Connected Stripe account,
+  // not to the American Rider platform. Do NOT release this Recruiter's
+  // wallet for a second transfer until authenticated provider evidence
+  // confirms an actual reversal back to the platform balance.
+  if(p.provider==='stripe_connect'&&proof.status==='failed'&&
+     proof.fundsReturnedToPlatform!==true)
+    return state({},'bank_return_requires_platform_fund_recovery');
   if(p.status!=='submitted')return state({},'payout_not_submitted');
   const walletRef=db.collection('recruiter_commission_wallets').doc(p.uid);
   const ws=await tx.get(walletRef),w=walletOf(ws);
