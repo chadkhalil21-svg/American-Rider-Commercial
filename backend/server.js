@@ -207,7 +207,7 @@ app.set('trust proxy', 1);
 // re-serialised the body, those bytes are gone and every event fails verification — which is
 // the classic way this endpoint ends up either broken or, worse, "fixed" by skipping the check.
 const PROVIDER_HANDLERS = { stripe: event =>
-  ['payout.paid','payout.failed'].includes(event?.type)&&
+  ['payout.paid','payout.failed','payout.canceled'].includes(event?.type)&&
   event?.data?.object?.metadata?.ar_recruiter_batch
     ? require('./recruiter-stripe-payout').handleRecruiterConnectPayoutEvent({
         db:adminDb(),event,
