@@ -732,7 +732,7 @@ app.get('/ops/recruiters',requireOps,requireRecruiterFounder,async(req,res)=>{
       '<script>const status=document.getElementById("status");'+
       'async function post(url,data){try{const r=await fetch(url,{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json","x-ar-ops-action":"1"},body:JSON.stringify(data)});const b=await r.json();status.textContent=b.ok?"Action recorded. Refresh to review the updated status.":"This action was not completed. "+(b.code||b.reason||"Please retry.");}catch{status.textContent="Service unavailable. No action confirmed."}}'+
       'document.getElementById("invite").onsubmit=e=>{e.preventDefault();const roles=[];if(document.getElementById("operator").checked)roles.push("operator");if(document.getElementById("traveler").checked)roles.push("traveler");post("/ops/recruiters/invite",{email:document.getElementById("email").value,allowedRoles:roles});};'+
-      'document.querySelectorAll("button[data-uid]").forEach(b=>b.onclick=()=>post("/ops/recruiters/"+encodeURIComponent(b.dataset.uid)+"/review",{decision:b.dataset.action}));</script>');
+      'document.querySelectorAll("button[data-uid]").forEach(b=>b.onclick=()=>{if(window.confirm("Confirm "+b.dataset.action+" for this recruiter?"))post("/ops/recruiters/"+encodeURIComponent(b.dataset.uid)+"/review",{decision:b.dataset.action});});</script>');
     res.set('Cache-Control','private, no-store');
     res.set('Referrer-Policy','no-referrer');
     return res.type('html').send(html);
@@ -769,7 +769,9 @@ app.post('/ops/recruiters/invite',requireOps,requireRecruiterFounder,
   return res.json({ok:true,expiresAt:issued.expiresAt,delivery:'submitted'});
 });
 app.post('/ops/recruiters/:uid/review',requireOps,requireRecruiterFounder,
-  requireOpsMutation,recruiterInviteLimit,requireRecruiterInviteLaunch,async(req,res)=>{
+  // Founder review and emergency suspension must work even while invitations are OFF.
+  // Public enrollment and rewards retain their separate launch gates.
+  requireOpsMutation,recruiterInviteLimit,async(req,res)=>{
   const out=await recruiterPortal.founderDecision({
     db:adminDb(),uid:req.params.uid,actor:req.opsUser,decision:req.body?.decision,
   });
@@ -805,7 +807,8 @@ app.get('/recruiters/me',requireAuth,requireVerifiedEmail,recruiterLimit,async(r
     db:adminDb(),uid:String(req.uid),verifiedEmail:req.email,
     programEnabled,linkVerified:readKey('AR_APP_LINKS_VERIFIED')==='1',
   });
-  return res.status(out.ok?200:out.reason==='not_enrolled'?404:503).json(out);
+  return res.status(out.ok?200:out.reason==='not_enrolled'?404:
+    out.reason==='account_inactive'?403:503).json(out);
 });
 
 // Read-only, role-scoped progress list. A logged-in recruiter can see only
