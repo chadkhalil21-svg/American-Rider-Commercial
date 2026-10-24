@@ -126,13 +126,18 @@ async function reserveRecruiterPayout({db,uid,batchId,eventIds,authorization,
   const accountRef=db.collection('recruiter_accounts').doc(uid);
   const month=new Date(now).toISOString().slice(0,7).replace('-','');
   const feeRef=db.collection('recruiter_connect_fee_months').doc(uid+'_'+month);
-  const [ws,acct,feeSnap,...rewardSnaps]=await Promise.all([
-    tx.get(walletRef),tx.get(accountRef),tx.get(feeRef),
+  const userRef=db.collection('users').doc(uid);
+  const [ws,acct,feeSnap,userSnap,...rewardSnaps]=await Promise.all([
+    tx.get(walletRef),tx.get(accountRef),tx.get(feeRef),tx.get(userRef),
     ...eventIds.map(id=>tx.get(db.collection('referral_reward_events').doc(id)))]);
   const a=acct.exists?acct.data():{},w=walletOf(ws);
+  const shared=a.payoutMode==='existing_operator_connect';
+  if(shared&&(!userSnap.exists||userSnap.data().stripeAccountId!==a.providerRecipientRef))
+    return state({},'operator_connected_account_changed');
   if(a.status!=='approved'||a.agreementAccepted!==true||
      a.identityVerified!==true||a.payoutEligibilityVerified!==true||
-     a.bankVerified!==true||a.taxReady!==true||a.connectFeeConsentVersion!=='recruiter_connect_2026_10_v1'||
+     a.bankVerified!==true||a.taxReady!==true||
+     (!shared&&a.connectFeeConsentVersion!=='recruiter_connect_2026_10_v1')||
      a.bankProvider!=='stripe_connect'||
      a.providerRecipientStatus!=='active'||!/^acct_[A-Za-z0-9]{8,}$/.test(a.providerRecipientRef||'')||
      !walletValid(w))return state({},'recipient_not_verified');
@@ -153,7 +158,7 @@ async function reserveRecruiterPayout({db,uid,batchId,eventIds,authorization,
   // A concurrent reserved first payout prevents a second batch evading
   // or double-paying the fee. No fee while simply enrolled or earning.
   if(fee&&fee.status==='reserved')return state({},'prior_monthly_payout_pending');
-  const feeCents=fee?.status==='collected'?0:200;
+  const feeCents=shared?0:fee?.status==='collected'?0:200;
   if(amount<=feeCents)return state({},'bank_payout_less_than_active_fee');
   const netCents=amount-feeCents;
   if(!Number.isSafeInteger(netCents)||netCents<1)
@@ -165,6 +170,7 @@ async function reserveRecruiterPayout({db,uid,batchId,eventIds,authorization,
     grossCents:amount,feeCents,netCents,feeMonth:month,
     feeDisclosureVersion:a.connectFeeConsentVersion,
     provider:'stripe_connect',currency:'usd',
+    payoutMode:shared?'existing_operator_connect':'independent_recruiter',
     recipientRef:a.providerRecipientRef,status:'reserved',createdAt:now,
     nextAttemptAt:now,
     // These are commitments, not proof of a connected transfer or bank deposit.
@@ -189,7 +195,9 @@ async function recordRecruiterPayoutSubmission({db,batchId,proof,now=Date.now()}
   if(!p)return state({},'batch_not_found');
   if(p.status==='submitted'&&p.providerPaymentId===proof.providerPaymentId)
     return {ok:true,duplicate:true};
-  if(p.status!=='reserved')return state({},'batch_state_conflict');
+  if(p.status!=='reserved'&&
+      !(p.payoutMode==='existing_operator_connect'&&p.status==='operator_balance_pending'))
+    return state({},'batch_state_conflict');
   tx.update(ref,{status:'submitted',providerPaymentId:proof.providerPaymentId,
     nextAttemptAt:null,submittedAt:now});
   return {ok:true,status:'submitted'};
