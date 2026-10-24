@@ -46,6 +46,11 @@ const out=(route,html)=>{const dir=path.join(root,route);fs.mkdirSync(dir,{recur
 fs.mkdirSync(root,{recursive:true});
 fs.mkdirSync(path.join(root,"assets"),{recursive:true});
 fs.writeFileSync(path.join(root,"assets","site.css"),css,"utf8");
+ // QR rendering is entirely local: no third-party image API sees personal links.
+ fs.copyFileSync(path.join(__dirname,"vendor","qrcode-generator-2.0.4.js"),
+   path.join(root,"assets","qrcode-generator-2.0.4.js"));
+ fs.copyFileSync(path.join(__dirname,"vendor","LICENSE-qrcode-generator"),
+   path.join(root,"assets","LICENSE-qrcode-generator.txt"));
 fs.writeFileSync(path.join(root,"favicon.svg"),'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" fill="#101b31"/><text x="50%" y="52%" fill="#fff" font-size="23" font-family="Arial,sans-serif" font-weight="700" letter-spacing="-1" text-anchor="middle" dominant-baseline="middle">AR</text></svg>',"utf8");
 for(const [route,page] of Object.entries(pages))out(route,render(page.title,page.body,route));
 // Publish the private portal shell without exposing recruiter records in static assets.
