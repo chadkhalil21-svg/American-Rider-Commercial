@@ -104,6 +104,43 @@ def public_readiness(sha=None, require_manual_capture=False):
     return True
 
 
+def require_live_recruiter_links():
+    """Never assert verified app links without checking official live JSON.
+    No credentials, tokens, or account information are requested by this probe.
+    """
+    for name in ("/.well-known/apple-app-site-association",
+                 "/.well-known/assetlinks.json"):
+        try:
+            with urllib.request.urlopen(
+                urllib.request.Request("https://americanrider.tech"+name,
+                    headers={"Accept":"application/json"}),timeout=20,
+            ) as response:
+                if response.status!=200:
+                    raise ValueError("bad status")
+                payload=json.loads(response.read(100_000))
+            if name.endswith("apple-app-site-association"):
+                apps=[app for detail in payload.get("applinks",{}).get("details",[])
+                      for app in detail.get("appIDs",[])]
+                if "6Z24V6YD4A.com.americanrider.app" not in apps:
+                    raise ValueError("Apple association mismatch")
+            else:
+                records=[x for x in payload if x.get("target",{}).get("namespace")=="android_app"
+                         and x.get("target",{}).get("package_name")=="com.americanrider.app"]
+                if not any(re.fullmatch(r"(?:[0-9A-Fa-f]{2}:){31}[0-9A-Fa-f]{2}",fp)
+                           for x in records for fp in x.get("target",{}).get("sha256_cert_fingerprints",[])):
+                    raise ValueError("Google association missing verified signing fingerprint")
+        except Exception:
+            raise Stop("Native links are not yet verifiable at americanrider.tech; no paid recruiter activation.") from None
+    for route in ("/recruitment/accept/","/recruiters/portal/"):
+        try:
+            with urllib.request.urlopen("https://americanrider.tech"+route,timeout=20) as response:
+                if response.status!=200:
+                    raise ValueError("page not available")
+        except Exception:
+            raise Stop("Live Recruiter acceptance or portal page is unavailable; no activation.") from None
+    print("Verified official live association JSON and both Recruiter enrollment pages.")
+
+
 def wait_for_created_ready_revision(previous, attempts=16, delay_seconds=8):
     """Google may retain the previously routed revision in latestReadyRevisionName.
 
@@ -140,8 +177,15 @@ def wait_for_created_ready_revision(previous, attempts=16, delay_seconds=8):
 
 def main():
     sha=os.environ.get("GITHUB_SHA","")
-    if os.environ.get("FOUNDER_CONFIRM")!="DEPLOY_EXISTING_PAID_CODE_ONLY" or not re.fullmatch(r"[0-9a-f]{40}",sha):
+    approval=os.environ.get("FOUNDER_CONFIRM")
+    valid={"DEPLOY_EXISTING_PAID_CODE_ONLY","DEPLOY_AND_ACTIVATE_PAID_RECRUITERS"}
+    if approval not in valid or not re.fullmatch(r"[0-9a-f]{40}",sha):
         raise Stop("Manual founder approval and exact current branch SHA required.")
+    activate_recruiters=approval=="DEPLOY_AND_ACTIVATE_PAID_RECRUITERS"
+    actor=os.environ.get("RECRUITER_FOUNDER_USERNAME","").strip()
+    if activate_recruiters and not re.fullmatch(r"[A-Za-z0-9_-]{1,80}",actor):
+        raise Stop("Activation needs your existing named Operations username, not a password.")
+
     # A one-time prelaunch feature activation uses the established paid-code
     # update machinery. Never permit an arbitrary flag string or quietly turn
     # on the separately unapproved cancellation or no-show fees.
@@ -155,6 +199,12 @@ def main():
     before=meta("run","services","describe",SERVICE,f"--project={PROJECT}",f"--region={REGION}")
     scheduler=meta("scheduler","jobs","describe",JOB,f"--project={PROJECT}",f"--location={REGION}")
     old_env=assert_live(before,scheduler)
+    if activate_recruiters:
+        require_live_recruiter_links()
+        if not old_env.get("STRIPE_CONNECT_WEBHOOK_SECRET"):
+            raise Stop("Live connected-account Stripe webhook secret is missing; no activation.")
+        if not old_env.get("OPS_USERS") or not old_env.get("OPS_MFA_SECRETS"):
+            raise Stop("Named Operations credentials and MFA are required for Founder invitations.")
     if enable_manual and (old_env.get("AR_MANUAL_CANCELLATION_FEE",{}).get("value")=="true" or
                           old_env.get("AR_VERIFIED_NO_SHOW",{}).get("value")=="true"):
         raise Stop("Separate cancellation or no-show charging is active; refuse feature activation.")
@@ -169,6 +219,25 @@ def main():
     updates=f"AR_RELEASE_COMMIT={sha}"
     if enable_manual:
         updates+=",AR_MANUAL_TRAVEL_CAPTURE=true"
+    if activate_recruiters:
+        recruit_env={
+            "AR_RECRUITER_PROGRAM_ENABLED":"1",
+            "AR_RECRUITER_INVITES_ENABLED":"1",
+            "AR_RECRUITER_WEB_ACCEPTANCE_VERIFIED":"1",
+            "AR_RECRUITER_FINANCE_ENABLED":"1",
+            "AR_RECRUITER_STRIPE_CONNECT_APPROVED":"1",
+            "AR_RECRUITER_REWARDS_ENABLED":"1",
+            "AR_RECRUITER_PAYOUT_SCHEDULE_APPROVED":"1",
+            "AR_RECRUITER_STRIPE_PAYOUTS_ENABLED":"1",
+            "AR_RECRUITER_TRAVEL_TRACKING_ENABLED":"1",
+            "AR_RECRUITER_OPERATOR_SHARED_PAYOUT_ENABLED":"1",
+            "AR_REFERRALS_ENABLED":"1",
+            "AR_APP_LINKS_VERIFIED":"1",
+            "AR_RECRUITER_REWARD_HOLD_MS":"86400000",
+            "AR_RECRUITER_MIN_PAYOUT_CENTS":"2500",
+            "AR_RECRUITER_FOUNDER_USERS":actor,
+        }
+        updates+=","+",".join(k+"="+v for k,v in recruit_env.items())
     cmd("run","deploy",SERVICE,f"--project={PROJECT}",f"--region={REGION}",
         "--source=./backend","--no-traffic","--service-account=ar-production-live-runtime@american-rider-35688.iam.gserviceaccount.com",
         "--min-instances=0","--max-instances=2","--cpu=1","--memory=1Gi","--concurrency=20",
@@ -185,6 +254,10 @@ def main():
         raise Stop("New revision changed critical configuration; old traffic untouched.")
     if enable_manual and now_env.get("AR_MANUAL_TRAVEL_CAPTURE",{}).get("value")!="true":
         raise Stop("New revision did not receive approved manual Travel capture flag.")
+    if activate_recruiters and any(
+        now_env.get(k,{}).get("value")!=v for k,v in recruit_env.items()
+    ):
+        raise Stop("Recruiter activation values not applied to READY revision; old traffic untouched.")
     if require_single_traffic(after)!=old_revision:
         raise Stop("Unexpected customer traffic shift during no-traffic deploy.")
     # The candidate's own immutable Revision status, not the service's last READY
@@ -196,6 +269,7 @@ def main():
             f"--region={REGION}",f"--to-revisions={new_revision}=100",timeout=360)
         public_readiness(sha, require_manual_capture=enable_manual)
         print("SUCCESS: paid API updated to release/current",sha[:7],
+              "; Recruiter finance enabled:",activate_recruiters,
               "; Google scheduler unchanged; both Stripe webhook URLs unchanged.")
     except Exception:
         try:
