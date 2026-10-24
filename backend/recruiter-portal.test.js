@@ -61,16 +61,16 @@ class Db {
   assert.equal(wrong.reason,'wrong_verified_email');
   const accepted=await acceptInvitation({db,uid:'recruiter-001',
     verifiedEmail:'recruiter@example.com',token:invite.token,now:NOW+10});
-  assert.equal(accepted.ok,true);assert.equal(accepted.status,'pending_review');
+  assert.equal(accepted.ok,true);assert.equal(accepted.status,'approved');
   const repeated=await acceptInvitation({db,uid:'recruiter-001',
     verifiedEmail:'recruiter@example.com',token:invite.token,now:NOW+20});
   assert.equal(repeated.reason,'already_accepted');
   const stolen=await acceptInvitation({db,uid:'attacker-001',
     verifiedEmail:'recruiter@example.com',token:invite.token,now:NOW+20});
   assert.equal(stolen.ok,false);
-  const approved=await founderDecision({db,uid:'recruiter-001',actor:'founder',
-    decision:'approve',now:NOW+40});
-  assert.equal(approved.status,'approved');
+  // The Founder already approved by issuing the invitation.
+  // No second approval click is required after verifying the invited mailbox.
+  assert.equal(db.rows.get('recruiter_accounts/recruiter-001').status,'approved');
   const approval=db.rows.get('recruiter_approvals/recruiter-001');
   assert.equal(approval.payoutEligibilityVerified,false);
   assert.equal(approval.agreementAccepted,false);
