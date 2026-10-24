@@ -49,11 +49,16 @@ async function sweepRecruiterPayoutReservations({db,enabled=false,authorization,
            eventIds:ids,authorization:releaseAuth,now});
        }else result={ok:false,reason:'below_batch_minimum'};
      }catch{result={ok:false,reason:'reservation_lookup_unavailable'};}
+     // Stripe's usual USD bank payout minimum is $1. For a smaller
+     // undisputed residual, preserve the debt for a lawful alternative
+     // instead of repeatedly trying an unpayable Connect bank transfer.
+     const alternate=result?.reason==='bank_provider_minimum_not_met';
      const next=result?.ok?now+60*60*1000:
-       result?.reason==='below_batch_minimum'?null:now+24*60*60*1000;
+       result?.reason==='below_batch_minimum'||alternate?null:now+24*60*60*1000;
      try{
        await db.collection('recruiter_payout_candidates').doc(uid).set({
          nextAttemptAt:next,lastAttemptAt:now,
+         alternativeCloseoutRequired:alternate||false,
          lastError:result?.ok?null:result?.reason||'requires_review',
        },{merge:true});
      }catch{errors++;continue;}
