@@ -115,6 +115,8 @@ class Db {
     actor:'founder',decision:'suspend',now:NOW+70});
   assert.equal(suspended.status,'suspended');
   assert.equal(db.rows.get('recruiter_approvals/recruiter-001').suspended,true);
+  assert.equal((await recruiterSummary({db,uid:'recruiter-001',
+    verifiedEmail:'recruiter@example.com',now:NOW+71})).reason,'account_inactive');
   const expired=await createInvitation({db,email:'late@example.com',
     allowedRoles:['operator'],actor:'founder',now:NOW});
   assert.equal((await acceptInvitation({db,uid:'late-account',
