@@ -1,6 +1,6 @@
 'use strict';
 const assert=require('node:assert/strict');
-const {submitReservedRecruiterPayout,handleRecruiterConnectPayoutEvent}=require('./recruiter-stripe-payout');
+const {submitReservedRecruiterPayout,handleRecruiterConnectPayoutEvent,rollReservedPayoutMonth}=require('./recruiter-stripe-payout');
 const NOW=Date.now()-1e4,MONTH=new Date(NOW).toISOString().slice(0,7).replace('-','');
 const UID='recruiter-test-001',ACCT='acct_RecruiterTest001',
 BATCH='recruiter-batch-123456',EVENT='ride_2026_operator';
@@ -137,7 +137,8 @@ function mockStripe(){
    'released','a former month cannot charge an inactive month');
  assert.equal(rolloverDb.at('recruiter_connect_fee_months/'+UID+'_'
    +new Date(otherMonth).toISOString().slice(0,7).replace('-','')).status,'reserved');
- assert.equal((await submitReservedRecruiterPayout({...args,db:rolloverDb,now:otherMonth}))
-   .status,'awaiting_platform_funds','new month roll occurs once without a money call');
+ assert.equal((await rollReservedPayoutMonth({db:rolloverDb,batchId:BATCH,
+   month:new Date(otherMonth).toISOString().slice(0,7).replace('-',''),now:otherMonth}))
+   .unchanged,true,'already adjusted bank payout has no duplicate fee update');
  console.log('PASS Stripe Recruiter payout end-to-end simulated: funded-only, Transfer vs bank payout, exact $2 fee, manual schedule, forged event rejection, successful proof and failed bank recovery hold; ZERO LIVE MONEY');
 })().catch(e=>{console.error(e);process.exitCode=1;});
