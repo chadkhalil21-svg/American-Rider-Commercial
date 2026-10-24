@@ -9,7 +9,7 @@ import { OperatorBar, OperatorDrawer, OperatorScreen } from '../../src/component
 import { BackLink, Card } from '../../src/components/UI';
 import { useLanguage } from '../../src/state/LanguageContext';
 import { useOperator } from '../../src/state/OperatorContext';
-import { personalInvitation, type InviteRole } from '../../src/backend/referrals';
+import { personalInvitationDetails, type InviteRole } from '../../src/backend/referrals';
 import { colors } from '../../src/theme';
 
 export default function OperatorInvitations(){
@@ -24,9 +24,12 @@ export default function OperatorInvitations(){
     }
     setBusy(true);
     try{
-      const url=await personalInvitation(role);
-      if(!url){Alert.alert(t('operator.referralInviteUnavailable'));return;}
-      await Share.share({message:`American Rider · ${url}`});
+      const invitation=await personalInvitationDetails(role);
+      if(!invitation){Alert.alert(t('operator.referralInviteUnavailable'));return;}
+      const message=invitation.compensationActive
+        ?t('recruiter.shareDisclosure')+' '+invitation.url
+        :`American Rider · ${invitation.url}`;
+      await Share.share({message});
     }catch{Alert.alert(t('operator.referralInviteUnavailable'));}
     finally{setBusy(false);}
   };
@@ -52,6 +55,12 @@ export default function OperatorInvitations(){
           <Text style={styles.chevron} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">›</Text>
         </Pressable>
       </Card>
+      {/* Same authenticated Firebase identity, no additional Recruiter account. */}
+      {process.env.EXPO_PUBLIC_REFERRALS_ENABLED === '1'&&
+        <Pressable accessibilityRole="button" style={styles.recruitment}
+          onPress={()=>router.navigate('/recruitment')}>
+          <Text style={styles.recruitmentText}>{t('recruiter.title')} ›</Text>
+        </Pressable>}
       <OperatorDrawer open={menuOpen} onClose={()=>setMenuOpen(false)}
         onNote={()=>{}}/>
     </OperatorScreen>
@@ -65,4 +74,6 @@ const styles=StyleSheet.create({
   choiceLabel:{fontSize:15,fontWeight:'500',color:colors.ink},
   chevron:{fontSize:24,fontWeight:'300',color:colors.muted},
   rule:{height:1,backgroundColor:colors.hairline,marginHorizontal:18},
+  recruitment:{marginTop:22,minHeight:44,justifyContent:'center'},
+  recruitmentText:{fontSize:14,color:colors.ink,fontWeight:'500'},
 });
