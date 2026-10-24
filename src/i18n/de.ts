@@ -3,6 +3,10 @@
 // Plain German, precisely used — the same instruction as the English.
 export default {
   auth: {
+    invitationCodeOptional: "Haben Sie einen Einladungscode? (optional)",
+    invitationCodePlaceholder: "Einladungscode eingeben",
+    invitationCodeInvalid: "Prüfen Sie den Code oder lassen Sie das Feld leer, um fortzufahren.",
+    invitationCodeVerifyNote: "American Rider prüft den Code nach der Anmeldung.",
     tagline: 'Safe. Reliable. American.',
     continueWithApple: 'Mit Apple fortfahren',
     continueWithGoogle: 'Mit Google fortfahren',
@@ -55,6 +59,14 @@ export default {
     language: 'Sprache',
   },
   operator: {
+    referralQuestion: "Hat Sie jemand auf American Rider aufmerksam gemacht?",
+    referralDescription: "Falls Sie jemand auf American Rider aufmerksam gemacht hat, geben Sie den Code vor Abschluss der Qualifizierung ein.",
+    referralCodeOptional: "Empfehlungscode (optional)",
+    referralCodePlaceholder: "Empfehlungscode eingeben",
+    referralRecorded: "Empfehlung erfasst. Daraus ergibt sich kein Anspruch auf eine Zahlung.",
+    referralApply: "Code anwenden",
+    referralChecking: "Code wird geprüft…",
+    referralFailed: "Dieser Code konnte nicht angewendet werden. Prüfen Sie ihn oder wenden Sie sich vor Abschluss der Qualifizierung an den Support.",
     referralInviteTitle: "Einladungen",
     referralInviteTraveler: "Reisenden einladen",
     referralInviteOperator: "Betreiber einladen",
