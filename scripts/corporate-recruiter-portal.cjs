@@ -13,6 +13,7 @@ function portalHtml(){
     '<p><strong>Qualified Operators:</strong> Not yet verified &nbsp; · &nbsp; '+
     '<strong>Qualifying Travels:</strong> Not yet available &nbsp; · &nbsp; '+
     '<strong>Commissions paid:</strong> Not yet commissioned</p>'+
+    '<p id="settled-travel-records">Recorded settled Travels: Not yet verified</p>'+
     '</section><section aria-label="Personal invitation links">');
   html=html.replace('<section aria-label="Compensation">',
     qrWidgetHtml()+'<section aria-label="Compensation">');
@@ -24,6 +25,11 @@ function portalHtml(){
   // paint a new recruiter's private counts after sign-out/account switching.
   html=html.replace("  const data=await request('/recruiters/me');",
     "  const data=await request('/recruiters/me');if(auth.currentUser?.uid!==person.uid)return;");
+  html=html.replace("  by('traveler-count').textContent=String(data.counts?.travelerIntroductions??0);",
+    "  by('traveler-count').textContent=String(data.counts?.travelerIntroductions??0);"+
+    "by('settled-travel-records').textContent=Number.isSafeInteger(data.counts?.operatorSettlementRecords)&&Number.isSafeInteger(data.counts?.travelerSettlementRecords)?"+
+    "'Recorded settled Travels · Operator introductions: '+data.counts.operatorSettlementRecords+' · Traveler introductions: '+data.counts.travelerSettlementRecords+' (not a commission statement).':"+
+    "'Recorded settled Travels: Not yet verified';");
   html=html.replace("  note('Your information is current as of this sign-in.');",
     "  note('Your information is current as of this sign-in.');await loadIntroductions(true);");
   html=html.replace("by('workspace').hidden=!person;",
