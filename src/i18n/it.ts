@@ -2,6 +2,10 @@
 // Spanish's pull toward warmth; the same discipline applies. State the fare, do not defend it.
 export default {
   auth: {
+    invitationCodeOptional: "Ha un codice di invito? (facoltativo)",
+    invitationCodePlaceholder: "Inserisca il codice di invito",
+    invitationCodeInvalid: "Verifichi il codice oppure lasci il campo vuoto per continuare.",
+    invitationCodeVerifyNote: "American Rider verificherà il codice dopo l’accesso.",
     tagline: 'Safe. Reliable. American.',
     continueWithApple: 'Continua con Apple',
     continueWithGoogle: 'Continua con Google',
@@ -54,6 +58,14 @@ export default {
     language: 'Lingua',
   },
   operator: {
+    referralQuestion: "Qualcuno Le ha presentato American Rider?",
+    referralDescription: "Se qualcuno Le ha presentato American Rider, inserisca il suo codice prima di completare la qualificazione.",
+    referralCodeOptional: "Codice di presentazione (facoltativo)",
+    referralCodePlaceholder: "Inserisca il codice",
+    referralRecorded: "Presentazione registrata. Ciò non determina il diritto al pagamento.",
+    referralApply: "Applica codice",
+    referralChecking: "Verifica del codice…",
+    referralFailed: "Impossibile applicare il codice. Lo controlli o contatti l’assistenza prima di completare la qualificazione.",
     referralInviteTitle: "Inviti",
     referralInviteTraveler: "Invitare un Viaggiatore",
     referralInviteOperator: "Invitare un Operatore",
