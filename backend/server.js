@@ -2593,17 +2593,6 @@ async function runAllSweeps({criticalOnly=false}={}) {
          readKey('AR_RECRUITER_LEGAL_SIGNOFF')==='1'&&
          readKey('AR_RECRUITER_STRIPE_CONNECT_APPROVED')==='1'&&
          readKey('AR_RECRUITER_PAYOUT_SCHEDULE_APPROVED')==='1'){
-        if(recruiterRewardsEnabled()){
-          const reservations=await maintenanceSweep('recruiterPayoutReservations',()=>
-            require('./recruiter-payout-reserve-sweep').sweepRecruiterPayoutReservations({
-              db:adminDb(),enabled:true,
-              authorization:{programEnabled:true,providerApproved:true,
-                counselApproved:true,scheduleApproved:true,
-                provider:'stripe_connect',activeMonthlyFeeCents:200,minimumCents:2500},
-            }));
-          if(reservations?.ok===false)
-            console.warn('[recruiter-reservations] pending financial review');
-        }
         const bank=await maintenanceSweep('recruiterBankPayouts',()=> 
           require('./recruiter-stripe-payout').sweepReservedRecruiterPayouts({
             db:adminDb(),stripe:stripeClient(),enabled:true,
