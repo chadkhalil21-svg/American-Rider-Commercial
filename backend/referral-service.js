@@ -69,7 +69,10 @@ async function claim({db,uid,code,role,authCreatedAtMs,now=Date.now()}){
         fleet?.everCommissioned===true||qualified);
       const decision=claimDecision({
         referrerUid:entry.ownerUid,inviteeUid:uid,targetRole:role,
-        alreadyClaimed:false,// A draft Operator record exists before qualification. Only a previously\n        // commissioned or qualified role is ineligible for first attribution.\n        alreadyActivatedRole:role==='operator'&&isActive,
+        alreadyClaimed:false,
+        // A draft Operator record exists before qualification. Only a previously
+        // commissioned or qualified role is ineligible for first attribution.
+        alreadyActivatedRole:role==='operator'&&isActive,
         referrerEligible:entry.status==='active',
       });
       if(!decision.ok)return decision;
