@@ -50,6 +50,9 @@ Do NOT remove `americanrider.app` API, mobile, invite, website or CORS reference
 - Safety disclaimer: **“Sensitive identity, tax and banking details are collected through our secure verification partner, never by ordinary email.”**
 - No South Florida local tariff/copy as national corporate claim; actual opened regions are resolved dynamically. “Momentarily unavailable in this area” for uncommissioned geography only when accurate.
 
+## New October 22 security advisory discovered by exact-head release checks
+GitHub Actions `npm audit --omit=dev --prefix backend` blocked this review because the existing transitive Express package `body-parser` was locked at **1.20.8**. Published **CVE-2026-111181 / GHSA-27r3-jxmh-p828** (high severity) describes an unauthenticated process crash involving trailing bytes on compressed requests; patch available at **1.20.9**. Source: https://github.com/expressjs/body-parser/security/advisories/GHSA-27r3-jxmh-p828 . This defect predated this review's receipt changes, but is a real backend release blocker. The guarded PR now pins the patched `body-parser` version via an explicit dependency override and matching verified lockfile tarball SHA-512 (checked across multiple independent current public lockfiles). **Do not merge until exact-head npm audit and whole-platform CI are GREEN**. A GitHub change and dependency audit are still not independent runtime penetration-test evidence.
+
 ## Acceptance evidence REQUIRED before declaring completion
 - Cross-role native and website walkthrough on real iPhone, iPad and Android, with screenshots/accessibility.
 - Working founder-only invite/revoke, signed email-bound tokens, expiration and replay tests; real email delivery; valid and invalid referral links on iOS/Android through installation and account switching; audit of no hidden sensitive source.
