@@ -1,5 +1,5 @@
 // Economics precede compliance spend; server review, not a checklist, commissions duty.
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { Text } from '../../src/components/AppText';
@@ -12,7 +12,7 @@ import { QUAL_DOCS, useOperator } from '../../src/state/OperatorContext';
 import { useLanguage } from '../../src/state/LanguageContext';
 import { colors } from '../../src/theme';
 import { recordInvitation } from '../../src/backend/referrals';
-import { readPendingInvite, clearPendingInvite } from '../../src/backend/referralPending';
+import { readPendingInvite, clearPendingInvite, savePendingInvite } from '../../src/backend/referralPending';
 import { useAuth } from '../../src/state/AuthContext';
 
 export default function OperatorQualification() {
@@ -36,7 +36,12 @@ export default function OperatorQualification() {
     setReferralBusy(true);
     setReferralStatus('idle');
     try {
+      // Keep the code on this device when verification or network access fails.
+      // A future visit can resume the same attribution attempt.
+      const saved = await savePendingInvite(code, 'operator');
+      if (!saved) { setReferralStatus('failed'); return; }
       const result = await recordInvitation(code, 'operator');
+      if (result !== 'retry') await clearPendingInvite();
       setReferralStatus(result === 'recorded' ? 'recorded' : 'failed');
     } finally {
       setReferralBusy(false);
@@ -88,20 +93,21 @@ export default function OperatorQualification() {
   }, [t]);
   const areaActive = area?.market?.status === 'active';
   const areaAuthorized = areaActive; // Settled rule: no preparation in unopened markets.
-  // A QR or link may open the app before login. Recover it after sign-in.
-  const attemptedPending = React.useRef(false);
-  useEffect(() => {
-    if (!user?.emailVerified || !areaActive || process.env.EXPO_PUBLIC_REFERRALS_ENABLED !== '1'
-        || attemptedPending.current) return;
-    attemptedPending.current = true;
+  // A link or QR received before installation can be recovered after sign-in.
+  // Retry only when this screen is revisited, not with a background poll.
+  useFocusEffect(React.useCallback(() => {
+    if (!user?.emailVerified || !areaActive ||
+        process.env.EXPO_PUBLIC_REFERRALS_ENABLED !== '1' ||
+        referralStatus === 'recorded') return;
     let live = true;
     (async () => {
       const pending = await readPendingInvite();
-      if (!pending || pending.role !== 'operator' || !live) return;
+      if (!live || !pending || pending.role !== 'operator') return;
       setReferralCode(pending.code);
       setReferralBusy(true);
       try {
         const outcome = await recordInvitation(pending.code, 'operator');
+        if (!live) return;
         if (outcome !== 'retry') await clearPendingInvite();
         if (live) setReferralStatus(outcome === 'recorded' ? 'recorded' : 'failed');
       } finally {
@@ -109,7 +115,7 @@ export default function OperatorQualification() {
       }
     })();
     return () => { live = false; };
-  }, [user?.uid, user?.emailVerified, areaActive]);
+  }, [user?.uid, user?.emailVerified, areaActive, referralStatus]));
 
   return (
     <Screen>
