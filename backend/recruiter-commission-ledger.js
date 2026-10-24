@@ -43,7 +43,13 @@ async function releaseCommission({db,eventId,terms,now=Date.now()}={}){
   if(!walletValid(w)||!Number.isSafeInteger(w.availableCents+e.amountCents))
     return state({},'wallet_requires_review');
   const journalRef=db.collection('recruiter_commission_journal').doc(eventId+'_available');
-  if((await tx.get(journalRef)).exists)return state({},'journal_conflict');
+  const min=terms.minimumCents;
+  const candidateRef=Number.isSafeInteger(min)&&min>200&&min<=3000?
+    db.collection('recruiter_payout_candidates').doc(e.inviterUid):null;
+  // Firestore transactions require all reads before the first staged write.
+  const [journalSnap,candidateSnap]=await Promise.all([
+    tx.get(journalRef),candidateRef?tx.get(candidateRef):Promise.resolve(null)]);
+  if(journalSnap.exists)return state({},'journal_conflict');
   tx.create(journalRef,{kind:'available',rewardEventId:eventId,uid:e.inviterUid,
     amountCents:e.amountCents,createdAt:now});
   const nextAvailable=w.availableCents+e.amountCents;
@@ -51,11 +57,8 @@ async function releaseCommission({db,eventId,terms,now=Date.now()}={}){
   // One known-recipient due document, not a recurring wallet scan:
   // monthly >= $25; otherwise due for 90-day residual closeout.
   // Candidate timing never itself authorizes a bank transfer.
-  const min=terms.minimumCents;
-  if(Number.isSafeInteger(min)&&min>200&&min<=3000){
-    const candidateRef=db.collection('recruiter_payout_candidates').doc(e.inviterUid);
-    const cs=await tx.get(candidateRef);
-    const before=cs.exists?cs.data():null;
+  if(candidateRef){
+    const before=candidateSnap?.exists?candidateSnap.data():null;
     let due=nextRecruiterCandidateAt({now,grossCents:nextAvailable,minimumCents:min});
     if(nextAvailable>=min&&Number.isSafeInteger(before?.nextAttemptAt)&&
        before.nextAttemptAt>0&&before.nextAttemptAt<due&&
