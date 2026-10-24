@@ -11,7 +11,7 @@ const RESOURCE = BASE + '/mcp';
 const CLIENT = 'https://chatgpt.com/oauth/client.json';
 const REDIRECT = 'https://chatgpt.com/connector_platform_oauth_redirect';
 const PENDING_COOKIE = 'ar_mcp_pending';
-const SCOPES = ['market:read', 'market:plan', 'market:activate', 'market:pause'];
+const SCOPES = ['market:read', 'market:plan', 'market:activate', 'market:pause', 'recruiter:invite'];
 const CHALLENGE = /^[A-Za-z0-9_-]{43,128}$/;
 const hash = x => crypto.createHash('sha256').update(x).digest('hex');
 const b64 = x => Buffer.from(x).toString('base64url');
@@ -67,6 +67,13 @@ const TOOLS = [
   { name: 'pause_market', title: 'Request geographic closure', description: 'A county closure must be applied to the geographic service configuration. The retired county admission register cannot suspend service.',
     inputSchema: { type: 'object', properties: { marketId: { type: 'string' }, reason: { type: 'string', minLength: 8, maxLength: 500 }, confirmation: { type: 'string', description: 'Must exactly equal PAUSE followed by a space and the market ID.' } }, required: ['marketId', 'reason', 'confirmation'], additionalProperties: false },
     annotations: { readOnlyHint: false, destructiveHint: true }, scope: 'market:pause' },
+  { name:'invite_recruiter',title:'Invite an independent recruiter',
+    description:'Send one private invitation to the email expressly provided by the Founder. Requires named MFA, recruitment legal/web launch gates, and an authorized Founder account. The invitation does not approve banking, pay commissions or activate public recruiting.',
+    inputSchema:{type:'object',properties:{
+      email:{type:'string',description:'The intended recruiter's email address.'},
+      allowedRoles:{type:'array',items:{type:'string',enum:['operator','traveler']},minItems:1,maxItems:2,description:'Roles the recruiter may introduce.'},
+    },required:['email','allowedRoles'],additionalProperties:false},
+    annotations:{readOnlyHint:false,destructiveHint:false},scope:'recruiter:invite'},
 ].map(t => ({...t, securitySchemes: [{type:'oauth2',scopes:[t.scope]}],
   _meta: { securitySchemes: [{type:'oauth2',scopes:[t.scope]}]}}));
 function mount(app, express, deps) {
@@ -301,6 +308,17 @@ function mount(app, express, deps) {
                 marketIds:entries.map(m=>m.id)};
           }
         }
+      } else if (chosen.name === 'invite_recruiter') {
+        // OAuth scopes alone do not give access to the Founder recruiter allowlist.
+        // The identical live invitation gate is checked on every delegated call.
+        if(!operational()||typeof deps.founderCanInviteRecruiter!=='function'||
+           deps.founderCanInviteRecruiter(auth.actor)!==true)
+          out={ok:false,code:'recruiter_invitation_not_authorized_or_not_launched'};
+        else if(typeof deps.inviteRecruiter!=='function')
+          out={ok:false,code:'recruiter_invitation_unavailable'};
+        else out=await deps.inviteRecruiter({
+          email:args.email,allowedRoles:args.allowedRoles,actor:auth.actor,
+        });
       } else if (chosen.name === 'pause_market') {
         const marketId=String(args.marketId||''), reason=String(args.reason||'');
         const market=configured.find(m=>m.id===marketId);
