@@ -71,6 +71,9 @@ out(doc+"/"+lang,render((doc==="terms"?"Terms of Service":"Privacy Policy")+" | 
 }
 out("account-deletion",render("Account deletion | American Rider",'<div class="shell"><article class="legal-body">'+extract(ACCOUNT_DELETION_HTML)+'</article></div>',"account-deletion"));
 fs.writeFileSync(path.join(root,"robots.txt"),"User-agent: *\nAllow: /\n", "utf8");
+// Signed domain associations are emitted ONLY after verified Apple/Play IDs
+// are provided. No fake fingerprint and no automatic referral activation.
+require('./build-app-links-associations.cjs').writeAssociations(root); 
 fs.writeFileSync(path.join(root,"sitemap.xml"),'<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'+["","travel","operate","safety","company","support","recruitment","smart-travel","terms","privacy","account-deletion"].map(s=>"<url><loc>https://americanrider.tech/"+(s?s+"/":"")+"</loc></url>").join("")+"</urlset>\n","utf8");
 console.log("Corporate site built:",root);
 }
