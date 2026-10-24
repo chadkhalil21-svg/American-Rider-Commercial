@@ -702,6 +702,8 @@ async function sweepSettlements({ now = Date.now(), limit = 25 } = {}) {
             payoutBlockedReason: null,
             payoutBlockedCode: null,
             settledAt: now,
+            ...(process.env.AR_RECRUITER_TRAVEL_TRACKING_ENABLED==='1'?
+              {referralTrackingPending:true}:{}),
             settledBy: 'sweep',
             needsPayout: false,
           },
