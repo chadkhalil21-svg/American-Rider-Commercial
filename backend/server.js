@@ -796,7 +796,13 @@ app.get('/recruiters/link',requireAuth,requireFreshAuth,requireVerifiedEmail,
   return res.status(out.ok?200:409).json(out);
 });
 app.get('/recruiters/me',requireAuth,requireVerifiedEmail,recruiterLimit,async(req,res)=>{
-  const out=await recruiterPortal.recruiterSummary({db:adminDb(),uid:String(req.uid)});
+  const programEnabled=readKey('AR_RECRUITER_PROGRAM_ENABLED')==='1'&&
+    readKey('AR_REFERRALS_ENABLED')==='1'&&
+    readKey('AR_RECRUITER_LEGAL_SIGNOFF')==='1';
+  const out=await recruiterPortal.recruiterSummary({
+    db:adminDb(),uid:String(req.uid),
+    programEnabled,linkVerified:readKey('AR_APP_LINKS_VERIFIED')==='1',
+  });
   return res.status(out.ok?200:out.reason==='not_enrolled'?404:503).json(out);
 });
 
