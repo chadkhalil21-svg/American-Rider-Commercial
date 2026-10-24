@@ -679,7 +679,9 @@ app.get('/about', (req, res) => res.type('html').send(ABOUT_HTML));
 // Independent recruiter accounts: founder approval and private read-only
 // workspace. Both enrollment and paying commissions remain OFF by default.
 const recruiterPortal=require('./recruiter-portal');
-const recruiterInvitesEnabled=readKey('AR_RECRUITER_INVITES_ENABLED')==='1';
+const recruiterInvitesEnabled=readKey('AR_RECRUITER_INVITES_ENABLED')==='1'&&
+  readKey('AR_APP_LINKS_VERIFIED')==='1'&&
+  readKey('AR_RECRUITER_LEGAL_SIGNOFF')==='1';
 const founderRecruiterNames=new Set(String(readKey('AR_RECRUITER_FOUNDER_USERS')||'')
   .split(',').map(x=>x.trim()).filter(x=>/^[A-Za-z0-9_-]{1,80}$/.test(x)));
 const recruiterLimit=perAccount({name:'recruiter-portal',limit:12,windowMs:60*60*1000});
