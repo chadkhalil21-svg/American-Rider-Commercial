@@ -78,6 +78,10 @@ async function submitReservedRecruiterPayout({db,stripe,batchId,
   !validId(batchId)||!Number.isSafeInteger(now))return deny('invalid_request');
  const prior=await guard(db,batchId);if(!prior.ok)return prior;
  const batch=prior.batch,conn=batch.recipientRef;
+ // Fees correspond to the calendar month of the actual bank payout, not
+ // a silently deferred payout months later. Rollover requires re-reservation.
+ const actualMonth=new Date(now).toISOString().slice(0,7).replace('-','');
+ if(batch.feeMonth!==actualMonth)return deny('payout_month_rollover_requires_review');
  let account;
  try{account=await stripe.accounts.retrieve(conn);}
  catch{return deny('stripe_account_unavailable');}
@@ -93,6 +97,16 @@ async function submitReservedRecruiterPayout({db,stripe,batchId,
  let transfer=listed.data[0]||null;
  if(transfer&&!transferMatches(transfer,batch))
   return deny('stripe_transfer_mismatch');
+ if(!transfer){
+  let sufficient=false;
+  try{
+   const balance=await stripe.balance.retrieve();
+   const dollars=(balance?.available||[]).filter(x=>x.currency==='usd')
+     .reduce((sum,x)=>sum+Number(x.amount||0),0);
+   sufficient=Number.isSafeInteger(dollars)&&dollars>=batch.netCents;
+  }catch{return deny('platform_balance_unavailable');}
+  if(!sufficient)return {ok:true,status:'awaiting_platform_funds',bankPaid:false};
+ }
  const attempt=await immutableAttempt(db,'recruiter_stripe_transfer_attempts',batchId,{
    uid:batch.uid,amountCents:batch.netCents,connectedAccount:conn,
    createdAt:now,group,
@@ -129,7 +143,7 @@ async function submitReservedRecruiterPayout({db,stripe,batchId,
  catch{return deny('bank_payout_lookup_unavailable');}
  if(!Array.isArray(seen?.data))return deny('bank_payout_lookup_unavailable');
  const matches=seen.data.filter(po=>po?.metadata?.ar_recruiter_batch===batchId);
- if(matches.length>1||matches.length===0&&seen.has_more)
+ if(matches.length>1)
   return deny('bank_payout_history_requires_review');
  if(matches.length===1&&!payoutMatches(matches[0],batch))
   return deny('bank_payout_mismatch');
