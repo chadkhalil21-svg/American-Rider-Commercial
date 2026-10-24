@@ -206,7 +206,13 @@ app.set('trust proxy', 1);
 // A signature is computed over the EXACT bytes Stripe sent. Once express.json() has parsed and
 // re-serialised the body, those bytes are gone and every event fails verification — which is
 // the classic way this endpoint ends up either broken or, worse, "fixed" by skipping the check.
-const PROVIDER_HANDLERS = { stripe: handleEvent,
+const PROVIDER_HANDLERS = { stripe: event =>
+  ['payout.paid','payout.failed','payout.canceled'].includes(event?.type)&&
+  event?.data?.object?.metadata?.ar_recruiter_batch
+    ? require('./recruiter-stripe-payout').handleRecruiterConnectPayoutEvent({
+        db:adminDb(),event,
+      })
+    : handleEvent(event),
   resend: event => event?.kind==='travel_receipt'
     ? applyReceiptDeliveryEvent({db:adminDb(),event})
     : applyResendDeliveryEvent({db:adminDb(),event}),
@@ -789,6 +795,83 @@ app.post('/recruiters/accept',requireRecruiterInviteLaunch,requireAuth,
   });
   return res.status(out.ok?200:409).json(out);
 });
+// Recruiter banking uses Stripe Connect Express, never our own bank-number
+// collection. No account is created without an approved signed agreement,
+// explicit fee consent and Founder-authorized payment-provider commissioning.
+const recruiterStripe=require('./recruiter-stripe-accounts');
+const recruiterAgreement=require('./recruiter-agreement');
+const recruiterStripeEnabled=()=>readKey('AR_RECRUITER_FINANCE_ENABLED')==='1'&&
+  readKey('AR_RECRUITER_PROGRAM_ENABLED')==='1'&&
+  readKey('AR_RECRUITER_LEGAL_SIGNOFF')==='1'&&
+  readKey('AR_RECRUITER_STRIPE_CONNECT_APPROVED')==='1';
+const recruiterTerms=()=>recruiterAgreement.termsConfig({
+  text:readKey('AR_RECRUITER_TERMS_TEXT'),
+  version:readKey('AR_RECRUITER_TERMS_VERSION'),
+  expiresAt:Number(readKey('AR_RECRUITER_TERMS_EXPIRY_MS')),
+  legalApproved:readKey('AR_RECRUITER_LEGAL_SIGNOFF')==='1',
+});
+app.get('/recruiters/stripe/terms',requireAuth,requireFreshAuth,
+  requireVerifiedEmail,recruiterLimit,(req,res)=>{
+  res.set('Cache-Control','private, no-store, max-age=0');
+  res.json({ok:true,feeCents:recruiterStripe.FEE_CENTS,
+    feeVersion:recruiterStripe.FEE_VERSION,
+    feeDisclosure:recruiterStripe.FEE_DISCLOSURE,
+    provider:'stripe_connect',
+    status:recruiterStripeEnabled()&&recruiterTerms()?'ready_for_consent':'not_commissioned'});
+});
+app.get('/recruiters/agreement',requireAuth,requireFreshAuth,
+  requireVerifiedEmail,recruiterLimit,(req,res)=>{
+  res.set('Cache-Control','private, no-store, max-age=0');
+  const t=recruiterTerms();
+  if(!t)return res.status(503).json({ok:false,code:'agreement_not_approved'});
+  res.json({ok:true,version:t.version,text:t.text,expiresAt:t.expiresAt});
+});
+app.post('/recruiters/agreement',requireAuth,requireFreshAuth,
+  requireVerifiedEmail,recruiterLimit,async(req,res)=>{
+  res.set('Cache-Control','private, no-store, max-age=0');
+  const t=recruiterTerms();
+  if(!recruiterStripeEnabled()||!t)
+    return res.status(503).json({ok:false,code:'recruiter_program_not_commissioned'});
+  const result=await recruiterAgreement.acceptRecruiterAgreement({
+    db:adminDb(),uid:String(req.uid),verifiedEmail:req.email,
+    version:req.body?.version,accepted:req.body?.accepted===true,terms:t,
+  });
+  res.status(result.ok?200:result.reason==='not_authorized'?403:409).json(result);
+});
+app.post('/recruiters/stripe/fee-consent',requireAuth,requireFreshAuth,
+  requireVerifiedEmail,recruiterLimit,async(req,res)=>{
+  res.set('Cache-Control','private, no-store, max-age=0');
+  if(!recruiterStripeEnabled()||!recruiterTerms())
+    return res.status(503).json({ok:false,code:'finance_not_commissioned'});
+  const result=await recruiterStripe.acceptRecruiterConnectFee({
+    db:adminDb(),uid:String(req.uid),verifiedEmail:req.email,
+    accepted:req.body?.accepted===true,version:req.body?.version,
+  });
+  res.status(result.ok?200:result.reason==='not_authorized'?403:409).json(result);
+});
+app.post('/recruiters/stripe/onboard',requireAuth,requireFreshAuth,
+  requireVerifiedEmail,recruiterLimit,async(req,res)=>{
+  res.set('Cache-Control','private, no-store, max-age=0');
+  if(!recruiterStripeEnabled()||!recruiterTerms()||keyMode!=='live')
+    return res.status(503).json({ok:false,code:'finance_not_commissioned'});
+  const result=await recruiterStripe.hostedRecruiterOnboarding({
+    db:adminDb(),stripe:stripeClient(),uid:String(req.uid),
+    verifiedEmail:req.email,programEnabled:true,legalApproved:true,
+  });
+  res.status(result.ok?200:result.reason==='not_authorized'?403:409).json(result);
+});
+app.get('/recruiters/stripe/status',requireAuth,requireFreshAuth,
+  requireVerifiedEmail,recruiterLimit,async(req,res)=>{
+  res.set('Cache-Control','private, no-store, max-age=0');
+  if(!recruiterStripeEnabled()||!recruiterTerms())
+    return res.json({ok:true,status:'not_commissioned',ready:false,
+      feeCents:recruiterStripe.FEE_CENTS});
+  const result=await recruiterStripe.verifyRecruiterBank({
+    db:adminDb(),stripe:stripeClient(),uid:String(req.uid),verifiedEmail:req.email,
+  });
+  res.status(result.ok?200:result.reason==='not_authorized'?403:409).json(result);
+});
+
 app.get('/recruiters/link',requireAuth,requireFreshAuth,requireVerifiedEmail,
   recruiterLimit,async(req,res)=>{
   res.set('Cache-Control','private, no-store, max-age=0');
@@ -2482,6 +2565,22 @@ async function runAllSweeps({criticalOnly=false}={}) {
           idempotencyKey,
         }),
       });
+      // Optional Recruiter payouts reuse the same leased production scheduler.
+      // Separate commissions never affect Traveler booking or Operator money.
+      // No Stripe provider calls while approval flags are unset.
+      if(!criticalOnly&&
+         readKey('AR_RECRUITER_STRIPE_PAYOUTS_ENABLED')==='1'&&
+         readKey('AR_RECRUITER_FINANCE_ENABLED')==='1'&&
+         readKey('AR_RECRUITER_PROGRAM_ENABLED')==='1'&&
+         readKey('AR_RECRUITER_LEGAL_SIGNOFF')==='1'&&
+         readKey('AR_RECRUITER_STRIPE_CONNECT_APPROVED')==='1'&&
+         readKey('AR_RECRUITER_PAYOUT_SCHEDULE_APPROVED')==='1'){
+        const bank=await maintenanceSweep('recruiterBankPayouts',()=> 
+          require('./recruiter-stripe-payout').sweepReservedRecruiterPayouts({
+            db:adminDb(),stripe:stripeClient(),enabled:true,
+          }));
+        if(bank?.ok===false)console.warn('[recruiter-bank] exception requires review');
+      }
       if(readKey('AR_RECRUITER_TRAVEL_TRACKING_ENABLED')==='1'){
         // Retry only the indexed pending queue after a crash or outage.
         // Private activity records do not transfer money or create rewards.

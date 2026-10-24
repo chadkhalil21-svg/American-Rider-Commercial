@@ -103,6 +103,7 @@ async function reserveRecruiterPayout({db,uid,batchId,eventIds,authorization,
     return state({},'invalid_request');
  if(authorization?.programEnabled!==true||authorization?.providerApproved!==true||
     authorization?.counselApproved!==true||authorization?.scheduleApproved!==true||
+    authorization?.provider!=='stripe_connect'||authorization?.activeMonthlyFeeCents!==200||
     !Number.isSafeInteger(authorization?.minimumCents)||authorization.minimumCents<1)
     return state({},'commission_program_not_approved');
  try{return await db.runTransaction(async tx=>{
@@ -114,14 +115,17 @@ async function reserveRecruiterPayout({db,uid,batchId,eventIds,authorization,
       state({},'batch_identity_conflict');}
   const walletRef=db.collection('recruiter_commission_wallets').doc(uid);
   const accountRef=db.collection('recruiter_accounts').doc(uid);
-  const [ws,acct,...rewardSnaps]=await Promise.all([
-    tx.get(walletRef),tx.get(accountRef),
+  const month=new Date(now).toISOString().slice(0,7).replace('-','');
+  const feeRef=db.collection('recruiter_connect_fee_months').doc(uid+'_'+month);
+  const [ws,acct,feeSnap,...rewardSnaps]=await Promise.all([
+    tx.get(walletRef),tx.get(accountRef),tx.get(feeRef),
     ...eventIds.map(id=>tx.get(db.collection('referral_reward_events').doc(id)))]);
   const a=acct.exists?acct.data():{},w=walletOf(ws);
   if(a.status!=='approved'||a.agreementAccepted!==true||
      a.identityVerified!==true||a.payoutEligibilityVerified!==true||
-     a.bankVerified!==true||a.taxReady!==true||
-     a.providerRecipientStatus!=='active'||!validId(a.providerRecipientRef)||
+     a.bankVerified!==true||a.taxReady!==true||a.connectFeeConsentVersion!=='recruiter_connect_2026_10_v1'||
+     a.bankProvider!=='stripe_connect'||
+     a.providerRecipientStatus!=='active'||!/^acct_[A-Za-z0-9]{8,}$/.test(a.providerRecipientRef||'')||
      !walletValid(w))return state({},'recipient_not_verified');
   let amount=0;
   for(let i=0;i<rewardSnaps.length;i++){
@@ -135,17 +139,35 @@ async function reserveRecruiterPayout({db,uid,batchId,eventIds,authorization,
   if(amount<authorization.minimumCents||w.availableCents<amount||
      !Number.isSafeInteger(w.reservedCents+amount))
     return state({},'insufficient_available_commissions');
+  const fee=feeSnap.exists?feeSnap.data():null;
+  // Charge $2 only in a month in which an actual bank payout can occur.
+  // A concurrent reserved first payout prevents a second batch evading
+  // or double-paying the fee. No fee while simply enrolled or earning.
+  if(fee&&fee.status==='reserved')return state({},'prior_monthly_payout_pending');
+  const feeCents=fee?.status==='collected'?0:200;
+  if(amount<=feeCents)return state({},'bank_payout_less_than_active_fee');
+  const netCents=amount-feeCents;
+  if(!Number.isSafeInteger(netCents)||netCents<1)
+    return state({},'invalid_net_payout');
   for(let i=0;i<eventIds.length;i++)
     tx.update(db.collection('referral_reward_events').doc(eventIds[i]),
       {status:'reserved',payoutBatchId:batchId});
-  tx.create(payoutRef,{uid,eventIds,amountCents:amount,currency:'usd',
+  tx.create(payoutRef,{uid,eventIds,amountCents:amount,
+    grossCents:amount,feeCents,netCents,feeMonth:month,
+    feeDisclosureVersion:a.connectFeeConsentVersion,
+    provider:'stripe_connect',currency:'usd',
     recipientRef:a.providerRecipientRef,status:'reserved',createdAt:now,
-    // No provider called. A separate approved sender must use batchId as
-    // idempotency key, query provider on unknown outcome, then record submission.
-    providerPaymentId:null});
+    nextAttemptAt:now,
+    // These are commitments, not proof of a connected transfer or bank deposit.
+    providerPaymentId:null,providerTransferId:null});
+  if(feeCents){
+    if(feeSnap.exists)tx.update(feeRef,{status:'reserved',batchId,amountCents:200,updatedAt:now});
+    else tx.create(feeRef,{uid,month,status:'reserved',batchId,amountCents:200,
+      createdAt:now,version:1});
+  }
   tx.set(walletRef,{...w,availableCents:w.availableCents-amount,
     reservedCents:w.reservedCents+amount},{merge:true});
-  return {ok:true,status:'reserved',amountCents:amount,batchId};
+  return {ok:true,status:'reserved',amountCents:amount,grossCents:amount,netCents,feeCents,batchId};
  });}catch{return state({},'reservation_unavailable');}
 }
 async function recordRecruiterPayoutSubmission({db,batchId,proof,now=Date.now()}={}){
@@ -160,7 +182,7 @@ async function recordRecruiterPayoutSubmission({db,batchId,proof,now=Date.now()}
     return {ok:true,duplicate:true};
   if(p.status!=='reserved')return state({},'batch_state_conflict');
   tx.update(ref,{status:'submitted',providerPaymentId:proof.providerPaymentId,
-    submittedAt:now});
+    nextAttemptAt:null,submittedAt:now});
   return {ok:true,status:'submitted'};
  });}catch{return state({},'submission_record_unavailable');}
 }
@@ -175,11 +197,21 @@ async function reconcileRecruiterPayout({db,batchId,proof,now=Date.now()}={}){
   if(!p||!validUid(p.uid)||!Array.isArray(p.eventIds)||
      p.providerPaymentId!==proof.providerPaymentId)return state({},'provider_payment_mismatch');
   if(p.status===proof.status)return {ok:true,duplicate:true,status:p.status};
+  // A failed bank deposit returns funds to the Connected Stripe account,
+  // not to the American Rider platform. Do NOT release this Recruiter's
+  // wallet for a second transfer until authenticated provider evidence
+  // confirms an actual reversal back to the platform balance.
+  if(p.provider==='stripe_connect'&&proof.status==='failed'&&
+     proof.fundsReturnedToPlatform!==true)
+    return state({},'bank_return_requires_platform_fund_recovery');
   if(p.status!=='submitted')return state({},'payout_not_submitted');
   const walletRef=db.collection('recruiter_commission_wallets').doc(p.uid);
   const ws=await tx.get(walletRef),w=walletOf(ws);
   const events=await Promise.all(p.eventIds.map(id=>
     tx.get(db.collection('referral_reward_events').doc(id))));
+  const feeRef=p.provider==='stripe_connect'
+    ?db.collection('recruiter_connect_fee_months').doc(p.uid+'_'+p.feeMonth):null;
+  const feeSnap=feeRef?await tx.get(feeRef):null;
   let full=0,restored=0,reversed=0,recoveryDue=0;
   for(let i=0;i<events.length;i++){
     const e=events[i].exists?events[i].data():null;
@@ -206,6 +238,22 @@ async function reconcileRecruiterPayout({db,batchId,proof,now=Date.now()}={}){
     tx.update(db.collection('referral_reward_events').doc(p.eventIds[i]),
       {status:proof.status==='paid'?'paid':event.requiresRecovery?'reversed':'available',
        payoutReconciledAt:now});
+  }
+  if(p.provider==='stripe_connect'){
+    if(p.feeCents===200){
+      if(!feeSnap.exists||feeSnap.data().batchId!==batchId||
+         feeSnap.data().status!=='reserved')return state({},'fee_record_conflict');
+      tx.update(feeRef,{status:proof.status==='paid'?'collected':'released',
+        payoutId:proof.providerPaymentId,reconciledAt:now});
+      if(proof.status==='paid'){
+        updated.connectFeesPaidCents=Number(w.connectFeesPaidCents||0)+200;
+        updated.netPaidCents=Number(w.netPaidCents||0)+p.netCents;
+      }
+    }else if(proof.status==='paid')
+      updated.netPaidCents=Number(w.netPaidCents||0)+p.netCents;
+    if(!validMoney(Number(updated.netPaidCents||0))||
+       !validMoney(Number(updated.connectFeesPaidCents||0)))
+       return state({},'wallet_fee_overflow');
   }
   tx.set(walletRef,updated,{merge:true});
   tx.update(ref,{status:proof.status,providerEventId:proof.eventId,

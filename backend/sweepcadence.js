@@ -8,6 +8,7 @@ const PERIOD_MS = Object.freeze({
   insuranceMonitoring: 30 * 60_000,
   founderMarketIntent: 10 * 60_000, // at most 3 admission reads every ten minutes while intent is pending
   operatorFees: 6 * 60 * 60_000,
+  recruiterBankPayouts: 60 * 60_000, // optional due-only, no second scheduler
   familyAgeOut: 60 * 60_000,
   marketReference: 24 * 60 * 60_000,
   accountDeletion: 60 * 60_000,
