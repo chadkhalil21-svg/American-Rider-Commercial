@@ -46,7 +46,7 @@ async function releaseCommission({db,eventId,terms,now=Date.now()}={}){
   tx.create(journalRef,{kind:'available',rewardEventId:eventId,uid:e.inviterUid,
     amountCents:e.amountCents,createdAt:now});
   tx.set(walletRef,{...w,availableCents:w.availableCents+e.amountCents},{merge:true});
-  tx.update(ref,{status:'available',availableAt:now});
+  tx.update(ref,{status:'available',availableAt:now,nextReleaseAt:null});
   return {ok:true,status:'available',amountCents:e.amountCents};
  });}catch{return state({},'release_unavailable');}
 }
