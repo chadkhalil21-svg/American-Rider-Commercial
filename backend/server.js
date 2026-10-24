@@ -121,6 +121,8 @@ const { fileTicket, updateTicketLocation, listTickets, resolveTicket } = require
 const { lostItemTicket, stampLostItemCase, notifyLostItemOperators, operatorLostItem, respondLostItem } = require('./lostitem');
 const { adminDb, adminStatus, accountDisabled } = require('./firebase-admin');
 const referrals = require('./referral-service');
+const {PROGRAM:RECRUITER_REWARDS}=require('./referral-accrual');
+const {fundedRecruiterSnapshot}=require('./recruiter-reward-budget');
 const { closeOperationalAccount } = require('./accountclosure');
 const { finalizeAccountDeletion, sweepAccountDeletion } = require('./accountdeletion');
 const { acceptOffer } = require('./eligibility');
@@ -804,6 +806,12 @@ const recruiterStripeEnabled=()=>readKey('AR_RECRUITER_FINANCE_ENABLED')==='1'&&
   readKey('AR_RECRUITER_PROGRAM_ENABLED')==='1'&&
   readKey('AR_RECRUITER_LEGAL_SIGNOFF')==='1'&&
   readKey('AR_RECRUITER_STRIPE_CONNECT_APPROVED')==='1';
+// The founder approved $0.15/qualifying Travel, not live banking or legal clearance.
+const recruiterRewardsEnabled=()=>recruiterStripeEnabled()&&
+  readKey('AR_RECRUITER_REWARDS_ENABLED')==='1'&&
+  readKey('AR_RECRUITER_PAYOUT_SCHEDULE_APPROVED')==='1'&&
+  readKey('AR_REFERRALS_ENABLED')==='1'&&
+  readKey('AR_APP_LINKS_VERIFIED')==='1';
 const recruiterTerms=()=>recruiterAgreement.termsConfig({
   text:readKey('AR_RECRUITER_TERMS_TEXT'),
   version:readKey('AR_RECRUITER_TERMS_VERSION'),
@@ -975,7 +983,8 @@ app.post('/referrals/claim',requireReferralLaunch,requireAuth,
       const verified=await require('firebase-admin/auth').getAuth().getUser(String(req.uid));
       if(verified.disabled)return res.status(403).json({ok:false,code:'account_disabled'});
       const createdAt=Date.parse(verified.metadata.creationTime||'');
-      const out=await referrals.claim({db,uid:String(req.uid),code,role,authCreatedAtMs:createdAt});
+      const out=await referrals.claim({db,uid:String(req.uid),code,role,authCreatedAtMs:createdAt,
+        paidRecruiterProgram:{enabled:recruiterRewardsEnabled(),version:RECRUITER_REWARDS.version}});
       return res.status(out.ok?200:out.reason==='claim_unavailable'?503:409).json(out);
     }catch{
       return res.status(503).json({ok:false,code:'account_verification_unavailable'});
@@ -4296,6 +4305,7 @@ app.post('/travel/prepare', requireAuth, LIMITS.dispatch, requireFreshAuth, requ
       costCents: priced.travelerPays, miles: priced.miles, routedMinutes: priced.minutes,
       governmentFeeCents: priced.governmentFeeCents,
       tollCents: Math.max(0, Number(priced.tollCents) || 0), feeLines: priced.feeLines,
+      ...fundedRecruiterSnapshot(priced,{enabled:recruiterRewardsEnabled()}),
       pricedBy: priced.pricedBy, cardCountry: priced.cardCountry,
       journey: priced.journey || null, cabinPreferences,
       ...(manualFeeOffered ? {
@@ -4490,6 +4500,7 @@ app.post('/travel/schedule', requireAuth, LIMITS.dispatch, requireFreshAuth, req
       miles: priced.miles, governmentFeeCents: priced.governmentFeeCents,
       tollCents: Math.max(0, Number(priced.tollCents) || 0),
       feeLines: priced.feeLines, cardCountry: priced.cardCountry, tripNo,
+      ...fundedRecruiterSnapshot(priced,{enabled:recruiterRewardsEnabled()}),
       ...(manualScheduled?{offSessionPaymentConsent:true,
         offSessionPaymentConsentVersion:'manual-scheduled-v1',
         offSessionPaymentConsentAt:Date.now()}:{}),
