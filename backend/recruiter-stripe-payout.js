@@ -142,6 +142,7 @@ async function submitReservedRecruiterPayout({db,stripe,batchId,
  try{seen=await stripe.payouts.list({limit:100},{stripeAccount:conn});}
  catch{return deny('bank_payout_lookup_unavailable');}
  if(!Array.isArray(seen?.data))return deny('bank_payout_lookup_unavailable');
+ if(seen.has_more)return deny('bank_payout_history_requires_review');
  const matches=seen.data.filter(po=>po?.metadata?.ar_recruiter_batch===batchId);
  if(matches.length>1)
   return deny('bank_payout_history_requires_review');
@@ -213,6 +214,7 @@ async function sweepReservedRecruiterPayouts({db,stripe,enabled=false,
    return deny('invalid_sweep_request');
  try{
   const page=await db.collection('recruiter_commission_payouts')
+    .where('status','==','reserved')
     .where('nextAttemptAt','<=',now).orderBy('nextAttemptAt')
     .limit(limit).get();
   let processed=0,submitted=0,blocked=0;
