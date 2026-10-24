@@ -128,7 +128,8 @@ async function reconcileOperatorReferralBankPayout({db,stripe,event,
  const po=event?.data?.object,connected=event?.account;
  if(!db||!stripe?.balanceTransactions?.list||!acct(connected)||
    !id(event?.id)||!po?.id||!/^po_[A-Za-z0-9_]+$/.test(po.id)||
-   event.type!=='payout.paid'||po.status!=='paid'||po.automatic!==true||
+   !['payout.paid','payout.reconciliation_completed'].includes(event.type)||
+   po.status!=='paid'||po.automatic!==true||
    po.currency!=='usd'||limit<1||limit>20)
   return deny('not_verified_automatic_bank_payout');
  if(po.reconciliation_status!=='completed')return deny('automatic_payout_reconciliation_pending');
@@ -177,4 +178,40 @@ async function reconcileOperatorReferralBankPayout({db,stripe,event,
  }
  return {ok:true,status:'operator_automatic_payout_reconciled',matched,bankPaid:matched>0};
 }
-module.exports={transferMatches,submitOperatorReferralTransfer,reconcileOperatorReferralBankPayout};
+// Automatic payout failure notifications can arrive after earlier successful
+// notifications. Keep the earned commission ledger frozen for reconciliation;
+// never reclaim unrelated 99%-of-Fare Operator earnings.
+async function flagOperatorAutomaticBankReturn({db,event,enabled=false,now=Date.now()}={}){
+ if(enabled!==true)return {ok:true,disabled:true};
+ const po=event?.data?.object,connected=event?.account;
+ if(!db||!acct(connected)||!po?.id||
+   !['payout.failed','payout.canceled'].includes(event?.type)||
+   !id(event?.id))return deny('unverified_operator_bank_failure');
+ let page;
+ try{page=await db.collection('recruiter_commission_payouts')
+   .where('recipientRef','==',connected)
+   .where('providerPaymentId','==',po.id).limit(20).get();}
+ catch{return deny('operator_bank_return_lookup_unavailable');}
+ let flagged=0;
+ for(const doc of page.docs||[]){
+  const current=doc.data();
+  if(current.payoutMode!=='existing_operator_connect'||current.providerPaymentId!==po.id)
+   continue;
+  const ref=db.collection('recruiter_commission_payouts').doc(doc.id);
+  const result=await db.runTransaction(async tx=>{
+   const snap=await tx.get(ref),p=snap.exists?snap.data():null;
+   if(!p||p.recipientRef!==connected||p.providerPaymentId!==po.id)
+    return deny('bank_return_identity_changed');
+   if(p.bankFailureEventId===event.id)return {ok:true,duplicate:true};
+   tx.update(ref,{bankPayoutFailed:true,bankPayoutReconciliationRequired:true,
+    bankFailureEventId:event.id,bankFailureAt:now,
+    bankFailureReason:String(po.failure_code||event.type).slice(0,100)});
+   return {ok:true};
+  });
+  if(!result.ok)return result;
+  flagged++;
+ }
+ return {ok:true,status:'operator_bank_return_requires_review',flagged};
+}
+module.exports={transferMatches,submitOperatorReferralTransfer,
+ reconcileOperatorReferralBankPayout,flagOperatorAutomaticBankReturn};
