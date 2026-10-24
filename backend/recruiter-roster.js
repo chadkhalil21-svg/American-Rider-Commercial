@@ -39,7 +39,9 @@ async function listIntroductions({db,uid,verifiedEmail,role,after=null}={}){
       return {ok:false,reason:'role_not_authorized'};
     let query=db.collection('referral_attributions')
       .where('inviterUid','==',uid).where('role','==',role)
-      .orderBy('claimedAt','desc').limit(PAGE_SIZE+1);
+      // Stable document-ID cursor reuses the already deployed two-field index.
+      // Referral date remains visible, but this is not a newest-first feed.
+      .orderBy('__name__','asc').limit(PAGE_SIZE+1);
     if(after){
       const cursor=await db.collection('referral_attributions').doc(after).get();
       if(!cursor.exists||cursor.data()?.inviterUid!==uid||cursor.data()?.role!==role)
