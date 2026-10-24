@@ -6,9 +6,9 @@ const {evidence}=require('./referral-accrual');
 const {validUid}=require('./recruiter-portal');
 const validId=x=>typeof x==='string'&&/^[A-Za-z0-9_-]{8,128}$/.test(x);
 const validMoney=n=>Number.isSafeInteger(n)&&n>=0;
-const defaults=()=>({availableCents:0,reservedCents:0,paidCents:0,reversedCents:0});
+const defaults=()=>({availableCents:0,reservedCents:0,paidCents:0,reversedCents:0,recoveryDueCents:0});
 const walletOf=snap=>({...defaults(),...(snap.exists?snap.data():{})});
-function walletValid(w){return ['availableCents','reservedCents','paidCents','reversedCents'].every(k=>validMoney(w[k]));}
+function walletValid(w){return ['availableCents','reservedCents','paidCents','reversedCents','recoveryDueCents'].every(k=>validMoney(w[k]));}
 function state(result,reason){return {ok:false,reason,...result};}
 
 async function releaseCommission({db,eventId,terms,now=Date.now()}={}){
@@ -77,7 +77,14 @@ async function reverseCommission({db,eventId,proof,now=Date.now()}={}){
       reversedCents:w.reversedCents+e.amountCents},{merge:true});
     next='reversed';
   }else if(e.status==='held'){next='reversed';}
-  else{recovery=true;}
+  else if(e.status==='paid'){
+    const walletRef=db.collection('recruiter_commission_wallets').doc(e.inviterUid);
+    const ws=await tx.get(walletRef),w=walletOf(ws);
+    if(!walletValid(w)||!Number.isSafeInteger(w.recoveryDueCents+e.amountCents))
+      return state({},'wallet_requires_review');
+    tx.set(walletRef,{...w,recoveryDueCents:w.recoveryDueCents+e.amountCents},{merge:true});
+    recovery=true;
+  }else{recovery=true;}
   tx.create(journalRef,{kind:recovery?'recovery_required':'reversed',
     rewardEventId:eventId,uid:e.inviterUid,amountCents:e.amountCents,
     reason:proof.reason,providerEventId:proof.eventId,createdAt:now});
@@ -173,7 +180,7 @@ async function reconcileRecruiterPayout({db,batchId,proof,now=Date.now()}={}){
   const ws=await tx.get(walletRef),w=walletOf(ws);
   const events=await Promise.all(p.eventIds.map(id=>
     tx.get(db.collection('referral_reward_events').doc(id))));
-  let full=0,restored=0,reversed=0;
+  let full=0,restored=0,reversed=0,recoveryDue=0;
   for(let i=0;i<events.length;i++){
     const e=events[i].exists?events[i].data():null;
     if(!e||e.inviterUid!==p.uid||e.payoutBatchId!==batchId||
@@ -183,12 +190,15 @@ async function reconcileRecruiterPayout({db,batchId,proof,now=Date.now()}={}){
     if(proof.status==='failed'){
       if(e.requiresRecovery===true)reversed+=e.amountCents;
       else restored+=e.amountCents;
-    }
+    }else if(e.requiresRecovery===true)recoveryDue+=e.amountCents;
   }
   if(full!==p.amountCents||!walletValid(w)||w.reservedCents<full)
     return state({},'payout_wallet_conflict');
   const updated={...w,reservedCents:w.reservedCents-full};
-  if(proof.status==='paid')updated.paidCents+=full;
+  if(proof.status==='paid'){
+    updated.paidCents+=full;
+    updated.recoveryDueCents+=recoveryDue;
+  }
   else{updated.availableCents+=restored;updated.reversedCents+=reversed;}
   if(!walletValid(updated))return state({},'wallet_amount_overflow');
   for(let i=0;i<p.eventIds.length;i++){
@@ -200,7 +210,7 @@ async function reconcileRecruiterPayout({db,batchId,proof,now=Date.now()}={}){
   tx.set(walletRef,updated,{merge:true});
   tx.update(ref,{status:proof.status,providerEventId:proof.eventId,
     reconciledAt:now});
-  return {ok:true,status:proof.status,amountCents:full,recoveryRequired:reversed>0};
+  return {ok:true,status:proof.status,amountCents:full,recoveryRequired:recoveryDue>0||reversed>0};
  });}catch{return state({},'payout_reconciliation_unavailable');}
 }
 module.exports={releaseCommission,reverseCommission,reserveRecruiterPayout,
