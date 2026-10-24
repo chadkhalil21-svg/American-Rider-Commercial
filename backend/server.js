@@ -2565,6 +2565,22 @@ async function runAllSweeps({criticalOnly=false}={}) {
           idempotencyKey,
         }),
       });
+      // Optional Recruiter payouts reuse the same leased production scheduler.
+      // Separate commissions never affect Traveler booking or Operator money.
+      // No Stripe provider calls while approval flags are unset.
+      if(!criticalOnly&&
+         readKey('AR_RECRUITER_STRIPE_PAYOUTS_ENABLED')==='1'&&
+         readKey('AR_RECRUITER_FINANCE_ENABLED')==='1'&&
+         readKey('AR_RECRUITER_PROGRAM_ENABLED')==='1'&&
+         readKey('AR_RECRUITER_LEGAL_SIGNOFF')==='1'&&
+         readKey('AR_RECRUITER_STRIPE_CONNECT_APPROVED')==='1'&&
+         readKey('AR_RECRUITER_PAYOUT_SCHEDULE_APPROVED')==='1'){
+        const bank=await maintenanceSweep('recruiterBankPayouts',()=> 
+          require('./recruiter-stripe-payout').sweepReservedRecruiterPayouts({
+            db:adminDb(),stripe:stripeClient(),enabled:true,
+          }));
+        if(bank?.ok===false)console.warn('[recruiter-bank] exception requires review');
+      }
       if(readKey('AR_RECRUITER_TRAVEL_TRACKING_ENABLED')==='1'){
         // Retry only the indexed pending queue after a crash or outage.
         // Private activity records do not transfer money or create rewards.
