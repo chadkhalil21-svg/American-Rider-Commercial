@@ -31,6 +31,16 @@ assert.match(recruiter,/mailto:relations@americanrider\.tech\?subject=Independen
 assert.match(recruiter,/not yet open for enrollment/);
 assert.match(recruiter,/No commission rate, payment date, or payout provider/);
 assert.doesNotMatch(recruiter,/Friday payouts|Apply now|Join today/i);
+const join=page("join");
+assert.match(join,/join-referral-code/);
+assert.match(join,/role==="operator"/);
+assert.match(join,/Invited to Travel/);
+assert.match(join,/history\.replaceState/,'strip invitation parameters from visible browser history');
+assert.match(join,/After installing the app/);
+assert.match(join,/An install does not automatically establish a referral/);
+assert.match(join,/independent recruiter may receive compensation/);
+assert.doesNotMatch(join,/apps\.apple\.com|play\.google\.com/,
+  'do not advertise unverified app store listings as functioning');
 const support=page("support");
 for(const address of ["support@americanrider.tech","relations@americanrider.tech","insurance@americanrider.tech"]) assert.ok(support.includes(address));
 const operator=page("operate");
