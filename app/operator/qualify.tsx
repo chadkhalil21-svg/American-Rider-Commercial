@@ -12,12 +12,15 @@ import { QUAL_DOCS, useOperator } from '../../src/state/OperatorContext';
 import { useLanguage } from '../../src/state/LanguageContext';
 import { colors } from '../../src/theme';
 import { recordInvitation } from '../../src/backend/referrals';
+import { readPendingInvite, clearPendingInvite } from '../../src/backend/referralPending';
+import { useAuth } from '../../src/state/AuthContext';
 
 export default function OperatorQualification() {
   const { t } = useLanguage();
   const router = useRouter();
   const goBack = useGoBack();
   const op = useOperator();
+  const { user } = useAuth();
   // One optional, server-verified path for spoken codes and links alike.
   // Attribution is not a commission or a guarantee of payment.
   const [referralCode, setReferralCode] = useState('');
@@ -85,6 +88,28 @@ export default function OperatorQualification() {
   }, [t]);
   const areaActive = area?.market?.status === 'active';
   const areaAuthorized = areaActive; // Settled rule: no preparation in unopened markets.
+  // A QR or link may open the app before login. Recover it after sign-in.
+  const attemptedPending = React.useRef(false);
+  useEffect(() => {
+    if (!user || !areaActive || process.env.EXPO_PUBLIC_REFERRALS_ENABLED !== '1'
+        || attemptedPending.current) return;
+    attemptedPending.current = true;
+    let live = true;
+    (async () => {
+      const pending = await readPendingInvite();
+      if (!pending || pending.role !== 'operator' || !live) return;
+      setReferralCode(pending.code);
+      setReferralBusy(true);
+      try {
+        const outcome = await recordInvitation(pending.code, 'operator');
+        if (outcome !== 'retry') await clearPendingInvite();
+        if (live) setReferralStatus(outcome === 'recorded' ? 'recorded' : 'failed');
+      } finally {
+        if (live) setReferralBusy(false);
+      }
+    })();
+    return () => { live = false; };
+  }, [user?.uid, areaActive]);
 
   return (
     <Screen>
