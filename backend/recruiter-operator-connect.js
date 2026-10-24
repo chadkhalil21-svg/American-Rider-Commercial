@@ -4,6 +4,7 @@
 // to submit referral money or proof a bank has received a commission.
 const validAcct=s=>typeof s==='string'&&/^acct_[A-Za-z0-9]{8,}$/.test(s);
 const {emailOf,validUid}=require('./recruiter-portal');
+const {verifiedStripeTaxProfile}=require('./recruiter-tax-readiness');
 const deny=reason=>({applicable:true,ok:false,ready:false,reason});
 async function inspectExistingOperatorRecruiterConnect({
  db,stripe,uid,verifiedEmail,account,now=Date.now(),
@@ -43,11 +44,12 @@ async function inspectExistingOperatorRecruiterConnect({
     (Array.isArray(provider.requirements?.currently_due)&&provider.requirements.currently_due.length>0)||
     (Array.isArray(provider.requirements?.past_due)&&provider.requirements.past_due.length>0))
    return deny('operator_stripe_onboarding_incomplete');
+ if(!verifiedStripeTaxProfile(provider))return deny('operator_tax_information_incomplete');
  return {applicable:true,ok:true,existingOperatorConnect:true,
    status:'existing_operator_bank_verified',bankVerified:true,
    ready:false, // Referral transfer/ledger and taxation remain separate gates.
    commissionsEnabled:false,requiresSeparateAccount:false,
-   taxStatus:'separate_verification_required',
+   taxStatus:'stripe_tax_identity_verified',
    payoutRoutingStatus:'requires_single_account_commission_settlement',
  };
 }
