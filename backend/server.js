@@ -739,6 +739,19 @@ app.post('/recruiters/accept',requireRecruiterInviteLaunch,requireAuth,
   });
   return res.status(out.ok?200:409).json(out);
 });
+app.get('/recruiters/link',requireAuth,requireFreshAuth,requireVerifiedEmail,
+  recruiterLimit,async(req,res)=>{
+  const flags=readKey('AR_RECRUITER_PROGRAM_ENABLED')==='1'&&
+    readKey('AR_REFERRALS_ENABLED')==='1'&&
+    readKey('AR_RECRUITER_LEGAL_SIGNOFF')==='1';
+  const verified=readKey('AR_APP_LINKS_VERIFIED')==='1';
+  const role=req.query?.role;
+  const out=await require('./recruiter-approval').approvedRecruiterLink({
+    db:adminDb(),uid:String(req.uid),role,
+    programEnabled:flags,linkVerified:verified,
+  });
+  return res.status(out.ok?200:409).json(out);
+});
 app.get('/recruiters/me',requireAuth,requireVerifiedEmail,recruiterLimit,async(req,res)=>{
   const out=await recruiterPortal.recruiterSummary({db:adminDb(),uid:String(req.uid)});
   return res.status(out.ok?200:out.reason==='not_enrolled'?404:503).json(out);
