@@ -60,6 +60,8 @@ async function listIntroductions({db,uid,verifiedEmail,role,after=null}={}){
   try{
     const account=await db.collection('recruiter_accounts').doc(uid).get();
     if(!account.exists)return {ok:false,reason:'not_enrolled'};
+    if(!['approved','pending_review'].includes(account.data()?.status))
+      return {ok:false,reason:'account_inactive'};
     // The email verified at secure acceptance cannot silently be substituted.
     if(emailOf(account.data()?.verifiedEmail)!==emailOf(verifiedEmail)||
        !emailOf(verifiedEmail))return {ok:false,reason:'identity_mismatch'};
