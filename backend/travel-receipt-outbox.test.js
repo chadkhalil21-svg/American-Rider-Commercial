@@ -88,6 +88,18 @@ function database() {
     sendReceipt:async()=>{throw Error('must not duplicate');}});
   assert.equal(again.considered,0);
   assert.equal(MAX_ATTEMPTS,16,'daily quota recovery extends beyond 24-hour reset');
+  const quotaId='ride_quota_2026';
+  await enqueueTravelReceipt({db,rideId:quotaId,ride,to:'other@example.com',now:2000000});
+  const throttled=await sweepTravelReceipts({db,now:2000000,
+    sendReceipt:async()=>({ok:false,reason:'Resend 429: daily quota exceeded'})});
+  assert.equal(throttled.retried,1);
+  assert.equal(db.data.travel_receipt_outbox[quotaId].status,'retry');
+  assert.equal(db.data.travel_receipt_outbox[quotaId].nextAttemptAt,2000000+86400000,
+    'daily quota preserves email past its reset');
+  const beforeReset=await sweepTravelReceipts({db,now:2060000,
+    sendReceipt:async()=>{throw Error('daily quota should not retry early');}});
+  assert.equal(beforeReset.considered,0);
+
   assert.equal(require('./travel-receipt-outbox').retryDelay(16),86400000,
     'capped retry delay can span a full daily quota period');
   const travelMoney=fs.readFileSync(path.join(__dirname,'travelmoney.js'),'utf8');
