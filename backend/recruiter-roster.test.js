@@ -48,7 +48,7 @@ function db(){
  const a=await listIntroductions({db:database,uid:'recruiter-a',
    verifiedEmail:'recruiter@ar.test',role:'operator'});
  assert.equal(a.ok,true);assert.equal(a.items.length,PAGE_SIZE);
- assert.equal(a.nextCursor,'person24_operator');
+ assert.equal(a.nextCursor,'person26_operator');
  assert.equal(a.items[0].progress,'introduction_recorded');
  assert.equal(a.items[0].qualifyingTravels,null);
  assert.equal(a.items[0].earnedCents,null);
