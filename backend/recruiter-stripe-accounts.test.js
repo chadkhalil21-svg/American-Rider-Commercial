@@ -61,7 +61,7 @@ class Db {
  assert(FEE_DISCLOSURE.includes('$2.00'));
  assert.equal((await hostedRecruiterOnboarding({db,stripe,uid:UID,
   verifiedEmail:'recruiter@example.com',programEnabled:true,
-  legalApproved:true,now:NOW})).reason,'not_authorized','consent before bank');
+  now:NOW})).reason,'not_authorized','consent before bank');
  assert.equal(counter.accounts,0);
  assert.equal((await acceptRecruiterConnectFee({db,uid:UID,
   verifiedEmail:'attacker@example.com',accepted:true,version:FEE_VERSION,now:NOW})).reason,
@@ -76,7 +76,7 @@ class Db {
   verifiedEmail:'recruiter@example.com',accepted:true,version:FEE_VERSION,now:NOW});
  assert.equal(dupe.duplicate,true);
  const gate={db,stripe,uid:UID,verifiedEmail:'recruiter@example.com',
-  programEnabled:true,legalApproved:true,now:NOW};
+  programEnabled:true,now:NOW};
  // An Operator already paid through Stripe must not be enrolled into a
  // second Recruiter Connect account, charged twice, or have the Operator's
  // payout schedule changed.
@@ -87,7 +87,7 @@ class Db {
  assert.equal(counter.payoutConfigurations,0);
  assert.equal(db.rows.get('recruiter_accounts/'+UID).stripeRecruiterCreateStartedAt,undefined);
  db.rows.delete('users/'+UID);
- assert.equal((await hostedRecruiterOnboarding({...gate,legalApproved:false})).reason,'program_or_legal_off');
+ assert.equal((await hostedRecruiterOnboarding({...gate,programEnabled:false})).reason,'recruiter_program_off');
  let result=await hostedRecruiterOnboarding(gate);
  assert.equal(result.ok,true);
  assert.equal(result.bankDetailsCollectedBy,'stripe');
