@@ -47,19 +47,21 @@ jobs:
         env:
           CLOUDSDK_CORE_PROJECT: american-rider-35688
         run: python3 infra/cloud-run/revision-status-readonly.py
-      - name: Exact real-money launch prerequisites (READ ONLY, reports blockers)
-        env:
-          CLOUDSDK_CORE_PROJECT: american-rider-35688
+      - name: Confirm currently serving production API matches release (READ ONLY)
         shell: bash
+        env:
+          # Read-only check compares /health.commit with this checked-out release
+          # and checks payment readiness but never executes a charge or a sweep.
+          CERTIFIED_SHA: ${{ github.sha }}
         run: |
           set -euo pipefail
-          # VERIFY reads ONLY Cloud Run, Scheduler, IAM policy and Stripe secret
-          # VERSION METADATA. It does not read secret content or deploy/charge money.
-          # Commercial blockers are expected before launch; record them as a
-          # status report rather than treating a successful audit as a failed CI.
-          if python3 infra/cloud-run/activate-paid-production.py VERIFY; then
-            echo '✅ Paid Cloud Run prerequisites READY; live cutover still requires explicit founder approval.' >> "$GITHUB_STEP_SUMMARY"
+          # The original activate-paid-production.py VERIFY only applies BEFORE
+          # cutover: its requirement for a private API and PAUSED scheduler is
+          # correctly false after a successful commercial activation. Do not
+          # call that pre-activation verifier on an already-public paid service.
+          if node scripts/verify-store-cloudrun-api.cjs; then
+            echo '✅ Current Google Cloud Run release is serving, live and store-build ready. This does not certify device, insurer, or store review.' >> "$GITHUB_STEP_SUMMARY"
           else
-            echo '⚠️ Paid Cloud Run prerequisites remain BLOCKED; inspect the safe BLOCKED lines above.' >> "$GITHUB_STEP_SUMMARY"
-            echo 'No Cloud Run, Stripe, Render, Scheduler or App Store configuration was changed.'
+            echo '⚠️ Public production API is not yet proven to serve this exact GitHub release and satisfy store-build readiness. Verify GCP release source and provider status before submitting.' >> "$GITHUB_STEP_SUMMARY"
+            echo 'No Cloud Run, Stripe, Render, Scheduler or store configuration was changed.'
           fi
