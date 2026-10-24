@@ -19,6 +19,7 @@ function evidence(ride,id){
      !Number.isFinite(ride.settledAt)||ride.settledAt<=0)return null;
   if(ride.operatorDemo===true||ride.synthetic===true||
      ride.refundPending===true||ride.refunded===true||
+     ride.recruiterRewardRefunded===true||
      ride.disputePending===true||ride.disputed===true||
      ride.payoutReconciliationNeeded===true)return null;
   // A manual authorization is NOT a paid Travel until captured.
