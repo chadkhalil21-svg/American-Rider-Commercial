@@ -95,8 +95,14 @@ for(const [key,n,amount] of [[id1,'ride-123456',1500],[id2,'ride-123457',1200],
  assert.equal((await reconcileRecruiterPayout({db,batchId,now,
   proof:{verified:false,status:'paid',eventId:'evt_payment_123',providerPaymentId:'payment-123456'}})).reason,
  'unverified_provider_event');
+ const pendingReturn=await reconcileRecruiterPayout({db,batchId,now,
+  proof:{verified:true,status:'failed',eventId:'evt_payment_123',
+    providerPaymentId:'payment-123456'}});
+ assert.equal(pendingReturn.reason,'bank_return_requires_platform_fund_recovery',
+   'bank refusal does not return a second funded commission to the wallet');
  const failure=await reconcileRecruiterPayout({db,batchId,now,
-  proof:{verified:true,status:'failed',eventId:'evt_payment_123',providerPaymentId:'payment-123456'}});
+  proof:{verified:true,status:'failed',eventId:'evt_payment_123',
+    providerPaymentId:'payment-123456',fundsReturnedToPlatform:true}});
  assert.equal(failure.status,'failed');
  assert.equal(db.at('recruiter_connect_fee_months/'+uid+'_'+new Date(now).toISOString().slice(0,7).replace('-','')).status,'released');
  const w=db.at('recruiter_commission_wallets/'+uid);
