@@ -111,7 +111,7 @@ async function founderDecision({db,uid,actor,decision,now=Date.now()}={}){
   }catch{return {ok:false,reason:'recruiter_review_unavailable'};}
 }
 
-async function recruiterSummary({db,uid,verifiedEmail,now=Date.now(),programEnabled=false,linkVerified=false}={}){
+async function recruiterSummary({db,uid,verifiedEmail,now=Date.now(),programEnabled=false,linkVerified=false,activityTrackingEnabled=false}={}){
   if(!db||!validUid(uid))return {ok:false,reason:'invalid_request'};
   try{
     const ref=db.collection('recruiter_accounts').doc(uid);
@@ -148,6 +148,9 @@ async function recruiterSummary({db,uid,verifiedEmail,now=Date.now(),programEnab
         data.allowedRoles.some(role=>
           recruiterMayRefer(data,approval.data(),role,now));
     }
+    const activity=activityTrackingEnabled===true?
+      await require('./recruiter-travel-activity').recruiterSettlementCounts({db,uid}):null;
+    if(activity)Object.assign(counts,activity);
     // No fictional balances. A real commission ledger and tax/bank provider
     // must be independently commissioned before payment statuses are returned.
     return {ok:true,status:data.status,allowedRoles:data.allowedRoles||[],
