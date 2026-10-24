@@ -108,12 +108,18 @@ async function rollReservedPayoutMonth({db,batchId,month,now}={}){
 }
 async function submitReservedRecruiterPayout({db,stripe,batchId,
   moneyAuthorized=false,legalApproved=false,providerApproved=false,
-  now=Date.now()}={}){
+  operatorSharedApproved=false,now=Date.now()}={}){
  if(!moneyAuthorized||!legalApproved||!providerApproved)return deny('recruiter_money_off');
  if(!db||!stripe?.accounts?.retrieve||!stripe?.transfers?.list||
   !stripe?.transfers?.create||!stripe?.payouts?.list||
   !stripe?.payouts?.create||!stripe?.balance?.retrieve||
   !validId(batchId)||!Number.isSafeInteger(now))return deny('invalid_request');
+ const operatorSnap=await db.collection('recruiter_commission_payouts').doc(batchId).get();
+ if(operatorSnap.exists&&operatorSnap.data()?.payoutMode==='existing_operator_connect')
+   return require('./recruiter-operator-transfers').submitOperatorReferralTransfer({
+     db,stripe,batchId,moneyAuthorized,legalApproved,providerApproved,
+     operatorSharedApproved,now,
+   });
  const prior=await guard(db,batchId);if(!prior.ok)return prior;
  const batch=prior.batch,conn=batch.recipientRef;
  // Fees correspond to the calendar month of the actual bank payout, not
@@ -252,7 +258,7 @@ async function handleRecruiterConnectPayoutEvent({db,event,now=Date.now()}={}){
 // finance/provider/legal/funding approval. Indexed due events, never global
 // ride scans or an additional timer. Failed attempts back off to avoid toil.
 async function sweepReservedRecruiterPayouts({db,stripe,enabled=false,
- now=Date.now(),limit=10}={}){
+ operatorSharedApproved=false,now=Date.now(),limit=10}={}){
  if(enabled!==true)return {ok:true,disabled:true};
  if(!db||!stripe||!Number.isSafeInteger(now)||limit<1||limit>20)
    return deny('invalid_sweep_request');
@@ -265,7 +271,7 @@ async function sweepReservedRecruiterPayouts({db,stripe,enabled=false,
   for(const row of page.docs){
     const out=await submitReservedRecruiterPayout({
       db,stripe,batchId:row.id,now,moneyAuthorized:true,
-      legalApproved:true,providerApproved:true,
+      legalApproved:true,providerApproved:true,operatorSharedApproved,
     });
     processed++;
     if(out.status==='submitted_bank_pending'||out.status==='bank_payout_submitted')submitted++;

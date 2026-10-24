@@ -137,7 +137,8 @@ async function hostedRecruiterOnboarding({db,stripe,uid,verifiedEmail,origin='ht
   return {ok:true,url:link.url,bankDetailsCollectedBy:'stripe',status:'onboarding'};
  }catch{return {ok:false,reason:'hosted_link_unavailable'};}
 }
-async function verifyRecruiterBank({db,stripe,uid,verifiedEmail,now=Date.now()}={}){
+async function verifyRecruiterBank({db,stripe,uid,verifiedEmail,
+  operatorSharedApproved=false,now=Date.now()}={}){
  if(!db||!stripe?.accounts?.retrieve||!validUid(uid)||!emailOf(verifiedEmail))
    return {ok:false,reason:'invalid_request'};
  const ref=db.collection('recruiter_accounts').doc(uid),approvalRef=db.collection('recruiter_approvals').doc(uid);
@@ -151,7 +152,31 @@ async function verifyRecruiterBank({db,stripe,uid,verifiedEmail,now=Date.now()}=
     .inspectExistingOperatorRecruiterConnect({
       db,stripe,uid,verifiedEmail,account:profile.data(),now,
     });
-  if(shared.applicable)return shared;
+  if(shared.applicable){
+   if(!shared.ok||operatorSharedApproved!==true||profile.data().taxReady!==true)
+     return shared;
+   const u=await db.collection('users').doc(uid).get();
+   const operatorAccount=u.exists?u.data()?.stripeAccountId:null;
+   if(!validAcct(operatorAccount))return {ok:false,reason:'operator_account_unavailable'};
+   // Signed founder/finance flag, individually approved agreement, independently
+   // verified tax clearance and Stripe identity are mandatory before linking.
+   const saved=await db.runTransaction(async tx=>{
+     const [a,ap,user]=await Promise.all([
+       tx.get(ref),tx.get(approvalRef),tx.get(db.collection('users').doc(uid))]);
+     if(!a.exists||!ap.exists||!user.exists||!approved(a.data(),ap.data(),now)||
+        a.data().taxReady!==true||user.data().stripeAccountId!==operatorAccount||
+        a.data().stripeRecruiterAccountId)return false;
+     tx.update(ref,{payoutMode:'existing_operator_connect',
+       providerRecipientRef:operatorAccount,providerRecipientStatus:'active',
+       bankProvider:'stripe_connect',identityVerified:true,
+       bankVerified:true,payoutEligibilityVerified:true,bankVerifiedAt:now});
+     tx.update(approvalRef,{identityVerified:true,payoutEligibilityVerified:true,updatedAt:now});
+     return true;
+   });
+   return saved?{...shared,ready:true,commissionsEnabled:true,
+      payoutRoutingStatus:'approved_existing_operator_connect',taxStatus:'verified_separately'}
+     :{ok:false,reason:'operator_financial_authorization_changed'};
+  }
   if(shared.reason&&shared.reason!=='invalid_request')
    return {ok:false,reason:shared.reason};
   if(!validAcct(profile.data().stripeRecruiterAccountId))

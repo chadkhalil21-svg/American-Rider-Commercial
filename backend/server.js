@@ -210,13 +210,30 @@ app.set('trust proxy', 1);
 // A signature is computed over the EXACT bytes Stripe sent. Once express.json() has parsed and
 // re-serialised the body, those bytes are gone and every event fails verification — which is
 // the classic way this endpoint ends up either broken or, worse, "fixed" by skipping the check.
-const PROVIDER_HANDLERS = { stripe: event =>
-  ['payout.paid','payout.failed','payout.canceled'].includes(event?.type)&&
-  event?.data?.object?.metadata?.ar_recruiter_batch
-    ? require('./recruiter-stripe-payout').handleRecruiterConnectPayoutEvent({
-        db:adminDb(),event,
-      })
-    : handleEvent(event),
+const PROVIDER_HANDLERS = { stripe: async event => {
+  if(['payout.paid','payout.failed','payout.canceled'].includes(event?.type)&&
+     event?.data?.object?.metadata?.ar_recruiter_batch)
+    return require('./recruiter-stripe-payout').handleRecruiterConnectPayoutEvent({
+      db:adminDb(),event,
+    });
+  const ordinary=await handleEvent(event);
+  // Most Operator payouts do not belong to a Recruiter. Program flag OFF
+  // means ZERO extra reads. If commissioned, only Stripe's exact automatic
+  // payout inclusion proof may settle a held referral reward.
+  if(event?.account&&
+     ['payout.paid','payout.reconciliation_completed','payout.failed','payout.canceled'].includes(event?.type)&&
+     readKey('AR_RECRUITER_OPERATOR_SHARED_PAYOUT_ENABLED')==='1'&&recruiterRewardsEnabled()){
+    const bank=require('./recruiter-operator-transfers');
+    const result=['payout.failed','payout.canceled'].includes(event.type)
+      ?await bank.flagOperatorAutomaticBankReturn({db:adminDb(),event,enabled:true})
+      :await bank.reconcileOperatorReferralBankPayout({
+          db:adminDb(),stripe:stripeClient(),event,enabled:true,
+        });
+    if(result?.ok===false)
+      console.warn('[operator-referral-bank] payout requires reconciliation',result.reason);
+  }
+  return ordinary;
+},
   resend: event => event?.kind==='travel_receipt'
     ? applyReceiptDeliveryEvent({db:adminDb(),event})
     : applyResendDeliveryEvent({db:adminDb(),event}),
@@ -883,6 +900,8 @@ app.get('/recruiters/stripe/status',requireAuth,requireFreshAuth,
       feeCents:recruiterStripe.FEE_CENTS});
   const result=await recruiterStripe.verifyRecruiterBank({
     db:adminDb(),stripe:stripeClient(),uid:String(req.uid),verifiedEmail:req.email,
+    operatorSharedApproved:recruiterRewardsEnabled()&&
+      readKey('AR_RECRUITER_OPERATOR_SHARED_PAYOUT_ENABLED')==='1',
   });
   res.status(result.ok?200:result.reason==='not_authorized'?403:409).json(result);
 });
@@ -2597,6 +2616,7 @@ async function runAllSweeps({criticalOnly=false}={}) {
         const bank=await maintenanceSweep('recruiterBankPayouts',()=> 
           require('./recruiter-stripe-payout').sweepReservedRecruiterPayouts({
             db:adminDb(),stripe:stripeClient(),enabled:true,
+        operatorSharedApproved:readKey('AR_RECRUITER_OPERATOR_SHARED_PAYOUT_ENABLED')==='1',
           }));
         if(bank?.ok===false)console.warn('[recruiter-bank] exception requires review');
       }
