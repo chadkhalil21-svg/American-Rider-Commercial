@@ -11,6 +11,7 @@
  * Legacy Travels lacking payoutLedgerVersion are NOT silently marked safe.
  * Their source-of-truth Stripe transfers require a separate historical census.
  */
+const {fromConfig,fundingForRide}=require('./recruiter-finance-policy');
 const VERSION = 1;
 const {prepareOffset,finalizeOffset}=require('./verified-connect-fee-transfer');
 const uncertain = (code = 'payout_reconciliation_required') => ({
@@ -145,6 +146,12 @@ async function transferOnce({
       // operator's settled transfer or the recovered fee. Any inconsistency
       // leaves the payout unconfirmed for safe reconciliation.
       const finalizeFees=await finalizeOffset({db,tx,ledger,rideId,transferId:transfer.id});
+      // Only after the actual Operator transfer is verified may a funded
+      // recruiter reward enter its durable, due-only queue. Existing fares
+      // and payouts are unchanged unless a signed campaign is activated.
+      const recruiterProgram=fromConfig(key=>process.env[key]);
+      const referralBudget=fundingForRide(ride,recruiterProgram);
+
       tx.set(ledgerRef, {
         state: 'transferred', transferId: transfer.id, verifiedAt: Date.now(),
       }, { merge: true });
@@ -154,7 +161,13 @@ async function transferOnce({
         operatorFeesWithheldCents:ledger.feeWithheldCents||0,
         platformTakeCents: platformTake, payoutPending: false,
         payoutBlockedReason: null, needsPayout: false,
-        settledAt: Date.now(), ...(paidWith ? { paidWith } : {}),
+        settledAt: Date.now(),
+        ...(recruiterProgram.enabled?{
+          referralAvailableCents:referralBudget,
+          referralAccrualPending:referralBudget>0,
+          referralProgramVersion:recruiterProgram.version,
+        }:{}),
+        ...(paidWith ? { paidWith } : {}),
       }, { merge: true });
       finalizeFees();
       return true;
