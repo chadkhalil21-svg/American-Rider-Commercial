@@ -44,9 +44,10 @@ async function recordHeldAccrual({db,rideId,program=PROGRAM,now=Date.now()}={}){
       const snap=await tx.get(rideRef);
       const ride=snap.exists?snap.data():null;
       const travel=evidence(ride,rideId);
-      if(!travel||ride.referralProgramVersion!==program.version||
-         ride.referralAccrualPending!==true)
+      if(!travel||ride.referralProgramVersion!==program.version)
         return {ok:false,reason:'settlement_or_program_not_verified',events:0};
+      if(ride.referralAccrualPending!==true)
+        return {ok:true,duplicate:true,events:0,heldCents:0};
       // This must be set by the authoritative, post-expense quote and budget
       // calculation. An absent or unverifiable budget gives zero rewards.
       const budget=ride?.referralAvailableCents;
