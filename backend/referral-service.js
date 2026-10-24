@@ -8,11 +8,11 @@ const {normalizedCode,inviteLink,claimDecision}=require('./referral-policy');
 const CLAIM_WINDOW_MS=72*60*60*1000;
 const validRole=role=>role==='traveler'||role==='operator';
 
-function formatLink(code,role){
-  const base=inviteLink(code);
+function formatLink(code,role,origin){
+  const base=inviteLink(code,origin);
   return base&&validRole(role)?base+'&role='+role:null;
 }
-async function shareLink({db,uid,role,now=Date.now()}){
+async function shareLink({db,uid,role,now=Date.now(),origin}){
   if(!db||!uid||!validRole(role))return {ok:false,reason:'invalid_request'};
   const ownerRef=db.collection('users').doc(uid);
   try {
@@ -34,7 +34,7 @@ async function shareLink({db,uid,role,now=Date.now()}){
       tx.set(ownerRef,{referralCode:fresh},{merge:true});
       return fresh;
     });
-    return {ok:true,url:formatLink(code,role)};
+    return {ok:true,url:formatLink(code,role,origin)};
   }catch{return {ok:false,reason:'share_unavailable'};}
 }
 // Firebase Auth creation time must come from the ADMIN provider and cannot be
