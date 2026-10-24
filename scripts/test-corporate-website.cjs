@@ -26,10 +26,10 @@ assert.doesNotMatch(home,/99%|Traveler Total|One confirmed Total/,"pricing detai
 assert.match(home,/Beginning in select communities/i);
 assert.doesNotMatch(home,/Book now|Book a ride now|Reserve now/i,"no fictitious booking");
 const recruiter=page("recruitment");
-assert.match(recruiter,/Email Recruitment Relations/);
+assert.match(recruiter,/Contact Recruitment Relations/);
 assert.match(recruiter,/mailto:relations@americanrider\.tech\?subject=Independent%20recruiter%20inquiry/);
-assert.match(recruiter,/not yet open for enrollment/);
-assert.match(recruiter,/No commission rate, payment date, or payout provider/);
+assert.match(recruiter,/accepting inquiries from prospective independent Recruiters now/i);
+assert.match(recruiter,/No commission is earned before paid recruiting is activated/i);
 assert.doesNotMatch(recruiter,/Friday payouts|Apply now|Join today/i);
 const join=page("join");
 assert.match(join,/join-referral-code/);

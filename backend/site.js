@@ -62,7 +62,7 @@ const HOME_HTML = page('American Rider', `
 </section>
 <section class="ar-lastline"><div><p class="ar-kicker">FOR INDEPENDENT OPERATORS</p><h2>The work behind<br>every journey.</h2></div><a class="ar-outline" href="/operate">Explore Operating ↗</a></section>
 
-<section class="ar-recruit-note" aria-label="Independent recruiting"><p>Interested in representing American Rider? The independent recruiter program is not yet open for enrollment.</p><a href="/recruitment">Recruitment information ↗</a></section>
+<section class="ar-recruit-note" aria-label="Independent recruiting"><p>Interested in representing American Rider? We are accepting independent Recruiter inquiries now.</p><a href="/recruitment">Recruitment information ↗</a></section>
 
 `, '/');
 
@@ -163,7 +163,7 @@ const SUPPORT_HTML = page(
   <p>For Travel, payment, account, qualification or general questions, write to
   <a href="mailto:support@americanrider.app">support@americanrider.app</a>.</p>
   <p>For Operator and business relationships, write to
-  <a href="mailto:relations@americanrider.app">relations@americanrider.app</a>.</p>
+  <a href="mailto:relations@americanrider.tech">relations@americanrider.tech</a>.</p>
   <p>For insurance coordination, use
   <a href="mailto:insurance@americanrider.app">insurance@americanrider.app</a>.
   Do not email identification documents, background reports, bank credentials or other sensitive records.
@@ -339,7 +339,7 @@ const SMART_HTML = page(
 const RECRUITMENT_HTML = page(
   'Recruitment',
   `
-<section class="ar-recruit" aria-labelledby="recruit-title"><p class="ar-kicker">AMERICAN RIDER / COMPANY OPPORTUNITIES</p><h1 id="recruit-title" class="ar-display">Help build<br><em>what comes next.</em></h1><p class="ar-lead">Represent American Rider with clarity and professionalism. The independent recruiter program is not yet open for enrollment.</p></section>
+<section class="ar-recruit" aria-labelledby="recruit-title"><p class="ar-kicker">AMERICAN RIDER / COMPANY OPPORTUNITIES</p><h1 id="recruit-title" class="ar-display">Help build<br><em>what comes next.</em></h1><p class="ar-lead">We are welcoming inquiries from prospective independent Recruiters. Formal paid enrollment follows an approved agreement and verified onboarding.</p></section>
 <section aria-labelledby="recruitment-overview">
   <h2 id="recruitment-overview">Independent recruiting</h2>
   <p>American Rider is developing a separate program for independent representatives who may introduce prospective Operators and Travelers to our national transportation platform. Service begins in selected markets; an introduction does not establish that Travel is available in a location.</p>
@@ -347,12 +347,12 @@ const RECRUITMENT_HTML = page(
 </section>
 <section aria-labelledby="recruitment-process">
   <h2 id="recruitment-process">Approval and representation</h2>
-  <p>Recruiter identity, approval, permitted activities and written terms must be established before anyone represents American Rider as an approved recruiter. Personal attribution links, QR codes, recruiter accounts and commission statements will be made available only after their systems have been tested and activated.</p>
-  <p>Compensation, eligibility and payout frequency are not yet announced. Payout timing, minimums, and provider have not been selected. No person should promise payments or recruiting status on our behalf.</p>
+  <p>A private invitation and confirmed identity lead to written agreement and provider verification. Approved and activated Recruiters may then share their personal referral links or QR codes. Merely contacting us creates no compensation rights.</p>
+  <p>Proposed compensation is $0.15 per eligible paid and settled Travel for each properly referred Operator or Traveler role, subject to the final accepted agreement. Paid attribution starts only after authorization; payout rules and fees must be agreed before paid activity. No Recruiter should promise earnings or eligibility before activation.</p>
 </section>
 <section aria-labelledby="recruitment-contact">
   <h2 id="recruitment-contact">Business inquiries</h2>
-  <p>The recruiter program is not yet open for enrollment. For an initial business inquiry, contact <a href="mailto:relations@americanrider.app?subject=Recruitment%20inquiry">relations@americanrider.app</a>.</p>
+  <p>We are accepting initial Recruiter inquiries now. Formal compensated enrollment requires individual approval. To express interest, contact <a href="mailto:relations@americanrider.tech?subject=Recruitment%20inquiry">relations@americanrider.tech</a>.</p>
   <p>Do not send identity documents, bank information or tax records by ordinary email.</p>
 </section>
 `,

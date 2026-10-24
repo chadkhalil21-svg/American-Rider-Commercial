@@ -18,8 +18,10 @@ for(const [route,html] of [['/',HOME_HTML],['/operate',OPERATE_HTML],
 }
 expectText(HOME_HTML,'99%','home');
 expectText(HOME_HTML,'href="/recruitment"','home recruiter entry');
-expectText(RECRUITMENT_HTML,'not yet open for enrollment','honest recruiter status');
-expectText(RECRUITMENT_HTML,'Compensation, eligibility and payout frequency are not yet announced','no premature money promise');
+expectText(RECRUITMENT_HTML,'accepting initial Recruiter inquiries now','honest outreach status');
+expectText(RECRUITMENT_HTML,'subject to the final accepted agreement','no unapproved commission promise');
+expectText(RECRUITMENT_HTML,'mailto:relations@americanrider.tech','recruitment contact channel');
+assert.doesNotMatch(RECRUITMENT_HTML,/commissions start (?:on|when) inquiry|earn now|guaranteed payment/i);
 assert.doesNotMatch(RECRUITMENT_HTML,/href="\/join|apply now|Friday payouts/i);
 
 expectText(HOME_HTML,'$2.50','home');
@@ -58,5 +60,5 @@ for(const page of [SAFETY_HTML,SUPPORT_HTML]){
 assert.match(HOME_HTML,/ar-photo/,'professional editorial hero');
 assert.match(HOME_HTML,/ar-vision/,'national brand panel');
 assert.match(RECRUITMENT_HTML,/ar-display/,'editorial recruitment introduction');
-assert.match(RECRUITMENT_HTML,/Payout timing, minimums, and provider have not been selected/,'no invented Friday schedule');
+assert.match(RECRUITMENT_HTML,/payout rules and fees must be agreed before paid activity/i,'no payout without agreed settlement terms');
 console.log('PASS: public backend routes, current pricing and geography, Stripe Operator payout truth, no false recruiter/store claims');

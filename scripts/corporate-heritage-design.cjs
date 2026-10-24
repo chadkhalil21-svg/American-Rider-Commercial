@@ -65,11 +65,11 @@ function applyEditorialDesign(pages) {
 
   pages.recruitment.title = "Recruitment | American Rider";
   pages.recruitment.body = [
-    '<section class="page-hero shell"><p class="section-label">PROFESSIONAL RELATIONSHIPS</p><h1>Independent recruitment.</h1><p>American Rider welcomes inquiries from people interested in representing the company as its transportation network develops.</p></section>',
+    '<section class="page-hero shell"><p class="section-label">PROFESSIONAL RELATIONSHIPS</p><h1>Independent recruitment.</h1><p>American Rider is accepting inquiries from prospective independent Recruiters now. Formal compensated enrollment follows an approved agreement and verified onboarding.</p></section>',
     '<div class="shell"><section class="page-section"><h2>A separate professional undertaking</h2><p>Independent recruitment is distinct from Travel and Operating. It does not change the Invite a Traveler feature or confer authority to represent American Rider without company approval.</p></section>',
-    '<section class="page-section"><h2>Current program status</h2><p>The program is not yet open for enrollment. Individual recruiter identities, referral links, QR codes and attribution will require authorization before they are offered. No commission rate, payment date, or payout provider has been announced.</p></section>',
-    '<section class="page-section"><h2>Correspondence</h2><p>Prospective independent recruiters may introduce themselves, describe their professional background and identify the areas in which they wish to work. An inquiry is not an employment offer, appointment, or compensation agreement.</p>',
-    '<p><a class="action primary" href="mailto:relations@americanrider.tech?subject=Independent%20recruiter%20inquiry">Email Recruitment Relations ↗</a></p>',
+    '<section class="page-section"><h2>Current program status</h2><p>Prospective Recruiters may express interest immediately. The proposed program pays $0.15 per qualifying paid and settled Travel for each properly attributed Operator or Traveler role, subject to a final individually accepted agreement. No commission is earned before paid recruiting is activated. Personal links, QR codes and payout eligibility require verified approval.</p></section>',
+    '<section class="page-section"><h2>Correspondence</h2><p>We are receiving recruitment inquiries now. Briefly introduce yourself, your professional background and preferred service areas. Contact does not create an authorized Recruiter account, employment relationship or compensation agreement.</p>',
+    '<p><a class="action primary" href="mailto:relations@americanrider.tech?subject=Independent%20recruiter%20inquiry">Contact Recruitment Relations ↗</a></p>',
     '<p class="muted">relations@americanrider.tech · Do not send identity documents, financial details, or tax records by email.</p></section></div>'
   ].join("");
 

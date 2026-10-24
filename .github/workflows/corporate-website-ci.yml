@@ -4,6 +4,8 @@ on:
   pull_request:
     paths:
       - 'scripts/build-corporate-website.cjs'
+      - 'scripts/corporate-heritage-design.cjs'
+      - 'backend/corporate-website.test.js'
       - 'scripts/test-corporate-website.cjs'
       - 'backend/legal*.js'
       - 'backend/shell.js'
@@ -14,6 +16,8 @@ on:
       - 'website/**'
     paths:
       - 'scripts/build-corporate-website.cjs'
+      - 'scripts/corporate-heritage-design.cjs'
+      - 'backend/corporate-website.test.js'
       - 'scripts/test-corporate-website.cjs'
       - 'backend/legal*.js'
       - 'backend/shell.js'
