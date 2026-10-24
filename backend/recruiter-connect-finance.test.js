@@ -91,6 +91,7 @@ class Db{
  const available={status:'available',recruiterUid:uid,
   stripeRecruiterAccountId:acct,amountCents:3400,fundedCents:3400,
   availableAt:NOW-1,refundRiskClear:true,travelId:rideId};
+ db.rows.set('recruiter_finance_summaries/'+uid,{availableCents:10200,transferredCents:0});
  db.rows.set('recruiter_payables/'+payableId,available);
  db.rows.set('rides/'+rideId,{
   status:'completed',transferId:'tr_OperatorSettlement',
@@ -132,6 +133,9 @@ class Db{
  assert.equal(x.ok,true);
  assert.equal(db.rows.get('recruiter_payables/'+third).status,'transferred_to_provider');
  assert.equal(stats.transfers,2,'lookup reconciles the prior Stripe attempt; zero replay money');
+ assert.equal(db.rows.get('recruiter_finance_summaries/'+uid).availableCents,3400);
+ assert.equal(db.rows.get('recruiter_finance_summaries/'+uid).transferredCents,6800);
+ assert.equal(db.rows.get('recruiter_commission_journal/'+third+'_provider_transferred').transferId,'tr_synthetic_001');
  const denied='reward-synthetic-00004';
  db.rows.set('recruiter_payables/'+denied,{...available});
  db.rows.set('rides/'+rideId,{...db.rows.get('rides/'+rideId),refundPending:true});
