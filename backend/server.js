@@ -145,6 +145,7 @@ const { handleEvent, webhookReady } = require('./webhook');
 const { enqueueProviderEvent, processProviderEvent, sweepProviderEvents, replayDeadEvent } = require('./providerqueue');
 const { enqueueWithDeadline } = require('./provider-ack');
 const { verifyResendWebhook, sanitizeResendEvent, applyResendDeliveryEvent } = require('./resend-delivery');
+const {sanitizeReceiptEvent,applyReceiptDeliveryEvent}=require('./travel-receipt-delivery');
 const { acquireLease, renewLease, releaseLease, DEFAULT_LEASE_MS } = require('./schedulerlease');
 const { singleFlight } = require('./sweep-singleflight');
 const { createSweepCadence, createQuotaBackoff, quotaError } = require('./sweepcadence');
@@ -206,7 +207,9 @@ app.set('trust proxy', 1);
 // re-serialised the body, those bytes are gone and every event fails verification — which is
 // the classic way this endpoint ends up either broken or, worse, "fixed" by skipping the check.
 const PROVIDER_HANDLERS = { stripe: handleEvent,
-  resend: event => applyResendDeliveryEvent({ db: adminDb(), event }),
+  resend: event => event?.kind==='travel_receipt'
+    ? applyReceiptDeliveryEvent({db:adminDb(),event})
+    : applyResendDeliveryEvent({db:adminDb(),event}),
 };
 
 async function acceptDurableProviderEvent(provider, event, res) {
@@ -268,7 +271,8 @@ app.post('/resend/webhook', express.raw({ type: 'application/json', limit: '32kb
   }
   let event;
   try {
-    event = sanitizeResendEvent(verified.id, verified.event);
+    event = sanitizeResendEvent(verified.id, verified.event) ||
+      sanitizeReceiptEvent(verified.id, verified.event);
   } catch {
     return res.status(400).json({ error: 'Invalid Resend event' });
   }
