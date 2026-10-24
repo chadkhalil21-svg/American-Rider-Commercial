@@ -54,6 +54,8 @@ class Db {
  },accountLinks:{create:async data=>{counter.links++;
   assert.equal(data.account,ACCOUNT);
   assert.equal(data.type,'account_onboarding');
+  assert.equal(data.return_url,'https://americanrider.tech/recruiters/portal/?connect=returned');
+  assert.equal(data.refresh_url,'https://americanrider.tech/recruiters/portal/?connect=refresh');
   return {url:'https://connect.stripe.com/test-account-link'};}}};
  assert.equal(FEE_CENTS,200);
  assert(FEE_DISCLOSURE.includes('$2.00'));
