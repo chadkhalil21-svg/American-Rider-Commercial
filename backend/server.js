@@ -789,6 +789,83 @@ app.post('/recruiters/accept',requireRecruiterInviteLaunch,requireAuth,
   });
   return res.status(out.ok?200:409).json(out);
 });
+// Recruiter banking uses Stripe Connect Express, never our own bank-number
+// collection. No account is created without an approved signed agreement,
+// explicit fee consent and Founder-authorized payment-provider commissioning.
+const recruiterStripe=require('./recruiter-stripe-accounts');
+const recruiterAgreement=require('./recruiter-agreement');
+const recruiterStripeEnabled=()=>readKey('AR_RECRUITER_FINANCE_ENABLED')==='1'&&
+  readKey('AR_RECRUITER_PROGRAM_ENABLED')==='1'&&
+  readKey('AR_RECRUITER_LEGAL_SIGNOFF')==='1'&&
+  readKey('AR_RECRUITER_STRIPE_CONNECT_APPROVED')==='1';
+const recruiterTerms=()=>recruiterAgreement.termsConfig({
+  text:readKey('AR_RECRUITER_TERMS_TEXT'),
+  version:readKey('AR_RECRUITER_TERMS_VERSION'),
+  expiresAt:Number(readKey('AR_RECRUITER_TERMS_EXPIRY_MS')),
+  legalApproved:readKey('AR_RECRUITER_LEGAL_SIGNOFF')==='1',
+});
+app.get('/recruiters/stripe/terms',requireAuth,requireFreshAuth,
+  requireVerifiedEmail,recruiterLimit,(req,res)=>{
+  res.set('Cache-Control','private, no-store, max-age=0');
+  res.json({ok:true,feeCents:recruiterStripe.FEE_CENTS,
+    feeVersion:recruiterStripe.FEE_VERSION,
+    feeDisclosure:recruiterStripe.FEE_DISCLOSURE,
+    provider:'stripe_connect',
+    status:recruiterStripeEnabled()&&recruiterTerms()?'ready_for_consent':'not_commissioned'});
+});
+app.get('/recruiters/agreement',requireAuth,requireFreshAuth,
+  requireVerifiedEmail,recruiterLimit,(req,res)=>{
+  res.set('Cache-Control','private, no-store, max-age=0');
+  const t=recruiterTerms();
+  if(!t)return res.status(503).json({ok:false,code:'agreement_not_approved'});
+  res.json({ok:true,version:t.version,text:t.text,expiresAt:t.expiresAt});
+});
+app.post('/recruiters/agreement',requireAuth,requireFreshAuth,
+  requireVerifiedEmail,recruiterLimit,async(req,res)=>{
+  res.set('Cache-Control','private, no-store, max-age=0');
+  const t=recruiterTerms();
+  if(!recruiterStripeEnabled()||!t)
+    return res.status(503).json({ok:false,code:'recruiter_program_not_commissioned'});
+  const result=await recruiterAgreement.acceptRecruiterAgreement({
+    db:adminDb(),uid:String(req.uid),verifiedEmail:req.email,
+    version:req.body?.version,accepted:req.body?.accepted===true,terms:t,
+  });
+  res.status(result.ok?200:result.reason==='not_authorized'?403:409).json(result);
+});
+app.post('/recruiters/stripe/fee-consent',requireAuth,requireFreshAuth,
+  requireVerifiedEmail,recruiterLimit,async(req,res)=>{
+  res.set('Cache-Control','private, no-store, max-age=0');
+  if(!recruiterStripeEnabled()||!recruiterTerms())
+    return res.status(503).json({ok:false,code:'finance_not_commissioned'});
+  const result=await recruiterStripe.acceptRecruiterConnectFee({
+    db:adminDb(),uid:String(req.uid),verifiedEmail:req.email,
+    accepted:req.body?.accepted===true,version:req.body?.version,
+  });
+  res.status(result.ok?200:result.reason==='not_authorized'?403:409).json(result);
+});
+app.post('/recruiters/stripe/onboard',requireAuth,requireFreshAuth,
+  requireVerifiedEmail,recruiterLimit,async(req,res)=>{
+  res.set('Cache-Control','private, no-store, max-age=0');
+  if(!recruiterStripeEnabled()||!recruiterTerms()||keyMode!=='live')
+    return res.status(503).json({ok:false,code:'finance_not_commissioned'});
+  const result=await recruiterStripe.hostedRecruiterOnboarding({
+    db:adminDb(),stripe:stripeClient(),uid:String(req.uid),
+    verifiedEmail:req.email,programEnabled:true,legalApproved:true,
+  });
+  res.status(result.ok?200:result.reason==='not_authorized'?403:409).json(result);
+});
+app.get('/recruiters/stripe/status',requireAuth,requireFreshAuth,
+  requireVerifiedEmail,recruiterLimit,async(req,res)=>{
+  res.set('Cache-Control','private, no-store, max-age=0');
+  if(!recruiterStripeEnabled()||!recruiterTerms())
+    return res.json({ok:true,status:'not_commissioned',ready:false,
+      feeCents:recruiterStripe.FEE_CENTS});
+  const result=await recruiterStripe.verifyRecruiterBank({
+    db:adminDb(),stripe:stripeClient(),uid:String(req.uid),verifiedEmail:req.email,
+  });
+  res.status(result.ok?200:result.reason==='not_authorized'?403:409).json(result);
+});
+
 app.get('/recruiters/link',requireAuth,requireFreshAuth,requireVerifiedEmail,
   recruiterLimit,async(req,res)=>{
   res.set('Cache-Control','private, no-store, max-age=0');
