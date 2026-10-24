@@ -45,7 +45,16 @@ async function releaseCommission({db,eventId,terms,now=Date.now()}={}){
   if((await tx.get(journalRef)).exists)return state({},'journal_conflict');
   tx.create(journalRef,{kind:'available',rewardEventId:eventId,uid:e.inviterUid,
     amountCents:e.amountCents,createdAt:now});
-  tx.set(walletRef,{...w,availableCents:w.availableCents+e.amountCents},{merge:true});
+  const nextAvailable=w.availableCents+e.amountCents;
+  tx.set(walletRef,{...w,availableCents:nextAvailable},{merge:true});
+  // Queue this Recruiter once at the contracted payout threshold. No
+  // recurring wallet scans, click events, or manual Founder payout approvals.
+  const min=terms.minimumCents;
+  if(Number.isSafeInteger(min)&&min>200&&min<=100000&&
+     w.availableCents<min&&nextAvailable>=min)
+    tx.set(db.collection('recruiter_payout_candidates').doc(e.inviterUid),{
+      uid:e.inviterUid,nextAttemptAt:now,queuedAt:now,lastError:null
+    },{merge:true});
   tx.update(ref,{status:'available',availableAt:now,nextReleaseAt:null});
   return {ok:true,status:'available',amountCents:e.amountCents};
  });}catch{return state({},'release_unavailable');}
