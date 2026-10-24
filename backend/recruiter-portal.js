@@ -42,7 +42,7 @@ async function acceptInvitation({db,uid,verifiedEmail,token,now=Date.now()}={}){
       const [invSnap,acctSnap]=await Promise.all([tx.get(inviteRef),tx.get(accountRef)]);
       if(!invSnap.exists)return {ok:false,reason:'invalid_or_expired_invitation'};
       const i=invSnap.data();
-      if(i.status==='accepted'&&i.acceptedBy===uid)
+      if(i.status==='accepted'&&i.acceptedBy===uid&&emailOf(i.email)===email)
         return {ok:true,reason:'already_accepted',status:'pending_review'};
       if(i.status!=='issued'||i.expiresAt<=now||i.createdAt>now)
         return {ok:false,reason:'invalid_or_expired_invitation'};
