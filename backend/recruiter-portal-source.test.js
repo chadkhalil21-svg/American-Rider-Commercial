@@ -42,7 +42,8 @@ assert.match(server,/programEnabled,linkVerified:readKey\('AR_APP_LINKS_VERIFIED
 assert.match(portal,/crypto\.randomBytes\(32\)/);
 assert.match(portal,/createHash\('sha256'\)/);
 assert.match(portal,/if\(emailOf\(i\.email\)!==email\)/);
-assert.match(portal,/status:'pending_review'/);
+assert.match(portal,/status:'approved'/);
+assert.match(portal,/next:'identity_agreement_bank_verification'/);
 assert.match(portal,/reason:'account_inactive'/);
 assert.match(portal,/payoutEligibilityVerified:false/);
 assert.match(portal,/linksAvailable/);
