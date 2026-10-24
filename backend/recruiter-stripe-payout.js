@@ -203,5 +203,44 @@ async function handleRecruiterConnectPayoutEvent({db,event,now=Date.now()}={}){
   return {ok:true,status:'bank_reconciliation_required',bankPaid:false};
  });
 }
+// Existing leased Scheduler calls this at most hourly, only after explicit
+// finance/provider/legal/funding approval. Indexed due events, never global
+// ride scans or an additional timer. Failed attempts back off to avoid toil.
+async function sweepReservedRecruiterPayouts({db,stripe,enabled=false,
+ now=Date.now(),limit=10}={}){
+ if(enabled!==true)return {ok:true,disabled:true};
+ if(!db||!stripe||!Number.isSafeInteger(now)||limit<1||limit>20)
+   return deny('invalid_sweep_request');
+ try{
+  const page=await db.collection('recruiter_commission_payouts')
+    .where('nextAttemptAt','<=',now).orderBy('nextAttemptAt')
+    .limit(limit).get();
+  let processed=0,submitted=0,blocked=0;
+  for(const row of page.docs){
+    const out=await submitReservedRecruiterPayout({
+      db,stripe,batchId:row.id,now,moneyAuthorized:true,
+      legalApproved:true,providerApproved:true,
+    });
+    processed++;
+    if(out.status==='submitted_bank_pending'||out.status==='bank_payout_submitted')submitted++;
+    if(!out.ok)blocked++;
+    // The provider is still pending or requires an exception. Never rerun
+    // a transfer/payout within the same provider/network ambiguity window.
+    if(out.status!=='submitted_bank_pending'&&out.status!=='bank_payout_submitted'){
+      const retryAt=now+(out.ok?60*60_000:24*60*60_000);
+      const ref=db.collection('recruiter_commission_payouts').doc(row.id);
+      await db.runTransaction(async tx=>{
+        const snap=await tx.get(ref),p=snap.exists?snap.data():null;
+        if(p?.status!=='reserved'||Number(p.nextAttemptAt||0)>now)return;
+        tx.update(ref,{nextAttemptAt:retryAt,
+          lastPayoutReviewReason:String(out.reason||out.status||'provider_pending').slice(0,120),
+          lastPayoutCheckedAt:now});
+      });
+    }
+  }
+  return {ok:true,processed,submitted,blocked};
+ }catch{return deny('recruiter_payout_queue_unavailable');}
+}
+
 module.exports={transferMatches,payoutMatches,submitReservedRecruiterPayout,
-  handleRecruiterConnectPayoutEvent};
+  handleRecruiterConnectPayoutEvent,sweepReservedRecruiterPayouts};
