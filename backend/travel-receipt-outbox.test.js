@@ -87,7 +87,9 @@ function database() {
   const again=await sweepTravelReceipts({db,now:1000000,
     sendReceipt:async()=>{throw Error('must not duplicate');}});
   assert.equal(again.considered,0);
-  assert.equal(MAX_ATTEMPTS,8);
+  assert.equal(MAX_ATTEMPTS,16,'daily quota recovery extends beyond 24-hour reset');
+  assert.equal(require('./travel-receipt-outbox').retryDelay(16),86400000,
+    'capped retry delay can span a full daily quota period');
   const travelMoney=fs.readFileSync(path.join(__dirname,'travelmoney.js'),'utf8');
   const before=travelMoney.indexOf('if (deps.queueReceipt && !ride.receiptQueuedAt && !ride.receiptSentAt)');
   const operator=travelMoney.indexOf('const { accountId, reason } = await deps.operatorPayoutAccount');
