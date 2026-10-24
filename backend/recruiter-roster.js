@@ -26,7 +26,7 @@ function decodeCursor(token,uid,role){
      !/^[A-Za-z0-9_-]+$/.test(token))return null;
   try{
     const bytes=Buffer.from(token,'base64url');
-    if(bytes.length<29)return null;
+    if(bytes.toString('base64url')!==token||bytes.length<29)return null;
     const decipher=crypto.createDecipheriv('aes-256-gcm',cursorKey,bytes.subarray(0,12));
     decipher.setAuthTag(bytes.subarray(12,28));
     decipher.setAAD(Buffer.from(uid+'|'+role));
