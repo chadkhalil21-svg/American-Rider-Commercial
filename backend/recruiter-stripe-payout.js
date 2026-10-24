@@ -137,21 +137,26 @@ async function submitReservedRecruiterPayout({db,stripe,batchId,
  if(!Number.isSafeInteger(available)||available<batch.netCents)
   return {ok:true,status:'awaiting_stripe_funds',transferId:transfer.id};
  // A single scheduled bank payout per batch, with its own immutable attempt.
- // Never send a second payout when the previous result is ambiguous.
- let seen;
- try{seen=await stripe.payouts.list({limit:100},{stripeAccount:conn});}
- catch{return deny('bank_payout_lookup_unavailable');}
- if(!Array.isArray(seen?.data))return deny('bank_payout_lookup_unavailable');
- if(seen.has_more)return deny('bank_payout_history_requires_review');
- const matches=seen.data.filter(po=>po?.metadata?.ar_recruiter_batch===batchId);
- if(matches.length>1)
-  return deny('bank_payout_history_requires_review');
- if(matches.length===1&&!payoutMatches(matches[0],batch))
-  return deny('bank_payout_mismatch');
+ // Record intent before querying the provider. An uncertain result never
+ // causes a blind retry, even after Stripe's idempotency retention expires.
  const first=await immutableAttempt(db,'recruiter_stripe_bank_attempts',batchId,{
    uid:batch.uid,amountCents:batch.netCents,connectedAccount:conn,createdAt:now,
  });
  if(!first.ok)return first;
+ const originalAt=Number(first.record?.createdAt);
+ if(!Number.isSafeInteger(originalAt)||originalAt<=0)
+   return deny('bank_attempt_timestamp_unavailable');
+ let seen;
+ try{seen=await stripe.payouts.list({
+   limit:100,created:{gte:Math.max(0,Math.floor(originalAt/1000)-300)},
+ },{stripeAccount:conn});}
+ catch{return deny('bank_payout_lookup_unavailable');}
+ if(!Array.isArray(seen?.data))return deny('bank_payout_lookup_unavailable');
+ if(seen.has_more)return deny('bank_payout_history_requires_review');
+ const matches=seen.data.filter(po=>po?.metadata?.ar_recruiter_batch===batchId);
+ if(matches.length>1)return deny('bank_payout_history_requires_review');
+ if(matches.length===1&&!payoutMatches(matches[0],batch))
+  return deny('bank_payout_mismatch');
  let payout=matches[0]||null;
  if(!payout&&first.existing)
   return deny('prior_unknown_bank_payout_requires_reconciliation');
