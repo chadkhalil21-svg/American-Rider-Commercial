@@ -307,6 +307,7 @@ export default {
   },
 
   traveler: {
+    shareReceipt: "Partager le reçu",
     updateRequiredTitle: 'Mise à jour nécessaire',
     updateRequiredBody: 'Mettez à jour American Rider pour vérifier et confirmer le total actuel du trajet. Aucune réservation ni aucun paiement n\'a été effectué.',
     priceChangedTitle: 'Le Total du trajet a changé',
