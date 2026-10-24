@@ -318,6 +318,7 @@ export default {
   // Traveler surfaces speak human. Same restraint, plainer words — and the same refusal to
   // reassure: the price is stated, never defended.
   traveler: {
+    shareReceipt: "Share receipt",
     updateRequiredTitle: 'Update required',
     updateRequiredBody: 'Update American Rider to review and confirm the current Travel Total. No booking or payment was made.',
     priceChangedTitle: 'Travel Total updated',
