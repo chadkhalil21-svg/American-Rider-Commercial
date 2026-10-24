@@ -51,7 +51,7 @@ function observedQualification(user,now){
     return 'not_currently_verified';
   return 'recently_verified';
 }
-function projectIntroduction(snapshot,operatorQualification=null){
+function projectIntroduction(snapshot,operatorQualification=null,trackingEnabled=false){
   const row=snapshot.data()||{};
   return {
     reference:referenceFor(snapshot.id),
@@ -60,13 +60,15 @@ function projectIntroduction(snapshot,operatorQualification=null){
       row.claimedAt:null,
     progress:'introduction_recorded',
     operatorQualification:row.role==='operator'?operatorQualification:null,
+    recordedSettledTravels:trackingEnabled&&Number.isSafeInteger(row.recordedSettledTravels)&&
+      row.recordedSettledTravels>=0?row.recordedSettledTravels:trackingEnabled?0:null,
     // Accounting has no live verified payments; no speculative zeros.
     qualifyingTravels:null,
     earnedCents:null,
     paidCents:null,
   };
 }
-async function listIntroductions({db,uid,verifiedEmail,role,after=null}={}){
+async function listIntroductions({db,uid,verifiedEmail,role,after=null,trackingEnabled=false}={}){
   if(!db||!validUid(uid)||!ROLES.has(role)||after!==null&&
      (typeof after!=='string'||after.length>256))
     return {ok:false,reason:'invalid_request'};
@@ -101,11 +103,11 @@ async function listIntroductions({db,uid,verifiedEmail,role,after=null}={}){
     const items=await Promise.all(page.map(async snapshot=>{
       const entry=snapshot.data()||{};
       if(role!=='operator'||!validUid(entry.inviteeUid)||
-         entry.inviterUid!==uid)return projectIntroduction(snapshot,'not_currently_verified');
+         entry.inviterUid!==uid)return projectIntroduction(snapshot,'not_currently_verified',trackingEnabled);
       try{
         const user=await db.collection('users').doc(entry.inviteeUid).get();
-        return projectIntroduction(snapshot,observedQualification(user.exists?user.data():null,Date.now()));
-      }catch{return projectIntroduction(snapshot,'verification_unavailable');}
+        return projectIntroduction(snapshot,observedQualification(user.exists?user.data():null,Date.now()),trackingEnabled);
+      }catch{return projectIntroduction(snapshot,'verification_unavailable',trackingEnabled);}
     }));
     return {ok:true,role,items,
       nextCursor:docs.length>PAGE_SIZE&&page.length?
