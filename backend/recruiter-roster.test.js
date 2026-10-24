@@ -1,6 +1,6 @@
 'use strict';
 const assert=require('node:assert/strict');
-const {listIntroductions,referenceFor,PAGE_SIZE}=require('./recruiter-roster');
+const {listIntroductions,referenceFor,PAGE_SIZE,observedQualification,QUALIFICATION_MAX_AGE_MS}=require('./recruiter-roster');
 const DB=[];
 for(let i=0;i<45;i++)DB.push({id:'person'+i+'_operator',
   inviterUid:i===44?'recruiter-other':'recruiter-a',role:'operator',
@@ -55,11 +55,17 @@ function db(){
    'pagination token must not disclose invitee Firebase ID');
  assert.equal(a.items[0].progress,'introduction_recorded');
  assert.equal(a.items[0].qualifyingTravels,null);
+ assert.equal(a.items[0].operatorQualification,'not_currently_verified');
+ assert.equal(a.items[0].recordedSettledTravels,null);
+ const recent=Date.now();
+ assert.equal(observedQualification({qualification:{qualified:true,status:'qualified',qualifiedAt:recent-9000,evaluatedAt:recent-60000}},recent),'recently_verified');
+ assert.equal(observedQualification({qualification:{qualified:true,status:'qualified',qualifiedAt:recent-9000,evaluatedAt:recent-QUALIFICATION_MAX_AGE_MS-1}},recent),'not_currently_verified');
+ assert.equal(observedQualification({qualification:{qualified:false,status:'qualified',qualifiedAt:recent-9000,evaluatedAt:recent}},recent),'not_currently_verified');
  assert.equal(a.items[0].earnedCents,null);
  assert.equal(a.items[0].paidCents,null);
  for(const row of a.items){
   assert.deepEqual(Object.keys(row),['reference','role','recordedAt','progress',
-    'qualifyingTravels','earnedCents','paidCents']);
+    'operatorQualification','recordedSettledTravels','qualifyingTravels','earnedCents','paidCents']);
   assert.match(row.reference,/^AR-[0-9A-F]{12}$/);
   assert.equal(JSON.stringify(row).includes('private@example.org'),false);
   assert.equal(JSON.stringify(row).includes('Private street'),false);

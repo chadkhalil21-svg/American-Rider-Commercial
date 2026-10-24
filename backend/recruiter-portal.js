@@ -40,26 +40,42 @@ async function acceptInvitation({db,uid,verifiedEmail,token,now=Date.now()}={}){
     return await db.runTransaction(async tx=>{
       const inviteRef=db.collection('recruiter_invitations').doc(id);
       const accountRef=db.collection('recruiter_accounts').doc(uid);
-      const [invSnap,acctSnap]=await Promise.all([tx.get(inviteRef),tx.get(accountRef)]);
+      const approvalRef=db.collection('recruiter_approvals').doc(uid);
+      const [invSnap,acctSnap,approvalSnap]=await Promise.all([
+        tx.get(inviteRef),tx.get(accountRef),tx.get(approvalRef),
+      ]);
       if(!invSnap.exists)return {ok:false,reason:'invalid_or_expired_invitation'};
       const i=invSnap.data();
       if(i.status==='accepted'&&i.acceptedBy===uid&&emailOf(i.email)===email)
-        return {ok:true,reason:'already_accepted',status:'pending_review'};
+        return {ok:true,reason:'already_accepted',status:'approved'};
       if(i.status!=='issued'||i.expiresAt<=now||i.createdAt>now)
         return {ok:false,reason:'invalid_or_expired_invitation'};
       if(emailOf(i.email)!==email)
         return {ok:false,reason:'wrong_verified_email'};
-      if(acctSnap.exists)return {ok:false,reason:'existing_recruiter_account'};
-      // Auth uid and verified email are server-derived; bank and identity
-      // verification NEVER come from a phone or ordinary email.
+      if(acctSnap.exists||approvalSnap.exists)
+        return {ok:false,reason:'existing_recruiter_account'};
+      if(!validActor(i.createdBy)||!Array.isArray(i.allowedRoles)||
+         !normalizeRoles(i.allowedRoles))
+        return {ok:false,reason:'invalid_founder_invitation'};
+      // Founder invitation IS the participation decision. Do not ask the Founder
+      // to click Approve again. This does not authorize public links or money:
+      // verified identity, approved agreement, bank/tax checks and payout
+      // eligibility all remain OFF until independently confirmed.
       tx.create(accountRef,{
         uid,verifiedEmail:email,allowedRoles:i.allowedRoles,
-        invitationId:id,status:'pending_review',acceptedAt:now,
+        invitationId:id,status:'approved',acceptedAt:now,
+        reviewedBy:i.createdBy,reviewedAt:now,
         agreementAccepted:false,identityVerified:false,
         payoutEligibilityVerified:false,version:1,
       });
+      tx.create(approvalRef,{
+        status:'approved',approvedBy:i.createdBy,approvedAt:now,
+        allowedRoles:i.allowedRoles,suspended:false,
+        identityVerified:false,agreementAccepted:false,
+        payoutEligibilityVerified:false,updatedAt:now,
+      });
       tx.update(inviteRef,{status:'accepted',acceptedBy:uid,acceptedAt:now});
-      return {ok:true,status:'pending_review'};
+      return {ok:true,status:'approved',next:'identity_agreement_bank_verification'};
     });
   }catch{return {ok:false,reason:'invitation_accept_unavailable'};}
 }
@@ -95,7 +111,7 @@ async function founderDecision({db,uid,actor,decision,now=Date.now()}={}){
   }catch{return {ok:false,reason:'recruiter_review_unavailable'};}
 }
 
-async function recruiterSummary({db,uid,verifiedEmail,now=Date.now(),programEnabled=false,linkVerified=false}={}){
+async function recruiterSummary({db,uid,verifiedEmail,now=Date.now(),programEnabled=false,linkVerified=false,activityTrackingEnabled=false}={}){
   if(!db||!validUid(uid))return {ok:false,reason:'invalid_request'};
   try{
     const ref=db.collection('recruiter_accounts').doc(uid);
@@ -132,6 +148,9 @@ async function recruiterSummary({db,uid,verifiedEmail,now=Date.now(),programEnab
         data.allowedRoles.some(role=>
           recruiterMayRefer(data,approval.data(),role,now));
     }
+    const activity=activityTrackingEnabled===true?
+      await require('./recruiter-travel-activity').recruiterSettlementCounts({db,uid}):null;
+    if(activity)Object.assign(counts,activity);
     // No fictional balances. A real commission ledger and tax/bank provider
     // must be independently commissioned before payment statuses are returned.
     return {ok:true,status:data.status,allowedRoles:data.allowedRoles||[],

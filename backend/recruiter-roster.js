@@ -4,6 +4,7 @@
 // or all-user / all-travels query. A referral is NOT a qualifying paid Travel.
 const crypto=require('node:crypto');
 const {validUid,emailOf}=require('./recruiter-portal');
+const QUALIFICATION_MAX_AGE_MS=60*60*1000;
 const ROLES=new Set(['operator','traveler']);
 const PAGE_SIZE=20;
 const cursorPattern=/^[A-Za-z0-9_-]{4,128}_(?:operator|traveler)$/;
@@ -39,7 +40,18 @@ function referenceFor(id){
   return 'AR-'+crypto.createHash('sha256').update('recruitment-reference-v1:'+id)
     .digest('hex').slice(0,12).toUpperCase();
 }
-function projectIntroduction(snapshot){
+// A qualification is a current server assessment, never a checkbox, document
+// upload or the recruiter's assertion. Read only these two proof fields.
+function observedQualification(user,now){
+  const q=user?.qualification;
+  if(!q||q.qualified!==true||q.status!=='qualified'||
+     !Number.isSafeInteger(q.qualifiedAt)||q.qualifiedAt<=0||
+     !Number.isSafeInteger(q.evaluatedAt)||q.evaluatedAt<=0||
+     q.evaluatedAt>now||now-q.evaluatedAt>QUALIFICATION_MAX_AGE_MS)
+    return 'not_currently_verified';
+  return 'recently_verified';
+}
+function projectIntroduction(snapshot,operatorQualification=null,trackingEnabled=false){
   const row=snapshot.data()||{};
   return {
     reference:referenceFor(snapshot.id),
@@ -47,13 +59,16 @@ function projectIntroduction(snapshot){
     recordedAt:Number.isSafeInteger(row.claimedAt)&&row.claimedAt>0?
       row.claimedAt:null,
     progress:'introduction_recorded',
+    operatorQualification:row.role==='operator'?operatorQualification:null,
+    recordedSettledTravels:trackingEnabled&&Number.isSafeInteger(row.recordedSettledTravels)&&
+      row.recordedSettledTravels>=0?row.recordedSettledTravels:trackingEnabled?0:null,
     // Accounting has no live verified payments; no speculative zeros.
     qualifyingTravels:null,
     earnedCents:null,
     paidCents:null,
   };
 }
-async function listIntroductions({db,uid,verifiedEmail,role,after=null}={}){
+async function listIntroductions({db,uid,verifiedEmail,role,after=null,trackingEnabled=false}={}){
   if(!db||!validUid(uid)||!ROLES.has(role)||after!==null&&
      (typeof after!=='string'||after.length>256))
     return {ok:false,reason:'invalid_request'};
@@ -83,7 +98,18 @@ async function listIntroductions({db,uid,verifiedEmail,role,after=null}={}){
     const result=await query.get();
     const docs=result.docs||[];
     const page=docs.slice(0,PAGE_SIZE);
-    return {ok:true,role,items:page.map(projectIntroduction),
+    // Bounded to one page. No recruiter sees document details, insurance,
+    // screening results or any private Operator name/contact information.
+    const items=await Promise.all(page.map(async snapshot=>{
+      const entry=snapshot.data()||{};
+      if(role!=='operator'||!validUid(entry.inviteeUid)||
+         entry.inviterUid!==uid)return projectIntroduction(snapshot,'not_currently_verified',trackingEnabled);
+      try{
+        const user=await db.collection('users').doc(entry.inviteeUid).get();
+        return projectIntroduction(snapshot,observedQualification(user.exists?user.data():null,Date.now()),trackingEnabled);
+      }catch{return projectIntroduction(snapshot,'verification_unavailable',trackingEnabled);}
+    }));
+    return {ok:true,role,items,
       nextCursor:docs.length>PAGE_SIZE&&page.length?
         encodeCursor(page[page.length-1].id,uid,role):null,
       pageSize:PAGE_SIZE,asOf:Date.now(),
@@ -93,4 +119,4 @@ async function listIntroductions({db,uid,verifiedEmail,role,after=null}={}){
       earnedCents:null,paidCents:null};
   }catch{return {ok:false,reason:'introductions_unavailable'};}
 }
-module.exports={PAGE_SIZE,referenceFor,projectIntroduction,listIntroductions};
+module.exports={PAGE_SIZE,QUALIFICATION_MAX_AGE_MS,observedQualification,referenceFor,projectIntroduction,listIntroductions};

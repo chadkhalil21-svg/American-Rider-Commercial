@@ -762,31 +762,11 @@ app.post('/ops/recruiters/invite',requireOps,requireRecruiterFounder,
   requireOpsMutation,recruiterInviteLimit,requireRecruiterInviteLaunch,async(req,res)=>{
   const db=adminDb();
   if(!db)return res.status(503).json({ok:false,code:'database_unavailable'});
-  const issued=await recruiterPortal.createInvitation({
-    db,email:req.body?.email,allowedRoles:req.body?.allowedRoles,actor:req.opsUser,
+  const result=await require('./recruiter-invite-service').sendRecruiterInvitation({
+    db,send,email:req.body?.email,allowedRoles:req.body?.allowedRoles,actor:req.opsUser,
   });
-  if(!issued.ok)return res.status(400).json(issued);
-  // Never place a reusable token in an Operations response, application log or URL
-  // list. One short-lived private message delivers it to the bound mailbox only.
-  // An app link and public landing page MUST be verified before this flag is ON.
-  const url='https://americanrider.tech/recruitment/accept?token='+encodeURIComponent(issued.token);
-  const result=await send({
-    from:'American Rider Relations <relations@americanrider.tech>',
-    to:String(req.body.email).trim().toLowerCase(),
-    replyTo:'relations@americanrider.tech',
-    subject:'An invitation to represent American Rider',
-    text:'AMERICAN RIDER\\n\\nYou are invited to review an independent recruitment relationship with American Rider.\\n\\nOpen your private invitation: '+url+
-      '\\n\\nThis invitation expires in 48 hours and is valid only for the addressed, verified email account. There is no public enrollment or earnings promise.\\n\\nQuestions: relations@americanrider.tech',
-    idempotencyKey:'recruiter-invite/'+issued.id,
-  });
-  if(!result.ok){
-    await db.collection('recruiter_invitations').doc(issued.id)
-      .set({status:'delivery_failed',deliveryFailedAt:Date.now()},{merge:true}).catch(()=>{});
-    return res.status(503).json({ok:false,code:'invitation_not_delivered'});
-  }
-  await db.collection('recruiter_invitations').doc(issued.id)
-    .set({sentAt:Date.now(),providerId:result.id||null},{merge:true}).catch(()=>{});
-  return res.json({ok:true,expiresAt:issued.expiresAt,delivery:'submitted'});
+  return res.status(result.ok?200:result.code==='invalid_invitation'?400:
+    result.code==='invitation_already_requested'?409:503).json(result);
 });
 app.post('/ops/recruiters/:uid/review',requireOps,requireRecruiterFounder,
   // Founder review and emergency suspension must work even while invitations are OFF.
@@ -826,6 +806,7 @@ app.get('/recruiters/me',requireAuth,requireVerifiedEmail,recruiterLimit,async(r
   const out=await recruiterPortal.recruiterSummary({
     db:adminDb(),uid:String(req.uid),verifiedEmail:req.email,
     programEnabled,linkVerified:readKey('AR_APP_LINKS_VERIFIED')==='1',
+    activityTrackingEnabled:readKey('AR_RECRUITER_TRAVEL_TRACKING_ENABLED')==='1',
   });
   return res.status(out.ok?200:out.reason==='not_enrolled'?404:
     out.reason==='account_inactive'?403:503).json(out);
@@ -838,6 +819,7 @@ app.get('/recruiters/introductions',requireAuth,requireFreshAuth,
   const role=req.query?.role,after=req.query?.after??null;
   const result=await require('./recruiter-roster').listIntroductions({
     db:adminDb(),uid:String(req.uid),verifiedEmail:req.email,role,after,
+    trackingEnabled:readKey('AR_RECRUITER_TRAVEL_TRACKING_ENABLED')==='1',
   });
   res.set('Cache-Control','private, no-store, max-age=0');
   return res.status(result.ok?200:
@@ -2471,7 +2453,18 @@ async function runAllSweeps({criticalOnly=false}={}) {
     pushReceipts: () => maintenanceSweep('pushReceipts', () => sweepPushReceipts()),
     assignments: () => sweepAssignments({ checkMarket }),
     screening: () => maintenanceSweep('screening', () => sweepScreening()),
-    settlements: () => sweepSettlements(),
+    settlements: async () => {
+      const out=await sweepSettlements();
+      if(readKey('AR_RECRUITER_TRAVEL_TRACKING_ENABLED')==='1'){
+        // Retry only the indexed pending queue after a crash or outage.
+        // Private activity records do not transfer money or create rewards.
+        const activity=await require('./recruiter-travel-activity')
+          .sweepSettledTravelActivity({db:adminDb()});
+        if(!activity.ok||activity.blocked)
+          console.warn('[recruiter-travel-activity] reconciliation requires review');
+      }
+      return out;
+    },
     bookingRecovery: () => sweepBookingRecovery({ db: adminDb(), stripeConfigured: keyMode !== 'no-key',
       deps: { refundableFor, refundTravel, cancelUnpaidIntent, verifiedTravelPayment,
         transferFixed, operatorPayoutAccount, settleUncapturedTravel } }),
@@ -3974,6 +3967,11 @@ mountFounderMcp(app, express, {
   isProduction: () => DEPLOYMENT_MODE === 'production' && keyMode === 'live',
   markets: allMarkets, regions: REGIONS, proposeMarket,
   oauthLimit: LIMITS.founderOauthIp, mcpLimit: LIMITS.founderMcpIp,
+  founderCanInviteRecruiter:actor=>opsAuthMode()==='named'&&
+    founderRecruiterNames.has(actor)&&recruiterInvitesEnabled,
+  inviteRecruiter:input=>require('./recruiter-invite-service').sendRecruiterInvitation({
+    db:adminDb(),send,...input,
+  }),
 });
 
 app.get('/scheduled/sweep', runSweep);
