@@ -21,6 +21,12 @@ async function recordOperatorMarketSelection({db,uid,market,via,now=Date.now()})
       previous.insuranceMonitoring
     );
     const firstActiveSelection=market.status==='active' && !alreadyStarted;
+    // A repeated unchanged selection is a read-only transaction. Avoid charging
+    // another document write and avoid updating an unnecessary market timestamp.
+    // Genuine changes still persist, but never reset first onboarding start.
+    if (!firstActiveSelection && previous.operatingMarket?.id===market.id &&
+        previous.operatingMarket?.via===via)
+      return {firstActiveSelection:false};
     const patch={operatingMarket:{id:market.id,via,at:now}};
     if (firstActiveSelection) patch.operatorOnboardingStartedAt=now;
     tx.set(ref,patch,{merge:true});
