@@ -41,6 +41,7 @@ assert.equal(db.writes,0);
 const unavailable=await approvedRecruiterLink({db,uid,role:'operator',now,programEnabled:true,linkVerified:true});
 assert.equal(unavailable.reason,'not_approved');
 db.rows.set('recruiter_approvals/'+uid,approved);
+db.rows.set('recruiter_accounts/'+uid,{status:'approved',allowedRoles:['operator','traveler']});
 const one=await approvedRecruiterLink({db,uid,role:'operator',now,programEnabled:true,linkVerified:true});
 assert.equal(one.ok,true);
 assert.match(one.url,/^https:\/\/americanrider\.tech\/join\?r=[23456789ABCDEFGHJKLMNPQRSTUVWXYZ]{12}&role=operator$/);
@@ -66,6 +67,10 @@ for(const variant of [
   const r=eligibleApproval(variant,'operator',now);
   assert.equal(r,false,'unapproved, expired or incomplete record must fail');
 }
+// Revoked/expired contract blocks sharing even when the Firebase uid is still approved.
+db.rows.set('recruiter_approvals/'+uid,{...approved,agreementAccepted:false});
+assert.equal((await approvedRecruiterLink({db,uid,role:'operator',now,
+  programEnabled:true,linkVerified:true})).reason,'not_approved');
 db.rows.set('recruiter_approvals/'+uid,{...approved,status:'suspended'});
 const blocked=await approvedRecruiterLink({db,uid,role:'operator',now,programEnabled:true,linkVerified:true});
 assert.equal(blocked.reason,'not_approved','existing link must not be reissued after suspension');
