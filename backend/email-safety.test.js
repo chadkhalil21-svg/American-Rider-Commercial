@@ -36,6 +36,14 @@ const restore = () => {
     'plain-text alternative must remain readable without HTML entities');
   assert.ok(receipt.subject.includes('AR-001<script>escape</script>'),
     'subject is plain text, not HTML; output encoding must be contextual');
+  const fullReceipt = receiptEmail({dep:'A',dest:'B',costCents:1234, miles:4.2,
+    onboardAt: Date.UTC(2026,9,24,1,0), completedAt:Date.UTC(2026,9,24,1,14)});
+  assert.match(fullReceipt.text,/Duration:\s+14 minutes/);
+  assert.match(fullReceipt.text,/Distance:\s+4.2 miles/);
+  assert.match(fullReceipt.html,/>14 minutes</);
+  assert.match(fullReceipt.html,/>4.2 miles</);
+  assert.match(receipt.text,/Duration:\s+Not recorded/);
+  assert.match(receipt.text,/Distance:\s+Not recorded/);
   assert.ok(receipt.html.includes('mailto:support@americanrider.tech'),
     'trusted static support link must remain working');
 
