@@ -317,6 +317,7 @@ export default {
   },
 
   traveler: {
+    shareReceipt: "Compartir recibo",
     updateRequiredTitle: 'Actualización necesaria',
     updateRequiredBody: 'Actualice American Rider para revisar y confirmar el total actual del viaje. No se hizo ninguna reserva ni ningún cobro.',
     priceChangedTitle: 'El costo total cambió',
