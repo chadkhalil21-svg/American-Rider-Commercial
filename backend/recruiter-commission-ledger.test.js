@@ -118,6 +118,8 @@ for(const [key,n,amount] of [[id1,'ride-123456',1500],[id2,'ride-123457',1200],
   proof:{verified:true,reason:'dispute',eventId:'evt_dispute_987'}});
  assert.equal(recovered.recoveryRequired,true,'do not imply returned cash was recovered');
  assert.equal(db.at('recruiter_commission_wallets/'+uid).paidCents,2700);
+ assert.equal(db.at('recruiter_commission_wallets/'+uid).recoveryDueCents,1500,
+   'money already paid but disputed is an outstanding recovery, not silently reclaimed');
  assert.equal(db.at('referral_reward_events/'+id3).requiresRecovery,true);
  console.log('PASS recruiter reward maturity, approved accounting, exact-event reservation, failed bank return, paid proof, reversals, idempotency; NO MONEY SENT');
 })().catch(e=>{console.error(e);process.exitCode=1});
