@@ -1701,7 +1701,7 @@ app.post('/travel/settle', requireAuth, requireFreshAuth, async (req, res) => {
         settleUncapturedTravel,
         // THE RECEIPT, BY EMAIL, once. A failure is recorded on the travel and visible on /ops.
         sendReceipt: async (ride) => {
-          const sent = await send({ to: req.email, ...receiptEmail(ride) });
+          const sent = await send({ to: req.email, ...receiptEmail(ride), replyTo: 'support@americanrider.tech' });
           if (!sent.ok) console.log(`[receipt] ${ride.tripNo || req.body?.rideId}: ${sent.reason}`);
           return sent;
         },
