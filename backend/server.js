@@ -2451,7 +2451,18 @@ async function runAllSweeps({criticalOnly=false}={}) {
     pushReceipts: () => maintenanceSweep('pushReceipts', () => sweepPushReceipts()),
     assignments: () => sweepAssignments({ checkMarket }),
     screening: () => maintenanceSweep('screening', () => sweepScreening()),
-    settlements: () => sweepSettlements(),
+    settlements: async () => {
+      const out=await sweepSettlements();
+      if(readKey('AR_RECRUITER_TRAVEL_TRACKING_ENABLED')==='1'){
+        // Retry only the indexed pending queue after a crash or outage.
+        // Private activity records do not transfer money or create rewards.
+        const activity=await require('./recruiter-travel-activity')
+          .sweepSettledTravelActivity({db:adminDb()});
+        if(!activity.ok||activity.blocked)
+          console.warn('[recruiter-travel-activity] reconciliation requires review');
+      }
+      return out;
+    },
     bookingRecovery: () => sweepBookingRecovery({ db: adminDb(), stripeConfigured: keyMode !== 'no-key',
       deps: { refundableFor, refundTravel, cancelUnpaidIntent, verifiedTravelPayment,
         transferFixed, operatorPayoutAccount, settleUncapturedTravel } }),
