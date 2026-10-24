@@ -145,6 +145,15 @@ async function verifyRecruiterBank({db,stripe,uid,verifiedEmail,now=Date.now()}=
   const profile=await ref.get();
   if(!profile.exists||emailOf(profile.data().verifiedEmail)!==emailOf(verifiedEmail))
    return {ok:false,reason:'not_authorized'};
+  // Existing Operators use their original connected Stripe identity. Never
+  // create a second account or modify their existing payout schedule.
+  const shared=await require('./recruiter-operator-connect')
+    .inspectExistingOperatorRecruiterConnect({
+      db,stripe,uid,verifiedEmail,account:profile.data(),now,
+    });
+  if(shared.applicable)return shared;
+  if(shared.reason&&shared.reason!=='invalid_request')
+   return {ok:false,reason:shared.reason};
   if(!validAcct(profile.data().stripeRecruiterAccountId))
    return {ok:true,status:'needs_hosted_onboarding',ready:false};
   const provider=await stripe.accounts.retrieve(profile.data().stripeRecruiterAccountId);
