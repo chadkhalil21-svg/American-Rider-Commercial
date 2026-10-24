@@ -43,6 +43,14 @@ assert.doesNotMatch(backend,/app\.(?:get|post)\('\/referrals\/(?:pay|transfer|cr
 assert.match(share,/EXPO_PUBLIC_REFERRALS_ENABLED !== '1'/);
 assert.match(share,/referrals\/share\?role=/);
 assert.match(join,/savePendingInvite/);
+assert.deepEqual(nativeConfig.ios.associatedDomains,['applinks:americanrider.tech']);
+assert.equal(nativeConfig.android.intentFilters[0].autoVerify,true);
+assert.equal(nativeConfig.android.intentFilters[0].data[0].host,'americanrider.tech');
+assert.equal(nativeConfig.android.intentFilters[0].data[0].pathPrefix,'/join');
+assert.match(register,/savePendingInvite/,'both roles can recover manual codes after install');
+assert.match(initialHome,/useFocusEffect\(useCallback/,'Traveler claim must retry on verified next visit');
+assert.match(operatorQualify,/user\?\.emailVerified/,'Operator attribution must await verified email');
+assert.match(share,/americanrider\\\.tech/);
 assert.match(rootApp,/readPendingInvite/);
 
 console.log('PASS referral source contract: Traveler UX, Operator gate, owned links, held-only money');
