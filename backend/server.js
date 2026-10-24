@@ -966,7 +966,8 @@ app.get('/referrals/share',requireReferralLaunch,requireAuth,
     if(readKey('AR_APP_LINKS_VERIFIED')!=='1')
       return res.status(503).json({ok:false,code:'signed_app_links_not_verified'});
     const out=await referrals.shareLink({db,uid:String(req.uid),role,
-      origin:'https://americanrider.tech'});
+      origin:'https://americanrider.tech',
+      paidRecruiterProgramEnabled:recruiterRewardsEnabled()});
     return res.status(out.ok?200:503).json(out);
   });
 
