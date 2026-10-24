@@ -170,9 +170,18 @@ for(const [key,n,amount] of [[id1,'ride-123456',1500],[id2,'ride-123457',1200],
  assert.equal((await reserveRecruiterPayout({...closeoutArgs,
     now:residualAt+ninetyDays-1})).reason,'residual_closeout_not_due');
  assert.equal((await reserveRecruiterPayout({...closeoutArgs,
+    now:residualAt+ninetyDays})).reason,'bank_provider_minimum_not_met',
+    'do not strand a 15-cent payout in a Stripe account with a $1 minimum');
+ assert.equal(residualDb.at('recruiter_commission_wallets/'+uid).availableCents,15,
+    'sub-minimum money must remain owed, not reserved or transferred');
+ residualDb.set('recruiter_commission_wallets/'+uid,{
+   availableCents:105,reservedCents:0,paidCents:0,reversedCents:0,recoveryDueCents:0});
+ residualDb.set('referral_reward_events/'+residualEvent,{
+   ...residualDb.at('referral_reward_events/'+residualEvent),amountCents:105});
+ assert.equal((await reserveRecruiterPayout({...closeoutArgs,
     now:residualAt+ninetyDays})).status,'reserved');
  assert.equal(residualDb.at('recruiter_commission_payouts/recruiter-residual-2027').netCents,
-   15,'residual funds are not forfeited to the $2 fee');
+   105,'valid residual funds are not forfeited to the $2 fee');
  assert.equal(residualDb.at('recruiter_commission_payouts/recruiter-residual-2027').feeCents,
    0,'provider cost borne by platform for tiny 90-day closeout');
  assert.equal(residualDb.at('recruiter_commission_payouts/recruiter-residual-2027').residualFeeWaived,
