@@ -318,8 +318,8 @@ const operationalMode = productionMode;
 // Native apps do not depend on browser CORS. Browser clients do, so production permits only
 // American Rider's own web origins. Development remains open for Expo/local tooling.
 const CORS_ORIGINS = new Set(
-  String(readKey('CORS_ORIGINS') || 'https://americanrider.app,https://www.americanrider.app')
-    .split(',').map((s) => s.trim()).filter(Boolean),
+  String(readKey('CORS_ORIGINS') || 'https://americanrider.tech,https://www.americanrider.tech,https://americanrider.app,https://www.americanrider.app')
+    .split(',').map((s) => s.trim()).filter(Boolean).concat(['https://americanrider.tech','https://www.americanrider.tech']),
 );
 // Respect the Operations Console's own origin, while retaining the strict allowlist for
 // requests arriving from any other site. Do not require a Render-specific CORS_ORIGINS override.
