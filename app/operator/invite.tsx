@@ -55,12 +55,6 @@ export default function OperatorInvitations(){
           <Text style={styles.chevron} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">›</Text>
         </Pressable>
       </Card>
-      {/* Same authenticated Firebase identity, no additional Recruiter account. */}
-      {process.env.EXPO_PUBLIC_REFERRALS_ENABLED === '1'&&
-        <Pressable accessibilityRole="button" style={styles.recruitment}
-          onPress={()=>router.navigate('/recruitment')}>
-          <Text style={styles.recruitmentText}>{t('recruiter.title')} ›</Text>
-        </Pressable>}
       <OperatorDrawer open={menuOpen} onClose={()=>setMenuOpen(false)}
         onNote={()=>{}}/>
     </OperatorScreen>
@@ -74,6 +68,4 @@ const styles=StyleSheet.create({
   choiceLabel:{fontSize:15,fontWeight:'500',color:colors.ink},
   chevron:{fontSize:24,fontWeight:'300',color:colors.muted},
   rule:{height:1,backgroundColor:colors.hairline,marginHorizontal:18},
-  recruitment:{marginTop:22,minHeight:44,justifyContent:'center'},
-  recruitmentText:{fontSize:14,color:colors.ink,fontWeight:'500'},
 });
