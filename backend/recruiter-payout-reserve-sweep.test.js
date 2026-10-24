@@ -23,49 +23,35 @@ assert.deepEqual(await sweepRecruiterPayoutReservations({db:due,enabled:true,now
  scheduleApproved:true,provider:'stripe_connect',activeMonthlyFeeCents:200,minimumCents:2500}}),
  {ok:true,reserved:0,waiting:0,errors:0});
 const now=Date.UTC(2026,10,1),eligibleAt=now-30*86400000,updates=[];
-const candidateDb={
- collection(name){
-  if(name==='recruiter_payout_candidates')return {
-   where(field,op,value){
-    assert.equal(field,'nextAttemptAt');
-    assert.equal(op,'<=');
-    assert.equal(value,now);
-    return {limit(n){
-     assert.equal(n,12);
-     return {get:async()=>({docs:[{
-      id:'recruiter-001',
-      data:()=>({uid:'recruiter-001',nextAttemptAt:now,
-       lastEligibleRewardAt:eligibleAt})
-     }]})};
-    }};
-   },
-   doc(uid){
-    assert.equal(uid,'recruiter-001');
-    return {set:async value=>updates.push(value)};
-   },
-  };
-  if(name==='referral_reward_events')return {
-   where(field,op,value){
-    assert.equal(field,'inviterUid');
-    assert.equal(op,'==');
-    assert.equal(value,'recruiter-001');
-    return {where(field2,op2,value2){
-     assert.equal(field2,'status');
-     assert.equal(op2,'==');
-     assert.equal(value2,'available');
-     return {limit(n){
-      assert.equal(n,200);
-      return {get:async()=>({docs:[{
-       id:'ride-000000_operator',
-       data:()=>({amountCents:15})
-      }]})};
-     }};
-    }};
-   },
-  };
-  throw Error('unexpected collection '+name);
- }
-};
+function mockQuery(filters,docs,depth=0){
+ return {
+  where(...args){
+   assert.deepEqual(args,filters[depth]);
+   return mockQuery(filters,docs,depth+1);
+  },
+  limit(n){
+   assert.equal(depth,filters.length);
+   assert.equal(n,filters.length===1?12:200);
+   return {get:async()=>({docs})};
+  },
+ };
+}
+const candidateDb={collection(name){
+ if(name==='recruiter_payout_candidates')return {
+  ...mockQuery([['nextAttemptAt','<=',now]],[
+   {id:'recruiter-001',data:()=>({uid:'recruiter-001',
+     nextAttemptAt:now,lastEligibleRewardAt:eligibleAt})},
+  ]),
+  doc(uid){
+   assert.equal(uid,'recruiter-001');
+   return {set:async value=>{updates.push(value);}};
+  },
+ };
+ if(name==='referral_reward_events')return mockQuery([
+  ['inviterUid','==','recruiter-001'],['status','==','available'],
+ ],[{id:'ride-000000_operator',data:()=>({amountCents:15})}]);
+ throw Error('unexpected collection '+name);
+}};
 const requeued=await sweepRecruiterPayoutReservations({db:candidateDb,enabled:true,
  now,authorization:{programEnabled:true,providerApproved:true,counselApproved:true,
  scheduleApproved:true,provider:'stripe_connect',activeMonthlyFeeCents:200,minimumCents:2500}});
