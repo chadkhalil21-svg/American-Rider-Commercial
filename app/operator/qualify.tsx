@@ -226,7 +226,7 @@ export default function OperatorQualification() {
           <Text style={styles.rowSub}>{t('operator.referralDescription')}</Text>
           <Text style={styles.rowSub}>{t('operator.referralCodeOptional')}</Text>
           <TextInput
-            accessibilityLabel="Referral code"
+            accessibilityLabel={t('operator.referralCodeOptional')}
             autoCapitalize="characters"
             autoCorrect={false}
             maxLength={32}
@@ -239,7 +239,7 @@ export default function OperatorQualification() {
           {referralStatus === 'recorded' ? (
             <Text accessibilityRole="alert" style={styles.rowSub}>{t('operator.referralRecorded')}</Text>
           ) : (
-            <Pressable accessibilityRole="button" accessibilityLabel="Apply referral code"
+            <Pressable accessibilityRole="button" accessibilityLabel={t('operator.referralApply')}
               disabled={referralBusy} onPress={() => void claimReferral()}
               style={styles.referralAction}>
               <Text style={styles.rowTitle}>{referralBusy ? t('operator.referralChecking') : t('operator.referralApply')}</Text>
