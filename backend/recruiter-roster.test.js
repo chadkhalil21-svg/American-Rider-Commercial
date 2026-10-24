@@ -48,7 +48,9 @@ function db(){
  const a=await listIntroductions({db:database,uid:'recruiter-a',
    verifiedEmail:'recruiter@ar.test',role:'operator'});
  assert.equal(a.ok,true);assert.equal(a.items.length,PAGE_SIZE);
- assert.equal(a.nextCursor,'person26_operator');
+ assert.match(a.nextCursor,/^[A-Za-z0-9_-]{38,256}$/);
+ assert.equal(a.nextCursor.includes('person'),false,
+   'pagination token must not disclose invitee Firebase ID');
  assert.equal(a.items[0].progress,'introduction_recorded');
  assert.equal(a.items[0].qualifyingTravels,null);
  assert.equal(a.items[0].earnedCents,null);
@@ -71,6 +73,13 @@ function db(){
  const denied=await listIntroductions({db:database,uid:'recruiter-a',
    verifiedEmail:'recruiter@ar.test',role:'operator',after:'person44_operator'});
  assert.equal(denied.reason,'invalid_cursor');
+ const tampered=await listIntroductions({db:database,uid:'recruiter-a',
+   verifiedEmail:'recruiter@ar.test',role:'operator',
+   after:a.nextCursor.slice(0,-1)+(a.nextCursor.endsWith('A')?'B':'A')});
+ assert.equal(tampered.reason,'invalid_cursor');
+ const wrongRole=await listIntroductions({db:database,uid:'recruiter-a',
+   verifiedEmail:'recruiter@ar.test',role:'traveler',after:a.nextCursor});
+ assert.equal(wrongRole.reason,'invalid_cursor');
  const wrong=await listIntroductions({db:database,uid:'recruiter-a',
    verifiedEmail:'wrong@ar.test',role:'operator'});
  assert.equal(wrong.reason,'identity_mismatch');
