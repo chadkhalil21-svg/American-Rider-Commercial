@@ -2561,8 +2561,9 @@ async function runAllSweeps({criticalOnly=false}={}) {
       // delayed Operator transfers. No second clock, worker or database scan.
       const receipts=await sweepTravelReceipts({db:adminDb(),
         sendReceipt:({to,receipt,idempotencyKey})=>send({
-          to,...receiptEmail(receipt),replyTo:'support@americanrider.tech',
-          idempotencyKey,
+          to,...receiptEmail(receipt),
+          from:'American Rider <receipts@americanrider.tech>',
+          replyTo:'support@americanrider.tech',idempotencyKey,
         }),
       });
       // Optional Recruiter payouts reuse the same leased production scheduler.
