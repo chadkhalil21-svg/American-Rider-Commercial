@@ -121,6 +121,10 @@ const { fileTicket, updateTicketLocation, listTickets, resolveTicket } = require
 const { lostItemTicket, stampLostItemCase, notifyLostItemOperators, operatorLostItem, respondLostItem } = require('./lostitem');
 const { adminDb, adminStatus, accountDisabled } = require('./firebase-admin');
 const referrals = require('./referral-service');
+const {PROGRAM:RECRUITER_REWARDS}=require('./referral-accrual');
+const {fundedRecruiterSnapshot}=require('./recruiter-reward-budget');
+const {sweepFundedRecruiterAccrual,sweepMaturedRecruiterRewards}=
+  require('./recruiter-accrual-sweep');
 const { closeOperationalAccount } = require('./accountclosure');
 const { finalizeAccountDeletion, sweepAccountDeletion } = require('./accountdeletion');
 const { acceptOffer } = require('./eligibility');
@@ -804,6 +808,17 @@ const recruiterStripeEnabled=()=>readKey('AR_RECRUITER_FINANCE_ENABLED')==='1'&&
   readKey('AR_RECRUITER_PROGRAM_ENABLED')==='1'&&
   readKey('AR_RECRUITER_LEGAL_SIGNOFF')==='1'&&
   readKey('AR_RECRUITER_STRIPE_CONNECT_APPROVED')==='1';
+// The founder approved $0.15/qualifying Travel, not live banking or legal clearance.
+const recruiterRewardsEnabled=()=>recruiterStripeEnabled()&&
+  readKey('AR_RECRUITER_REWARDS_ENABLED')==='1'&&
+  readKey('AR_RECRUITER_PAYOUT_SCHEDULE_APPROVED')==='1'&&
+  readKey('AR_RECRUITER_STRIPE_PAYOUTS_ENABLED')==='1'&&
+  readKey('AR_REFERRALS_ENABLED')==='1'&&
+  readKey('AR_APP_LINKS_VERIFIED')==='1'&&
+  Number(readKey('AR_RECRUITER_REWARD_HOLD_MS'))>=86400000&&
+  Number(readKey('AR_RECRUITER_REWARD_HOLD_MS'))<=120*86400000&&
+  Number(readKey('AR_RECRUITER_MIN_PAYOUT_CENTS'))>200&&
+  Number(readKey('AR_RECRUITER_MIN_PAYOUT_CENTS'))<=3000;
 const recruiterTerms=()=>recruiterAgreement.termsConfig({
   text:readKey('AR_RECRUITER_TERMS_TEXT'),
   version:readKey('AR_RECRUITER_TERMS_VERSION'),
@@ -910,6 +925,7 @@ app.get('/recruiters/me',requireAuth,requireVerifiedEmail,recruiterLimit,async(r
     db:adminDb(),uid:String(req.uid),verifiedEmail:req.email,
     programEnabled,linkVerified:readKey('AR_APP_LINKS_VERIFIED')==='1',
     activityTrackingEnabled:readKey('AR_RECRUITER_TRAVEL_TRACKING_ENABLED')==='1',
+    financialEnabled:recruiterRewardsEnabled(),
   });
   return res.status(out.ok?200:out.reason==='not_enrolled'?404:
     out.reason==='account_inactive'?403:503).json(out);
@@ -975,7 +991,8 @@ app.post('/referrals/claim',requireReferralLaunch,requireAuth,
       const verified=await require('firebase-admin/auth').getAuth().getUser(String(req.uid));
       if(verified.disabled)return res.status(403).json({ok:false,code:'account_disabled'});
       const createdAt=Date.parse(verified.metadata.creationTime||'');
-      const out=await referrals.claim({db,uid:String(req.uid),code,role,authCreatedAtMs:createdAt});
+      const out=await referrals.claim({db,uid:String(req.uid),code,role,authCreatedAtMs:createdAt,
+        paidRecruiterProgram:{enabled:recruiterRewardsEnabled(),version:RECRUITER_REWARDS.version}});
       return res.status(out.ok?200:out.reason==='claim_unavailable'?503:409).json(out);
     }catch{
       return res.status(503).json({ok:false,code:'account_verification_unavailable'});
@@ -2583,12 +2600,31 @@ async function runAllSweeps({criticalOnly=false}={}) {
         if(bank?.ok===false)console.warn('[recruiter-bank] exception requires review');
       }
       if(readKey('AR_RECRUITER_TRAVEL_TRACKING_ENABLED')==='1'){
-        // Retry only the indexed pending queue after a crash or outage.
-        // Private activity records do not transfer money or create rewards.
+        // Bounded, read-once activity, independent of optional Recruiter money.
         const activity=await require('./recruiter-travel-activity')
           .sweepSettledTravelActivity({db:adminDb()});
         if(!activity.ok||activity.blocked)
           console.warn('[recruiter-travel-activity] reconciliation requires review');
+      }
+      if(!criticalOnly&&recruiterRewardsEnabled()){
+        // No new clock. One indexed due page per active scheduled tick, and
+        // NOTHING queried if legal, tax/funding or launch authority is OFF.
+        const holdMs=Number(readKey('AR_RECRUITER_REWARD_HOLD_MS'));
+        const accrue=await maintenanceSweep('recruiterAccrual',()=>
+          sweepFundedRecruiterAccrual({db:adminDb(),enabled:true,holdMs}));
+        if(accrue?.ok===false)console.warn('[recruiter-accrual] needs review');
+        const minimumCents=Number(readKey('AR_RECRUITER_MIN_PAYOUT_CENTS'));
+        const release=await maintenanceSweep('recruiterRelease',()=>
+          sweepMaturedRecruiterRewards({db:adminDb(),approved:true,holdMs,minimumCents}));
+        if(release?.ok===false)console.warn('[recruiter-maturity] needs review');
+        const reserve=await maintenanceSweep('recruiterReserve',()=>
+          require('./recruiter-payout-reserve-sweep').sweepRecruiterPayoutReservations({
+            db:adminDb(),enabled:true,
+            authorization:{programEnabled:true,providerApproved:true,counselApproved:true,
+              scheduleApproved:true,provider:'stripe_connect',activeMonthlyFeeCents:200,
+              minimumCents},
+          }));
+        if(reserve?.ok===false)console.warn('[recruiter-reserve] needs review');
       }
       return {...out,receipts};
     },
@@ -4296,6 +4332,7 @@ app.post('/travel/prepare', requireAuth, LIMITS.dispatch, requireFreshAuth, requ
       costCents: priced.travelerPays, miles: priced.miles, routedMinutes: priced.minutes,
       governmentFeeCents: priced.governmentFeeCents,
       tollCents: Math.max(0, Number(priced.tollCents) || 0), feeLines: priced.feeLines,
+      ...fundedRecruiterSnapshot(priced,{enabled:recruiterRewardsEnabled()}),
       pricedBy: priced.pricedBy, cardCountry: priced.cardCountry,
       journey: priced.journey || null, cabinPreferences,
       ...(manualFeeOffered ? {
@@ -4490,6 +4527,7 @@ app.post('/travel/schedule', requireAuth, LIMITS.dispatch, requireFreshAuth, req
       miles: priced.miles, governmentFeeCents: priced.governmentFeeCents,
       tollCents: Math.max(0, Number(priced.tollCents) || 0),
       feeLines: priced.feeLines, cardCountry: priced.cardCountry, tripNo,
+      ...fundedRecruiterSnapshot(priced,{enabled:recruiterRewardsEnabled()}),
       ...(manualScheduled?{offSessionPaymentConsent:true,
         offSessionPaymentConsentVersion:'manual-scheduled-v1',
         offSessionPaymentConsentAt:Date.now()}:{}),

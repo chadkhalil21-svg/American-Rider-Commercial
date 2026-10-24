@@ -25,6 +25,22 @@ const { recordOperatorPayoutEvent } = require('./operator-payout-event-ledger');
 const { saveDisputeEvidence } = require('./disputeevidence');
 const { assessCapturedPayment,reviewDisputeClose } = require('./payment-exception-policy');
 
+// Only previously funded, versioned Recruiter Travels use the separate ledger.
+// These calls are protected by the already signature-verified Stripe event queue.
+// Ordinary Travels incur no extra Recruiter reads or writes.
+async function reverseFundedRecruiterRewards(db,ride,event,reason){
+ if(ride?.referralProgramVersion!=='recruiter-15c-20261024-v1')return;
+ if(!event?.id||!ride?.id)throw Error('reward reversal missing verified event or Travel');
+ const {reverseCommission}=require('./recruiter-commission-ledger');
+ for(const role of ['operator','traveler']){
+  const out=await reverseCommission({db,eventId:ride.id+'_'+role,
+    proof:{verified:true,reason,eventId:event.id}});
+  if(!out.ok&&out.reason!=='reward_not_found'&&out.reason!=='unsupported_reward_state')
+    throw Error('recruiter financial reversal requires reconciliation');
+ }
+}
+
+
 /**
  * Handle one verified event. Provider-queue failures retry with a lease and end in an
  * audited dead letter; never mark a payment dispute or account restriction done before
@@ -118,8 +134,10 @@ async function handleEvent(event) {
     // ---- The traveler's bank took the money back. -----------------------------------
     case 'charge.dispute.created': {
       const ride = await rideByPaymentIntent(db, obj.payment_intent);
-      if(ride?.disputed===true&&ride.disputeId===obj.id&&ride.caseNo)
+      if(ride?.disputed===true&&ride.disputeId===obj.id&&ride.caseNo){
+        await reverseFundedRecruiterRewards(db,ride,event,'dispute');
         return {ok:true,action:'dispute already opened',caseNo:ride.caseNo};
+      }
       const caseNo = await open(db, ride, {
         kind: 'emergency', // not a safety emergency — a deadline. Evidence windows close.
         reason: 'Payment disputed',
@@ -131,7 +149,10 @@ async function handleEvent(event) {
           (ride ? `Route: ${ride.dep} to ${ride.dest}. Operator: ${ride.operatorName}.\n` : ''),
       }, event);
       const evidence = await saveDisputeEvidence({ db, ride, event });
-      if (ride) await mark(db, ride.id, { disputed: true, disputeId: obj.id, disputeAt: Date.now(), caseNo });
+      if (ride) {
+        await mark(db,ride.id,{disputed:true,disputeId:obj.id,disputeAt:Date.now(),caseNo});
+        await reverseFundedRecruiterRewards(db,ride,event,'dispute');
+      }
       return { ok: true, action: 'dispute opened', caseNo, evidenceRef: evidence.ref };
     }
 
@@ -169,11 +190,36 @@ async function handleEvent(event) {
       return {ok:true,action:`dispute ${obj.status}`,reviewRequired:result.kind!=='provider_won'};
     }
 
+    // Any provider-confirmed refund, including partial, makes this one
+    // Recruiter award ineligible. Do not equate partial Travel refunds with a
+    // full Traveler reimbursement or alter the Operator's 99% settlement.
+    case 'charge.refunded': {
+      if(!Number.isSafeInteger(obj.amount_refunded)||obj.amount_refunded<=0)
+        return {ok:true,action:'refund without positive amount'};
+      const ride=await rideByPaymentIntent(db,obj.payment_intent);
+      if(ride?.referralProgramVersion==='recruiter-15c-20261024-v1'){
+        await mark(db,ride.id,{recruiterRewardRefunded:true,
+          recruiterRewardRefundedAt:Date.now()});
+        await reverseFundedRecruiterRewards(db,ride,event,'refund');
+      }
+      return {ok:true,action:'refund checked for Recruiter reversal'};
+    }
+
     // Stripe can accept a refund request and then fail it asynchronously.
     // No money is reissued here: create a durable, retry-safe exception so
     // support can reconcile the original refund before promising a new one.
     case 'refund.failed':
     case 'refund.updated': {
+      if(event.type==='refund.updated'&&obj.status==='succeeded'&&
+         Number.isSafeInteger(obj.amount)&&obj.amount>0){
+        const ride=await rideByPaymentIntent(db,obj.payment_intent);
+        if(ride?.referralProgramVersion==='recruiter-15c-20261024-v1'){
+          await mark(db,ride.id,{recruiterRewardRefunded:true,
+            recruiterRewardRefundedAt:Date.now()});
+          await reverseFundedRecruiterRewards(db,ride,event,'refund');
+          return {ok:true,action:'confirmed Recruiter refund reversal'};
+        }
+      }
       if (event.type === 'refund.updated' && !['failed', 'canceled'].includes(obj.status))
         return { ok: true, action: 'nonfailed refund update' };
       if (!obj.id) throw new Error('refund event missing provider refund ID');

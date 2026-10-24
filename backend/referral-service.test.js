@@ -87,6 +87,16 @@ class MemoryDb {
     approvedBy:'founder',approvedAt:now-100,agreementAcceptedAt:now-90,
     expiresAt:now+24*3600_000,allowedRoles:['operator','traveler']};
   db.rows.set('recruiter_approvals/inviter',approval);
+  const paidTraveler=await claim({db,uid:'paid-traveler-001',code,role:'traveler',
+    authCreatedAtMs:now-2000,now,
+    paidRecruiterProgram:{enabled:true,version:'recruiter-15c-20261024-v1'}});
+  assert.equal(paidTraveler.rewardEnabled,true);
+  const paidClaim=db.rows.get('referral_attributions/paid-traveler-001_traveler');
+  assert.equal(paidClaim.rewardEnabled,true);
+  assert.equal(paidClaim.programVersion,'recruiter-15c-20261024-v1');
+  const direct=await claim({db,uid:'ordinary-unpaid',code,role:'traveler',
+    authCreatedAtMs:now,now});
+  assert.equal(direct.rewardEnabled,false,'default remains unpaid');
   const transfer=await claim({db,uid:'new-traveler',code,role:'operator',
     authCreatedAtMs:now-2000,now});
   assert.equal(transfer.ok,true,'existing Traveler can later join as new Operator');

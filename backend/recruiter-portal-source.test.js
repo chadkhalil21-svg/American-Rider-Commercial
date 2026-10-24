@@ -48,8 +48,9 @@ assert.match(portal,/reason:'account_inactive'/);
 assert.match(portal,/payoutEligibilityVerified:false/);
 assert.match(portal,/linksAvailable/);
 assert.match(portal,/recruiterMayRefer/);
-assert.match(portal,/compensation:'not_commissioned'/);
-assert.match(portal,/bankSetup:'not_commissioned'/);
+assert.match(portal,/compensation:financialEnabled\?'commissioned':'not_commissioned'/);
+assert.match(portal,/wallet/);
+assert.match(portal,/bankSetup:financialEnabled\?'provider_verification_required':'not_commissioned'/);
 assert.doesNotMatch(portal,/stripe\.transfers\.create|payouts\.create|routingNumber|accountNumber/);
 
 assert.match(approval,/const PROGRAM_ENABLED=false/);

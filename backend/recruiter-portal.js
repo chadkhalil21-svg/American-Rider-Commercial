@@ -143,7 +143,8 @@ async function updateRecruiterProfile({db,uid,verifiedEmail,profileName,now=Date
   }catch{return {ok:false,reason:'profile_unavailable'};}
 }
 
-async function recruiterSummary({db,uid,verifiedEmail,now=Date.now(),programEnabled=false,linkVerified=false,activityTrackingEnabled=false}={}){
+async function recruiterSummary({db,uid,verifiedEmail,now=Date.now(),programEnabled=false,linkVerified=false,activityTrackingEnabled=false,
+  financialEnabled=false}={}){
   if(!db||!validUid(uid))return {ok:false,reason:'invalid_request'};
   try{
     const ref=db.collection('recruiter_accounts').doc(uid);
@@ -183,11 +184,23 @@ async function recruiterSummary({db,uid,verifiedEmail,now=Date.now(),programEnab
     const activity=activityTrackingEnabled===true?
       await require('./recruiter-travel-activity').recruiterSettlementCounts({db,uid}):null;
     if(activity)Object.assign(counts,activity);
-    // No fictional balances. A real commission ledger and tax/bank provider
-    // must be independently commissioned before payment statuses are returned.
+    // One owner-only point read on an explicit account view. Never poll
+    // earnings or expose another recruiter's recipient/bank identifiers.
+    let wallet=null;
+    if(financialEnabled===true){
+      const ws=await db.collection('recruiter_commission_wallets').doc(uid).get();
+      const w=ws.exists?ws.data():{};
+      const keys=['availableCents','reservedCents','paidCents','reversedCents','recoveryDueCents',
+        'netPaidCents','connectFeesPaidCents'];
+      if(!keys.every(k=>Number.isSafeInteger(w[k]??0)&&(w[k]??0)>=0))
+        return {ok:false,reason:'financial_record_requires_review'};
+      wallet=Object.fromEntries(keys.map(k=>[k,w[k]??0]));
+    }
     return {ok:true,status:data.status,allowedRoles:data.allowedRoles||[],
-      counts,profileName:data.profileName||null,compensation:'not_commissioned',
-      bankSetup:'not_commissioned',agreement:'pending_secure_agreement',
+      counts,profileName:data.profileName||null,
+      compensation:financialEnabled?'commissioned':'not_commissioned',wallet,
+      bankSetup:financialEnabled?'provider_verification_required':'not_commissioned',
+      agreement:'pending_secure_agreement',
       linksAvailable,verifiedOperators:null,qualifyingTravels:null,
       reviewedAt:data.reviewedAt||null,asOf:now};
   }catch{return {ok:false,reason:'recruiter_summary_unavailable'};}

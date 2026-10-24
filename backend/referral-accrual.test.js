@@ -27,7 +27,8 @@ const db=new Db(),rideId='travel-123456';
 const ride={status:'completed',operatorId:'op-1',travelerUid:'trav-1',
   paymentIntentId:'pi_test_a',transferId:'tr_test_b',settledAt:1_000,
   paymentCapturePolicy:'manual_v1',authorizationState:'captured',
-  capturedAt:998,capturedCents:2400,referralAvailableCents:30};
+  capturedAt:998,capturedCents:2400,referralAvailableCents:30,
+  referralProgramVersion:PROGRAM.version,referralAccrualPending:true};
 db.rows.set('rides/'+rideId,ride);
 const enabled={...PROGRAM,enabled:true};
 for(const [uid,role] of [['op-1','operator'],['trav-1','traveler']]){
@@ -51,6 +52,8 @@ assert.equal(db.rows.get('referral_reward_events/'+rideId+'_operator').status,'h
 assert.equal(db.rows.get('referral_reward_events/'+rideId+'_traveler').amountCents,15);
 assert.equal(db.rows.get('referral_attributions/op-1_operator').earnedCents,15);
 assert.equal(db.rows.get('referral_attributions/trav-1_traveler').earnedCents,15);
+assert.equal(db.rows.get('rides/'+rideId).referralAccrualPending,false);
+assert.equal(db.rows.get('referral_reward_events/'+rideId+'_operator').nextReleaseAt,2000+PROGRAM.holdMs);
 const ride2='travel-123457';
 db.rows.set('rides/'+ride2,{...ride,referralAvailableCents:15});
 x=await recordHeldAccrual({db,rideId:ride2,program:enabled});

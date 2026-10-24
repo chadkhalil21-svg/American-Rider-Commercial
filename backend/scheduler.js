@@ -727,8 +727,12 @@ async function sweepSettlements({ now = Date.now(), limit = 25 } = {}) {
             payoutBlockedCode: null,
             settledAt: now,
             ...(process.env.AR_RECRUITER_TRAVEL_TRACKING_ENABLED==='1'?{referralTrackingPending:true}:{}),
-            ...(process.env.AR_RECRUITER_TRAVEL_TRACKING_ENABLED==='1'?
-              {referralTrackingPending:true}:{}),
+            ...(process.env.AR_RECRUITER_REWARDS_ENABLED==='1'&&
+              process.env.AR_RECRUITER_FINANCE_ENABLED==='1'&&
+              process.env.AR_RECRUITER_LEGAL_SIGNOFF==='1'&&
+              ride.referralProgramVersion==='recruiter-15c-20261024-v1'&&
+              ride.referralAvailableCents>=15
+              ?{referralAccrualPending:true}:{}),
             settledBy: 'sweep',
             needsPayout: false,
           },

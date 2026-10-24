@@ -36,7 +36,7 @@ assert.match(operator,/areaActive && process\.env\.EXPO_PUBLIC_REFERRALS_ENABLED
 const service=read('backend/referral-service.js');
 assert.match(service,/recruiter_accounts/,'revoked recruiters must not keep claiming');
 assert.match(service,/referrer_not_eligible/);
-assert.match(service,/rewardEnabled:false/);
+assert.match(service,/rewardEnabled:paid/,'only an approved and commissioned Recruiter may earn; ordinary invitations remain unpaid');
 const api=read('backend/server.js');
 assert.match(api,/AR_APP_LINKS_VERIFIED/);
 assert.match(api,/origin:'https:\/\/americanrider\.tech'/);
