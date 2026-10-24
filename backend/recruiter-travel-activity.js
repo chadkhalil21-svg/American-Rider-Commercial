@@ -33,11 +33,14 @@ async function recordSettledTravel({db,rideId,now=Date.now()}={}){
           return {role,claim:null};
         const eventRef=db.collection(COLLECTION[role]).doc(rideId);
         const eventSnap=await tx.get(eventRef);
-        return {role,claim,inviteeUid,eventRef,exists:eventSnap.exists};
+        return {role,claim,claimRef,inviteeUid,eventRef,exists:eventSnap.exists};
       }));
       let recorded=0;
       for(const item of records){
         if(!item.claim||item.exists)continue;
+        const previous=item.claim.recordedSettledTravels??0;
+        if(!Number.isSafeInteger(previous)||previous<0||previous>=Number.MAX_SAFE_INTEGER)
+          return {ok:false,reason:'activity_counter_needs_review'};
         tx.create(item.eventRef,{
           inviterUid:item.claim.inviterUid,inviteeUid:item.inviteeUid,
           role:item.role,rideId,settledAt:rideSnap.data().settledAt,
@@ -45,6 +48,8 @@ async function recordSettledTravel({db,rideId,now=Date.now()}={}){
           // Refunds/disputes may later reverse a settlement; NOT payable.
           commissionCents:null,payoutStatus:'not_commissioned',version:1,
         });
+        tx.update(item.claimRef,{recordedSettledTravels:previous+1,
+          recordedSettlementUpdatedAt:now});
         recorded++;
       }
       // This flag is cleared in the SAME transaction as the activity events.
