@@ -20,8 +20,12 @@ assert.match(client,/return \(await personalInvitationDetails\(role\)\)\?\.url\?
 assert.match(op,/personalInvitationDetails\(role\)/);
 assert.match(op,/invitation\.compensationActive/);
 assert.match(op,/t\('recruiter\.shareDisclosure'\)/);
-assert.match(op,/router\.navigate\('\/recruitment'\)/);
+assert.doesNotMatch(op,/router\.navigate\('\/recruitment'\)/);
 assert.match(ui,/t\('recruiter\.shareDisclosure'\)/);
+const onboarding=read('backend/recruiter-stripe-accounts.js');
+assert.match(onboarding,/tx\.get\(db\.collection\('users'\)\.doc\(uid\)\)/);
+assert.match(onboarding,/operator_connect_already_exists_no_second_account/);
+assert.match(onboarding,/if\(user\.exists&&typeof user\.data\(\)\?\.stripeAccountId/);
 // No second sign-in or new backend payment/auth provider is introduced.
 assert.doesNotMatch(op,/Stripe|payouts\.create|auth\.createUser/);
 console.log('PASS: Operator unpaid invite preserved; paid Recruiter sharing verified and disclosed');
