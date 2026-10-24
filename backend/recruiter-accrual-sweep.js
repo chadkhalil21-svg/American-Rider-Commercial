@@ -20,7 +20,7 @@ async function sweepFundedRecruiterAccrual({db,enabled=false,holdMs,now=Date.now
   return {ok:blocked===0,processed,credited,blocked};
  }catch{return {ok:false,reason:'funded_accrual_queue_unavailable'};}
 }
-async function sweepMaturedRecruiterRewards({db,approved=false,holdMs,now=Date.now(),limit=LIMIT}={}){
+async function sweepMaturedRecruiterRewards({db,approved=false,holdMs,minimumCents,now=Date.now(),limit=LIMIT}={}){
  if(!approved)return {ok:true,disabled:true,processed:0};
  if(!db||!Number.isSafeInteger(holdMs)||holdMs<86400000||holdMs>120*86400000||
     !Number.isSafeInteger(limit)||limit<1||limit>50)return {ok:false,reason:'unapproved_reward_terms'};
@@ -31,7 +31,7 @@ async function sweepMaturedRecruiterRewards({db,approved=false,holdMs,now=Date.n
   let released=0,blocked=0;
   for(const doc of page.docs||[]){
    const out=await releaseCommission({db,eventId:doc.id,
-     terms:{enabled:true,approved:true,version:PROGRAM.version,holdMs},now});
+     terms:{enabled:true,approved:true,version:PROGRAM.version,holdMs,minimumCents},now});
    if(out.ok){released++;continue;}
    blocked++;
    // Backoff, then explicit exception after repeated failure. In no case
