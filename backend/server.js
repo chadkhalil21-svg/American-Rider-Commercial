@@ -806,6 +806,7 @@ app.get('/recruiters/me',requireAuth,requireVerifiedEmail,recruiterLimit,async(r
   const out=await recruiterPortal.recruiterSummary({
     db:adminDb(),uid:String(req.uid),verifiedEmail:req.email,
     programEnabled,linkVerified:readKey('AR_APP_LINKS_VERIFIED')==='1',
+    activityTrackingEnabled:readKey('AR_RECRUITER_TRAVEL_TRACKING_ENABLED')==='1',
   });
   return res.status(out.ok?200:out.reason==='not_enrolled'?404:
     out.reason==='account_inactive'?403:503).json(out);
