@@ -68,6 +68,44 @@ async function confirmTransfer(db,batchId,transfer){
   return {ok:true};
  });
 }
+async function rollReservedPayoutMonth({db,batchId,month,now}={}){
+ if(!db||!validId(batchId)||!/^[0-9]{6}$/.test(String(month))||
+    !Number.isSafeInteger(now))return deny('invalid_rollover');
+ try{return await db.runTransaction(async tx=>{
+   const ref=db.collection('recruiter_commission_payouts').doc(batchId);
+   const snap=await tx.get(ref),p=snap.exists?snap.data():null;
+   if(!p||p.status!=='reserved'||p.provider!=='stripe_connect'||
+      p.providerTransferId||!validId(p.uid)||
+      !Number.isSafeInteger(p.grossCents)||p.grossCents<201)
+     return deny('rollover_not_safe');
+   if(p.feeMonth===month)return {ok:true,unchanged:true};
+   const tr=await tx.get(db.collection('recruiter_stripe_transfer_attempts').doc(batchId));
+   const bk=await tx.get(db.collection('recruiter_stripe_bank_attempts').doc(batchId));
+   if(tr.exists||bk.exists)return deny('rollover_provider_attempt_requires_reconciliation');
+   const oldRef=db.collection('recruiter_connect_fee_months').doc(p.uid+'_'+p.feeMonth);
+   const newRef=db.collection('recruiter_connect_fee_months').doc(p.uid+'_'+month);
+   const [oldFee,newFee]=await Promise.all([tx.get(oldRef),tx.get(newRef)]);
+   if(p.feeCents===200&&(!oldFee.exists||
+       oldFee.data().batchId!==batchId||oldFee.data().status!=='reserved'))
+     return deny('prior_month_fee_conflict');
+   if(newFee.exists&&newFee.data().status==='reserved')
+     return deny('new_month_first_payout_pending');
+   if(newFee.exists&&!['released','collected'].includes(newFee.data().status))
+     return deny('new_month_fee_conflict');
+   const feeCents=newFee.exists&&newFee.data().status==='collected'?0:200;
+   const netCents=p.grossCents-feeCents;
+   if(netCents<=0)return deny('rollover_amount_too_small');
+   if(p.feeCents===200)tx.update(oldRef,{status:'released',
+     releasedAt:now,reason:'pre_payout_month_rollover'});
+   if(feeCents===200){
+     if(newFee.exists)tx.update(newRef,{status:'reserved',batchId,updatedAt:now});
+     else tx.create(newRef,{uid:p.uid,month,status:'reserved',batchId,
+       amountCents:200,createdAt:now,version:1});
+   }
+   tx.update(ref,{feeMonth:month,feeCents,netCents,updatedAt:now,nextAttemptAt:now});
+   return {ok:true,status:'rescheduled_for_current_month',feeCents,netCents,bankPaid:false};
+ });}catch{return deny('rollover_unavailable');}
+}
 async function submitReservedRecruiterPayout({db,stripe,batchId,
   moneyAuthorized=false,legalApproved=false,providerApproved=false,
   now=Date.now()}={}){
@@ -81,7 +119,8 @@ async function submitReservedRecruiterPayout({db,stripe,batchId,
  // Fees correspond to the calendar month of the actual bank payout, not
  // a silently deferred payout months later. Rollover requires re-reservation.
  const actualMonth=new Date(now).toISOString().slice(0,7).replace('-','');
- if(batch.feeMonth!==actualMonth)return deny('payout_month_rollover_requires_review');
+ if(batch.feeMonth!==actualMonth)
+  return rollReservedPayoutMonth({db,batchId,month:actualMonth,now});
  let account;
  try{account=await stripe.accounts.retrieve(conn);}
  catch{return deny('stripe_account_unavailable');}
@@ -250,4 +289,4 @@ async function sweepReservedRecruiterPayouts({db,stripe,enabled=false,
 }
 
 module.exports={transferMatches,payoutMatches,submitReservedRecruiterPayout,
-  handleRecruiterConnectPayoutEvent,sweepReservedRecruiterPayouts};
+  handleRecruiterConnectPayoutEvent,sweepReservedRecruiterPayouts,rollReservedPayoutMonth};
