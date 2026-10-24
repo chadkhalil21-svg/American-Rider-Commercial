@@ -187,7 +187,7 @@ export default function Receipt() {
       <Text style={styles.retainedNote}>{t('traveler.operatorRetainedNote')}</Text>
 
       <View style={styles.actions}>
-        <OutlineButton label="Share receipt" onPress={() => {
+        <OutlineButton label={t('traveler.shareReceipt')} onPress={() => {
           // User chooses the destination through the native share sheet.
           // No contact access, automatic bulk mail, or third-party receipt storage.
           const fields = [
