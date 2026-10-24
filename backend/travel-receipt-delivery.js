@@ -12,7 +12,7 @@ const rank={
 function sanitizeReceiptEvent(id,payload) {
   if(!TYPES.has(payload?.type))return null;
   const sender=clean(payload?.data?.from);
-  if(!/(?:^|[<\\s])receipts@americanrider\\.(?:tech|app)(?:>|\\s|$)/.test(sender))
+  if(!/(?:^|[<\s])receipts@americanrider\.(?:tech|app)(?:>|\s|$)/.test(sender))
     return null;
   const emailId=String(payload?.data?.email_id||'');
   if(!VALID.test(String(id||''))||!VALID.test(emailId))
