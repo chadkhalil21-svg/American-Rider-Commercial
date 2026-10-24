@@ -128,7 +128,16 @@ function mockStripe(){
   'no double funded payout after failed bank deposit');
  const rolloverDb=new Db();fixtures(rolloverDb);
  const otherMonth=new Date(NOW+40*86400000).getTime();
+ const rolled=await submitReservedRecruiterPayout({...args,db:rolloverDb,now:otherMonth});
+ assert.equal(rolled.status,'rescheduled_for_current_month');
+ assert.equal(rolled.netCents,2500);
+ assert.equal(rolloverDb.at('recruiter_commission_payouts/'+BATCH).feeMonth,
+   new Date(otherMonth).toISOString().slice(0,7).replace('-',''));
+ assert.equal(rolloverDb.at('recruiter_connect_fee_months/'+UID+'_'+MONTH).status,
+   'released','a former month cannot charge an inactive month');
+ assert.equal(rolloverDb.at('recruiter_connect_fee_months/'+UID+'_'
+   +new Date(otherMonth).toISOString().slice(0,7).replace('-','')).status,'reserved');
  assert.equal((await submitReservedRecruiterPayout({...args,db:rolloverDb,now:otherMonth}))
-  .reason,'payout_month_rollover_requires_review');
+   .status,'awaiting_platform_funds','new month roll occurs once without a money call');
  console.log('PASS Stripe Recruiter payout end-to-end simulated: funded-only, Transfer vs bank payout, exact $2 fee, manual schedule, forged event rejection, successful proof and failed bank recovery hold; ZERO LIVE MONEY');
 })().catch(e=>{console.error(e);process.exitCode=1;});
