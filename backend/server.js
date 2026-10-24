@@ -695,6 +695,45 @@ function requireRecruiterFounder(req,res,next){
     return res.status(403).json({ok:false,code:'founder_recruiter_authorization_required'});
   return next();
 }
+// Founder-only, MFA-protected recruitment oversight on a phone.
+// The panel does NOT expose invitation tokens, applicant banking data or reward plans.
+app.get('/ops/recruiters',requireOps,requireRecruiterFounder,async(req,res)=>{
+  const db=adminDb();
+  if(!db)return res.status(503).send('Recruitment records are unavailable.');
+  try{
+    const pending=await db.collection('recruiter_accounts')
+      .where('status','==','pending_review').limit(30).get();
+    const esc=v=>String(v||'').replace(/[&<>"']/g,c=>({
+      '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;',
+    })[c]);
+    const items=pending.docs.map(d=>{
+      const p=d.data()||{},uid=esc(d.id),email=esc(p.verifiedEmail);
+      return '<li><strong>'+email+'</strong><p>Independent recruitment review</p>'+
+        '<button type="button" data-uid="'+uid+'" data-action="approve">Approve</button> '+
+        '<button type="button" data-uid="'+uid+'" data-action="reject">Decline</button></li>';
+    }).join('')||'<li>No pending applications.</li>';
+    const html=require('./shell').page('Recruitment oversight',
+      '<section><p style="letter-spacing:2px;font-size:11px">FOUNDER OPERATIONS</p>'+
+      '<h1>Recruitment oversight</h1>'+
+      '<p>Professional invitations, verified accounts and individual decisions.</p>'+
+      '<p>The independent recruiter program is '+(recruiterInvitesEnabled?'in private commissioning.':'not yet open.')+'</p>'+
+      '<form id="invite"><label for="email">Invitation recipient</label>'+
+      '<input id="email" type="email" autocomplete="email" required maxlength="254" placeholder="name@example.com">'+
+      '<label><input type="checkbox" id="operator" checked> Operator introductions</label> '+
+      '<label><input type="checkbox" id="traveler"> Traveler introductions</label>'+
+      '<p><button type="submit" '+(recruiterInvitesEnabled?'':'disabled')+'>Send private invitation</button></p></form>'+
+      '<h2>Applications awaiting review</h2><ul>'+items+'</ul>'+
+      '<p id="status" role="status" aria-live="polite"></p>'+
+      '<p>Financial rewards and bank onboarding remain unavailable until independently verified and authorized.</p></section>'+
+      '<script>const status=document.getElementById("status");'+
+      'async function post(url,data){try{const r=await fetch(url,{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json","x-ar-ops-action":"1"},body:JSON.stringify(data)});const b=await r.json();status.textContent=b.ok?"Action recorded. Refresh to review the updated status.":"This action was not completed. "+(b.code||b.reason||"Please retry.");}catch{status.textContent="Service unavailable. No action confirmed."}}'+
+      'document.getElementById("invite").onsubmit=e=>{e.preventDefault();const roles=[];if(document.getElementById("operator").checked)roles.push("operator");if(document.getElementById("traveler").checked)roles.push("traveler");post("/ops/recruiters/invite",{email:document.getElementById("email").value,allowedRoles:roles});};'+
+      'document.querySelectorAll("button[data-uid]").forEach(b=>b.onclick=()=>post("/ops/recruiters/"+encodeURIComponent(b.dataset.uid)+"/review",{decision:b.dataset.action}));</script>');
+    res.set('Cache-Control','private, no-store');
+    res.set('Referrer-Policy','no-referrer');
+    return res.type('html').send(html);
+  }catch{return res.status(503).send('Recruiter applications cannot be verified.');}
+});
 app.post('/ops/recruiters/invite',requireOps,requireRecruiterFounder,
   requireOpsMutation,recruiterInviteLimit,requireRecruiterInviteLaunch,async(req,res)=>{
   const db=adminDb();
