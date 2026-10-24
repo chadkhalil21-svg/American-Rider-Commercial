@@ -5,6 +5,7 @@
 // clicks, installations, QR views, or subsequent legitimate purchases.
 const crypto=require('node:crypto');
 const {normalizedCode,inviteLink,claimDecision}=require('./referral-policy');
+const {recruiterMayRefer}=require('./recruiter-eligibility');
 const CLAIM_WINDOW_MS=72*60*60*1000;
 const validRole=role=>role==='traveler'||role==='operator';
 
@@ -17,7 +18,17 @@ async function shareLink({db,uid,role,now=Date.now(),origin}){
   const ownerRef=db.collection('users').doc(uid);
   try {
     const code=await db.runTransaction(async tx=>{
-      const owner=await tx.get(ownerRef);
+      // Check recruiter restrictions even if the regular share endpoint is called
+      // directly. Existing first-party Operator / Traveler invitations remain available.
+      const [owner,account,approval]=await Promise.all([
+        tx.get(ownerRef),
+        tx.get(db.collection('recruiter_accounts').doc(uid)),
+        tx.get(db.collection('recruiter_approvals').doc(uid)),
+      ]);
+      if((account.exists||approval.exists) &&
+         (!account.exists||!approval.exists||
+          !recruiterMayRefer(account.data(),approval.data(),role,now)))
+        throw Error('unapproved_recruiter');
       const existing=owner.exists?normalizedCode(owner.data()?.referralCode):null;
       // A cached profile code is not proof that the server-owned registry
       // still belongs to this account. Never share another person's link.
@@ -66,11 +77,17 @@ async function claim({db,uid,code,role,authCreatedAtMs,now=Date.now()}){
       ]);
       const entry=codeSnap.exists?codeSnap.data():{};
       if(!entry?.ownerUid||entry.status!=='active')return {ok:false,reason:'invalid_invite'};
-      // Recruiter suspension must also stop claims from a previously shared link.
-      // Ordinary Operator and Traveler inviters have no recruiter account.
-      // A single named-document read on an actual claim avoids fleet-wide scans.
-      const recruiterSnap=await tx.get(db.collection('recruiter_accounts').doc(entry.ownerUid));
-      if(recruiterSnap.exists && recruiterSnap.data()?.status!=='approved')
+      // Approval/contract/role/expiration is rechecked when a code is REDEEMED,
+      // not merely when it is generated. This revokes already-shared QR/link
+      // invitations after suspension or agreement expiry.
+      // These are bounded named-document reads, not a nationwide fleet scan.
+      const [recruiterSnap,approvalSnap]=await Promise.all([
+        tx.get(db.collection('recruiter_accounts').doc(entry.ownerUid)),
+        tx.get(db.collection('recruiter_approvals').doc(entry.ownerUid)),
+      ]);
+      if((recruiterSnap.exists||approvalSnap.exists) &&
+         (!recruiterSnap.exists||!approvalSnap.exists||
+          !recruiterMayRefer(recruiterSnap.data(),approvalSnap.data(),role,now)))
         return {ok:false,reason:'referrer_not_eligible'};
       if(claimSnap.exists)return {ok:false,reason:'already_attributed'};
       // Do not reassign an already-qualified or formerly active Operator.
