@@ -206,7 +206,13 @@ app.set('trust proxy', 1);
 // A signature is computed over the EXACT bytes Stripe sent. Once express.json() has parsed and
 // re-serialised the body, those bytes are gone and every event fails verification — which is
 // the classic way this endpoint ends up either broken or, worse, "fixed" by skipping the check.
-const PROVIDER_HANDLERS = { stripe: handleEvent,
+const PROVIDER_HANDLERS = { stripe: event =>
+  ['payout.paid','payout.failed'].includes(event?.type)&&
+  event?.data?.object?.metadata?.ar_recruiter_batch
+    ? require('./recruiter-stripe-payout').handleRecruiterConnectPayoutEvent({
+        db:adminDb(),event,
+      })
+    : handleEvent(event),
   resend: event => event?.kind==='travel_receipt'
     ? applyReceiptDeliveryEvent({db:adminDb(),event})
     : applyResendDeliveryEvent({db:adminDb(),event}),
