@@ -883,6 +883,8 @@ app.get('/recruiters/stripe/status',requireAuth,requireFreshAuth,
       feeCents:recruiterStripe.FEE_CENTS});
   const result=await recruiterStripe.verifyRecruiterBank({
     db:adminDb(),stripe:stripeClient(),uid:String(req.uid),verifiedEmail:req.email,
+    operatorSharedApproved:recruiterRewardsEnabled()&&
+      readKey('AR_RECRUITER_OPERATOR_SHARED_PAYOUT_ENABLED')==='1',
   });
   res.status(result.ok?200:result.reason==='not_authorized'?403:409).json(result);
 });
@@ -2597,6 +2599,7 @@ async function runAllSweeps({criticalOnly=false}={}) {
         const bank=await maintenanceSweep('recruiterBankPayouts',()=> 
           require('./recruiter-stripe-payout').sweepReservedRecruiterPayouts({
             db:adminDb(),stripe:stripeClient(),enabled:true,
+        operatorSharedApproved:readKey('AR_RECRUITER_OPERATOR_SHARED_PAYOUT_ENABLED')==='1',
           }));
         if(bank?.ok===false)console.warn('[recruiter-bank] exception requires review');
       }
