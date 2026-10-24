@@ -125,6 +125,7 @@ const {PROGRAM:RECRUITER_REWARDS}=require('./referral-accrual');
 const {fundedRecruiterSnapshot}=require('./recruiter-reward-budget');
 const {sweepFundedRecruiterAccrual,sweepMaturedRecruiterRewards}=
   require('./recruiter-accrual-sweep');
+const {sweepRecruiterPayoutReservations}=require('./recruiter-payout-reservations');
 const { closeOperationalAccount } = require('./accountclosure');
 const { finalizeAccountDeletion, sweepAccountDeletion } = require('./accountdeletion');
 const { acceptOffer } = require('./eligibility');
@@ -816,7 +817,9 @@ const recruiterRewardsEnabled=()=>recruiterStripeEnabled()&&
   readKey('AR_REFERRALS_ENABLED')==='1'&&
   readKey('AR_APP_LINKS_VERIFIED')==='1'&&
   Number(readKey('AR_RECRUITER_REWARD_HOLD_MS'))>=86400000&&
-  Number(readKey('AR_RECRUITER_REWARD_HOLD_MS'))<=120*86400000;
+  Number(readKey('AR_RECRUITER_REWARD_HOLD_MS'))<=120*86400000&&
+  Number(readKey('AR_RECRUITER_MIN_PAYOUT_CENTS'))>200&&
+  Number(readKey('AR_RECRUITER_MIN_PAYOUT_CENTS'))<=3000;
 const recruiterTerms=()=>recruiterAgreement.termsConfig({
   text:readKey('AR_RECRUITER_TERMS_TEXT'),
   version:readKey('AR_RECRUITER_TERMS_VERSION'),
@@ -2613,6 +2616,15 @@ async function runAllSweeps({criticalOnly=false}={}) {
         const release=await maintenanceSweep('recruiterRelease',()=>
           sweepMaturedRecruiterRewards({db:adminDb(),approved:true,holdMs}));
         if(release?.ok===false)console.warn('[recruiter-maturity] needs review');
+        const reserve=await maintenanceSweep('recruiterReserve',()=>
+          sweepRecruiterPayoutReservations({db:adminDb(),enabled:true,
+            authorization:{
+              programEnabled:true,providerApproved:true,counselApproved:true,
+              scheduleApproved:true,provider:'stripe_connect',
+              activeMonthlyFeeCents:200,
+              minimumCents:Number(readKey('AR_RECRUITER_MIN_PAYOUT_CENTS')),
+            }}));
+        if(reserve?.ok===false)console.warn('[recruiter-reserve] needs review');
       }
       return {...out,receipts};
     },
