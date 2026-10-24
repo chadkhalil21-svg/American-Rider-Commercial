@@ -16,7 +16,13 @@ export default function JoinFromInvitation(){
     let live=true;
     (async()=>{
       const code=typeof params.r==='string'?params.r.toUpperCase():'';
-      const role:InviteRole=params.role==='operator'?'operator':'traveler';
+      // A malformed role must not silently convert an Operator invitation
+      // into a Traveler attribution. Links never create a payment.
+      if(params.role!=='operator'&&params.role!=='traveler'){
+        router.replace('/');
+        return;
+      }
+      const role:InviteRole=params.role;
       const saved=await savePendingInvite(code,role);
       if(!live)return;
       if(saved&&user&&!onboarding){
