@@ -36,6 +36,8 @@ import {
   type FeeLine,
 } from '../src/data';
 import { useAuth } from '../src/state/AuthContext';
+import { readPendingInvite, clearPendingInvite } from '../src/backend/referralPending';
+import { recordInvitation } from '../src/backend/referrals';
 import { useOperator } from '../src/state/OperatorContext';
 import { useRide } from '../src/state/RideContext';
 import { useLanguage } from '../src/state/LanguageContext';
@@ -118,6 +120,19 @@ export default function Home() {
   const ride = useRide();
   const { user, signOut } = useAuth();
   const operator = useOperator();
+  // Complete a Traveler introduction after sign-in without changing Invite a Traveler.
+  const travelerReferralTried = useRef(false);
+  useEffect(() => {
+    if (!user || process.env.EXPO_PUBLIC_REFERRALS_ENABLED !== '1'
+        || travelerReferralTried.current) return;
+    travelerReferralTried.current = true;
+    (async () => {
+      const pending = await readPendingInvite();
+      if (!pending || pending.role !== 'traveler') return;
+      const result = await recordInvitation(pending.code, 'traveler');
+      if (result !== 'retry') await clearPendingInvite();
+    })();
+  }, [user?.uid]);
 
   // A commissioned account that closed the app in Operator view reopens in it —
   // the role flag persists ('ar:role'), per the demo's role-switching pattern.
