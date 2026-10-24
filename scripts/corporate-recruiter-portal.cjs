@@ -6,7 +6,15 @@ const markup = "<section class=\"page-hero shell\"><p class=\"section-label\">IN
 const {qrWidgetHtml}=require('./corporate-recruiter-qr.cjs');
 const {progressHtml,progressClientJs}=require('./corporate-recruiter-progress.cjs');
 function portalHtml(){
-  let html=markup.replace('<section aria-label="Compensation">',
+  let html=markup.replace('<h2 id="workspace-title">Your introductions</h2>',
+    '<h2 id="workspace-title">Recruitment Overview</h2>');
+  html=html.replace('<section aria-label="Personal invitation links">',
+    '<section aria-label="Qualification and payment status"><h3>Verified activity</h3>'+
+    '<p><strong>Qualified Operators:</strong> Not yet verified &nbsp; · &nbsp; '+
+    '<strong>Qualifying Travels:</strong> Not yet available &nbsp; · &nbsp; '+
+    '<strong>Commissions paid:</strong> Not yet commissioned</p>'+
+    '</section><section aria-label="Personal invitation links">');
+  html=html.replace('<section aria-label="Compensation">',
     qrWidgetHtml()+'<section aria-label="Compensation">');
   html=html.replace('<section aria-label="Compensation">',
     progressHtml()+'<section aria-label="Compensation">');
