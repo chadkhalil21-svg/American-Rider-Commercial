@@ -4,7 +4,8 @@
 // not charged automatically for opening an account.
 // Recruiter payout rails. These do not assert that a Stripe transfer is a bank
 // deposit. Every external API call uses an injected Stripe SDK and explicit
-// program/legal authority. Missing proof means no money moves.
+// program authority, individual consent and recipient verification. Missing
+// recipient proof means no money moves.
 const crypto=require('node:crypto');
 const {emailOf,validUid}=require('./recruiter-portal');
 const validAcct=id=>typeof id==='string'&&/^acct_[A-Za-z0-9]{8,}$/.test(id);
@@ -51,12 +52,12 @@ function stripeReady(account,uid){
    (!Array.isArray(account.requirements?.past_due)||account.requirements.past_due.length===0)&&
    account.settings?.payouts?.schedule?.interval==='manual';
 }
-function launchApproved({programEnabled,legalApproved}){
- return programEnabled===true&&legalApproved===true;
+function launchApproved({programEnabled}){
+ return programEnabled===true;
 }
-async function ensureRecruiterAccount({db,stripe,uid,verifiedEmail,programEnabled=false,legalApproved=false,now=Date.now()}={}){
+async function ensureRecruiterAccount({db,stripe,uid,verifiedEmail,programEnabled=false,now=Date.now()}={}){
  const email=emailOf(verifiedEmail);
- if(!launchApproved({programEnabled,legalApproved}))return {ok:false,reason:'program_or_legal_off'};
+ if(!launchApproved({programEnabled}))return {ok:false,reason:'recruiter_program_off'};
  if(!db||!stripe?.accounts?.create||!validUid(uid)||!email)
    return {ok:false,reason:'invalid_request'};
  const ref=db.collection('recruiter_accounts').doc(uid),apRef=db.collection('recruiter_approvals').doc(uid);
@@ -109,9 +110,9 @@ async function ensureRecruiterAccount({db,stripe,uid,verifiedEmail,programEnable
  }catch{return {ok:false,reason:REVIEW};}
 }
 async function hostedRecruiterOnboarding({db,stripe,uid,verifiedEmail,origin='https://americanrider.tech',
-  programEnabled=false,legalApproved=false,now=Date.now()}={}){
+  programEnabled=false,now=Date.now()}={}){
  if(origin!=='https://americanrider.tech')return {ok:false,reason:'invalid_return_origin'};
- const account=await ensureRecruiterAccount({db,stripe,uid,verifiedEmail,programEnabled,legalApproved,now});
+ const account=await ensureRecruiterAccount({db,stripe,uid,verifiedEmail,programEnabled,now});
  if(!account.ok)return account;
  // Dedicated Recruiter Express accounts use manual bank payouts, permitting
  // one bounded, idempotent payout per authorized batch and exact bank reconciliation.
