@@ -48,7 +48,8 @@ function stripeReady(account,uid){
    account.type==='express'&&account.payouts_enabled===true&&
    account.details_submitted===true&&account.capabilities?.transfers==='active'&&
    (!Array.isArray(account.requirements?.currently_due)||account.requirements.currently_due.length===0)&&
-   (!Array.isArray(account.requirements?.past_due)||account.requirements.past_due.length===0);
+   (!Array.isArray(account.requirements?.past_due)||account.requirements.past_due.length===0)&&
+   account.settings?.payouts?.schedule?.interval==='manual';
 }
 function launchApproved({programEnabled,legalApproved}){
  return programEnabled===true&&legalApproved===true;
@@ -105,6 +106,17 @@ async function hostedRecruiterOnboarding({db,stripe,uid,verifiedEmail,origin='ht
  if(origin!=='https://americanrider.tech')return {ok:false,reason:'invalid_return_origin'};
  const account=await ensureRecruiterAccount({db,stripe,uid,verifiedEmail,programEnabled,legalApproved,now});
  if(!account.ok)return account;
+ // Dedicated Recruiter Express accounts use manual bank payouts, permitting
+ // one bounded, idempotent payout per authorized batch and exact bank reconciliation.
+ // Never alter an existing Operator's Stripe payout schedule.
+ if(!stripe?.accounts?.update)return {ok:false,reason:'manual_payout_configuration_unavailable'};
+ try{
+  const configured=await stripe.accounts.update(account.id,{
+    settings:{payouts:{schedule:{interval:'manual'}}},
+  });
+  if(configured?.settings?.payouts?.schedule?.interval!=='manual')
+    return {ok:false,reason:'manual_payout_configuration_unverified'};
+ }catch{return {ok:false,reason:'manual_payout_configuration_unverified'};}
  try{
   const link=await stripe.accountLinks.create({
    account:account.id,type:'account_onboarding',
