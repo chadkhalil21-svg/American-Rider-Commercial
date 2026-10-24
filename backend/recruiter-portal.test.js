@@ -83,6 +83,10 @@ class Db {
   db.rows.set('referral_attributions/id_3',{inviterUid:'someone-else',role:'operator'});
   const summary=await recruiterSummary({db,uid:'recruiter-001',now:NOW+50});
   assert.equal(summary.status,'approved');
+  assert.equal((await recruiterSummary({db,uid:'recruiter-001',now:NOW+50,
+    verifiedEmail:'imposter@example.org'})).reason,'identity_mismatch');
+  assert.equal((await recruiterSummary({db,uid:'recruiter-001',now:NOW+50,
+    verifiedEmail:'recruiter@example.com'})).ok,true);
   assert.equal(summary.counts.operatorIntroductions,1);
   assert.equal(summary.counts.travelerIntroductions,1);
   assert.equal(summary.linksAvailable,false);
