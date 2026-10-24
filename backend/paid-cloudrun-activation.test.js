@@ -51,10 +51,18 @@ const dispatchTests = spawnSync('python3', ['-m','unittest','discover','-s',
     {encoding:'utf8',timeout:30000});
 assert.equal(dispatchTests.status,0,'single-authority scheduler mocked tests: '+dispatchTests.stderr.slice(-4000));
 const reportWorkflow=fs.readFileSync(path.join(root,'.github/workflows/cloud-run-production-readiness.yml'),'utf8');
-assert.match(reportWorkflow, /python3 infra\/cloud-run\/activate-paid-production\.py VERIFY/,
-  'read-only real Google audit should surface exact paid blockers without Cloud Shell');
+// The on-demand preactivation command remains available, but running its
+// "must be private + scheduler paused" checklist AFTER launch gives false blockers.
+assert.doesNotMatch(reportWorkflow, /python3 infra\/cloud-run\/activate-paid-production\.py VERIFY/,
+  'live audit must not misclassify an already activated, public paid service as a prelaunch blocker');
+assert.match(reportWorkflow, /CERTIFIED_SHA: \$\{\{ github\.sha \}\}/,
+  'read-only audit must compare the current release commit, not an arbitrary older revision');
+assert.match(reportWorkflow, /node scripts\/verify-store-cloudrun-api\.cjs/,
+  'live audit checks actual serving code, provider readiness, and app-store payment gates');
 assert.doesNotMatch(reportWorkflow, /python3 infra\/cloud-run\/activate-paid-production\.py ACTIVATE_PAID/,
   'regular/scheduled auditor must NEVER activate payment or open the Google API');
-assert.match(reportWorkflow, /if python3 infra\/cloud-run\/activate-paid-production\.py VERIFY; then/,
-  'prelaunch blocking result must not make the completed read-only audit fail');
+assert.match(reportWorkflow, /if node scripts\/verify-store-cloudrun-api\.cjs; then/,
+  'a failed live source parity check must be reported safely without running financial mutations');
+assert.match(code,/if action == "VERIFY"|argv.*VERIFY|mode.*VERIFY/,
+  'genuine preactivation verifier remains available in its own controlled workflow');
 console.log('PASS: platform-wide paid readiness separated from individual Operator screening and insurance; cutover reversible.');
