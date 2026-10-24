@@ -26,7 +26,12 @@ async function shareLink({db,uid,role,now=Date.now(),origin}){
         if(registered.exists&&registered.data()?.ownerUid===uid&&
            registered.data()?.status==='active')return existing;
       }
-      const fresh=crypto.randomBytes(12).toString('hex').toUpperCase();
+      // 12 human-readable Crockford-style base32 characters (60 bits).
+      // Public attribution identifier, not an authorization or payment secret.
+      // Existing longer hex codes remain accepted by normalizedCode.
+      const alphabet='23456789ABCDEFGHJKLMNPQRSTUVWXYZ';
+      const bytes=crypto.randomBytes(12);
+      const fresh=Array.from(bytes,b=>alphabet[b&31]).join('');
       const ref=db.collection('referral_codes').doc(fresh);
       const check=await tx.get(ref);
       if(check.exists)throw Error('referral_code_collision');
