@@ -38,7 +38,7 @@ const first=await approvedRecruiterLink({db,uid,role:'operator',now});
 assert.equal(first.reason,'recruiter_program_off');
 assert.equal(db.reads,0);
 assert.equal(db.writes,0);
-assert.equal((await approvedRecruiterLink({db,uid,role:'operator',now,programEnabled:true,linkVerified:true,compensationEnabled:true})).reason,'recruiter_finance_not_ready');
+assert.equal((await approvedRecruiterLink({db,uid,role:'operator',now,programEnabled:true,linkVerified:true})).reason,'recruiter_finance_not_ready');
 const unavailable=await approvedRecruiterLink({db,uid,role:'operator',now,programEnabled:true,linkVerified:true,compensationEnabled:true});
 assert.equal(unavailable.reason,'not_approved');
 db.rows.set('recruiter_approvals/'+uid,approved);
