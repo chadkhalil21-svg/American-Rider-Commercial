@@ -4,6 +4,7 @@ import {useRouter} from 'expo-router';
 import {Text} from '../../src/components/AppText';
 import {Card, LetterheadBar, Screen, Title, Sub} from '../../src/components/UI';
 import {useAuth} from '../../src/state/AuthContext';
+import {useLanguage} from '../../src/state/LanguageContext';
 import {auth} from '../../src/firebase';
 import {PAYMENT_SERVER_URL} from '../../src/config';
 import {colors} from '../../src/theme';
@@ -21,6 +22,7 @@ type Summary={
 };
 export default function RecruitmentWorkspace(){
   const router=useRouter();
+  const {t}=useLanguage();
   const {user,initializing}=useAuth();
   const [loading,setLoading]=useState(true);
   const [details,setDetails]=useState<Summary|null>(null);
@@ -37,9 +39,9 @@ export default function RecruitmentWorkspace(){
         });
         const body=await res.json().catch(()=>null);
         if(active){setDetails(res.ok?body:null);
-          setNotice(res.status===404?'An invitation is required to enter the recruitment program.':
-            res.ok?'':'This service is momentarily unavailable. Please try again.');}
-      }catch{if(active)setNotice('Your recruitment information is unavailable. Please try again.');}
+          setNotice(res.status===404?t('recruiter.invitationRequired'):
+            res.ok?'':t('recruiter.serviceUnavailable'));}
+      }catch{if(active)setNotice(t('recruiter.infoUnavailable'));}
       finally{if(active)setLoading(false);}
     })();
     return()=>{active=false;};
@@ -53,47 +55,47 @@ export default function RecruitmentWorkspace(){
       });
       const body=await r.json().catch(()=>null);
       if(!r.ok||typeof body?.url!=='string'||!body.url.startsWith('https://americanrider.tech/join?')){
-        setNotice('Personal links are not available until account verification is complete.');return;
+        setNotice(t('recruiter.linksUnavailable'));return;
       }
       await Share.share({message:body.url});
-    }catch{setNotice('The invitation could not be shared. Please try again.');}
+    }catch{setNotice(t('recruiter.shareFailed'));}
   };
   return <Screen>
     <LetterheadBar onBack={()=>router.back()}/>
-    <Title>Recruitment</Title>
-    <Sub>A considered introduction to American Rider.</Sub>
-    {loading?<ActivityIndicator accessibilityLabel="Loading your recruitment information" color={colors.ink}/>:
-    !user?<Text style={styles.note}>Sign in with your verified account to review your recruitment information.</Text>:
-    !details?<Text style={styles.note}>{notice||'Recruitment is not yet available.'}</Text>:
+    <Title>{t('recruiter.title')}</Title>
+    <Sub>{t('recruiter.subtitle')}</Sub>
+    {loading?<ActivityIndicator accessibilityLabel={t('recruiter.loading')} color={colors.ink}/>:
+    !user?<Text style={styles.note}>{t('recruiter.signIn')}</Text>:
+    !details?<Text style={styles.note}>{notice||t('recruiter.programClosed')}</Text>:
     <>
       <Card style={styles.panel}>
-        <Text style={styles.eyebrow}>YOUR RELATIONSHIP</Text>
-        <Text style={styles.heading}>{details.status==='approved'?'Approved':
-          details.status==='pending_review'?'Under review':
-          details.status==='suspended'?'Suspended':'Not currently active'}</Text>
-        <Text style={styles.note}>Introductions are recorded against your verified account. They do not establish Operator eligibility or compensation.</Text>
+        <Text style={styles.eyebrow}>{t('recruiter.relationship')}</Text>
+        <Text style={styles.heading}>{details.status==='approved'?t('recruiter.approved'):
+          details.status==='pending_review'?t('recruiter.pendingReview'):
+          details.status==='suspended'?t('recruiter.suspended'):t('recruiter.inactive')}</Text>
+        <Text style={styles.note}>{t('recruiter.relationshipNote')}</Text>
       </Card>
       <Card style={styles.panel}>
-        <Text style={styles.eyebrow}>YOUR INTRODUCTIONS</Text>
-        <View style={styles.line}><Text style={styles.name}>Operator introductions</Text>
+        <Text style={styles.eyebrow}>{t('recruiter.introductions')}</Text>
+        <View style={styles.line}><Text style={styles.name}>{t('recruiter.operatorIntroductions')}</Text>
           <Text style={styles.value}>{details.counts?.operatorIntroductions??0}</Text></View>
-        <View style={styles.line}><Text style={styles.name}>Traveler introductions</Text>
+        <View style={styles.line}><Text style={styles.name}>{t('recruiter.travelerIntroductions')}</Text>
           <Text style={styles.value}>{details.counts?.travelerIntroductions??0}</Text></View>
-        <Text style={styles.note}>Verified Operators and qualifying Travels will appear only after independent eligibility checks.</Text>
+        <Text style={styles.note}>{t('recruiter.countsNote')}</Text>
       </Card>
       <Card style={styles.panel}>
-        <Text style={styles.eyebrow}>PERSONAL INVITATIONS</Text>
-        <Text style={styles.note}>Your personal referral links become available once enrollment, disclosures and app-link verification are complete.</Text>
+        <Text style={styles.eyebrow}>{t('recruiter.personalInvitations')}</Text>
+        <Text style={styles.note}>{t('recruiter.personalLinksNote')}</Text>
         <Pressable accessibilityRole="button" disabled={!details.linksAvailable}
           onPress={()=>share('operator')} style={[styles.button,!details.linksAvailable&&styles.disabled]}>
-          <Text style={styles.buttonLabel}>Invite an Operator</Text></Pressable>
+          <Text style={styles.buttonLabel}>{t('recruiter.inviteOperator')}</Text></Pressable>
         <Pressable accessibilityRole="button" disabled={!details.linksAvailable}
           onPress={()=>share('traveler')} style={[styles.button,!details.linksAvailable&&styles.disabled]}>
-          <Text style={styles.buttonLabel}>Invite a Traveler</Text></Pressable>
+          <Text style={styles.buttonLabel}>{t('recruiter.inviteTraveler')}</Text></Pressable>
       </Card>
       <Card style={styles.panel}>
-        <Text style={styles.eyebrow}>COMPENSATION</Text>
-        <Text style={styles.note}>Compensation and bank enrollment are not yet available. Any future terms will be governed by a signed agreement and verified payment arrangements. Never send bank or tax information by email.</Text>
+        <Text style={styles.eyebrow}>{t('recruiter.compensation')}</Text>
+        <Text style={styles.note}>{t('recruiter.compensationNote')}</Text>
       </Card>
       {!!notice&&<Text style={styles.note}>{notice}</Text>}
     </>}
