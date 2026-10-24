@@ -68,7 +68,9 @@ async function sweepRecruiterPayoutReservations({db,enabled=false,authorization,
          lastError:result?.ok?null:result?.reason||'requires_review',
        },{merge:true});
      }catch{errors++;continue;}
-     if(result?.ok)reserved++;else if(next===null)waiting++;else errors++;
+     if(result?.ok)reserved++;
+     else if(result?.reason==='below_batch_minimum'||next===null)waiting++;
+     else errors++;
    }
    return {ok:errors===0,reserved,waiting,errors};
  }catch{return {ok:false,reason:'candidate_queue_unavailable'};}
