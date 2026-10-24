@@ -300,7 +300,7 @@ export function AuthScreen() {
       // This is local staging, NOT a confirmed credit or commission.
       const saved = await savePendingInvite(invitationCode.trim().toUpperCase(), role);
       if (!saved) {
-        setInvitationError('Please check the invitation code, or leave it blank to continue.');
+        setInvitationError(t('auth.invitationCodeInvalid'));
         return;
       }
     }
@@ -542,7 +542,7 @@ export function AuthScreen() {
 
           {process.env.EXPO_PUBLIC_REFERRALS_ENABLED === '1' && (
             <View style={{ marginTop: 20 }}>
-              <Text style={s.roleSub}>Have an invitation code? (optional)</Text>
+              <Text style={s.roleSub}>{t('auth.invitationCodeOptional')}</Text>
               <TextInput
                 accessibilityLabel="Invitation code (optional)"
                 value={invitationCode}
@@ -550,12 +550,12 @@ export function AuthScreen() {
                 autoCapitalize="characters"
                 autoCorrect={false}
                 maxLength={32}
-                placeholder="Enter invitation code"
+                placeholder={t('auth.invitationCodePlaceholder')}
                 placeholderTextColor={colors.faint}
                 style={[s.field, { marginTop: 10, minHeight: 48 }]}
               />
               {!!invitationError && <Text accessibilityRole="alert" style={s.roleSub}>{invitationError}</Text>}
-              <Text style={s.roleSub}>Your code will be verified by American Rider after sign-in.</Text>
+              <Text style={s.roleSub}>{t('auth.invitationCodeVerifyNote')}</Text>
             </View>
           )}
           <View style={{ flex: 1 }} />
