@@ -102,6 +102,9 @@ async function recruiterSummary({db,uid,verifiedEmail,now=Date.now(),programEnab
     const snap=await ref.get();
     if(!snap.exists)return {ok:false,reason:'not_enrolled'};
     const data=snap.data();
+    // Inactive relationships cannot retain even aggregate dashboard access.
+    if(!['approved','pending_review'].includes(data.status))
+      return {ok:false,reason:'account_inactive'};
     // Reconfirm the invitee's original verified email when called from the
     // authenticated website. The account's referral ownership is never movable
     // by simply changing a sign-in email.
