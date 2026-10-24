@@ -22,6 +22,9 @@ function portalHtml(){
     progressClientJs()+'\nasync function refresh(person){');
   html=html.replace("  note('Your information is current as of this sign-in.');",
     "  note('Your information is current as of this sign-in.');await loadIntroductions(true);");
+  html=html.replace("by('workspace').hidden=!person;",
+    "resetIntros();by('operator-count').textContent='—';"+
+    "by('traveler-count').textContent='—';by('workspace').hidden=!person;");
   html=html.replace("if(!person){note('');return;}",
     "if(!person){resetIntros();note('');return;}");
   html=html.replace('<script type="module">',
