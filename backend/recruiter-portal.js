@@ -95,13 +95,20 @@ async function founderDecision({db,uid,actor,decision,now=Date.now()}={}){
   }catch{return {ok:false,reason:'recruiter_review_unavailable'};}
 }
 
-async function recruiterSummary({db,uid,now=Date.now(),programEnabled=false,linkVerified=false}={}){
+async function recruiterSummary({db,uid,verifiedEmail,now=Date.now(),programEnabled=false,linkVerified=false}={}){
   if(!db||!validUid(uid))return {ok:false,reason:'invalid_request'};
   try{
     const ref=db.collection('recruiter_accounts').doc(uid);
     const snap=await ref.get();
     if(!snap.exists)return {ok:false,reason:'not_enrolled'};
     const data=snap.data();
+    // Reconfirm the invitee's original verified email when called from the
+    // authenticated website. The account's referral ownership is never movable
+    // by simply changing a sign-in email.
+    if(verifiedEmail!==undefined&&
+       (emailOf(verifiedEmail)===null||
+        emailOf(data.verifiedEmail)!==emailOf(verifiedEmail)))
+      return {ok:false,reason:'identity_mismatch'};
     // Indexed count aggregation, never fetch all referred people to a handset.
     // Claims are introductions, NOT yet verified/qualified Operators or Travels.
     const base=db.collection('referral_attributions').where('inviterUid','==',uid);
