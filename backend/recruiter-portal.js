@@ -111,6 +111,35 @@ async function founderDecision({db,uid,actor,decision,now=Date.now()}={}){
   }catch{return {ok:false,reason:'recruiter_review_unavailable'};}
 }
 
+// A recruiter may choose a display name for the private workspace.
+// Not a legal-identity attestation, contract acceptance or bank authorization.
+function profileNameOf(input){
+  if(typeof input!=='string')return null;
+  const name=input.normalize('NFC').trim().replace(/\\s+/gu,' ');
+  if(name.length<2||name.length>80||Buffer.byteLength(name,'utf8')>220||
+     /[\\u0000-\\u001F\\u007F<>]/u.test(name))return null;
+  return name;
+}
+async function updateRecruiterProfile({db,uid,verifiedEmail,profileName,now=Date.now()}={}){
+  const email=emailOf(verifiedEmail),name=profileNameOf(profileName);
+  if(!db||!validUid(uid)||!email||!name||
+     !Number.isSafeInteger(now)||now<=0)return {ok:false,reason:'invalid_profile'};
+  try{
+    return await db.runTransaction(async tx=>{
+      const ref=db.collection('recruiter_accounts').doc(uid);
+      const snap=await tx.get(ref);
+      if(!snap.exists)return {ok:false,reason:'not_enrolled'};
+      const record=snap.data()||{};
+      if(record.status!=='approved'&&record.status!=='pending_review')
+        return {ok:false,reason:'account_inactive'};
+      if(emailOf(record.verifiedEmail)!==email)
+        return {ok:false,reason:'identity_mismatch'};
+      tx.update(ref,{profileName:name,profileUpdatedAt:now,profileVersion:1});
+      return {ok:true,profileName:name,profileUpdatedAt:now};
+    });
+  }catch{return {ok:false,reason:'profile_unavailable'};}
+}
+
 async function recruiterSummary({db,uid,verifiedEmail,now=Date.now(),programEnabled=false,linkVerified=false,activityTrackingEnabled=false}={}){
   if(!db||!validUid(uid))return {ok:false,reason:'invalid_request'};
   try{
@@ -154,12 +183,12 @@ async function recruiterSummary({db,uid,verifiedEmail,now=Date.now(),programEnab
     // No fictional balances. A real commission ledger and tax/bank provider
     // must be independently commissioned before payment statuses are returned.
     return {ok:true,status:data.status,allowedRoles:data.allowedRoles||[],
-      counts,compensation:'not_commissioned',
+      counts,profileName:data.profileName||null,compensation:'not_commissioned',
       bankSetup:'not_commissioned',agreement:'pending_secure_agreement',
       linksAvailable,verifiedOperators:null,qualifyingTravels:null,
       reviewedAt:data.reviewedAt||null,asOf:now};
   }catch{return {ok:false,reason:'recruiter_summary_unavailable'};}
 }
 
-module.exports={INVITE_MS,emailOf,normalizeRoles,validUid,createInvitation,
-  acceptInvitation,founderDecision,recruiterSummary};
+module.exports={INVITE_MS,emailOf,normalizeRoles,validUid,profileNameOf,
+  createInvitation,acceptInvitation,founderDecision,recruiterSummary,updateRecruiterProfile};

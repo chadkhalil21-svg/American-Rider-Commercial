@@ -1,7 +1,7 @@
 'use strict';
 const assert=require('node:assert/strict');
 const {createInvitation,acceptInvitation,founderDecision,recruiterSummary,
-  INVITE_MS,emailOf,normalizeRoles}=require('./recruiter-portal');
+  updateRecruiterProfile,profileNameOf,INVITE_MS,emailOf,normalizeRoles}=require('./recruiter-portal');
 const NOW=Date.UTC(2026,9,24);
 class Db {
   constructor(){this.rows=new Map();this.reads=[];}
@@ -81,7 +81,15 @@ class Db {
   db.rows.set('referral_attributions/id_1',{inviterUid:'recruiter-001',role:'operator'});
   db.rows.set('referral_attributions/id_2',{inviterUid:'recruiter-001',role:'traveler'});
   db.rows.set('referral_attributions/id_3',{inviterUid:'someone-else',role:'operator'});
+  assert.equal(profileNameOf(' Ada   Lovelace '),'Ada Lovelace');
+  assert.equal(profileNameOf('<script>'),null);
+  assert.equal(profileNameOf('x'),null);
+  assert.equal((await updateRecruiterProfile({db,uid:'recruiter-001',
+    verifiedEmail:'wrong@example.com',profileName:'Ada Lovelace',now:NOW+45})).reason,'identity_mismatch');
+  assert.equal((await updateRecruiterProfile({db,uid:'recruiter-001',
+    verifiedEmail:'recruiter@example.com',profileName:'Ada Lovelace',now:NOW+45})).ok,true);
   const summary=await recruiterSummary({db,uid:'recruiter-001',now:NOW+50});
+  assert.equal(summary.profileName,'Ada Lovelace');
   assert.equal(summary.status,'approved');
   assert.equal((await recruiterSummary({db,uid:'recruiter-001',now:NOW+50,
     verifiedEmail:'imposter@example.org'})).reason,'identity_mismatch');
@@ -114,6 +122,8 @@ class Db {
   const suspended=await founderDecision({db,uid:'recruiter-001',
     actor:'founder',decision:'suspend',now:NOW+70});
   assert.equal(suspended.status,'suspended');
+  assert.equal((await updateRecruiterProfile({db,uid:'recruiter-001',
+    verifiedEmail:'recruiter@example.com',profileName:'Changed Name',now:NOW+71})).reason,'account_inactive');
   assert.equal(db.rows.get('recruiter_approvals/recruiter-001').suspended,true);
   assert.equal((await recruiterSummary({db,uid:'recruiter-001',
     verifiedEmail:'recruiter@example.com',now:NOW+71})).reason,'account_inactive');

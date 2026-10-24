@@ -6,7 +6,7 @@ const path=require('node:path');
 const {portalHtml}=require('../scripts/corporate-recruiter-portal.cjs');
 const {progressHtml}=require('../scripts/corporate-recruiter-progress.cjs');
 const html=portalHtml(),progress=progressHtml();
-for(const key of ['intros-rows','intros-more','intros-status','intros-operators','intros-travelers'])
+for(const key of ['intros-rows','intros-more','intros-status','intros-operators','intros-travelers','recruiter-profile-name','recruiter-profile-status'])
   assert.ok(html.includes(key),'Missing private dashboard element: '+key);
 assert.match(html,/recruiters\/introductions\?role=/);
 assert.match(html,/encodeURIComponent\(introCursor\)/);
@@ -15,12 +15,15 @@ assert.match(html,/No introductions recorded yet/);
 assert.match(html,/Not yet verified|Not commissioned/);
 assert.match(html,/resetIntros\(\)/);
 assert.match(html,/await loadIntroductions\(true\)/);
+assert.match(html,/\/recruiters\/profile/);
+assert.match(html,/Create account|Account details/);
 assert.doesNotMatch(progress,/email address|phone number|pickup|destination|bank account number/i);
 const moduleJs=html.match(/<script type="module">([\s\S]*?)<\/script>/);
 assert.ok(moduleJs,'Firebase authenticated script required');
 assert.doesNotThrow(()=>new vm.Script(moduleJs[1].replace(/^import [^\n]*\n/gm,'')));
 const backend=fs.readFileSync(path.join(__dirname,'server.js'),'utf8');
 assert.match(backend,/app\.get\('\/recruiters\/introductions',requireAuth,requireFreshAuth/);
+assert.match(backend,/app\.post\('\/recruiters\/profile',requireAuth,requireFreshAuth/);
 assert.match(backend,/requireVerifiedEmail,recruiterLimit/);
 assert.match(backend,/uid:String\(req\.uid\),verifiedEmail:req\.email/);
 assert.match(backend,/Cache-Control','private, no-store, max-age=0/);

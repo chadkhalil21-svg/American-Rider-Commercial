@@ -53,6 +53,48 @@ function portalHtml(){
     "by('operator-link').addEventListener('click',()=>share('operator'));by('qr-operator').addEventListener('click',()=>share('operator','qr'));" );
   html=html.replace("by('traveler-link').addEventListener('click',()=>share('traveler'));",
     "by('traveler-link').addEventListener('click',()=>share('traveler'));by('qr-traveler').addEventListener('click',()=>share('traveler','qr'));" );
+  // One account, not an employee hiring workflow. The invite landing page
+  // already offers Create account plus Apple/Google and verified-email binding.
+  // A display name is not a bank, tax or legal-identity declaration.
+  const accountDetails=String.raw`<section class="page-section" aria-label="Account details" style="padding:20px 0">
+    <h3>Account details</h3>
+    <form id="recruiter-profile">
+      <label for="recruiter-profile-name" style="display:block;margin-bottom:8px">Your name</label>
+      <input id="recruiter-profile-name" name="name" autocomplete="name" required minlength="2" maxlength="80"
+        style="display:block;padding:14px;width:100%;max-width:480px;border:1px solid #c7c7c3;border-radius:9px;margin-bottom:16px">
+      <button type="submit" class="action secondary">Save name</button>
+    </form><p id="recruiter-profile-status" role="status" aria-live="polite"></p>
+    <p>Your email address is confirmed by your sign-in. Payments will be set up securely when the program is available.</p>
+  </section>`;
+  html=html.replace('<section aria-label="Compensation">',
+    accountDetails+'<section aria-label="Compensation">');
+  html=html.replace("  by('traveler-count').textContent=String(data.counts?.travelerIntroductions??0);",
+    "  by('traveler-count').textContent=String(data.counts?.travelerIntroductions??0);"+
+    "by('recruiter-profile-name').value=String(data.profileName||'');");
+  html=html.replace("by('workspace').hidden=!person;",
+    "by('recruiter-profile-name').value='';by('recruiter-profile-status').textContent='';by('workspace').hidden=!person;");
+  const profileScript=String.raw`by('recruiter-profile').addEventListener('submit',async e=>{
+ e.preventDefault();
+ const person=auth.currentUser,feedback=by('recruiter-profile-status');
+ if(!person?.emailVerified){feedback.textContent='Please verify your email address.';return;}
+ const button=e.currentTarget.querySelector('button[type="submit"]');
+ button.disabled=true;feedback.textContent='Saving account details…';
+ try{
+  const bearer=await person.getIdToken(true);
+  const response=await fetch(api+'/recruiters/profile',{method:'POST',cache:'no-store',
+    headers:{Authorization:'Bearer '+bearer,'Content-Type':'application/json'},
+    body:JSON.stringify({profileName:by('recruiter-profile-name').value})});
+  const result=await response.json();
+  if(auth.currentUser?.uid!==person.uid)return;
+  feedback.textContent=response.ok&&result.ok?'Your name has been saved.':
+    'Your name could not be saved. Please review and try again.';
+ }catch{if(auth.currentUser?.uid===person.uid)
+   feedback.textContent='The account service is unavailable. No change was confirmed.';
+ }finally{button.disabled=false;}
+});
+`;
+  html=html.replace("by('sign-out').addEventListener('click'",
+    profileScript+"by('sign-out').addEventListener('click'");
   return html;
 }
 module.exports={portalHtml};
