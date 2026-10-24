@@ -36,7 +36,7 @@ function db(){
   assert.equal(data.counts.recruiterAccounts,3);
   assert.equal(log.length,5,'Five Firestore index count calls, no unbounded document downloads');
   assert.equal(overviewMarkup(data).includes('83'),true);
-  assert.match(overviewMarkup(data),/not distinct Traveler-only/);
+  assert.match(overviewMarkup(data),/A separate exact Traveler-only count/);
   fail.add('operators');
   const partial=await founderPlatformCounts(db());
   assert.equal(partial.ok,false);
