@@ -11,7 +11,7 @@ function newYorkBusinessDay(now=Date.now()){
   const offsetAt=guess=>{
     const part=new Intl.DateTimeFormat('en-US',{timeZone:ZONE,timeZoneName:'shortOffset'})
       .formatToParts(new Date(guess)).find(x=>x.type==='timeZoneName')?.value;
-    const match=/^GMT([+-])(\\d{1,2})(?::(\\d{2}))?$/.exec(part||'');
+    const match=/^GMT([+-])(\d{1,2})(?::(\d{2}))?$/.exec(part||'');
     if(!match)throw Error('timezone_unavailable');
     const m=(Number(match[2])*60+Number(match[3]||0));
     return (match[1]==='-'?-1:1)*m*60000;
