@@ -6,8 +6,10 @@
 const { randomUUID } = require('node:crypto');
 const COL = 'travel_receipt_outbox';
 const LEASE_MS = 90_000;
-const MAX_ATTEMPTS = 8;
-const RETRY_CAP_MS = 60 * 60_000;
+// A daily sending quota can reset 24 hours after a failure. Do not dead-letter
+// legitimate paid receipts in a few hours because today's provider quota ended.
+const MAX_ATTEMPTS = 16;
+const RETRY_CAP_MS = 24 * 60 * 60_000;
 const validId = id => typeof id === 'string' && /^[a-zA-Z0-9_-]{1,128}$/.test(id);
 const validEmail = email => typeof email === 'string' && email.length <= 254 &&
   /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
@@ -58,7 +60,7 @@ async function enqueueTravelReceipt({db,rideId,ride,to,now=Date.now()}={}) {
   }
 }
 function retryDelay(attempt) {
-  return Math.min(RETRY_CAP_MS,60_000*Math.pow(2,Math.min(6,Math.max(0,attempt-1))));
+  return Math.min(RETRY_CAP_MS,60_000*Math.pow(2,Math.min(11,Math.max(0,attempt-1))));
 }
 async function sweepTravelReceipts({db,sendReceipt,now=Date.now(),limit=20}={}) {
   if (!db || typeof sendReceipt !== 'function' || !Number.isSafeInteger(now) ||
