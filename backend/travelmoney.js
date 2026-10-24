@@ -478,6 +478,8 @@ async function settleTravel({ db, uid, rideId, deps, now = Date.now() }) {
       payoutPending: false,
       payoutBlockedReason: null,
       settledAt: now,
+      ...(process.env.AR_RECRUITER_TRAVEL_TRACKING_ENABLED==='1'?
+        {referralTrackingPending:true}:{}),
       ...(out.paidWith ? { paidWith: out.paidWith } : {}),
     },
     { merge: true },
