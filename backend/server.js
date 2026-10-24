@@ -145,6 +145,7 @@ const { handleEvent, webhookReady } = require('./webhook');
 const { enqueueProviderEvent, processProviderEvent, sweepProviderEvents, replayDeadEvent } = require('./providerqueue');
 const { enqueueWithDeadline } = require('./provider-ack');
 const { verifyResendWebhook, sanitizeResendEvent, applyResendDeliveryEvent } = require('./resend-delivery');
+const {sanitizeReceiptEvent,applyReceiptDeliveryEvent}=require('./travel-receipt-delivery');
 const { acquireLease, renewLease, releaseLease, DEFAULT_LEASE_MS } = require('./schedulerlease');
 const { singleFlight } = require('./sweep-singleflight');
 const { createSweepCadence, createQuotaBackoff, quotaError } = require('./sweepcadence');
@@ -159,6 +160,7 @@ const { dutyCoverageExpiry } = require('./operator-duty-coverage');
 const crypto = require('node:crypto');
 const WORKER_ID = crypto.randomUUID();
 const { send, receiptEmail, emailReady: mailReady } = require('./email');
+const {enqueueTravelReceipt,sweepTravelReceipts} = require('./travel-receipt-outbox');
 const { mount: mountOps, opsAuthMode, signedIn: opsSignedIn, actorOf: opsActorOf, oauthActorFingerprint } = require('./ops');
 const { mount: mountFounderMcp } = require('./chatgpt-mcp');
 const { readDocument, documentsReady, READER_VERSION } = require('./documents');
@@ -205,7 +207,9 @@ app.set('trust proxy', 1);
 // re-serialised the body, those bytes are gone and every event fails verification — which is
 // the classic way this endpoint ends up either broken or, worse, "fixed" by skipping the check.
 const PROVIDER_HANDLERS = { stripe: handleEvent,
-  resend: event => applyResendDeliveryEvent({ db: adminDb(), event }),
+  resend: event => event?.kind==='travel_receipt'
+    ? applyReceiptDeliveryEvent({db:adminDb(),event})
+    : applyResendDeliveryEvent({db:adminDb(),event}),
 };
 
 async function acceptDurableProviderEvent(provider, event, res) {
@@ -267,7 +271,8 @@ app.post('/resend/webhook', express.raw({ type: 'application/json', limit: '32kb
   }
   let event;
   try {
-    event = sanitizeResendEvent(verified.id, verified.event);
+    event = sanitizeResendEvent(verified.id, verified.event) ||
+      sanitizeReceiptEvent(verified.id, verified.event);
   } catch {
     return res.status(400).json({ error: 'Invalid Resend event' });
   }
@@ -1873,12 +1878,11 @@ app.post('/travel/settle', requireAuth, requireFreshAuth, async (req, res) => {
         operatorPayoutAccount,
         transferToOperator,
         settleUncapturedTravel,
-        // THE RECEIPT, BY EMAIL, once. A failure is recorded on the travel and visible on /ops.
-        sendReceipt: async (ride) => {
-          const sent = await send({ to: req.email, ...receiptEmail(ride), replyTo: 'support@americanrider.tech' });
-          if (!sent.ok) console.log(`[receipt] ${ride.tripNo || req.body?.rideId}: ${sent.reason}`);
-          return sent;
-        },
+        // Durable receipt regardless of Operator's payout status. The
+        // authenticated Traveler's verified account email is never client-supplied.
+        queueReceipt: ride => enqueueTravelReceipt({
+          db,rideId:String(req.body?.rideId||''),ride,to:req.email,
+        }),
       },
     });
     res.status(out.status).json(out.body);
@@ -2470,6 +2474,14 @@ async function runAllSweeps({criticalOnly=false}={}) {
     screening: () => maintenanceSweep('screening', () => sweepScreening()),
     settlements: async () => {
       const out=await sweepSettlements();
+      // The one existing leased scheduler processes receipts independently of
+      // delayed Operator transfers. No second clock, worker or database scan.
+      const receipts=await sweepTravelReceipts({db:adminDb(),
+        sendReceipt:({to,receipt,idempotencyKey})=>send({
+          to,...receiptEmail(receipt),replyTo:'support@americanrider.tech',
+          idempotencyKey,
+        }),
+      });
       if(readKey('AR_RECRUITER_TRAVEL_TRACKING_ENABLED')==='1'){
         // Retry only the indexed pending queue after a crash or outage.
         // Private activity records do not transfer money or create rewards.
@@ -2478,7 +2490,7 @@ async function runAllSweeps({criticalOnly=false}={}) {
         if(!activity.ok||activity.blocked)
           console.warn('[recruiter-travel-activity] reconciliation requires review');
       }
-      return out;
+      return {...out,receipts};
     },
     bookingRecovery: () => sweepBookingRecovery({ db: adminDb(), stripeConfigured: keyMode !== 'no-key',
       deps: { refundableFor, refundTravel, cancelUnpaidIntent, verifiedTravelPayment,

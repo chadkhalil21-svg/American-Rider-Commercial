@@ -665,6 +665,30 @@ async function sweepSettlements({ now = Date.now(), limit = 25 } = {}) {
           capturePending:false,
         },{merge:true});
       }
+      // Electronic receipts are for completed, captured Travels even if the
+      // Operator lacks a Connect account. This is only one indexed due queue;
+      // no full completed-Travels scan and no second scheduler.
+      if (!ride.receiptQueuedAt && !ride.receiptSentAt) {
+        try {
+          const { enqueueTravelReceipt } = require('./travel-receipt-outbox');
+          const traveler = ride.travelerUid
+            ? await db.collection('users').doc(ride.travelerUid).get() : null;
+          const payerEmail = traveler?.exists ? traveler.data()?.email : null;
+          const eligibleRide = ride.paymentCapturePolicy==='manual_v1'
+            ? {...ride,authorizationState:'captured',capturedAt:now} : ride;
+          const queued = await enqueueTravelReceipt({
+            db,rideId:ride.rideId,ride:eligibleRide,to:payerEmail,now,
+          });
+          if (!queued.ok)
+            await db.collection('rides').doc(ride.rideId).set({
+              receiptQueuePending:true,receiptFailed:queued.reason,
+            },{merge:true});
+        } catch {
+          await db.collection('rides').doc(ride.rideId).set({
+            receiptQueuePending:true,receiptFailed:'receipt_queue_unavailable',
+          },{merge:true});
+        }
+      }
       // Capture happens above BEFORE this 15-minute negative Connect cooldown.
       // An expired payout account must never consume our authorization deadline.
       if (deferAccountLookup(ride, now)) {
