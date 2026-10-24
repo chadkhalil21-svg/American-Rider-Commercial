@@ -34,7 +34,7 @@ class MemoryDb {
   assert.equal(formatLink('abc12345','unknown'),null);
   const first=await shareLink({db,uid,role:'traveler',now});
   assert.equal(first.ok,true);
-  assert.match(first.url,/^https:\/\/americanrider\.app\/join\?r=[0-9A-F]{24}&role=traveler$/);
+  assert.match(first.url,/^https:\/\/americanrider\.app\/join\?r=[23456789ABCDEFGHJKLMNPQRSTUVWXYZ]{12}&role=traveler$/);
   const afterFirst=db.writes;
   const second=await shareLink({db,uid,role:'operator',now});
   assert.equal(second.ok,true);
