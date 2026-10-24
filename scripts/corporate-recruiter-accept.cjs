@@ -28,7 +28,7 @@ const markup=String.raw`<section class="page-hero shell"><p class="section-label
      <button type="button" class="action secondary" id="reload-verification">I verified my email</button>
    </div>
    <div id="approved-actions" hidden>
-     <p>Acceptance establishes a review request, not payment eligibility. Identity verification, agreements and bank setup are separate steps.</p>
+     <p>Acceptance confirms your invitation, not payment eligibility. Identity verification, agreements and bank setup are separate steps.</p>
      <button type="button" id="accept" class="action primary">Accept invitation</button>
    </div>
    <button type="button" id="sign-out" class="action secondary">Sign out</button>
@@ -95,7 +95,7 @@ by('accept').addEventListener('click',async()=>{
   const res=await fetch(base+'/recruiters/accept',{method:'POST',cache:'no-store',
    headers:{Authorization:'Bearer '+bearer,'Content-Type':'application/json'},body:JSON.stringify({token})});
   const response=await res.json().catch(()=>null);
-  if(res.ok&&response?.ok){status('Invitation recorded. Your application is now under review.');location.replace('/recruiters/portal/');return;}
+  if(res.ok&&response?.ok){status('Invitation accepted. Sign in to your recruitment account.');location.replace('/recruiters/portal/');return;}
   status(res.status===503?'Recruitment enrollment is not yet available.':
    'This invitation could not be accepted. Confirm the addressed email account or request a new invitation.');
  }catch{status('We could not verify this invitation. Please try again.');}
