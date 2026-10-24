@@ -118,13 +118,13 @@ export default function Home() {
   const { t, language } = useLanguage();
   const router = useRouter();
   const ride = useRide();
-  const { user, signOut } = useAuth();
+  const { user, signOut, onboarding } = useAuth();
   const operator = useOperator();
   // Recover a Traveler introduction when the verified account next opens Home.
   // No continuous polling, no duplicate credit, and no permanent one-shot lockout
   // if a newly created account was not verified at its first launch.
   useFocusEffect(useCallback(() => {
-    if (!user?.emailVerified || process.env.EXPO_PUBLIC_REFERRALS_ENABLED !== '1') return;
+    if (!user?.emailVerified || onboarding || process.env.EXPO_PUBLIC_REFERRALS_ENABLED !== '1') return;
     let active = true;
     (async () => {
       const pending = await readPendingInvite();
@@ -133,7 +133,7 @@ export default function Home() {
       if (active && result !== 'retry') await clearPendingInvite();
     })();
     return () => { active = false; };
-  }, [user?.uid, user?.emailVerified]));
+  }, [user?.uid, user?.emailVerified, onboarding]));
 
   // A commissioned account that closed the app in Operator view reopens in it —
   // the role flag persists ('ar:role'), per the demo's role-switching pattern.
