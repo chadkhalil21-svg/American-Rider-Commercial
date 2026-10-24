@@ -4,6 +4,7 @@ import {useLocalSearchParams,useRouter} from 'expo-router';
 import {Text} from '../../src/components/AppText';
 import {Card,LetterheadBar,Screen,Sub,Title} from '../../src/components/UI';
 import {useAuth} from '../../src/state/AuthContext';
+import {useLanguage} from '../../src/state/LanguageContext';
 import {PAYMENT_SERVER_URL} from '../../src/config';
 import {colors} from '../../src/theme';
 
@@ -12,6 +13,7 @@ import {colors} from '../../src/theme';
 export default function RecruiterAccept(){
   const params=useLocalSearchParams<{token?:string}>();
   const router=useRouter(),{user}=useAuth();
+  const {t}=useLanguage();
   const [busy,setBusy]=useState(false);
   const [message,setMessage]=useState('');
   const token=typeof params.token==='string'&&/^[A-Za-z0-9_-]{43}$/.test(params.token)
@@ -31,29 +33,29 @@ export default function RecruiterAccept(){
       if(resp.ok&&body?.ok){
         router.replace('/recruitment');
       }else if(resp.status===503){
-        setMessage('Recruitment enrollment is not yet open.');
+        setMessage(t('recruiter.enrollmentClosed'));
       }else{
-        setMessage('This invitation could not be accepted. Please confirm the email address or request a new invitation.');
+        setMessage(t('recruiter.acceptFailed'));
       }
-    }catch{setMessage('We could not verify this invitation. Please try again.');}
+    }catch{setMessage(t('recruiter.verifyFailed'));}
     finally{setBusy(false);}
   };
   return <Screen>
     <LetterheadBar onBack={()=>router.back()}/>
-    <Title>Your invitation</Title>
-    <Sub>Independent recruitment at American Rider.</Sub>
+    <Title>{t('recruiter.yourInvitation')}</Title>
+    <Sub>{t('recruiter.independent')}</Sub>
     <Card style={styles.card}>
-      <Text style={styles.note}>Invitations are personal, expire after 48 hours and must be accepted using the addressed, verified email account.</Text>
-      {!token?<Text style={styles.note}>This invitation is incomplete or invalid.</Text>:
-      !user?<Text style={styles.note}>Sign in to American Rider with the email address to which your invitation was sent.</Text>:
-      !user.emailVerified?<Text style={styles.note}>Verify your email address before accepting this invitation.</Text>:
+      <Text style={styles.note}>{t('recruiter.inviteNote')}</Text>
+      {!token?<Text style={styles.note}>{t('recruiter.invalidInvitation')}</Text>:
+      !user?<Text style={styles.note}>{t('recruiter.signInEmail')}</Text>:
+      !user.emailVerified?<Text style={styles.note}>{t('recruiter.verifyEmail')}</Text>:
       <Pressable style={styles.button} accessibilityRole="button" disabled={busy}
         onPress={accept}>
         {busy?<ActivityIndicator color={colors.solidFg}/>:
-        <Text style={styles.buttonText}>Accept invitation</Text>}
+        <Text style={styles.buttonText}>{t('recruiter.acceptInvitation')}</Text>}
       </Pressable>}
       {!!message&&<Text style={styles.note} accessibilityRole="alert">{message}</Text>}
-      <Text style={styles.note}>Enrollment does not guarantee compensation or authorization to recruit. Terms require separate review and acceptance.</Text>
+      <Text style={styles.note}>{t('recruiter.notGuarantee')}</Text>
     </Card>
   </Screen>;
 }
