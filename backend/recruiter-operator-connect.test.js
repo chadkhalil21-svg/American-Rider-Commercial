@@ -20,7 +20,8 @@ class Db{
  let providerCalls=0;
  const stripe={accounts:{retrieve:async id=>{providerCalls++;assert.equal(id,ACC);return {
    id,type:'express',country:'US',metadata:{uid:UID},
-   details_submitted:true,payouts_enabled:true,capabilities:{transfers:'active'},
+   details_submitted:true,payouts_enabled:true,business_type:'individual',
+   individual:{ssn_last_4_provided:true},capabilities:{transfers:'active'},
    requirements:{currently_due:[],past_due:[]},
    settings:{payouts:{schedule:{interval:'daily'}}}
  };}}};
