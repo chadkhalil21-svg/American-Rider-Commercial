@@ -2539,6 +2539,13 @@ async function runAllSweeps({criticalOnly=false}={}) {
         if(!activity.ok||activity.blocked)
           console.warn('[recruiter-travel-activity] reconciliation requires review');
       }
+      const program=require('./recruiter-finance-policy').fromConfig(readKey);
+      if(program.enabled){
+        const financial=await require('./recruiter-finance-queue')
+          .sweepRecruiterFinance({db:adminDb(),program});
+        if(!financial.ok||financial.blocked||financial.maturityBlocked)
+          console.warn('[recruiter-finance] bounded reconciliation requires review');
+      }
       return out;
     },
     bookingRecovery: () => sweepBookingRecovery({ db: adminDb(), stripeConfigured: keyMode !== 'no-key',
