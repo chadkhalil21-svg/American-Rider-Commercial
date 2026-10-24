@@ -10,6 +10,8 @@ const pages={"":{"title":"American Rider | National Transportation","body":"\n<s
 
 // Founder-directed redesign: established institutional standards, no slogan or deck-driven homepage.
 css += require("./corporate-heritage-design.cjs").applyEditorialDesign(pages);
+// Recruitment is a professional, private account, separate from the public inquiry page.
+pages.recruitment.body += '<div class="shell"><section class="page-section"><h2>Invited representatives</h2><p>Existing invited recruiters may access their private account with a verified sign-in.</p><p><a class="text-link" href="/recruiters/portal/">Private recruitment account ↗</a></p></section></div>';
 
 function escapeHtml(s){return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;")}
 
@@ -33,6 +35,11 @@ fs.mkdirSync(path.join(root,"assets"),{recursive:true});
 fs.writeFileSync(path.join(root,"assets","site.css"),css,"utf8");
 fs.writeFileSync(path.join(root,"favicon.svg"),'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" fill="#101b31"/><text x="50%" y="52%" fill="#fff" font-size="23" font-family="Arial,sans-serif" font-weight="700" letter-spacing="-1" text-anchor="middle" dominant-baseline="middle">AR</text></svg>',"utf8");
 for(const [route,page] of Object.entries(pages))out(route,render(page.title,page.body,route));
+// Publish the private portal shell without exposing recruiter records in static assets.
+// Every private value is fetched only after independently verified Firebase sign-in.
+const recruiterPortal=require("./corporate-recruiter-portal.cjs").portalHtml();
+out("recruiters/portal",render("Private recruiter account | American Rider",recruiterPortal,"recruiters/portal")
+  .replace("<head>","<head><meta name=\"robots\" content=\"noindex,nofollow\"><meta name=\"referrer\" content=\"no-referrer\">"));
 const {legalPage,ACCOUNT_DELETION_HTML,LEGAL_LANGUAGES}=require("../backend/legal");
 const extract=(html)=>{const m=html.match(/<main[^>]*>([\s\S]*?)<\/main>/i);if(!m)throw Error("Missing source legal main content");return m[1].replace(/americanrider\.app/g,"americanrider.tech").replace(/americanrider\.communications@gmail\.com/g,"support@americanrider.tech")};
 for(const doc of ["terms","privacy"]){
