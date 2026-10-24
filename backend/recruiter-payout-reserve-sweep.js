@@ -53,8 +53,14 @@ async function sweepRecruiterPayoutReservations({db,enabled=false,authorization,
      // undisputed residual, preserve the debt for a lawful alternative
      // instead of repeatedly trying an unpayable Connect bank transfer.
      const alternate=result?.reason==='bank_provider_minimum_not_met';
+     // A previously qualified monthly batch can fall below $25 after a
+     // documented refund. Requeue its existing 90-day residual due date;
+     // setting null would strand a lawful earned balance indefinitely.
+     const residualDue=Number.isSafeInteger(entry.lastEligibleRewardAt)?
+       entry.lastEligibleRewardAt+90*86400000:null;
      const next=result?.ok?now+60*60*1000:
-       result?.reason==='below_batch_minimum'||alternate?null:now+24*60*60*1000;
+       alternate?null:result?.reason==='below_batch_minimum'?
+       residualDue&&residualDue>now?residualDue:null:now+24*60*60*1000;
      try{
        await db.collection('recruiter_payout_candidates').doc(uid).set({
          nextAttemptAt:next,lastAttemptAt:now,
