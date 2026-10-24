@@ -115,7 +115,7 @@ export default function OperatorQualification() {
       }
     })();
     return () => { live = false; };
-  }, [user?.uid, user?.emailVerified, areaActive, referralStatus]));
+  }, [user?.uid, user?.emailVerified, areaActive]));
 
   return (
     <Screen>
