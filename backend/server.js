@@ -2613,9 +2613,18 @@ async function runAllSweeps({criticalOnly=false}={}) {
         const accrue=await maintenanceSweep('recruiterAccrual',()=>
           sweepFundedRecruiterAccrual({db:adminDb(),enabled:true,holdMs}));
         if(accrue?.ok===false)console.warn('[recruiter-accrual] needs review');
+        const minimumCents=Number(readKey('AR_RECRUITER_MIN_PAYOUT_CENTS'));
         const release=await maintenanceSweep('recruiterRelease',()=>
-          sweepMaturedRecruiterRewards({db:adminDb(),approved:true,holdMs}));
+          sweepMaturedRecruiterRewards({db:adminDb(),approved:true,holdMs,minimumCents}));
         if(release?.ok===false)console.warn('[recruiter-maturity] needs review');
+        const reserve=await maintenanceSweep('recruiterReserve',()=>
+          require('./recruiter-payout-reserve-sweep').sweepRecruiterPayoutReservations({
+            db:adminDb(),enabled:true,
+            authorization:{programEnabled:true,providerApproved:true,counselApproved:true,
+              scheduleApproved:true,provider:'stripe_connect',activeMonthlyFeeCents:200,
+              minimumCents},
+          }));
+        if(reserve?.ok===false)console.warn('[recruiter-reserve] needs review');
       }
       return {...out,receipts};
     },
