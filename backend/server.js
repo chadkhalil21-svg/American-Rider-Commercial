@@ -820,7 +820,8 @@ app.get('/recruiters/introductions',requireAuth,requireFreshAuth,
   return res.status(result.ok?200:
     result.reason==='not_enrolled'?404:
     result.reason==='invalid_request'||result.reason==='invalid_cursor'?400:
-    result.reason==='identity_mismatch'||result.reason==='role_not_authorized'?403:503)
+    result.reason==='identity_mismatch'||result.reason==='role_not_authorized'||
+    result.reason==='account_inactive'?403:503)
     .json(result);
 });
 
