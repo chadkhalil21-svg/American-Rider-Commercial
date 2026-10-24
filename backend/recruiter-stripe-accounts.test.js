@@ -46,7 +46,8 @@ class Db {
    assert.equal(patch.settings.payouts.schedule.interval,'manual');
    return {settings:{payouts:{schedule:{interval:'manual'}}}};},
   retrieve:async id=>{assert.equal(id,ACCOUNT);return {
-   id,metadata:{ar_recruiter_uid:UID},type:'express',
+   id,metadata:{ar_recruiter_uid:UID},type:'express',country:'US',
+   business_type:'individual',individual:{ssn_last_4_provided:true},
    payouts_enabled:true,details_submitted:true,capabilities:{transfers:'active'},
    requirements:{currently_due:[],past_due:[]},
    settings:{payouts:{schedule:{interval:'manual'}}},
@@ -101,8 +102,9 @@ class Db {
   verifiedEmail:'recruiter@example.com',now:NOW});
  assert.equal(verified.ready,true);
  assert.equal(db.rows.get('recruiter_accounts/'+UID).providerRecipientRef,ACCOUNT);
- assert.equal(db.rows.get('recruiter_accounts/'+UID).taxReady,undefined,
-  'Stripe KYC must not invent 1099/tax clearance');
+ assert.equal(db.rows.get('recruiter_accounts/'+UID).taxReady,true,
+  'actual Stripe-reported SSN verification permits payouts without a manual tax checkbox');
+ assert.equal(db.rows.get('recruiter_accounts/'+UID).taxStatus,'stripe_tax_identity_verified');
  assert.equal((await verifyRecruiterBank({db,stripe,uid:UID,
   verifiedEmail:'other@example.com',now:NOW})).reason,'not_authorized');
  console.log('PASS Stripe recruiter identity, explicit $2 consent, hosted bank setup, repeated requests, provider verification, no fake tax eligibility or live money');
