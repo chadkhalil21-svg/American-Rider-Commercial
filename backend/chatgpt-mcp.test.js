@@ -50,6 +50,9 @@ const market={id:'fl-miami-dade',regionId:'fl-southeast',status:'active',geograp
 const deps={
  db:()=>db,opsSignedIn:()=>actor,authMode:()=>online?'named':'off',
  founderCanInviteRecruiter:()=>inviteAuthorized,
+ platformOverview:async()=>({ok:true,day:{date:'2026-10-24',timezone:'America/New_York'},
+   counts:{registeredAccountProfiles:83,operatorProfiles:17,travelsCreatedToday:12,travelsSettledToday:7},
+   meanings:{registeredAccountProfiles:'not distinct Travelers'},unavailable:[]}),
  inviteRecruiter:async ({email,allowedRoles,actor:principal})=>{
    changes.push('invited');assert.equal(principal,'founder');
    assert.equal(email,'recruiter@example.com');
@@ -87,7 +90,9 @@ function request(method,path,{body={},query={},headers={}}={}){
  const metadata=await request('GET','/.well-known/oauth-authorization-server').run();
  assert.ok(metadata.body.code_challenge_methods_supported.includes('S256'));
  const tools=await request('POST','/mcp',{body:{jsonrpc:'2.0',id:1,method:'tools/list'}}).run();
- assert.equal(tools.body.result.tools.length,5);
+ assert.equal(tools.body.result.tools.length,6);
+ assert.equal(tools.body.result.tools.find(x=>x.name==='platform_overview').scope,'market:read');
+ assert.equal(tools.body.result.tools.find(x=>x.name==='platform_overview').annotations.readOnlyHint,true);
  const unauthorized=await request('POST','/mcp',{body:{id:1,method:'tools/call',params:{name:'open_region',arguments:{regionId:'fl-southeast',confirmation:'OPEN fl-southeast'}}}}).run();
  assert.equal(unauthorized.status,200);
  assert.equal(unauthorized.body.result.isError,true);
@@ -132,6 +137,17 @@ function request(method,path,{body={},query={},headers={}}={}){
  assert.equal(got.markets[0].status,'active');
  assert.equal(got.markets[0].countyApprovalRequired,false);
  assert.equal(JSON.stringify(got).includes('secret-must-not-appear'),false);
+ const overview=await request('POST','/mcp',{body:{id:11,method:'tools/call',
+   params:{name:'platform_overview',arguments:{}}},headers:bearer}).run();
+ const counted=JSON.parse(overview.body.result.content[0].text);
+ assert.equal(counted.counts.operatorProfiles,17);
+ assert.equal(counted.counts.travelsSettledToday,7);
+ assert.equal(counted.meanings.registeredAccountProfiles,'not distinct Travelers');
+ production=false;
+ const disallowed=await request('POST','/mcp',{body:{id:12,method:'tools/call',
+   params:{name:'platform_overview',arguments:{}}},headers:bearer}).run();
+ assert.equal(JSON.parse(disallowed.body.result.content[0].text).code,'production_authority_required');
+ production=true;
  const reject=await request('POST','/mcp',{body:{id:3,method:'tools/call',params:{name:'open_region',arguments:{regionId:'fl-southeast',confirmation:'OPEN NO'}}},headers:bearer}).run();
  assert.equal(JSON.parse(reject.body.result.content[0].text).code,'explicit_confirmation_required');
  assert.equal(changes.includes('activate'),false);
