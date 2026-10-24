@@ -59,17 +59,17 @@ async function releaseCommission({db,eventId,terms,now=Date.now()}={}){
   // Candidate timing never itself authorizes a bank transfer.
   if(candidateRef){
     const before=candidateSnap?.exists?candidateSnap.data():null;
-    let due=nextRecruiterCandidateAt({now,grossCents:nextAvailable,minimumCents:min});
+    const lastEligibleRewardAt=Math.max(e.createdAt,
+      Number.isSafeInteger(before?.lastEligibleRewardAt)?before.lastEligibleRewardAt:0);
+    let due=nextRecruiterCandidateAt({now:nextAvailable>=min?now:lastEligibleRewardAt,
+      grossCents:nextAvailable,minimumCents:min});
+    // A scheduled monthly payout that already came due must not be delayed
+    // into another month because another commission just matured.
     if(nextAvailable>=min&&Number.isSafeInteger(before?.nextAttemptAt)&&
        before.nextAttemptAt>0&&before.nextAttemptAt<due&&
-       before.lastEligibleRewardAt>0&&before.nextAttemptAt>=
-       nextRecruiterCandidateAt({now:before.lastEligibleRewardAt,
-         grossCents:min,minimumCents:min})){
-      // Do not move a previously earned monthly payout into a later month.
-      due=before.nextAttemptAt;
-    }
+       before.nextAttemptAt<=now)due=before.nextAttemptAt;
     tx.set(candidateRef,{uid:e.inviterUid,nextAttemptAt:due,
-      lastEligibleRewardAt:now,queuedAt:before?.queuedAt||now,lastError:null},
+      lastEligibleRewardAt,queuedAt:before?.queuedAt||now,lastError:null},
       {merge:true});
   }
   tx.update(ref,{status:'available',availableAt:now,nextReleaseAt:null});
