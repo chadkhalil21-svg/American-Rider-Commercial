@@ -784,6 +784,7 @@ app.post('/recruiters/accept',requireRecruiterInviteLaunch,requireAuth,
 });
 app.get('/recruiters/link',requireAuth,requireFreshAuth,requireVerifiedEmail,
   recruiterLimit,async(req,res)=>{
+  res.set('Cache-Control','private, no-store, max-age=0');
   const flags=readKey('AR_RECRUITER_PROGRAM_ENABLED')==='1'&&
     readKey('AR_REFERRALS_ENABLED')==='1'&&
     readKey('AR_RECRUITER_LEGAL_SIGNOFF')==='1';
@@ -796,8 +797,32 @@ app.get('/recruiters/link',requireAuth,requireFreshAuth,requireVerifiedEmail,
   return res.status(out.ok?200:409).json(out);
 });
 app.get('/recruiters/me',requireAuth,requireVerifiedEmail,recruiterLimit,async(req,res)=>{
-  const out=await recruiterPortal.recruiterSummary({db:adminDb(),uid:String(req.uid)});
+  res.set('Cache-Control','private, no-store, max-age=0');
+  const programEnabled=readKey('AR_RECRUITER_PROGRAM_ENABLED')==='1'&&
+    readKey('AR_REFERRALS_ENABLED')==='1'&&
+    readKey('AR_RECRUITER_LEGAL_SIGNOFF')==='1';
+  const out=await recruiterPortal.recruiterSummary({
+    db:adminDb(),uid:String(req.uid),verifiedEmail:req.email,
+    programEnabled,linkVerified:readKey('AR_APP_LINKS_VERIFIED')==='1',
+  });
   return res.status(out.ok?200:out.reason==='not_enrolled'?404:503).json(out);
+});
+
+// Read-only, role-scoped progress list. A logged-in recruiter can see only
+// their own pseudonymous introductions, never another person's Travel details.
+app.get('/recruiters/introductions',requireAuth,requireFreshAuth,
+  requireVerifiedEmail,recruiterLimit,async(req,res)=>{
+  const role=req.query?.role,after=req.query?.after??null;
+  const result=await require('./recruiter-roster').listIntroductions({
+    db:adminDb(),uid:String(req.uid),verifiedEmail:req.email,role,after,
+  });
+  res.set('Cache-Control','private, no-store, max-age=0');
+  return res.status(result.ok?200:
+    result.reason==='not_enrolled'?404:
+    result.reason==='invalid_request'||result.reason==='invalid_cursor'?400:
+    result.reason==='identity_mismatch'||result.reason==='role_not_authorized'||
+    result.reason==='account_inactive'?403:503)
+    .json(result);
 });
 
 const REFERRALS_ENABLED=readKey('AR_REFERRALS_ENABLED')==='1';

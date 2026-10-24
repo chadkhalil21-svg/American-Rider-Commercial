@@ -3,6 +3,7 @@
 // No referral compensation, bank collection, or public self-enrollment takes place here.
 // All Firestore operations use server privilege; input data NEVER selects an account uid.
 const crypto=require('node:crypto');
+const {recruiterMayRefer}=require('./recruiter-eligibility');
 const INVITE_MS=48*60*60*1000;
 const validUid=x=>typeof x==='string'&&/^[A-Za-z0-9_-]{4,128}$/.test(x);
 const validActor=x=>typeof x==='string'&&/^[A-Za-z0-9_-]{1,80}$/.test(x);
@@ -94,13 +95,20 @@ async function founderDecision({db,uid,actor,decision,now=Date.now()}={}){
   }catch{return {ok:false,reason:'recruiter_review_unavailable'};}
 }
 
-async function recruiterSummary({db,uid,now=Date.now()}={}){
+async function recruiterSummary({db,uid,verifiedEmail,now=Date.now(),programEnabled=false,linkVerified=false}={}){
   if(!db||!validUid(uid))return {ok:false,reason:'invalid_request'};
   try{
     const ref=db.collection('recruiter_accounts').doc(uid);
     const snap=await ref.get();
     if(!snap.exists)return {ok:false,reason:'not_enrolled'};
     const data=snap.data();
+    // Reconfirm the invitee's original verified email when called from the
+    // authenticated website. The account's referral ownership is never movable
+    // by simply changing a sign-in email.
+    if(verifiedEmail!==undefined&&
+       (emailOf(verifiedEmail)===null||
+        emailOf(data.verifiedEmail)!==emailOf(verifiedEmail)))
+      return {ok:false,reason:'identity_mismatch'};
     // Indexed count aggregation, never fetch all referred people to a handset.
     // Claims are introductions, NOT yet verified/qualified Operators or Travels.
     const base=db.collection('referral_attributions').where('inviterUid','==',uid);
@@ -110,12 +118,23 @@ async function recruiterSummary({db,uid,now=Date.now()}={}){
     ]);
     const counts={operatorIntroductions:Number(ops.data().count)||0,
       travelerIntroductions:Number(travelers.data().count)||0};
+    // Previously this was always false, so a fully approved recruiter could
+    // never use the dashboard even after legitimate launch. Four independent
+    // launch flags and current identity/contract/role checks govern availability.
+    // With flags OFF (the default), this adds zero approval-record reads.
+    let linksAvailable=false;
+    if(programEnabled===true&&linkVerified===true&&data.status==='approved'){
+      const approval=await db.collection('recruiter_approvals').doc(uid).get();
+      linksAvailable=approval.exists&&Array.isArray(data.allowedRoles)&&
+        data.allowedRoles.some(role=>
+          recruiterMayRefer(data,approval.data(),role,now));
+    }
     // No fictional balances. A real commission ledger and tax/bank provider
     // must be independently commissioned before payment statuses are returned.
     return {ok:true,status:data.status,allowedRoles:data.allowedRoles||[],
       counts,compensation:'not_commissioned',
       bankSetup:'not_commissioned',agreement:'pending_secure_agreement',
-      linksAvailable:false,verifiedOperators:null,qualifyingTravels:null,
+      linksAvailable,verifiedOperators:null,qualifyingTravels:null,
       reviewedAt:data.reviewedAt||null,asOf:now};
   }catch{return {ok:false,reason:'recruiter_summary_unavailable'};}
 }
