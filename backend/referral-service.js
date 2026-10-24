@@ -66,6 +66,12 @@ async function claim({db,uid,code,role,authCreatedAtMs,now=Date.now()}){
       ]);
       const entry=codeSnap.exists?codeSnap.data():{};
       if(!entry?.ownerUid||entry.status!=='active')return {ok:false,reason:'invalid_invite'};
+      // Recruiter suspension must also stop claims from a previously shared link.
+      // Ordinary Operator and Traveler inviters have no recruiter account.
+      // A single named-document read on an actual claim avoids fleet-wide scans.
+      const recruiterSnap=await tx.get(db.collection('recruiter_accounts').doc(entry.ownerUid));
+      if(recruiterSnap.exists && recruiterSnap.data()?.status!=='approved')
+        return {ok:false,reason:'referrer_not_eligible'};
       if(claimSnap.exists)return {ok:false,reason:'already_attributed'};
       // Do not reassign an already-qualified or formerly active Operator.
       const fleet=fleetSnap?.exists?fleetSnap.data():null;
