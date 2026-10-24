@@ -15,7 +15,8 @@ import {colors} from '../../src/theme';
 type Summary={
   ok:boolean;
   status?:string;
-  counts?:{operatorIntroductions:number;travelerIntroductions:number};
+  counts?:{operatorIntroductions:number;travelerIntroductions:number;operatorSettlementRecords?:number;travelerSettlementRecords?:number};
+  wallet?:{availableCents?:number;netPaidCents?:number}|null;
   linksAvailable?:boolean;
   bankSetup?:string;
   compensation?:string;
@@ -54,10 +55,12 @@ export default function RecruitmentWorkspace(){
         headers:{Authorization:'Bearer '+token},
       });
       const body=await r.json().catch(()=>null);
-      if(!r.ok||typeof body?.url!=='string'||!body.url.startsWith('https://americanrider.tech/join?')){
+      if(!r.ok||typeof body?.url!=='string'||
+        !/^https:\/\/americanrider\.tech\/join\?r=[A-Z0-9]{8,32}&role=(operator|traveler)$/.test(body.url)||
+        !body.url.endsWith('&role='+role)){
         setNotice(t('recruiter.linksUnavailable'));return;
       }
-      await Share.share({message:body.url});
+      await Share.share({message:t('recruiter.shareDisclosure')+' '+body.url});
     }catch{setNotice(t('recruiter.shareFailed'));}
   };
   return <Screen>
@@ -82,6 +85,14 @@ export default function RecruitmentWorkspace(){
         <View style={styles.line}><Text style={styles.name}>{t('recruiter.travelerIntroductions')}</Text>
           <Text style={styles.value}>{details.counts?.travelerIntroductions??0}</Text></View>
         <Text style={styles.note}>{t('recruiter.countsNote')}</Text>
+        {Number.isSafeInteger(details.counts?.operatorSettlementRecords)&&
+          Number.isSafeInteger(details.counts?.travelerSettlementRecords)&&<>
+            <View style={styles.line}><Text style={styles.name}>{t('recruiter.settledOperatorTravels')}</Text>
+              <Text style={styles.value}>{details.counts?.operatorSettlementRecords}</Text></View>
+            <View style={styles.line}><Text style={styles.name}>{t('recruiter.settledTravelerTravels')}</Text>
+              <Text style={styles.value}>{details.counts?.travelerSettlementRecords}</Text></View>
+            <Text style={styles.note}>{t('recruiter.settledActivityNote')}</Text>
+          </>}
       </Card>
       <Card style={styles.panel}>
         <Text style={styles.eyebrow}>{t('recruiter.personalInvitations')}</Text>
@@ -95,7 +106,14 @@ export default function RecruitmentWorkspace(){
       </Card>
       <Card style={styles.panel}>
         <Text style={styles.eyebrow}>{t('recruiter.compensation')}</Text>
-        <Text style={styles.note}>{t('recruiter.compensationNote')}</Text>
+        {details.compensation==='commissioned'&&details.wallet&&
+          Number.isSafeInteger(details.wallet.availableCents)&&Number.isSafeInteger(details.wallet.netPaidCents)?<>
+          <View style={styles.line}><Text style={styles.name}>{t('recruiter.availableRewards')}</Text>
+            <Text style={styles.value}>{'$'+((details.wallet.availableCents??0)/100).toFixed(2)}</Text></View>
+          <View style={styles.line}><Text style={styles.name}>{t('recruiter.verifiedPaid')}</Text>
+            <Text style={styles.value}>{'$'+((details.wallet.netPaidCents??0)/100).toFixed(2)}</Text></View>
+          <Text style={styles.note}>{t('recruiter.activeCompensationNote')}</Text>
+        </>:<Text style={styles.note}>{t('recruiter.compensationNote')}</Text>}
       </Card>
       {!!notice&&<Text style={styles.note}>{notice}</Text>}
     </>}
