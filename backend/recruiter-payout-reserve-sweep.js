@@ -4,6 +4,7 @@
 // No full wallet scans, no second clock, no QR tracking writes.
 const crypto=require('node:crypto');
 const {reserveRecruiterPayout}=require('./recruiter-commission-ledger');
+const {residualCloseoutDue}=require('./recruiter-payout-policy');
 async function sweepRecruiterPayoutReservations({db,enabled=false,authorization,
  now=Date.now(),limit=12}={}){
  if(!enabled)return {ok:true,disabled:true,processed:0};
@@ -33,12 +34,19 @@ async function sweepRecruiterPayoutReservations({db,enabled=false,authorization,
           Number.isSafeInteger(d.data()?.amountCents)&&d.data().amountCents>0&&
           d.data()?.requiresRecovery!==true);
        const total=docs.reduce((sum,d)=>sum+d.data().amountCents,0);
-       if(total>=minimum){
+       const closeout=residualCloseoutDue({candidate:entry,now,
+         grossCents:total,minimumCents:minimum});
+       if(total>=minimum||closeout){
          const ids=docs.map(d=>d.id).sort();
          const batchId='recruiter_'+crypto.createHash('sha256')
            .update(JSON.stringify([uid,ids])).digest('hex').slice(0,28);
+         // Residual closeout is an authenticated, due-only one-off exception
+         // to the ordinary batch size. The payout transaction independently
+         // checks the 90-day inactivity and existing beneficiary eligibility.
+         const releaseAuth=closeout?{...authorization,minimumCents:1,
+           standardMinimumCents:minimum,closeout:true}:authorization;
          result=await reserveRecruiterPayout({db,uid,batchId,
-           eventIds:ids,authorization,now});
+           eventIds:ids,authorization:releaseAuth,now});
        }else result={ok:false,reason:'below_batch_minimum'};
      }catch{result={ok:false,reason:'reservation_lookup_unavailable'};}
      const next=result?.ok?now+60*60*1000:
