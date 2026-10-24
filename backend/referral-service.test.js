@@ -73,10 +73,37 @@ class MemoryDb {
     authCreatedAtMs:now,now});
   assert.equal(blocked.reason,'referrer_not_eligible');
   assert.equal(db.rows.has('referral_attributions/new-after-suspension_operator'),false);
-  db.rows.set('recruiter_accounts/inviter',{status:'approved'});
+  db.rows.set('recruiter_accounts/inviter',{status:'approved',allowedRoles:['operator','traveler']});
+  // A founder approval WITHOUT independent identity, agreement and bank review
+  // must never authorize a previously issued QR code or spoken referral.
+  db.rows.set('recruiter_approvals/inviter',{status:'approved',
+    identityVerified:false,agreementAccepted:false,payoutEligibilityVerified:false});
+  const blockedUnsigned=await claim({db,uid:'new-unsigned',code,role:'operator',
+    authCreatedAtMs:now,now});
+  assert.equal(blockedUnsigned.reason,'referrer_not_eligible');
+  assert.equal(db.rows.has('referral_attributions/new-unsigned_operator'),false);
+  const approval={status:'approved',suspended:false,identityVerified:true,
+    agreementAccepted:true,payoutEligibilityVerified:true,
+    approvedBy:'founder',approvedAt:now-100,agreementAcceptedAt:now-90,
+    expiresAt:now+24*3600_000,allowedRoles:['operator','traveler']};
+  db.rows.set('recruiter_approvals/inviter',approval);
   const transfer=await claim({db,uid:'new-traveler',code,role:'operator',
     authCreatedAtMs:now-2000,now});
   assert.equal(transfer.ok,true,'existing Traveler can later join as new Operator');
+  const blockedRole=await claim({db,uid:'traveler-role-denied',code,role:'traveler',
+    authCreatedAtMs:now,now});
+  assert.equal(blockedRole.ok,true);
+  db.rows.set('recruiter_approvals/inviter',{...approval,allowedRoles:['operator']});
+  assert.equal((await claim({db,uid:'traveler-role-new',code,role:'traveler',
+    authCreatedAtMs:now,now})).reason,'referrer_not_eligible');
+  db.rows.set('recruiter_approvals/inviter',{...approval,expiresAt:now});
+  assert.equal((await claim({db,uid:'expired-recruiter',code,role:'operator',
+    authCreatedAtMs:now,now})).reason,'referrer_not_eligible');
+  // A direct user share cannot bypass the recruiter controls after expiry.
+  const writeCount=db.writes;
+  assert.equal((await shareLink({db,uid:'inviter',role:'operator',now,
+    origin:'https://americanrider.tech'})).ok,false);
+  assert.equal(db.writes,writeCount);
   assert.equal(db.rows.get('referral_attributions/new-traveler_operator').role,'operator');
   assert.equal(db.rows.get('referral_attributions/new-traveler_operator').rewardEnabled,false);
   assert.equal(db.rows.get('referral_attributions/new-traveler_traveler').rewardEnabled,false);
