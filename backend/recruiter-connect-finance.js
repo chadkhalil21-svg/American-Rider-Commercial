@@ -158,7 +158,7 @@ async function transferRecruiterCommission({db,stripe,payableId,programEnabled=f
    ]);
    if(!a.exists||!ap.exists||!r.exists||
       !approved(a.data(),ap.data(),now)||
-      a.data().payoutEligibilityVerified!==true||
+      a.data().payoutEligibilityVerified!==true||a.data().payoutsFrozen===true||
       a.data().stripeRecruiterAccountId!==payable.stripeRecruiterAccountId||
       ap.data().payoutEligibilityVerified!==true||
       r.data().status!=='completed'||r.data().refunded===true||
@@ -205,15 +205,20 @@ async function transferRecruiterCommission({db,stripe,payableId,programEnabled=f
  }
  try{
   const ok=await db.runTransaction(async tx=>{
-   const [pay,attempt,acct]=await Promise.all([
+   const summaryRef=db.collection('recruiter_finance_summaries').doc(p.recruiterUid);
+   const journalRef=db.collection('recruiter_commission_journal').doc(payableId+'_provider_transferred');
+   const [pay,attempt,acct,summary,journal]=await Promise.all([
     tx.get(payRef),tx.get(attemptRef),
     tx.get(db.collection('recruiter_accounts').doc(p.recruiterUid)),
+    tx.get(summaryRef),tx.get(journalRef),
    ]);
    if(!pay.exists||!attempt.exists||!acct.exists||
      pay.data().status!=='available'||pay.data().amountCents!==p.amountCents||
      pay.data().stripeRecruiterAccountId!==p.stripeRecruiterAccountId||
      attempt.data().accountId!==p.stripeRecruiterAccountId||
-     acct.data().status!=='approved')
+     acct.data().status!=='approved'||acct.data().payoutsFrozen===true||
+     !summary.exists||!Number.isSafeInteger(summary.data().availableCents)||
+     summary.data().availableCents<p.amountCents||journal.exists)
       return false;
    tx.update(payRef,{status:'transferred_to_provider',
      stripeTransferId:result.id,providerTransferredAt:Date.now(),
@@ -221,6 +226,12 @@ async function transferRecruiterCommission({db,stripe,payableId,programEnabled=f
      bankPayoutStatus:'pending_provider_confirmation'});
    tx.update(attemptRef,{state:'provider_transferred',
      transferId:result.id,confirmedAt:Date.now()});
+   tx.update(summaryRef,{availableCents:summary.data().availableCents-p.amountCents,
+     transferredCents:Number(summary.data().transferredCents||0)+p.amountCents,
+     updatedAt:Date.now()});
+   tx.create(journalRef,{kind:'transferred_to_provider',eventId:payableId,
+     recruiterUid:p.recruiterUid,amountCents:p.amountCents,transferId:result.id,
+     createdAt:Date.now(),version:1});
    return true;
   });
   return ok?{ok:true,status:'transferred_to_provider',transferId:result.id,
