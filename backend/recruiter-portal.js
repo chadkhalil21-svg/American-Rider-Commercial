@@ -116,8 +116,11 @@ async function founderDecision({db,uid,actor,decision,now=Date.now()}={}){
 function profileNameOf(input){
   if(typeof input!=='string')return null;
   const name=input.normalize('NFC').trim().replace(/\s+/gu,' ');
-  if(name.length<2||name.length>80||Buffer.byteLength(name,'utf8')>220||
-     /[\u0000-\u001F\u007F<>]/u.test(name))return null;
+  if(name.length<2||name.length>80||Buffer.byteLength(name,'utf8')>220)return null;
+  if(Array.from(name).some(c=>{
+    const code=c.codePointAt(0);
+    return code<32||code===127||c==='<'||c==='>';
+  }))return null;
   return name;
 }
 async function updateRecruiterProfile({db,uid,verifiedEmail,profileName,now=Date.now()}={}){
