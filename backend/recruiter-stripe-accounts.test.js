@@ -29,7 +29,7 @@ class Db {
  }
 }
 (async()=>{
- const db=new Db(),counter={accounts:0,links:0};
+ const db=new Db(),counter={accounts:0,links:0,payoutConfigurations:0};
  db.rows.set('recruiter_accounts/'+UID,{
   status:'approved',verifiedEmail:'recruiter@example.com',agreementAccepted:true});
  db.rows.set('recruiter_approvals/'+UID,{
@@ -42,10 +42,14 @@ class Db {
    assert.equal(args.metadata.ar_recruiter_uid,UID);
    assert.ok(opts.idempotencyKey.includes('ar_recruiter_connect'));
    return {id:ACCOUNT};},
+  update:async(id,patch)=>{assert.equal(id,ACCOUNT);counter.payoutConfigurations++;
+   assert.equal(patch.settings.payouts.schedule.interval,'manual');
+   return {settings:{payouts:{schedule:{interval:'manual'}}}};},
   retrieve:async id=>{assert.equal(id,ACCOUNT);return {
    id,metadata:{ar_recruiter_uid:UID},type:'express',
    payouts_enabled:true,details_submitted:true,capabilities:{transfers:'active'},
    requirements:{currently_due:[],past_due:[]},
+   settings:{payouts:{schedule:{interval:'manual'}}},
   };},
  },accountLinks:{create:async data=>{counter.links++;
   assert.equal(data.account,ACCOUNT);
@@ -80,6 +84,7 @@ class Db {
  result=await hostedRecruiterOnboarding(gate);
  assert.equal(result.ok,true);
  assert.equal(counter.accounts,1,'no second recruiter Stripe account');
+ assert.equal(counter.payoutConfigurations,2,'manual payout schedule rechecked without second account creation');
  const verified=await verifyRecruiterBank({db,stripe,uid:UID,
   verifiedEmail:'recruiter@example.com',now:NOW});
  assert.equal(verified.ready,true);
