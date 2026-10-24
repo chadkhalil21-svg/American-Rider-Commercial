@@ -14,6 +14,10 @@
 // bus destination board says, which is the whole reason the English says In Service.
 export default {
   auth: {
+    invitationCodeOptional: "¿Tiene un código de invitación? (opcional)",
+    invitationCodePlaceholder: "Introduzca el código de invitación",
+    invitationCodeInvalid: "Compruebe el código o deje el campo vacío para continuar.",
+    invitationCodeVerifyNote: "American Rider verificará el código después de iniciar sesión.",
     tagline: 'Safe. Reliable. American.',
     continueWithApple: 'Continuar con Apple',
     continueWithGoogle: 'Continuar con Google',
@@ -67,6 +71,14 @@ export default {
   },
 
   operator: {
+    referralQuestion: "¿Alguien le recomendó American Rider?",
+    referralDescription: "Si alguien le presentó American Rider, introduzca su código antes de completar la habilitación.",
+    referralCodeOptional: "Código de referencia (opcional)",
+    referralCodePlaceholder: "Introduzca el código",
+    referralRecorded: "Referencia registrada. Esto no determina si corresponde un pago.",
+    referralApply: "Aplicar código",
+    referralChecking: "Comprobando código…",
+    referralFailed: "No se pudo aplicar el código. Compruébelo o contacte con asistencia antes de completar la habilitación.",
     referralInviteTitle: "Invitaciones",
     referralInviteTraveler: "Invitar a un Viajero",
     referralInviteOperator: "Invitar a un Operador",
