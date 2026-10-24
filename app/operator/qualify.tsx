@@ -91,7 +91,7 @@ export default function OperatorQualification() {
   // A QR or link may open the app before login. Recover it after sign-in.
   const attemptedPending = React.useRef(false);
   useEffect(() => {
-    if (!user || !areaActive || process.env.EXPO_PUBLIC_REFERRALS_ENABLED !== '1'
+    if (!user?.emailVerified || !areaActive || process.env.EXPO_PUBLIC_REFERRALS_ENABLED !== '1'
         || attemptedPending.current) return;
     attemptedPending.current = true;
     let live = true;
@@ -109,7 +109,7 @@ export default function OperatorQualification() {
       }
     })();
     return () => { live = false; };
-  }, [user?.uid, areaActive]);
+  }, [user?.uid, user?.emailVerified, areaActive]);
 
   return (
     <Screen>
