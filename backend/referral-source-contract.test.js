@@ -15,6 +15,10 @@ const attribution=read('backend/referral-service.js');
 const accrual=read('backend/referral-accrual.js');
 const share=read('src/backend/referrals.ts');
 const join=read('app/join.tsx');
+const nativeConfig=JSON.parse(read('app.json')).expo;
+const register=read('src/screens/AuthScreen.tsx');
+const initialHome=read('app/index.tsx');
+const operatorQualify=read('app/operator/qualify.tsx');
 const rootApp=read('src/boot/FullRoot.tsx');
 
 for(const key of ['inviteFriends','inviteSub','inviteShareText','sendInvitation'])
