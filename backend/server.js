@@ -798,6 +798,21 @@ app.get('/recruiters/link',requireAuth,requireFreshAuth,requireVerifiedEmail,
   });
   return res.status(out.ok?200:409).json(out);
 });
+// Signed-in, verified invitee owns this PRIVATE display name. No payout,
+// tax, eligibility or legal identity state can be modified by this route.
+app.post('/recruiters/profile',requireAuth,requireFreshAuth,
+  requireVerifiedEmail,recruiterLimit,async(req,res)=>{
+  res.set('Cache-Control','private, no-store, max-age=0');
+  const result=await recruiterPortal.updateRecruiterProfile({
+    db:adminDb(),uid:String(req.uid),verifiedEmail:req.email,
+    profileName:req.body?.profileName,
+  });
+  return res.status(result.ok?200:
+    result.reason==='invalid_profile'?400:
+    result.reason==='not_enrolled'?404:
+    result.reason==='identity_mismatch'||result.reason==='account_inactive'?403:503)
+    .json(result);
+});
 app.get('/recruiters/me',requireAuth,requireVerifiedEmail,recruiterLimit,async(req,res)=>{
   res.set('Cache-Control','private, no-store, max-age=0');
   const programEnabled=readKey('AR_RECRUITER_PROGRAM_ENABLED')==='1'&&
