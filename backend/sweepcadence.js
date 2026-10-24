@@ -9,6 +9,7 @@ const PERIOD_MS = Object.freeze({
   founderMarketIntent: 10 * 60_000, // at most 3 admission reads every ten minutes while intent is pending
   operatorFees: 6 * 60 * 60_000,
   recruiterBankPayouts: 60 * 60_000, // optional due-only, no second scheduler
+  recruiterPayoutReservations: 60 * 60_000, // threshold-crossing candidates, bounded one index
   recruiterAccrual: 60_000, // only when the paid program is actually commissioned
   recruiterRelease: 60_000, // bounded due queue; single index, zero reads while disabled
   recruiterReserve: 60 * 60_000, // batch once per hour when fully commissioned
