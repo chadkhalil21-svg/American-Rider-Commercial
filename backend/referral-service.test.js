@@ -40,6 +40,8 @@ class MemoryDb {
   assert.equal(second.ok,true);
   assert.equal(db.writes,afterFirst,'same inviter must not write per share');
   const code=first.url.match(/r=([^&]+)/)[1];
+  assert.match(code,/^[23456789ABCDEFGHJKLMNPQRSTUVWXYZ]{12}$/,
+    'new referral codes must be short, unambiguous and suitable for spoken use');
   // A tampered/stale profile code must never allow sharing another inviter's URL.
   db.rows.set('users/spoofed',{referralCode:code});
   const corrected=await shareLink({db,uid:'spoofed',role:'traveler',now});
