@@ -27,6 +27,7 @@ assert.match(server,/AR_APP_LINKS_VERIFIED/);
 assert.match(server,/AR_RECRUITER_LEGAL_SIGNOFF/);
 assert.match(server,/AR_REFERRALS_ENABLED/);
 assert.match(server,/recruiterPortal\.recruiterSummary\(\{/);
+assert.match(server,/uid:String\(req\.uid\),verifiedEmail:req\.email/);
 assert.match(server,/programEnabled,linkVerified:readKey\('AR_APP_LINKS_VERIFIED'\)/);
 
 assert.match(portal,/crypto\.randomBytes\(32\)/);
