@@ -7,6 +7,10 @@
 // good Spanish and bad American Rider.
 export default {
   auth: {
+    invitationCodeOptional: "Have an invitation code? (optional)",
+    invitationCodePlaceholder: "Enter invitation code",
+    invitationCodeInvalid: "Please check the invitation code, or leave it blank to continue.",
+    invitationCodeVerifyNote: "Your code will be verified by American Rider after sign-in.",
     tagline: 'Safe. Reliable. American.',
     continueWithApple: 'Continue with Apple',
     continueWithGoogle: 'Continue with Google',
@@ -64,6 +68,14 @@ export default {
   // is deliberate and it translates as vocabulary, not as description — "Commence Operations"
   // becomes the equivalent formal undertaking in each language, never "start working".
   operator: {
+    referralQuestion: "Were you referred to American Rider?",
+    referralDescription: "If someone introduced you, enter their referral code before completing qualification.",
+    referralCodeOptional: "Referral code (optional)",
+    referralCodePlaceholder: "Enter referral code",
+    referralRecorded: "Referral recorded. This does not determine payment eligibility.",
+    referralApply: "Apply code",
+    referralChecking: "Checking code…",
+    referralFailed: "This code could not be applied. Check the code or contact Support before completing qualification.",
     referralInviteTitle: "Invitations",
     referralInviteTraveler: "Invite a Traveler",
     referralInviteOperator: "Invite an Operator",
