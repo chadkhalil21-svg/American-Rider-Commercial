@@ -13,7 +13,7 @@ async function sweepRecruiterPayoutReservations({db,enabled=false,authorization,
    !Number.isSafeInteger(limit)||limit<1||limit>25||
    !Number.isSafeInteger(minimum)||minimum<=200||minimum>3000||
    authorization?.programEnabled!==true||authorization?.providerApproved!==true||
-   authorization?.counselApproved!==true||authorization?.scheduleApproved!==true||
+   authorization?.scheduleApproved!==true||
    authorization?.provider!=='stripe_connect'||authorization?.activeMonthlyFeeCents!==200)
    return {ok:false,reason:'payout_reservation_not_approved'};
  try{
