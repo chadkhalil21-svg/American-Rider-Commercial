@@ -34,6 +34,7 @@ const { codeFor, totpStep, sessionFor, verifySession } = require('./opssecurity'
 const { withinDeadline, OPS_MFA_DEADLINE_MS } = require('./opslatency');
 const { loadOpsBoard, UNDERWAY } = require('./opsboarddata');
 const { summarizeFirstPartyPricing } = require('./first-party-pricing');
+const {founderPlatformCounts,overviewMarkup}=require('./founder-platform-counts');
 
 const COOKIE = 'ar_ops';
 
@@ -340,6 +341,7 @@ ${unreadable.length ? `<section role="alert" style="border:2px solid #B42318;">
   Review the affected data sources before making operational decisions.</p>
   <p>Affected sections: ${unreadable.map(esc).join(', ')}.</p>
   </section>` : ''}
+<p><a href="/ops/overview">Platform Overview · registered accounts, Operators and Travel records →</a></p>
 <p><a href="/ops/markets">Market readiness, evidence and pause controls →</a></p>
 <p><a href="/ar/oauth/connections">ChatGPT Operations connection · view or disconnect →</a></p>
 <p><a href="/ops/cases?kind=emergency">Urgent and deadline cases · acknowledge →</a> · <a href="/ops/cases?kind=support">Support cases →</a></p>
@@ -525,6 +527,22 @@ function mount(app, express, deps = {}) {
   const dbOf = deps.db || adminDb;
   const liveMoney = deps.liveMoney || (() => false);
   const checks = deps.checks || (async () => ({ account: { disabled: null }, payouts: { enabled: false } }));
+
+  // Deliberately on-demand: broad national count aggregations must NOT run
+  // on every booking, every operational exception refresh or health probe.
+  app.get('/ops/overview',async(req,res)=>{
+    if(!signedIn(req)||opsAuthMode()!=='named')
+      return res.status(403).type('html').send(page('Platform Overview',
+        '<h1>Named Operations sign-in required</h1><p><a href="/ops">Sign in to Operations</a></p>'));
+    res.set('Cache-Control','private, no-store');
+    try{
+      const totals=await founderPlatformCounts(dbOf());
+      return res.type('html').send(page('Platform Overview',overviewMarkup(totals)));
+    }catch{
+      return res.status(503).type('html').send(page('Platform Overview',
+        '<h1>Platform Overview</h1><p role="alert">The company-wide counts cannot be verified. No zero count is assumed.</p>'));
+    }
+  });
 
   app.get('/ops', async (req, res) => {
     if (!configured()) {
