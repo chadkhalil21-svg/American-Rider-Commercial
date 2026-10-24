@@ -40,6 +40,9 @@ for(const [route,page] of Object.entries(pages))out(route,render(page.title,page
 const recruiterPortal=require("./corporate-recruiter-portal.cjs").portalHtml();
 out("recruiters/portal",render("Private recruiter account | American Rider",recruiterPortal,"recruiters/portal")
   .replace("<head>","<head><meta name=\"robots\" content=\"noindex,nofollow\"><meta name=\"referrer\" content=\"no-referrer\">"));
+const recruiterAcceptance=require("./corporate-recruiter-accept.cjs").invitationHtml();
+out("recruitment/accept",render("Private recruitment invitation | American Rider",recruiterAcceptance,"recruitment/accept")
+  .replace("<head>","<head><meta name=\"robots\" content=\"noindex,nofollow\"><meta name=\"referrer\" content=\"no-referrer\">"));
 const {legalPage,ACCOUNT_DELETION_HTML,LEGAL_LANGUAGES}=require("../backend/legal");
 const extract=(html)=>{const m=html.match(/<main[^>]*>([\s\S]*?)<\/main>/i);if(!m)throw Error("Missing source legal main content");return m[1].replace(/americanrider\.app/g,"americanrider.tech").replace(/americanrider\.communications@gmail\.com/g,"support@americanrider.tech")};
 for(const doc of ["terms","privacy"]){
