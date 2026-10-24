@@ -27,8 +27,10 @@ function eligibleApproval(approval,role,now=Date.now()){
 }
 async function approvedRecruiterLink({
   db,uid,role,now=Date.now(),programEnabled=PROGRAM_ENABLED,
+  linkVerified=false,
 }={}){
   if(programEnabled!==true)return {ok:false,reason:'recruiter_program_off'};
+  if(linkVerified!==true)return {ok:false,reason:'app_links_not_verified'};
   if(!db||!ownUid(uid)||!validRole(role)||!Number.isSafeInteger(now))
     return {ok:false,reason:'invalid_request'};
   try{
@@ -36,7 +38,8 @@ async function approvedRecruiterLink({
     const snap=await db.collection('recruiter_approvals').doc(uid).get();
     if(!snap.exists||!eligibleApproval(snap.data(),role,now))
       return {ok:false,reason:'not_approved'};
-    const out=await shareLink({db,uid,role,now});
+    const out=await shareLink({db,uid,role,now,
+      origin:'https://americanrider.tech'});
     if(!out.ok)return out;
     // Same personal URL as the existing invitation system; a QR may encode it
     // after app links and paid recruiting are separately commissioned.
