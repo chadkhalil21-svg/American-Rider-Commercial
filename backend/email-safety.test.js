@@ -36,7 +36,7 @@ const restore = () => {
     'plain-text alternative must remain readable without HTML entities');
   assert.ok(receipt.subject.includes('AR-001<script>escape</script>'),
     'subject is plain text, not HTML; output encoding must be contextual');
-  assert.ok(receipt.html.includes('mailto:support@americanrider.app'),
+  assert.ok(receipt.html.includes('mailto:support@americanrider.tech'),
     'trusted static support link must remain working');
 
   const payout = payoutEmail({
@@ -67,7 +67,7 @@ const restore = () => {
   assert.equal(networkCalls,0, 'missing key must never invoke Resend');
 
   process.env.RESEND_API_KEY = 'synthetic_never_live';
-  process.env.MAIL_FROM = 'American Rider <receipts@americanrider.app>';
+  process.env.MAIL_FROM = 'American Rider <receipts@americanrider.app>'; // Existing live sender remains a valid override until explicit cutover.
   result = await send({to:'', ...receipt});
   assert.equal(result.ok,false, 'missing recipient must fail closed');
   assert.equal(networkCalls,0, 'missing recipient must not invoke Resend');
@@ -78,7 +78,7 @@ const restore = () => {
     observed = {url, options};
     return {ok:true,status:200,json:async()=>({id:'synthetic_resend_message_01'})};
   };
-  result = await send({to:'fixture@invalid.example', ...receipt, replyTo:'support@americanrider.app'});
+  result = await send({to:'fixture@invalid.example', ...receipt, replyTo:'support@americanrider.tech'});
   assert.deepEqual(result,{ok:true,id:'synthetic_resend_message_01'});
   assert.equal(observed.url,'https://api.resend.com/emails');
   assert.equal(observed.options.method,'POST');
@@ -86,8 +86,21 @@ const restore = () => {
   assert.deepEqual(body.to,['fixture@invalid.example']);
   assert.equal(body.html,receipt.html,'provider payload must receive the escaped HTML intact');
   assert.equal(body.text,receipt.text,'provider must also receive complete text receipt');
-  assert.equal(body.reply_to,'support@americanrider.app');
+  assert.equal(body.reply_to,'support@americanrider.tech');
+  assert.equal(body.from,'American Rider <receipts@americanrider.app>',
+    'legacy verified sender override must not silently be changed at live cutover');
   assert.equal(observed.options.headers['Content-Type'],'application/json');
+  assert.equal(observed.options.headers['Idempotency-Key'],undefined);
+  result = await send({to:'fixture@invalid.example', ...receipt, idempotencyKey:'travel-receipt/ride_2026_001'});
+  assert.equal(result.ok,true);
+  assert.equal(observed.options.headers['Idempotency-Key'],'travel-receipt/ride_2026_001');
+  const callsBeforeInvalidKey = networkCalls;
+  for (const idempotencyKey of ['bad key', '\\r\\nInjected: true', '', 'x'.repeat(257)]) {
+    result = await send({to:'fixture@invalid.example', ...receipt, idempotencyKey});
+    assert.equal(result.ok,false,'invalid idempotency key must fail locally');
+    assert.equal(result.reason,'invalid_email_idempotency_key');
+  }
+  assert.equal(networkCalls,callsBeforeInvalidKey,'untrusted email keys must never trigger the provider');
 
   for (const status of [400, 429, 500, 503]) {
     global.fetch = async () => ({
@@ -106,5 +119,5 @@ const restore = () => {
   global.fetch = async () => ({ok:true,status:202,json:async()=>{throw Error('bad json');}});
   result = await send({to:'fixture@invalid.example', ...receipt});
   assert.equal(result.id,null,'missing provider id cannot be fabricated');
-  console.log('PASS HTML-encoded receipt/payout, preserved plain text, offline/vendor failures and mocked Resend payload; zero network requests');
+  console.log('PASS HTML-encoded receipt/payout, .tech support contact, safe idempotency, legacy sender override, offline/vendor failures and mocked Resend payload; zero network requests');
 })().catch(e=>{console.error(e);process.exitCode=1;}).finally(restore);
