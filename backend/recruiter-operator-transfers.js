@@ -141,7 +141,7 @@ async function reconcileOperatorReferralBankPayout({db,stripe,event,
  if(!page.docs?.length)return {ok:true,matched:0,bankPaid:false};
  // Bounded payout history. If it exceeds this limit, defer to independent
  // reconciliation rather than declaring a bank payment from incomplete proof.
- const included=new Set();
+ const included=new Map();
  let after,completed=false;
  for(let i=0;i<5;i++){
   let r;
@@ -152,7 +152,7 @@ async function reconcileOperatorReferralBankPayout({db,stripe,event,
   if(!Array.isArray(r?.data))return deny('unverifiable_payout_transactions');
   for(const t of r.data){
    if(t.currency==='usd'&&t.net>0&&typeof t.source==='string')
-    included.add(t.source);
+    included.set(t.source,(included.get(t.source)||0)+t.net);
   }
   if(!r.has_more){completed=true;break;}
   if(!r.data.length)return deny('payout_history_pagination_inconsistent');
@@ -163,7 +163,7 @@ async function reconcileOperatorReferralBankPayout({db,stripe,event,
  for(const doc of page.docs){
   const p=doc.data();
   if(!id(p.uid)||!p.operatorDestinationPaymentId||
-     !included.has(p.operatorDestinationPaymentId))continue;
+     (included.get(p.operatorDestinationPaymentId)||0)<p.netCents)continue;
   const check=await operatorBatch(db,doc.id);
   if(!check.ok)continue;
   // No separate Stripe payout is created. Use existing ledger's two-stage
