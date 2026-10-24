@@ -1,7 +1,7 @@
 // Economics precede compliance spend; server review, not a checklist, commissions duty.
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { Text } from '../../src/components/AppText';
 import { useGoBack } from '../../src/components/nav';
 import { BadgeOk } from '../../src/components/operator';
@@ -11,12 +11,34 @@ import { getOperatingMarket, setOperatingMarket, joinOperatorAreaWaitlist, type 
 import { QUAL_DOCS, useOperator } from '../../src/state/OperatorContext';
 import { useLanguage } from '../../src/state/LanguageContext';
 import { colors } from '../../src/theme';
+import { recordInvitation } from '../../src/backend/referrals';
 
 export default function OperatorQualification() {
   const { t } = useLanguage();
   const router = useRouter();
   const goBack = useGoBack();
   const op = useOperator();
+  // One optional, server-verified path for spoken codes and links alike.
+  // Attribution is not a commission or a guarantee of payment.
+  const [referralCode, setReferralCode] = useState('');
+  const [referralBusy, setReferralBusy] = useState(false);
+  const [referralStatus, setReferralStatus] = useState<'idle' | 'recorded' | 'failed'>('idle');
+  const claimReferral = async () => {
+    const code = referralCode.trim().toUpperCase();
+    if (referralBusy || referralStatus === 'recorded') return;
+    if (!/^[A-Z0-9]{8,32}$/.test(code)) {
+      setReferralStatus('failed');
+      return;
+    }
+    setReferralBusy(true);
+    setReferralStatus('idle');
+    try {
+      const result = await recordInvitation(code, 'operator');
+      setReferralStatus(result === 'recorded' ? 'recorded' : 'failed');
+    } finally {
+      setReferralBusy(false);
+    }
+  };
 
   // Already past this screen? Send the account where it actually is.
   useEffect(() => {
@@ -167,6 +189,35 @@ export default function OperatorQualification() {
         else { setArea(latest); setAreaError(null); }
       }}><Text style={styles.backText}>{t('traveler.marketCheckAgain')} ›</Text></Pressable>}
 
+      {areaActive && process.env.EXPO_PUBLIC_REFERRALS_ENABLED === '1' && (
+        <Card style={styles.referralCard}>
+          <Text style={styles.rowTitle}>Referral code (optional)</Text>
+          <Text style={styles.rowSub}>If someone introduced you to American Rider, enter their code before completing qualification.</Text>
+          <TextInput
+            accessibilityLabel="Referral code"
+            autoCapitalize="characters"
+            autoCorrect={false}
+            maxLength={32}
+            editable={!referralBusy && referralStatus !== 'recorded'}
+            placeholder="Enter referral code"
+            value={referralCode}
+            onChangeText={value => { setReferralCode(value); setReferralStatus('idle'); }}
+            style={styles.referralInput}
+          />
+          {referralStatus === 'recorded' ? (
+            <Text accessibilityRole="alert" style={styles.rowSub}>Referral recorded. This does not determine payment eligibility.</Text>
+          ) : (
+            <Pressable accessibilityRole="button" accessibilityLabel="Apply referral code"
+              disabled={referralBusy} onPress={() => void claimReferral()}
+              style={styles.referralAction}>
+              <Text style={styles.rowTitle}>{referralBusy ? 'Checking code…' : 'Apply code'}</Text>
+            </Pressable>
+          )}
+          {referralStatus === 'failed' && <Text accessibilityRole="alert" style={styles.footnote}>
+            This code could not be applied. Check the code, or contact Support before completing qualification.
+          </Text>}
+        </Card>
+      )}
       {areaActive && <Card style={styles.listCard}>
         <Pressable accessibilityRole="button" onPress={() => router.navigate('/operator/vehicle')}>
           <View style={styles.row}>
@@ -256,6 +307,10 @@ export default function OperatorQualification() {
 }
 
 const styles = StyleSheet.create({
+  referralCard: { marginTop: 10, paddingVertical: 18, paddingHorizontal: 18 },
+  referralInput: { marginTop: 15, minHeight: 48, borderWidth: 1, borderColor: colors.border,
+    borderRadius: 7, paddingHorizontal: 13, fontSize: 16, color: colors.ink },
+  referralAction: { alignSelf: 'flex-start', minHeight: 44, justifyContent: 'center', marginTop: 6 },
   back: { alignSelf: 'flex-start', paddingVertical: 6 },
   backText: { fontSize: 15, fontWeight: '500', color: colors.ink },
   // The shell's left-aligned qualification wordmark: 12 / 600 / .26em.
