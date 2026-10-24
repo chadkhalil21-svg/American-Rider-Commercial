@@ -107,9 +107,14 @@ async function sweepTravelReceipts({db,sendReceipt,now=Date.now(),limit=20}={}) 
           accepted++;
         } else {
           const lastError=String(outcome?.reason||'email_provider_unavailable').slice(0,150);
-          const terminal=claim.attempts>=MAX_ATTEMPTS;
+          // A provider daily/monthly send quota is a capacity limit, not an
+          // undeliverable Traveler. Preserve the receipt across quota reset
+          // and alert Operations rather than exhausting retries in one day.
+          const quotaHold=/(?:daily|monthly).*(?:quota|limit)|(?:quota|limit).*(?:daily|monthly)/i.test(lastError);
+          const terminal=!quotaHold&&claim.attempts>=MAX_ATTEMPTS;
           tx.update(ref,{status:terminal?'dead':'retry',claimId:null,
-            nextAttemptAt:terminal?null:now+retryDelay(claim.attempts),
+            attempts:quotaHold?Math.min(MAX_ATTEMPTS-1,claim.attempts):claim.attempts,
+            nextAttemptAt:terminal?null:now+(quotaHold?24*60*60_000:retryDelay(claim.attempts)),
             lastError,lastFailedAt:now});
           tx.set(db.collection('rides').doc(claim.rideId),
             {receiptFailed:lastError,receiptQueuePending:!terminal},{merge:true});
