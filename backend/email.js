@@ -90,6 +90,16 @@ const row = (k, v, mono) =>
  */
 function receiptEmail(ride) {
   const total = money(ride.costCents);
+  // Required receipt facts come only from the completed Travel record.
+  // Missing historical data must never be fabricated from a proposed route.
+  const validDuration = Number.isSafeInteger(ride.onboardAt) &&
+    Number.isSafeInteger(ride.completedAt) &&
+    ride.onboardAt > 0 && ride.completedAt > ride.onboardAt;
+  const duration = validDuration
+    ? Math.max(1, Math.round((ride.completedAt - ride.onboardAt) / 60000)) + ' min'
+    : 'Not recorded';
+  const distance = typeof ride.miles === 'number' && Number.isFinite(ride.miles) && ride.miles >= 0
+    ? String(Math.round(ride.miles * 10) / 10) + ' mi' : 'Not recorded';
   const when = new Date(Number(ride.completedAt) || Number(ride.createdAt) || Date.now())
     .toLocaleString('en-US', {
       month: 'long', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit',
@@ -103,6 +113,8 @@ function receiptEmail(ride) {
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:20px;">
       ${row('From', ride.dep || '—')}
       ${row('To', ride.dest || '—')}
+      ${row('Duration', duration)}
+      ${row('Distance', distance)}
       ${row('Class', ride.travelClass || 'Standard')}
       ${row('Operator', ride.operatorName || '—')}
       ${row('Travel Number', ride.tripNo || '—', true)}
@@ -119,6 +131,8 @@ function receiptEmail(ride) {
     `TRAVEL RECEIPT\n${total}\n${when}\n\n` +
     `From:          ${ride.dep || '—'}\n` +
     `To:            ${ride.dest || '—'}\n` +
+    `Duration:      ${duration}\n` +
+    `Distance:      ${distance}\n` +
     `Class:         ${ride.travelClass || 'Standard'}\n` +
     `Operator:      ${ride.operatorName || '—'}\n` +
     `Travel Number: ${ride.tripNo || '—'}\n` +

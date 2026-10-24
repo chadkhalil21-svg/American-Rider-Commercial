@@ -53,10 +53,20 @@ const restore = () => {
     dep: 'Café Río & 5th', dest: 'O\u0027Hare Terminal',
     travelClass: 'Standard', operatorName: 'Ana Martínez',
     tripNo: 'AR-2026-001', costCents: 1899,
+    onboardAt: Date.UTC(2026,9,11,4), completedAt: Date.UTC(2026,9,11,4,23), miles: 6.8,
   });
   assert.ok(benign.html.includes('Café Río &amp; 5th'));
   assert.ok(benign.html.includes('Ana Martínez'));
   assert.ok(benign.text.includes('Café Río & 5th'));
+  assert.match(benign.html, /Duration<\/td>[\s\S]*?23 min/);
+  assert.match(benign.html, /Distance<\/td>[\s\S]*?6\.8 mi/);
+  assert.match(benign.text, /Duration:\s+23 min/);
+  assert.match(benign.text, /Distance:\s+6\.8 mi/);
+  const historic = receiptEmail({costCents:100,dep:'A',dest:'B',
+    onboardAt:undefined,completedAt:Date.UTC(2026,9,11,4),miles:-2});
+  assert.match(historic.text,/Duration:\s+Not recorded/);
+  assert.match(historic.text,/Distance:\s+Not recorded/);
+  assert.doesNotMatch(historic.text,/NaN|Infinity/);
 
   let networkCalls = 0;
   global.fetch = async () => { networkCalls++; throw Error('must not call remote provider'); };

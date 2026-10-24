@@ -337,6 +337,7 @@ export default {
     totalCharged: 'Total Charged',
     totalDue: 'Total Due',
     travelReceipt: 'Travel Receipt',
+    shareReceipt: 'Share Receipt',
     unavailable: 'Unavailable',
     noOperatorsNearby: 'No Operator is available nearby just now.',
     tryAgain: 'Try again',

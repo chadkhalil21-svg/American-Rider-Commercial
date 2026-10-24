@@ -319,6 +319,7 @@ export default {
     totalCharged: 'Totale Addebitato',
     totalDue: 'Totale da pagare',
     travelReceipt: 'Ricevuta di Viaggio',
+    shareReceipt: 'Condividi ricevuta',
     unavailable: 'Non disponibile',
     noOperatorsNearby: "Nessun Operator è disponibile nelle vicinanze in questo momento.",
     tryAgain: 'Riprovare',

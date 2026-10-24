@@ -336,6 +336,7 @@ export default {
     totalCharged: 'Total Cobrado',
     totalDue: 'Total pendiente',
     travelReceipt: 'Recibo de Viaje',
+    shareReceipt: 'Compartir recibo',
     unavailable: 'No disponible',
     noOperatorsNearby: "No hay ningún Operator disponible cerca en este momento.",
     tryAgain: 'Intentar de nuevo',

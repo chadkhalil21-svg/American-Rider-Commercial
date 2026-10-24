@@ -320,6 +320,7 @@ export default {
     totalCharged: 'Gesamtbetrag',
     totalDue: 'Offener Gesamtbetrag',
     travelReceipt: 'Fahrtbeleg',
+    shareReceipt: 'Beleg teilen',
     unavailable: 'Nicht verfügbar',
     noOperatorsNearby: "Zurzeit ist kein Operator in Ihrer Nähe verfügbar.",
     tryAgain: 'Erneut versuchen',

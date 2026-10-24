@@ -4,7 +4,7 @@
 // Support issued one, and "Ride again" when reviewing an old trip.
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { Share, StyleSheet, View } from 'react-native';
 import { Text } from '../src/components/AppText';
 import {
   Card,
@@ -85,6 +85,37 @@ export default function Receipt() {
     !!returnRecord?.dep && !!returnRecord.arr &&
     Number.isFinite(returnRecord.pickupLat) && Number.isFinite(returnRecord.pickupLng) &&
     Number.isFinite(returnRecord.destinationLat) && Number.isFinite(returnRecord.destinationLng);
+
+  const shareReceipt = async () => {
+    // Share the facts on this receipt only, not a link to an authenticated
+    // private account, and never tell the Traveler that the recipient received it.
+    const lines = [
+      'AMERICAN RIDER',
+      t('traveler.travelReceipt'),
+      '',
+      `${t('traveler.travelNumber')}: ${view.no}`,
+      view.date,
+      `${t('traveler.totalCharged')}: ${fmt(view.total)}`,
+      `${t('traveler.departure')}: ${prettyPlace(view.dep)}`,
+      `${t('traveler.destination')}: ${prettyPlace(view.arr)}`,
+      `${t('traveler.operator')}: ${driverFull}`,
+      `${t('traveler.paymentMethod')}: ${view.pay || t('traveler.notRecorded')}`,
+      `${t('traveler.distance')}: ${view.miles != null ?
+        t('traveler.milesShort',{n:view.miles}) : t('traveler.notRecorded')}`,
+      `${t('traveler.duration')}: ${view.minutes != null ?
+        t('traveler.durMin',{n:view.minutes}) : t('traveler.notRecorded')}`,
+      ...(creditCents > 0 ? [
+        `${t('traveler.adjustmentCorrected')}: −${fmt(creditCents / 100)}`,
+      ] : []),
+      ...(view.feeLines ?? []).map(line =>
+        `${line.name}: ${fmt(line.cents / 100)} (${line.payee})`),
+    ];
+    try {
+      await Share.share({message:lines.join('\n'),title:t('traveler.travelReceipt')});
+    } catch {
+      // The platform share menu can be dismissed. No remote delivery is implied.
+    }
+  };
 
   return (
     <Screen>
@@ -201,6 +232,7 @@ export default function Receipt() {
             <Text style={styles.returnNote}>{t('traveler.returnPickupCheck')}</Text>
           </>
         )}
+        <OutlineButton label={t('traveler.shareReceipt')} onPress={() => void shareReceipt()} />
         <OutlineButton
           label={t('traveler.contactPatronSupport')}
           onPress={() => {
