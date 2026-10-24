@@ -12,6 +12,8 @@ function db(){
      const first=conditions[0];
      let count=expected[collection];
      if(collection==='operators'&&first?.field==='available')count=5;
+     if(collection==='users'&&first?.field==='operatorOnboardingStartedAt')count=3;
+     if(collection==='users'&&first?.field==='qualification.qualifiedAt')count=2;
      if(collection==='rides'&&first?.field==='status')
        count=first.value==='completed'?104:9;
      if(collection==='rides'&&first?.field==='createdAt')count=12;
@@ -25,7 +27,7 @@ function db(){
      log.push({collection,field,op,value});
      if(field==='available')assert.equal(value,true);
      if(field==='status')assert.ok(op==='=='||op==='in');
-     if(field==='createdAt'||field==='settledAt'){
+     if(['createdAt','settledAt','operatorOnboardingStartedAt','qualification.qualifiedAt'].includes(field)){
        assert.ok(op==='>='||op==='<');
        assert.ok(Number.isSafeInteger(value)&&value>0);
      }
@@ -48,17 +50,23 @@ function db(){
  assert.equal(results.ok,true);
  assert.equal(results.counts.registeredAccountProfiles,83);
  assert.equal(results.counts.operatorProfiles,17);
+ assert.equal(results.counts.operatorsStartedOnboardingToday,3);
+ assert.equal(results.counts.operatorsQualifiedToday,2);
  assert.equal(results.counts.operatorsReportingAvailable,5);
  assert.equal(results.counts.activeTravelRecords,9);
  assert.equal(results.counts.completedTravelRecords,104);
  assert.equal(results.counts.travelsCreatedToday,12);
  assert.equal(results.counts.travelsSettledToday,7);
  assert.equal(results.counts.recruiterAccounts,3);
- assert.equal(log.filter(x=>x.kind==='collection').length,8,'8 bounded indexed count queries; no full-document downloads');
+ assert.equal(log.filter(x=>x.kind==='collection').length,10,'10 bounded indexed count queries; no full-document downloads');
  assert.equal(log.filter(x=>x.field==='createdAt').length,2);
  assert.equal(log.filter(x=>x.field==='settledAt').length,2);
+ assert.equal(log.filter(x=>x.field==='operatorOnboardingStartedAt').length,2);
+ assert.equal(log.filter(x=>x.field==='qualification.qualifiedAt').length,2);
  assert.match(overviewMarkup(results),/2026-10-24/);
  assert.match(overviewMarkup(results),/Travels settled today/);
+ assert.match(overviewMarkup(results),/Operators beginning onboarding today/);
+ assert.match(overviewMarkup(results),/Operators qualifying today/);
  assert.match(overviewMarkup(results),/distinct Traveler-only count/);
  fail.add('operators');
  const partial=await founderPlatformCounts(db(),{now:NOW});
