@@ -20,6 +20,10 @@ function portalHtml(){
     progressHtml()+'<section aria-label="Compensation">');
   html=html.replace('async function refresh(person){',
     progressClientJs()+'\nasync function refresh(person){');
+  // A slow account summary from the previous Firebase session must never
+  // paint a new recruiter's private counts after sign-out/account switching.
+  html=html.replace("  const data=await request('/recruiters/me');",
+    "  const data=await request('/recruiters/me');if(auth.currentUser?.uid!==person.uid)return;");
   html=html.replace("  note('Your information is current as of this sign-in.');",
     "  note('Your information is current as of this sign-in.');await loadIntroductions(true);");
   html=html.replace("by('workspace').hidden=!person;",
