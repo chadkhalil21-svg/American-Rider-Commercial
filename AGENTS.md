@@ -1,3 +1,5 @@
+**24 OCTOBER 2026, FINAL FOUNDER EMAIL POLICY:** Resend is the selected transactional email provider for launch. DO NOT reopen Amazon SES evaluation or introduce a new sending service; AWS SES configuration was not the live Cloud Run email implementation. Verify the existing Resend .tech sender/webhook, pin travel receipts to receipts@americanrider.tech, and upgrade/verify the Resend sending quota before mass onboarding. Cloudflare inbound receipts alias is separate. Keep the launch-focused work limited to exact-SHA production source, signed-device QA, protected Apple/Google publication, and actual optional Recruiter financial activation. No speculative redesign, new insurance/screening scope or artificial requirement for existing public customers.
+
 # Read-first instruction for all American Rider agents — launch-first update 2026-10-24
 
 **FOUNDER'S CANONICAL PRODUCT PURPOSE AND PUBLICATION DECISION — 24 OCTOBER 2026 (SUPERSEDES CONFLICTING PRIOR NOTES):**
