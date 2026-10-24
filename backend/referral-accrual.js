@@ -1,12 +1,15 @@
 'use strict';
 // Prepared reward accounting: settlement evidence + exactly-once HELD accrual.
 // No Stripe calls, no Traveler credits, no bank transfers, no API route.
-// Only invoked in future after separately verified money-program enablement.
+// Founder-approved $0.15 per qualifying completed paid Travel per attributed role.
+// 200-Travel limit remains the existing conservative safeguard, subject to final written terms.
+// Explicit legal, budget and provider gates keep production OFF until commissioned.
 // Read actual ride fields: operatorId/travelerUid/transferId/settledAt, not
 // fictitious fields such as operatorUid or paymentStatus='captured'.
 const {rewardDecision}=require('./referral-policy');
 const PROGRAM=Object.freeze({
-  enabled:false,perTravelCents:15,maxTravels:200,maxCents:3000,version:'proposed-v1',
+  enabled:false,perTravelCents:15,maxTravels:200,maxCents:3000,
+  version:'recruiter-15c-20261024-v1',holdMs:86400000,
 });
 function evidence(ride,id){
   if(!ride||typeof id!=='string'||!id)return null;
