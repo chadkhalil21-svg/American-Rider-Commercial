@@ -16,7 +16,8 @@ const transferMatches=(x,account,amount,group,batch)=>
   Number(x.amount_reversed||0)===0;
 const payoutMatches=(x,amount,batch)=>
   typeof x?.id==='string'&&/^po_[a-zA-Z0-9]+$/.test(x.id)&&
-  x.amount===amount&&x.currency==='usd'&&x.method==='standard'&&
+  x.amount===amount&&x.currency==='usd'&&
+  (x.method==='standard'||x.method==null)&&
   x.metadata?.recruiterBatchId===batch;
 async function sendRecruiterStripeBatch({db,stripe,batchId,enabled=false,
   providerApproved=false,counselApproved=false,taxApproved=false,now=Date.now()}={}){
@@ -120,15 +121,16 @@ async function sendRecruiterStripeBatch({db,stripe,batchId,enabled=false,
         snap.data().transferId!==transfer.id)
        return {ok:false};
      if(snap.data().payoutAttemptStartedAt)
-       return {ok:true,alreadyAttempted:true};
+       return {ok:true,alreadyAttempted:true,startedAt:snap.data().payoutAttemptStartedAt};
      tx.update(attemptRef,{payoutAttemptStartedAt:now,status:'bank_payout_unconfirmed'});
-     return {ok:true,alreadyAttempted:false};
+     return {ok:true,alreadyAttempted:false,startedAt:now};
    });
  }catch{return no('bank_payout_claim_unavailable');}
  if(!priorAttempt.ok)return no('bank_payout_claim_conflict');
  let payout;
  try{
-   const list=await stripe.payouts.list({limit:100},opts);
+   const list=await stripe.payouts.list({limit:100,
+     created:{gte:Math.max(0,Math.floor(priorAttempt.startedAt/1000)-300)}},opts);
    if(!Array.isArray(list?.data)||list.has_more)
      return no('bank_payout_history_requires_reconciliation');
    const matches=list.data.filter(x=>x.metadata?.recruiterBatchId===batchId);
