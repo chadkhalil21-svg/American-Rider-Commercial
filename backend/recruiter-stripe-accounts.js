@@ -4,9 +4,11 @@
 // not charged automatically for opening an account.
 // Recruiter payout rails. These do not assert that a Stripe transfer is a bank
 // deposit. Every external API call uses an injected Stripe SDK and explicit
-// program/legal authority. Missing proof means no money moves.
+// program authority, individual consent and recipient verification. Missing
+// recipient proof means no money moves.
 const crypto=require('node:crypto');
 const {emailOf,validUid}=require('./recruiter-portal');
+const {verifiedStripeTaxProfile}=require('./recruiter-tax-readiness');
 const validAcct=id=>typeof id==='string'&&/^acct_[A-Za-z0-9]{8,}$/.test(id);
 const validEvent=id=>typeof id==='string'&&/^[A-Za-z0-9_-]{8,128}$/.test(id);
 const REVIEW='reconciliation_required';
@@ -34,12 +36,12 @@ async function acceptRecruiterConnectFee({db,uid,verifiedEmail,accepted,version,
    return {ok:true,version:FEE_VERSION};
  });}catch{return {ok:false,reason:'consent_unavailable'};}
 }
-function approved(account,approval,now){
+function approved(account,approval,now,{existingOperator=false}={}){
  return account?.status==='approved'&&approval?.status==='approved'&&
    approval.suspended!==true&&account.agreementAccepted===true&&
    approval.agreementAccepted===true&&
-   account.connectFeeConsentVersion===FEE_VERSION&&
-   approval.connectFeeConsentVersion===FEE_VERSION&&
+   (existingOperator||(account.connectFeeConsentVersion===FEE_VERSION&&
+    approval.connectFeeConsentVersion===FEE_VERSION))&&
    Number.isSafeInteger(approval.agreementAcceptedAt)&&approval.agreementAcceptedAt>0&&
    approval.agreementAcceptedAt<=now;
 }
@@ -51,12 +53,12 @@ function stripeReady(account,uid){
    (!Array.isArray(account.requirements?.past_due)||account.requirements.past_due.length===0)&&
    account.settings?.payouts?.schedule?.interval==='manual';
 }
-function launchApproved({programEnabled,legalApproved}){
- return programEnabled===true&&legalApproved===true;
+function launchApproved({programEnabled}){
+ return programEnabled===true;
 }
-async function ensureRecruiterAccount({db,stripe,uid,verifiedEmail,programEnabled=false,legalApproved=false,now=Date.now()}={}){
+async function ensureRecruiterAccount({db,stripe,uid,verifiedEmail,programEnabled=false,now=Date.now()}={}){
  const email=emailOf(verifiedEmail);
- if(!launchApproved({programEnabled,legalApproved}))return {ok:false,reason:'program_or_legal_off'};
+ if(!launchApproved({programEnabled}))return {ok:false,reason:'recruiter_program_off'};
  if(!db||!stripe?.accounts?.create||!validUid(uid)||!email)
    return {ok:false,reason:'invalid_request'};
  const ref=db.collection('recruiter_accounts').doc(uid),apRef=db.collection('recruiter_approvals').doc(uid);
@@ -109,9 +111,9 @@ async function ensureRecruiterAccount({db,stripe,uid,verifiedEmail,programEnable
  }catch{return {ok:false,reason:REVIEW};}
 }
 async function hostedRecruiterOnboarding({db,stripe,uid,verifiedEmail,origin='https://americanrider.tech',
-  programEnabled=false,legalApproved=false,now=Date.now()}={}){
+  programEnabled=false,now=Date.now()}={}){
  if(origin!=='https://americanrider.tech')return {ok:false,reason:'invalid_return_origin'};
- const account=await ensureRecruiterAccount({db,stripe,uid,verifiedEmail,programEnabled,legalApproved,now});
+ const account=await ensureRecruiterAccount({db,stripe,uid,verifiedEmail,programEnabled,now});
  if(!account.ok)return account;
  // Dedicated Recruiter Express accounts use manual bank payouts, permitting
  // one bounded, idempotent payout per authorized batch and exact bank reconciliation.
@@ -153,7 +155,7 @@ async function verifyRecruiterBank({db,stripe,uid,verifiedEmail,
       db,stripe,uid,verifiedEmail,account:profile.data(),now,
     });
   if(shared.applicable){
-   if(!shared.ok||operatorSharedApproved!==true||profile.data().taxReady!==true)
+   if(!shared.ok||operatorSharedApproved!==true)
      return shared;
    const u=await db.collection('users').doc(uid).get();
    const operatorAccount=u.exists?u.data()?.stripeAccountId:null;
@@ -163,13 +165,14 @@ async function verifyRecruiterBank({db,stripe,uid,verifiedEmail,
    const saved=await db.runTransaction(async tx=>{
      const [a,ap,user]=await Promise.all([
        tx.get(ref),tx.get(approvalRef),tx.get(db.collection('users').doc(uid))]);
-     if(!a.exists||!ap.exists||!user.exists||!approved(a.data(),ap.data(),now)||
-        a.data().taxReady!==true||user.data().stripeAccountId!==operatorAccount||
+     if(!a.exists||!ap.exists||!user.exists||!approved(a.data(),ap.data(),now,{existingOperator:true})||
+        user.data().stripeAccountId!==operatorAccount||
         a.data().stripeRecruiterAccountId)return false;
      tx.update(ref,{payoutMode:'existing_operator_connect',
        providerRecipientRef:operatorAccount,providerRecipientStatus:'active',
-       bankProvider:'stripe_connect',identityVerified:true,
-       bankVerified:true,payoutEligibilityVerified:true,bankVerifiedAt:now});
+       bankProvider:'stripe_connect',identityVerified:true,taxReady:true,
+       taxStatus:'stripe_tax_identity_verified',bankVerified:true,
+       payoutEligibilityVerified:true,bankVerifiedAt:now});
      tx.update(approvalRef,{identityVerified:true,payoutEligibilityVerified:true,updatedAt:now});
      return true;
    });
@@ -184,18 +187,21 @@ async function verifyRecruiterBank({db,stripe,uid,verifiedEmail,
   const provider=await stripe.accounts.retrieve(profile.data().stripeRecruiterAccountId);
   const ready=stripeReady(provider,uid);
   if(!ready)return {ok:true,status:'provider_verification_pending',ready:false};
+  if(!verifiedStripeTaxProfile(provider))
+    return {ok:true,status:'provider_tax_information_pending',ready:false};
   const saved=await db.runTransaction(async tx=>{
    const [a,b]=await Promise.all([tx.get(ref),tx.get(approvalRef)]);
    if(!a.exists||!b.exists||!approved(a.data(),b.data(),now)||
       a.data().stripeRecruiterAccountId!==provider.id||
       emailOf(a.data().verifiedEmail)!==emailOf(verifiedEmail))return false;
-   tx.update(ref,{identityVerified:true,payoutEligibilityVerified:true,
-     bankVerifiedAt:now,providerRecipientRef:provider.id,providerRecipientStatus:'active',
+   tx.update(ref,{identityVerified:true,payoutEligibilityVerified:true,taxReady:true,
+     taxStatus:'stripe_tax_identity_verified',bankVerifiedAt:now,
+     providerRecipientRef:provider.id,providerRecipientStatus:'active',
      bankVerified:true,bankProvider:'stripe_connect'});
    tx.update(approvalRef,{identityVerified:true,payoutEligibilityVerified:true,updatedAt:now});
    return true;
   });
-  return saved?{ok:true,status:'bank_verified',ready:true,taxStatus:'separate_verification_required'}:{ok:false,reason:'authorization_changed'};
+  return saved?{ok:true,status:'bank_verified',ready:true,taxStatus:'stripe_tax_identity_verified'}:{ok:false,reason:'authorization_changed'};
  }catch{return {ok:false,reason:'provider_verification_unavailable'};}
 }
 

@@ -46,7 +46,8 @@ class Db {
    assert.equal(patch.settings.payouts.schedule.interval,'manual');
    return {settings:{payouts:{schedule:{interval:'manual'}}}};},
   retrieve:async id=>{assert.equal(id,ACCOUNT);return {
-   id,metadata:{ar_recruiter_uid:UID},type:'express',
+   id,metadata:{ar_recruiter_uid:UID},type:'express',country:'US',
+   business_type:'individual',individual:{ssn_last_4_provided:true},
    payouts_enabled:true,details_submitted:true,capabilities:{transfers:'active'},
    requirements:{currently_due:[],past_due:[]},
    settings:{payouts:{schedule:{interval:'manual'}}},
@@ -61,7 +62,7 @@ class Db {
  assert(FEE_DISCLOSURE.includes('$2.00'));
  assert.equal((await hostedRecruiterOnboarding({db,stripe,uid:UID,
   verifiedEmail:'recruiter@example.com',programEnabled:true,
-  legalApproved:true,now:NOW})).reason,'not_authorized','consent before bank');
+  now:NOW})).reason,'not_authorized','consent before bank');
  assert.equal(counter.accounts,0);
  assert.equal((await acceptRecruiterConnectFee({db,uid:UID,
   verifiedEmail:'attacker@example.com',accepted:true,version:FEE_VERSION,now:NOW})).reason,
@@ -76,7 +77,7 @@ class Db {
   verifiedEmail:'recruiter@example.com',accepted:true,version:FEE_VERSION,now:NOW});
  assert.equal(dupe.duplicate,true);
  const gate={db,stripe,uid:UID,verifiedEmail:'recruiter@example.com',
-  programEnabled:true,legalApproved:true,now:NOW};
+  programEnabled:true,now:NOW};
  // An Operator already paid through Stripe must not be enrolled into a
  // second Recruiter Connect account, charged twice, or have the Operator's
  // payout schedule changed.
@@ -87,7 +88,7 @@ class Db {
  assert.equal(counter.payoutConfigurations,0);
  assert.equal(db.rows.get('recruiter_accounts/'+UID).stripeRecruiterCreateStartedAt,undefined);
  db.rows.delete('users/'+UID);
- assert.equal((await hostedRecruiterOnboarding({...gate,legalApproved:false})).reason,'program_or_legal_off');
+ assert.equal((await hostedRecruiterOnboarding({...gate,programEnabled:false})).reason,'recruiter_program_off');
  let result=await hostedRecruiterOnboarding(gate);
  assert.equal(result.ok,true);
  assert.equal(result.bankDetailsCollectedBy,'stripe');
@@ -101,8 +102,9 @@ class Db {
   verifiedEmail:'recruiter@example.com',now:NOW});
  assert.equal(verified.ready,true);
  assert.equal(db.rows.get('recruiter_accounts/'+UID).providerRecipientRef,ACCOUNT);
- assert.equal(db.rows.get('recruiter_accounts/'+UID).taxReady,undefined,
-  'Stripe KYC must not invent 1099/tax clearance');
+ assert.equal(db.rows.get('recruiter_accounts/'+UID).taxReady,true,
+  'actual Stripe-reported SSN verification permits payouts without a manual tax checkbox');
+ assert.equal(db.rows.get('recruiter_accounts/'+UID).taxStatus,'stripe_tax_identity_verified');
  assert.equal((await verifyRecruiterBank({db,stripe,uid:UID,
   verifiedEmail:'other@example.com',now:NOW})).reason,'not_authorized');
  console.log('PASS Stripe recruiter identity, explicit $2 consent, hosted bank setup, repeated requests, provider verification, no fake tax eligibility or live money');

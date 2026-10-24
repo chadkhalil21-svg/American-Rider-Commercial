@@ -13,10 +13,11 @@ const validRole=role=>role==='operator'||role==='traveler';
 const ownUid=uid=>typeof uid==='string'&&uid.length>=4&&uid.length<=128&&!uid.includes('/');
 async function approvedRecruiterLink({
   db,uid,role,now=Date.now(),programEnabled=PROGRAM_ENABLED,
-  linkVerified=false,
+  linkVerified=false,compensationEnabled=false,
 }={}){
   if(programEnabled!==true)return {ok:false,reason:'recruiter_program_off'};
   if(linkVerified!==true)return {ok:false,reason:'app_links_not_verified'};
+  if(compensationEnabled!==true)return {ok:false,reason:'recruiter_finance_not_ready'};
   if(!db||!ownUid(uid)||!validRole(role)||!Number.isSafeInteger(now))
     return {ok:false,reason:'invalid_request'};
   try{
@@ -29,11 +30,13 @@ async function approvedRecruiterLink({
        !recruiterMayRefer(account.data(),snap.data(),role,now))
       return {ok:false,reason:'not_approved'};
     const out=await shareLink({db,uid,role,now,
-      origin:'https://americanrider.tech'});
+      origin:'https://americanrider.tech',
+      paidRecruiterProgramEnabled:compensationEnabled});
     if(!out.ok)return out;
-    // Same personal URL as the existing invitation system; a QR may encode it
-    // after app links and paid recruiting are separately commissioned.
-    return {ok:true,url:out.url,role,compensationActive:false};
+    if(out.compensationActive!==true)
+      return {ok:false,reason:'recruiter_compensation_not_authorized'};
+    // This confirms the source account is genuinely eligible for paid claims.
+    return {ok:true,url:out.url,role,compensationActive:true};
   }catch{return {ok:false,reason:'approval_unavailable'};}
 }
 module.exports={PROGRAM_ENABLED,eligibleApproval,approvedRecruiterLink};

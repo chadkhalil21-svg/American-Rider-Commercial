@@ -708,14 +708,15 @@ app.get('/about', (req, res) => res.type('html').send(ABOUT_HTML));
 // One-to-one referral attribution: OFF on production until the actual domain,
 // store installation handoff, budget, disclosures and contracts are approved.
 // No rewards, Stripe transfer, bank payout or Travel credit happens here.
-// Independent recruiter accounts: founder approval and private read-only
-// workspace. Both enrollment and paying commissions remain OFF by default.
+// Founder-ratified paid Recruiter program has independently controlled launch,
+// personal agreement acceptance and Stripe recipient checks. Ordinary paid
+// Travels never depend on Recruiter activation.
 const recruiterPortal=require('./recruiter-portal');
 // Web-first recruiter invitations need a verified, live website acceptance path.
 // Native referral links have their OWN separate app-link gate.
 const recruiterInvitesEnabled=readKey('AR_RECRUITER_INVITES_ENABLED')==='1'&&
   readKey('AR_RECRUITER_WEB_ACCEPTANCE_VERIFIED')==='1'&&
-  readKey('AR_RECRUITER_LEGAL_SIGNOFF')==='1';
+  readKey('AR_RECRUITER_PROGRAM_ENABLED')==='1';
 const founderRecruiterNames=new Set(String(readKey('AR_RECRUITER_FOUNDER_USERS')||'')
   .split(',').map(x=>x.trim()).filter(x=>/^[A-Za-z0-9_-]{1,80}$/.test(x)));
 const recruiterLimit=perAccount({name:'recruiter-portal',limit:12,windowMs:60*60*1000});
@@ -823,9 +824,9 @@ const recruiterStripe=require('./recruiter-stripe-accounts');
 const recruiterAgreement=require('./recruiter-agreement');
 const recruiterStripeEnabled=()=>readKey('AR_RECRUITER_FINANCE_ENABLED')==='1'&&
   readKey('AR_RECRUITER_PROGRAM_ENABLED')==='1'&&
-  readKey('AR_RECRUITER_LEGAL_SIGNOFF')==='1'&&
   readKey('AR_RECRUITER_STRIPE_CONNECT_APPROVED')==='1';
-// The founder approved $0.15/qualifying Travel, not live banking or legal clearance.
+// Founder-approved commercial rate. Stripe-recipient and individual terms
+// acceptance remain mandatory for any bank movement.
 const recruiterRewardsEnabled=()=>recruiterStripeEnabled()&&
   readKey('AR_RECRUITER_REWARDS_ENABLED')==='1'&&
   readKey('AR_RECRUITER_PAYOUT_SCHEDULE_APPROVED')==='1'&&
@@ -836,12 +837,8 @@ const recruiterRewardsEnabled=()=>recruiterStripeEnabled()&&
   Number(readKey('AR_RECRUITER_REWARD_HOLD_MS'))<=120*86400000&&
   Number(readKey('AR_RECRUITER_MIN_PAYOUT_CENTS'))>200&&
   Number(readKey('AR_RECRUITER_MIN_PAYOUT_CENTS'))<=3000;
-const recruiterTerms=()=>recruiterAgreement.termsConfig({
-  text:readKey('AR_RECRUITER_TERMS_TEXT'),
-  version:readKey('AR_RECRUITER_TERMS_VERSION'),
-  expiresAt:Number(readKey('AR_RECRUITER_TERMS_EXPIRY_MS')),
-  legalApproved:readKey('AR_RECRUITER_LEGAL_SIGNOFF')==='1',
-});
+const recruiterTerms=()=>recruiterAgreement.termsConfig(
+  require('./recruiter-commercial-terms').CURRENT_TERMS);
 app.get('/recruiters/stripe/terms',requireAuth,requireFreshAuth,
   requireVerifiedEmail,recruiterLimit,(req,res)=>{
   res.set('Cache-Control','private, no-store, max-age=0');
@@ -888,7 +885,7 @@ app.post('/recruiters/stripe/onboard',requireAuth,requireFreshAuth,
     return res.status(503).json({ok:false,code:'finance_not_commissioned'});
   const result=await recruiterStripe.hostedRecruiterOnboarding({
     db:adminDb(),stripe:stripeClient(),uid:String(req.uid),
-    verifiedEmail:req.email,programEnabled:true,legalApproved:true,
+    verifiedEmail:req.email,programEnabled:true,
   });
   res.status(result.ok?200:result.reason==='not_authorized'?403:409).json(result);
 });
@@ -910,13 +907,13 @@ app.get('/recruiters/link',requireAuth,requireFreshAuth,requireVerifiedEmail,
   recruiterLimit,async(req,res)=>{
   res.set('Cache-Control','private, no-store, max-age=0');
   const flags=readKey('AR_RECRUITER_PROGRAM_ENABLED')==='1'&&
-    readKey('AR_REFERRALS_ENABLED')==='1'&&
-    readKey('AR_RECRUITER_LEGAL_SIGNOFF')==='1';
+    readKey('AR_REFERRALS_ENABLED')==='1';
   const verified=readKey('AR_APP_LINKS_VERIFIED')==='1';
   const role=req.query?.role;
   const out=await require('./recruiter-approval').approvedRecruiterLink({
     db:adminDb(),uid:String(req.uid),role,
     programEnabled:flags,linkVerified:verified,
+    compensationEnabled:recruiterRewardsEnabled(),
   });
   return res.status(out.ok?200:409).json(out);
 });
@@ -938,8 +935,7 @@ app.post('/recruiters/profile',requireAuth,requireFreshAuth,
 app.get('/recruiters/me',requireAuth,requireVerifiedEmail,recruiterLimit,async(req,res)=>{
   res.set('Cache-Control','private, no-store, max-age=0');
   const programEnabled=readKey('AR_RECRUITER_PROGRAM_ENABLED')==='1'&&
-    readKey('AR_REFERRALS_ENABLED')==='1'&&
-    readKey('AR_RECRUITER_LEGAL_SIGNOFF')==='1';
+    readKey('AR_REFERRALS_ENABLED')==='1';
   const out=await recruiterPortal.recruiterSummary({
     db:adminDb(),uid:String(req.uid),verifiedEmail:req.email,
     programEnabled,linkVerified:readKey('AR_APP_LINKS_VERIFIED')==='1',
@@ -2610,7 +2606,6 @@ async function runAllSweeps({criticalOnly=false}={}) {
          readKey('AR_RECRUITER_STRIPE_PAYOUTS_ENABLED')==='1'&&
          readKey('AR_RECRUITER_FINANCE_ENABLED')==='1'&&
          readKey('AR_RECRUITER_PROGRAM_ENABLED')==='1'&&
-         readKey('AR_RECRUITER_LEGAL_SIGNOFF')==='1'&&
          readKey('AR_RECRUITER_STRIPE_CONNECT_APPROVED')==='1'&&
          readKey('AR_RECRUITER_PAYOUT_SCHEDULE_APPROVED')==='1'){
         const bank=await maintenanceSweep('recruiterBankPayouts',()=> 
@@ -2629,7 +2624,7 @@ async function runAllSweeps({criticalOnly=false}={}) {
       }
       if(!criticalOnly&&recruiterRewardsEnabled()){
         // No new clock. One indexed due page per active scheduled tick, and
-        // NOTHING queried if legal, tax/funding or launch authority is OFF.
+        // NOTHING queried unless the approved program and provider gates are ON.
         const holdMs=Number(readKey('AR_RECRUITER_REWARD_HOLD_MS'));
         const accrue=await maintenanceSweep('recruiterAccrual',()=>
           sweepFundedRecruiterAccrual({db:adminDb(),enabled:true,holdMs}));
@@ -2641,7 +2636,7 @@ async function runAllSweeps({criticalOnly=false}={}) {
         const reserve=await maintenanceSweep('recruiterReserve',()=>
           require('./recruiter-payout-reserve-sweep').sweepRecruiterPayoutReservations({
             db:adminDb(),enabled:true,
-            authorization:{programEnabled:true,providerApproved:true,counselApproved:true,
+            authorization:{programEnabled:true,providerApproved:true,
               scheduleApproved:true,provider:'stripe_connect',activeMonthlyFeeCents:200,
               minimumCents},
           }));

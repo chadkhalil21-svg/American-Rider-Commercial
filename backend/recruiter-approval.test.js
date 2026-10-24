@@ -38,16 +38,17 @@ const first=await approvedRecruiterLink({db,uid,role:'operator',now});
 assert.equal(first.reason,'recruiter_program_off');
 assert.equal(db.reads,0);
 assert.equal(db.writes,0);
-const unavailable=await approvedRecruiterLink({db,uid,role:'operator',now,programEnabled:true,linkVerified:true});
+assert.equal((await approvedRecruiterLink({db,uid,role:'operator',now,programEnabled:true,linkVerified:true})).reason,'recruiter_finance_not_ready');
+const unavailable=await approvedRecruiterLink({db,uid,role:'operator',now,programEnabled:true,linkVerified:true,compensationEnabled:true});
 assert.equal(unavailable.reason,'not_approved');
 db.rows.set('recruiter_approvals/'+uid,approved);
 db.rows.set('recruiter_accounts/'+uid,{status:'approved',allowedRoles:['operator','traveler']});
-const one=await approvedRecruiterLink({db,uid,role:'operator',now,programEnabled:true,linkVerified:true});
+const one=await approvedRecruiterLink({db,uid,role:'operator',now,programEnabled:true,linkVerified:true,compensationEnabled:true});
 assert.equal(one.ok,true);
 assert.match(one.url,/^https:\/\/americanrider\.tech\/join\?r=[23456789ABCDEFGHJKLMNPQRSTUVWXYZ]{12}&role=operator$/);
-assert.equal(one.compensationActive,false);
+assert.equal(one.compensationActive,true);
 const before=db.writes;
-const other=await approvedRecruiterLink({db,uid,role:'traveler',now,programEnabled:true,linkVerified:true});
+const other=await approvedRecruiterLink({db,uid,role:'traveler',now,programEnabled:true,linkVerified:true,compensationEnabled:true});
 assert.equal(other.ok,true);
 assert.equal(new URL(one.url).searchParams.get('r'),new URL(other.url).searchParams.get('r'),
   'one owned code for both destinations');
@@ -70,11 +71,11 @@ for(const variant of [
 // Revoked/expired contract blocks sharing even when the Firebase uid is still approved.
 db.rows.set('recruiter_approvals/'+uid,{...approved,agreementAccepted:false});
 assert.equal((await approvedRecruiterLink({db,uid,role:'operator',now,
-  programEnabled:true,linkVerified:true})).reason,'not_approved');
+  programEnabled:true,linkVerified:true,compensationEnabled:true})).reason,'not_approved');
 db.rows.set('recruiter_approvals/'+uid,{...approved,status:'suspended'});
-const blocked=await approvedRecruiterLink({db,uid,role:'operator',now,programEnabled:true,linkVerified:true});
+const blocked=await approvedRecruiterLink({db,uid,role:'operator',now,programEnabled:true,linkVerified:true,compensationEnabled:true});
 assert.equal(blocked.reason,'not_approved','existing link must not be reissued after suspension');
 assert.equal(db.writes,before);
-assert.equal((await approvedRecruiterLink({db,uid:'x/y',role:'traveler',now,programEnabled:true,linkVerified:true})).reason,'invalid_request');
+assert.equal((await approvedRecruiterLink({db,uid:'x/y',role:'traveler',now,programEnabled:true,linkVerified:true,compensationEnabled:true})).reason,'invalid_request');
 console.log('PASS: approved recruiter personal identity, role scope, term expiry, suspended access, zero writes per share and OFF default');
 })().catch(e=>{console.error(e);process.exitCode=1;});

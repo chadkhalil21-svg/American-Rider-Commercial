@@ -1,11 +1,11 @@
 'use strict';
 // An authenticated, affirmative acceptance of the exact approved agreement.
-// All legally substantive terms must be supplied and approved externally;
-// this module never manufactures terms or signs on someone else's behalf.
+// The Founder ratified these business terms; each Recruiter must accept the
+// exact immutable text individually. No fictitious lawyer signature is needed.
 const crypto=require('node:crypto');
 const {validUid,emailOf}=require('./recruiter-portal');
-function termsConfig({text,version,expiresAt,legalApproved,now=Date.now()}={}){
- if(legalApproved!==true||typeof text!=='string'||text.trim().length<200||
+function termsConfig({text,version,expiresAt,now=Date.now()}={}){
+ if(typeof text!=='string'||text.trim().length<200||
   text.length>30000||typeof version!=='string'||
   !/^[A-Za-z0-9._-]{4,64}$/.test(version)||
   !Number.isSafeInteger(expiresAt)||expiresAt<=now)
