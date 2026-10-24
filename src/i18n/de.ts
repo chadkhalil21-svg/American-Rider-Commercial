@@ -301,6 +301,7 @@ export default {
     lostRetry: "Erneut versuchen",
   },
   traveler: {
+    shareReceipt: "Beleg teilen",
     updateRequiredTitle: 'Aktualisierung erforderlich',
     updateRequiredBody: 'Aktualisieren Sie American Rider, um den aktuellen Gesamtpreis zu prüfen und zu bestätigen. Es wurde weder eine Buchung noch eine Zahlung vorgenommen.',
     priceChangedTitle: 'Der Gesamtpreis hat sich geändert',
