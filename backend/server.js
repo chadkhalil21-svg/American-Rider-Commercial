@@ -727,16 +727,36 @@ app.get('/ops/recruiters',requireOps,requireRecruiterFounder,async(req,res)=>{
       '<label><input type="checkbox" id="traveler"> Traveler introductions</label>'+
       '<p><button type="submit" '+(recruiterInvitesEnabled?'':'disabled')+'>Send private invitation</button></p></form>'+
       '<h2>Applications awaiting review</h2><ul>'+items+'</ul>'+
+      '<h2>Find an existing recruiter</h2><form id="recruiter-find">'+
+      '<label for="find-email">Verified email</label><input id="find-email" type="email" required maxlength="254" autocomplete="off">'+
+      '<button type="submit">Find recruiter</button></form><p id="find-result" role="status"></p>'+
       '<p id="status" role="status" aria-live="polite"></p>'+
       '<p>Financial rewards and bank onboarding remain unavailable until independently verified and authorized.</p></section>'+
       '<script>const status=document.getElementById("status");'+
       'async function post(url,data){try{const r=await fetch(url,{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json","x-ar-ops-action":"1"},body:JSON.stringify(data)});const b=await r.json();status.textContent=b.ok?"Action recorded. Refresh to review the updated status.":"This action was not completed. "+(b.code||b.reason||"Please retry.");}catch{status.textContent="Service unavailable. No action confirmed."}}'+
       'document.getElementById("invite").onsubmit=e=>{e.preventDefault();const roles=[];if(document.getElementById("operator").checked)roles.push("operator");if(document.getElementById("traveler").checked)roles.push("traveler");post("/ops/recruiters/invite",{email:document.getElementById("email").value,allowedRoles:roles});};'+
-      'document.querySelectorAll("button[data-uid]").forEach(b=>b.onclick=()=>post("/ops/recruiters/"+encodeURIComponent(b.dataset.uid)+"/review",{decision:b.dataset.action}));</script>');
+      'document.querySelectorAll("button[data-uid]").forEach(b=>b.onclick=()=>{if(window.confirm("Confirm "+b.dataset.action+" for this recruiter?"))post("/ops/recruiters/"+encodeURIComponent(b.dataset.uid)+"/review",{decision:b.dataset.action});});'+
+      'document.getElementById("recruiter-find").onsubmit=async e=>{e.preventDefault();const box=document.getElementById("find-result");box.replaceChildren();try{const r=await fetch("/ops/recruiters/find",{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json","x-ar-ops-action":"1"},body:JSON.stringify({email:document.getElementById("find-email").value})});const d=await r.json();if(!r.ok||!d.ok){box.textContent="No matching recruiter record.";return;}const label=document.createElement("span");label.textContent=d.email+" · "+d.status;box.appendChild(label);if(d.status==="approved"||d.status==="pending_review"){const button=document.createElement("button");button.type="button";button.textContent=d.status==="approved"?"Suspend recruiter":"Decline application";button.onclick=()=>{const decision=d.status==="approved"?"suspend":"reject";if(window.confirm("Confirm "+decision+" for "+d.email+"?"))post("/ops/recruiters/"+encodeURIComponent(d.uid)+"/review",{decision});};box.appendChild(button);}}catch{box.textContent="Recruitment search is unavailable.";}};</script>');
     res.set('Cache-Control','private, no-store');
     res.set('Referrer-Policy','no-referrer');
     return res.type('html').send(html);
   }catch{return res.status(503).send('Recruiter applications cannot be verified.');}
+});
+app.post('/ops/recruiters/find',requireOps,requireRecruiterFounder,
+  requireOpsMutation,recruiterInviteLimit,async(req,res)=>{
+  res.set('Cache-Control','private, no-store');
+  const email=recruiterPortal.emailOf(req.body?.email);
+  if(!email)return res.status(400).json({ok:false,code:'invalid_email'});
+  const db=adminDb();
+  if(!db)return res.status(503).json({ok:false,code:'database_unavailable'});
+  try{
+    // Indexed exact-email lookup; no unbounded national roster scans.
+    const result=await db.collection('recruiter_accounts')
+      .where('verifiedEmail','==',email).limit(1).get();
+    if(result.empty)return res.status(404).json({ok:false,code:'no_recruiter'});
+    const match=result.docs[0];
+    return res.json({ok:true,uid:match.id,email,status:match.data()?.status||'unknown'});
+  }catch{return res.status(503).json({ok:false,code:'lookup_unavailable'});}
 });
 app.post('/ops/recruiters/invite',requireOps,requireRecruiterFounder,
   requireOpsMutation,recruiterInviteLimit,requireRecruiterInviteLaunch,async(req,res)=>{
@@ -769,7 +789,9 @@ app.post('/ops/recruiters/invite',requireOps,requireRecruiterFounder,
   return res.json({ok:true,expiresAt:issued.expiresAt,delivery:'submitted'});
 });
 app.post('/ops/recruiters/:uid/review',requireOps,requireRecruiterFounder,
-  requireOpsMutation,recruiterInviteLimit,requireRecruiterInviteLaunch,async(req,res)=>{
+  // Founder review and emergency suspension must work even while invitations are OFF.
+  // Public enrollment and rewards retain their separate launch gates.
+  requireOpsMutation,recruiterInviteLimit,async(req,res)=>{
   const out=await recruiterPortal.founderDecision({
     db:adminDb(),uid:req.params.uid,actor:req.opsUser,decision:req.body?.decision,
   });
@@ -805,7 +827,8 @@ app.get('/recruiters/me',requireAuth,requireVerifiedEmail,recruiterLimit,async(r
     db:adminDb(),uid:String(req.uid),verifiedEmail:req.email,
     programEnabled,linkVerified:readKey('AR_APP_LINKS_VERIFIED')==='1',
   });
-  return res.status(out.ok?200:out.reason==='not_enrolled'?404:503).json(out);
+  return res.status(out.ok?200:out.reason==='not_enrolled'?404:
+    out.reason==='account_inactive'?403:503).json(out);
 });
 
 // Read-only, role-scoped progress list. A logged-in recruiter can see only
