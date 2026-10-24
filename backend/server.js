@@ -676,6 +676,74 @@ app.get('/about', (req, res) => res.type('html').send(ABOUT_HTML));
 // One-to-one referral attribution: OFF on production until the actual domain,
 // store installation handoff, budget, disclosures and contracts are approved.
 // No rewards, Stripe transfer, bank payout or Travel credit happens here.
+// Independent recruiter accounts: founder approval and private read-only
+// workspace. Both enrollment and paying commissions remain OFF by default.
+const recruiterPortal=require('./recruiter-portal');
+const recruiterInvitesEnabled=readKey('AR_RECRUITER_INVITES_ENABLED')==='1';
+const founderRecruiterNames=new Set(String(readKey('AR_RECRUITER_FOUNDER_USERS')||'')
+  .split(',').map(x=>x.trim()).filter(x=>/^[A-Za-z0-9_-]{1,80}$/.test(x)));
+const recruiterLimit=perAccount({name:'recruiter-portal',limit:12,windowMs:60*60*1000});
+const recruiterInviteLimit=perIp({name:'recruiter-invite',limit:20,windowMs:60*60*1000});
+function requireRecruiterInviteLaunch(req,res,next){
+  if(!recruiterInvitesEnabled)return res.status(503).json({ok:false,code:'recruitment_not_launched'});
+  return next();
+}
+function requireRecruiterFounder(req,res,next){
+  // Named MFA session is reused, but membership in the *explicit founder*
+  // allowlist is independent of access to the broader Operations dashboard.
+  if(opsAuthMode()!=='named'||!founderRecruiterNames.has(req.opsUser))
+    return res.status(403).json({ok:false,code:'founder_recruiter_authorization_required'});
+  return next();
+}
+app.post('/ops/recruiters/invite',requireOps,requireRecruiterFounder,
+  requireOpsMutation,recruiterInviteLimit,requireRecruiterInviteLaunch,async(req,res)=>{
+  const db=adminDb();
+  if(!db)return res.status(503).json({ok:false,code:'database_unavailable'});
+  const issued=await recruiterPortal.createInvitation({
+    db,email:req.body?.email,allowedRoles:req.body?.allowedRoles,actor:req.opsUser,
+  });
+  if(!issued.ok)return res.status(400).json(issued);
+  // Never place a reusable token in an Operations response, application log or URL
+  // list. One short-lived private message delivers it to the bound mailbox only.
+  // An app link and public landing page MUST be verified before this flag is ON.
+  const url='https://americanrider.tech/recruitment/accept?token='+encodeURIComponent(issued.token);
+  const result=await send({
+    from:'American Rider Relations <relations@americanrider.tech>',
+    to:String(req.body.email).trim().toLowerCase(),
+    replyTo:'relations@americanrider.tech',
+    subject:'An invitation to represent American Rider',
+    text:'AMERICAN RIDER\\n\\nYou are invited to review an independent recruitment relationship with American Rider.\\n\\nOpen your private invitation: '+url+
+      '\\n\\nThis invitation expires in 48 hours and is valid only for the addressed, verified email account. There is no public enrollment or earnings promise.\\n\\nQuestions: relations@americanrider.tech',
+    idempotencyKey:'recruiter-invite/'+issued.id,
+  });
+  if(!result.ok){
+    await db.collection('recruiter_invitations').doc(issued.id)
+      .set({status:'delivery_failed',deliveryFailedAt:Date.now()},{merge:true}).catch(()=>{});
+    return res.status(503).json({ok:false,code:'invitation_not_delivered'});
+  }
+  await db.collection('recruiter_invitations').doc(issued.id)
+    .set({sentAt:Date.now(),providerId:result.id||null},{merge:true}).catch(()=>{});
+  return res.json({ok:true,expiresAt:issued.expiresAt,delivery:'submitted'});
+});
+app.post('/ops/recruiters/:uid/review',requireOps,requireRecruiterFounder,
+  requireOpsMutation,recruiterInviteLimit,requireRecruiterInviteLaunch,async(req,res)=>{
+  const out=await recruiterPortal.founderDecision({
+    db:adminDb(),uid:req.params.uid,actor:req.opsUser,decision:req.body?.decision,
+  });
+  return res.status(out.ok?200:out.reason==='no_recruiter'?404:409).json(out);
+});
+app.post('/recruiters/accept',requireRecruiterInviteLaunch,requireAuth,
+  requireFreshAuth,requireVerifiedEmail,recruiterLimit,async(req,res)=>{
+  const out=await recruiterPortal.acceptInvitation({
+    db:adminDb(),uid:String(req.uid),verifiedEmail:req.email,token:req.body?.token,
+  });
+  return res.status(out.ok?200:409).json(out);
+});
+app.get('/recruiters/me',requireAuth,requireVerifiedEmail,recruiterLimit,async(req,res)=>{
+  const out=await recruiterPortal.recruiterSummary({db:adminDb(),uid:String(req.uid)});
+  return res.status(out.ok?200:out.reason==='not_enrolled'?404:503).json(out);
+});
+
 const REFERRALS_ENABLED=readKey('AR_REFERRALS_ENABLED')==='1';
 const referralsLimit=perAccount({name:'referrals',limit:12,windowMs:60*60*1000});
 const requireReferralLaunch=(req,res,next)=>
