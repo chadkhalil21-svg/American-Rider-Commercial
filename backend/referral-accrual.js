@@ -35,6 +35,8 @@ async function recordHeldAccrual({db,rideId,program=PROGRAM,now=Date.now()}={}){
   if(!db||typeof rideId!=='string'||!/^[a-zA-Z0-9_-]{8,80}$/.test(rideId))
     return {ok:false,reason:'invalid_request'};
   if(program.enabled!==true)return {ok:false,reason:'program_off',events:0};
+  if(!Number.isSafeInteger(program.holdMs)||program.holdMs<86400000||program.holdMs>120*86400000)
+    return {ok:false,reason:'hold_not_approved',events:0};
   try{
     return await db.runTransaction(async tx=>{
       const rideRef=db.collection('rides').doc(rideId);
@@ -42,7 +44,9 @@ async function recordHeldAccrual({db,rideId,program=PROGRAM,now=Date.now()}={}){
       const snap=await tx.get(rideRef);
       const ride=snap.exists?snap.data():null;
       const travel=evidence(ride,rideId);
-      if(!travel)return {ok:false,reason:'settlement_not_verified',events:0};
+      if(!travel||ride.referralProgramVersion!==program.version||
+         ride.referralAccrualPending!==true)
+        return {ok:false,reason:'settlement_or_program_not_verified',events:0};
       // This must be set by the authoritative, post-expense quote and budget
       // calculation. An absent or unverifiable budget gives zero rewards.
       const budget=ride?.referralAvailableCents;
@@ -73,6 +77,7 @@ async function recordHeldAccrual({db,rideId,program=PROGRAM,now=Date.now()}={}){
           travelId:rideId,inviteeUid:item.uid,inviterUid:item.claim.inviterUid,
           role:item.role,programVersion:program.version,
           amountCents:decision.rewardCents,status:'held',createdAt:now,
+          nextReleaseAt:now+program.holdMs,
         });
         tx.update(item.claimRef,{
           qualifiedTravels:Number(item.claim.qualifiedTravels||0)+1,
@@ -80,6 +85,7 @@ async function recordHeldAccrual({db,rideId,program=PROGRAM,now=Date.now()}={}){
         });
         remaining-=decision.rewardCents;credited++;
       }
+      tx.update(rideRef,{referralAccrualPending:false,referralAccruedAt:now});
       return {ok:true,events:credited,heldCents:budget-remaining};
     });
   }catch{return {ok:false,reason:'accrual_unavailable',events:0};}
