@@ -27,6 +27,6 @@ assert.match(backend,/Cache-Control','private, no-store, max-age=0/);
 const indexes=JSON.parse(fs.readFileSync(path.join(__dirname,'..','firestore.indexes.json'),'utf8')).indexes;
 assert.ok(indexes.some(i=>i.collectionGroup==='referral_attributions'&&
   i.fields.some(f=>f.fieldPath==='inviterUid')&&
-  i.fields.some(f=>f.fieldPath==='role')&&
-  i.fields.some(f=>f.fieldPath==='claimedAt'&&f.order==='DESCENDING')));
+  i.fields.some(f=>f.fieldPath==='role')&&i.fields.length===2),
+  'reuse the pre-existing two-field index, no new index rollout');
 console.log('PASS recruiter dashboard: indexed 20-row list, verified-account authorization, private no-store and truthful money status');
