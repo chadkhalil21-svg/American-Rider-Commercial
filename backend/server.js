@@ -913,6 +913,7 @@ app.get('/recruiters/link',requireAuth,requireFreshAuth,requireVerifiedEmail,
   const out=await require('./recruiter-approval').approvedRecruiterLink({
     db:adminDb(),uid:String(req.uid),role,
     programEnabled:flags,linkVerified:verified,
+    compensationEnabled:recruiterRewardsEnabled(),
   });
   return res.status(out.ok?200:409).json(out);
 });
