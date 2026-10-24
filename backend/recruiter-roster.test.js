@@ -17,6 +17,8 @@ function db(){
       doc(id){return {get:async()=>{reads.push(name+'/'+id);if(name==='recruiter_accounts'){
        if(id==='recruiter-a')return snap(id,{status:'approved',verifiedEmail:'recruiter@ar.test',
           allowedRoles:['operator','traveler']});
+       if(id==='recruiter-suspended')return snap(id,{status:'suspended',
+         verifiedEmail:'blocked@ar.test',allowedRoles:['operator']});
        return snap(id,null);
       }
       return snap(id,DB.find(r=>r.id===id)||null);
@@ -85,6 +87,8 @@ function db(){
  assert.equal(wrong.reason,'identity_mismatch');
  assert.equal((await listIntroductions({db:database,uid:'recruiter-no',
    verifiedEmail:'recruiter@ar.test',role:'operator'})).reason,'not_enrolled');
+ assert.equal((await listIntroductions({db:database,uid:'recruiter-suspended',
+   verifiedEmail:'blocked@ar.test',role:'operator'})).reason,'account_inactive');
  assert.equal((await listIntroductions({db:database,uid:'recruiter-a',
    verifiedEmail:'recruiter@ar.test',role:'invalid'})).reason,'invalid_request');
  const travelers=await listIntroductions({db:database,uid:'recruiter-a',
