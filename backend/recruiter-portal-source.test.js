@@ -26,14 +26,16 @@ assert.match(server,/app\.get\('\/recruiters\/me',requireAuth,requireVerifiedEma
 assert.match(server,/AR_APP_LINKS_VERIFIED/);
 assert.match(server,/AR_RECRUITER_LEGAL_SIGNOFF/);
 assert.match(server,/AR_REFERRALS_ENABLED/);
-assert.match(server,/recruiterPortal\.recruiterSummary\(\{db:adminDb\(\),uid:String\(req\.uid\)\}\)/);
+assert.match(server,/recruiterPortal\.recruiterSummary\(\{/);
+assert.match(server,/programEnabled,linkVerified:readKey\('AR_APP_LINKS_VERIFIED'\)/);
 
 assert.match(portal,/crypto\.randomBytes\(32\)/);
 assert.match(portal,/createHash\('sha256'\)/);
 assert.match(portal,/if\(emailOf\(i\.email\)!==email\)/);
 assert.match(portal,/status:'pending_review'/);
 assert.match(portal,/payoutEligibilityVerified:false/);
-assert.match(portal,/linksAvailable:false/);
+assert.match(portal,/linksAvailable/);
+assert.match(portal,/recruiterMayRefer/);
 assert.match(portal,/compensation:'not_commissioned'/);
 assert.match(portal,/bankSetup:'not_commissioned'/);
 assert.doesNotMatch(portal,/stripe\.transfers\.create|payouts\.create|routingNumber|accountNumber/);
