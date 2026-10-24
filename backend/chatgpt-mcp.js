@@ -58,6 +58,10 @@ const TOOLS = [
   { name: 'market_status', title: 'Check service geography', description: 'Read the configured service area, without a second county approval.',
     inputSchema: { type: 'object', properties: { regionId: { type: 'string', description: 'Optional configured region ID, e.g. fl-southeast.' } }, additionalProperties: false },
     annotations: { readOnlyHint: true }, scope: 'market:read' },
+  { name:'platform_overview',title:'Founder Platform Overview',
+    description:'Read verified on-demand production totals: registered accounts, Operator profiles, availability, active and completed Travels, Eastern-calendar Travels created and settled today, and recruiter accounts. Returns null for unavailable values. Distinct Traveler-only counts or residence locations must not be inferred. Requires existing named production Operations OAuth.',
+    inputSchema:{type:'object',properties:{},additionalProperties:false},
+    annotations:{readOnlyHint:true},scope:'market:read'},
   { name: 'prepare_market', title: 'Prepare a new jurisdiction', description: 'Record a noncommercial expansion plan for a U.S. state and optionally an imported county. Does not activate service or approve legal evidence.',
     inputSchema: { type: 'object', properties: { stateCode: { type: 'string' }, marketId: { type: 'string' }, city: { type: 'string' } }, required: ['stateCode'], additionalProperties: false },
     annotations: { readOnlyHint: false, destructiveHint: false }, scope: 'market:plan' },
@@ -288,6 +292,11 @@ function mount(app, express, deps) {
           geographicStatus:market.geographicStatus,
           countyApprovalRequired:false,operatorEligibility:'individual',
         }))};
+      } else if (chosen.name === 'platform_overview') {
+        if(!operational())out={ok:false,code:'production_authority_required'};
+        else if(typeof deps.platformOverview!=='function')
+          out={ok:false,code:'overview_not_configured'};
+        else out=await deps.platformOverview();
       } else if (chosen.name === 'prepare_market') {
         out = await deps.proposeMarket({db:db(),actor:auth.actor,input:{
           stateCode:String(args.stateCode||''),marketId:String(args.marketId||''),city:String(args.city||''),
