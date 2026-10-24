@@ -22,7 +22,7 @@ export async function personalInvitation(role:InviteRole):Promise<string|null>{
   const out=await deadline(`${PAYMENT_SERVER_URL}/referrals/share?role=${role}`,'GET');
   const url=out?.status===200?out.data?.url:null;
   return typeof url==='string'&&
-    /^https:\/\/americanrider\.app\/join\?r=[0-9A-F]{24}&role=(traveler|operator)$/.test(url)?url:null;
+    /^https:\/\/americanrider\.tech\/join\?r=[A-Z0-9]{8,32}&role=(traveler|operator)$/.test(url)?url:null;
 }
 export async function recordInvitation(code:string,role:InviteRole):Promise<'recorded'|'finished'|'retry'>{
   if (process.env.EXPO_PUBLIC_REFERRALS_ENABLED !== '1') return 'retry';
