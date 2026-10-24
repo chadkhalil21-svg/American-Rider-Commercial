@@ -7,15 +7,28 @@ const UID='operator-recruited-001',ACC='acct_OperatorRef1234567',
  PY='py_OperatorTransfer123456',PO='po_AutoPayout123456',NOW=Date.now();
 class Db{
  constructor(){this.rows=new Map();this.queryReads=0;this.writes=0;}
- collection(col){const db=this;return {
-  doc:id=>({path:col+'/'+id,get:async()=>db.snap(col+'/'+id)}),
-  where(field,op,value){return {where(f2,op2,v2){return {
-   limit(n){return {get:async()=>{db.queryReads++;
-    const docs=[...db.rows].filter(([k,v])=>k.startsWith(col+'/')&&
-     v[field]===value&&v[f2]===v2).slice(0,n).map(([k,v])=>({id:k.slice(col.length+1),data:()=>structuredClone(v)}));
-    return {docs};}}};}
-  };}}},
- }; }
+ collection(col){
+  const db=this;
+  function query(conditions){
+   return {
+    where(field,_op,value){return query([...conditions,[field,value]]);},
+    limit(n){return {get:async()=>{
+     db.queryReads++;
+     const docs=[...db.rows]
+      .filter(([path,record])=>path.startsWith(col+'/')&&
+       conditions.every(([key,value])=>record[key]===value))
+      .slice(0,n).map(([path,record])=>({
+       id:path.slice(col.length+1),data:()=>structuredClone(record),
+      }));
+     return {docs};
+    }};},
+   };
+  }
+  return {
+   doc:id=>({path:col+'/'+id,get:async()=>db.snap(col+'/'+id)}),
+   where(field,_op,value){return query([[field,value]]);},
+  };
+ }
  snap(p){const x=this.rows.get(p);return {exists:x!==undefined,data:()=>structuredClone(x)};}
  async runTransaction(fn){const writes=[];const tx={
   get:async r=>this.snap(r.path),
