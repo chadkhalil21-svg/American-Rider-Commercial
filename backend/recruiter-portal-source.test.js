@@ -22,6 +22,11 @@ assert.match(server,/app\.post\('\/ops\/recruiters\/invite',requireOps,requireRe
 // Disabling invitations must not stop a Founder from rejecting or suspending a recruiter.
 assert.match(server,/app\.post\('\/ops\/recruiters\/:uid\/review',requireOps,requireRecruiterFounder,\s*\/\/[^\n]*\n\s*\/\/[^\n]*\n\s*requireOpsMutation,recruiterInviteLimit,async\(req,res\)=>\{/);
 assert.match(server,/window\.confirm\("Confirm "\+b\.dataset\.action/);
+assert.match(server,/app\.post\('\/ops\/recruiters\/find',requireOps,requireRecruiterFounder,\s*requireOpsMutation,recruiterInviteLimit/);
+assert.match(server,/\.where\('verifiedEmail','==',email\)\.limit\(1\)/);
+assert.match(server,/id="recruiter-find"/);
+assert.match(server,/d\.status==="approved"\|\|d\.status==="pending_review"/);
+
 assert.match(server,/out\.reason==='account_inactive'\?403/);
 assert.match(server,/requireOpsMutation,recruiterInviteLimit,requireRecruiterInviteLaunch/);
 assert.match(server,/app\.post\('\/recruiters\/accept',requireRecruiterInviteLaunch,requireAuth/);
