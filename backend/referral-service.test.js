@@ -67,6 +67,13 @@ class MemoryDb {
   assert.equal(firstOperator.ok,true,'draft Operator is new to qualified role');
   assert.equal((await claim({db,uid:'operator-in-progress',code,role:'operator',
     authCreatedAtMs:now-3600_000,now})).reason,'already_attributed');
+  // A previously distributed recruiter URL may never bypass Founder suspension.
+  db.rows.set('recruiter_accounts/inviter',{status:'suspended'});
+  const blocked=await claim({db,uid:'new-after-suspension',code,role:'operator',
+    authCreatedAtMs:now,now});
+  assert.equal(blocked.reason,'referrer_not_eligible');
+  assert.equal(db.rows.has('referral_attributions/new-after-suspension_operator'),false);
+  db.rows.set('recruiter_accounts/inviter',{status:'approved'});
   const transfer=await claim({db,uid:'new-traveler',code,role:'operator',
     authCreatedAtMs:now-2000,now});
   assert.equal(transfer.ok,true,'existing Traveler can later join as new Operator');
