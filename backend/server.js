@@ -210,13 +210,28 @@ app.set('trust proxy', 1);
 // A signature is computed over the EXACT bytes Stripe sent. Once express.json() has parsed and
 // re-serialised the body, those bytes are gone and every event fails verification — which is
 // the classic way this endpoint ends up either broken or, worse, "fixed" by skipping the check.
-const PROVIDER_HANDLERS = { stripe: event =>
-  ['payout.paid','payout.failed','payout.canceled'].includes(event?.type)&&
-  event?.data?.object?.metadata?.ar_recruiter_batch
-    ? require('./recruiter-stripe-payout').handleRecruiterConnectPayoutEvent({
-        db:adminDb(),event,
-      })
-    : handleEvent(event),
+const PROVIDER_HANDLERS = { stripe: async event => {
+  if(['payout.paid','payout.failed','payout.canceled'].includes(event?.type)&&
+     event?.data?.object?.metadata?.ar_recruiter_batch)
+    return require('./recruiter-stripe-payout').handleRecruiterConnectPayoutEvent({
+      db:adminDb(),event,
+    });
+  const ordinary=await handleEvent(event);
+  // Most Operator payouts do not belong to a Recruiter. Program flag OFF
+  // means ZERO extra reads. If commissioned, only Stripe's exact automatic
+  // payout inclusion proof may settle a held referral reward.
+  if(['payout.paid','payout.reconciliation_completed'].includes(event?.type)&&
+     event?.account&&readKey('AR_RECRUITER_OPERATOR_SHARED_PAYOUT_ENABLED')==='1'&&
+     recruiterRewardsEnabled()){
+    const result=await require('./recruiter-operator-transfers')
+      .reconcileOperatorReferralBankPayout({
+        db:adminDb(),stripe:stripeClient(),event,enabled:true,
+      });
+    if(result?.ok===false)
+      console.warn('[operator-referral-bank] automatic payout requires reconciliation',result.reason);
+  }
+  return ordinary;
+},
   resend: event => event?.kind==='travel_receipt'
     ? applyReceiptDeliveryEvent({db:adminDb(),event})
     : applyResendDeliveryEvent({db:adminDb(),event}),
