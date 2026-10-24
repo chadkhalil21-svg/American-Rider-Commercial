@@ -25,6 +25,16 @@ assert.match(portal,/by\('qr-operator'\)\.disabled=!data\.linksAvailable/);
 assert.match(portal,/by\('qr-traveler'\)\.disabled=!data\.linksAvailable/);
 assert.match(portal,/by\('qr-operator'\)\.disabled=true/);
 assert.match(portal,/by\('qr-traveler'\)\.disabled=true/);
+const vm=require('node:vm');
+// Parse the actual browser scripts rather than trusting mere string matches.
+// Remove only static import declarations, not application logic.
+const qrScript=widget.match(/<script>([\s\S]*?)<\/script>/);
+assert.ok(qrScript,'QR browser script available');
+assert.doesNotThrow(()=>new vm.Script(qrScript[1]),'QR browser code must parse');
+const portalScript=portal.match(/<script type="module">([\s\S]*?)<\/script>/);
+assert.ok(portalScript,'recruiter portal module available');
+const checkedJs=portalScript[1].replace(/^import [^\n]*\n/gm,'');
+assert.doesNotThrow(()=>new vm.Script(checkedJs),'private recruiter portal actions must parse');
 const builder=fs.readFileSync(path.join(__dirname,'..','scripts/build-corporate-website.cjs'),'utf8');
 assert.match(builder,/vendor","qrcode-generator-2\.0\.4\.js/);
 assert.ok(fs.readFileSync(path.join(__dirname,'..','scripts/vendor/LICENSE-qrcode-generator'),'utf8').includes('MIT License'));
