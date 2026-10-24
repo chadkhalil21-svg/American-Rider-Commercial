@@ -216,31 +216,31 @@ export default function OperatorQualification() {
 
       {areaActive && process.env.EXPO_PUBLIC_REFERRALS_ENABLED === '1' && (
         <Card style={styles.referralCard}>
-          <Text style={styles.rowTitle}>Were you referred to American Rider?</Text>
-          <Text style={styles.rowSub}>If someone introduced you, you may enter their referral code before completing qualification.</Text>
-          <Text style={styles.rowSub}>Referral code (optional)</Text>
+          <Text style={styles.rowTitle}>{t('operator.referralQuestion')}</Text>
+          <Text style={styles.rowSub}>{t('operator.referralDescription')}</Text>
+          <Text style={styles.rowSub}>{t('operator.referralCodeOptional')}</Text>
           <TextInput
             accessibilityLabel="Referral code"
             autoCapitalize="characters"
             autoCorrect={false}
             maxLength={32}
             editable={!referralBusy && referralStatus !== 'recorded'}
-            placeholder="Enter referral code"
+            placeholder={t('operator.referralCodePlaceholder')}
             value={referralCode}
             onChangeText={value => { setReferralCode(value); setReferralStatus('idle'); }}
             style={styles.referralInput}
           />
           {referralStatus === 'recorded' ? (
-            <Text accessibilityRole="alert" style={styles.rowSub}>Referral recorded. This does not determine payment eligibility.</Text>
+            <Text accessibilityRole="alert" style={styles.rowSub}>{t('operator.referralRecorded')}</Text>
           ) : (
             <Pressable accessibilityRole="button" accessibilityLabel="Apply referral code"
               disabled={referralBusy} onPress={() => void claimReferral()}
               style={styles.referralAction}>
-              <Text style={styles.rowTitle}>{referralBusy ? 'Checking code…' : 'Apply code'}</Text>
+              <Text style={styles.rowTitle}>{referralBusy ? t('operator.referralChecking') : t('operator.referralApply')}</Text>
             </Pressable>
           )}
           {referralStatus === 'failed' && <Text accessibilityRole="alert" style={styles.footnote}>
-            This code could not be applied. Check the code, or contact Support before completing qualification.
+            {t('operator.referralFailed')}
           </Text>}
         </Card>
       )}
