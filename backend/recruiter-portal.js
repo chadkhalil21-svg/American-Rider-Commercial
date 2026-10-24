@@ -115,9 +115,9 @@ async function founderDecision({db,uid,actor,decision,now=Date.now()}={}){
 // Not a legal-identity attestation, contract acceptance or bank authorization.
 function profileNameOf(input){
   if(typeof input!=='string')return null;
-  const name=input.normalize('NFC').trim().replace(/\\s+/gu,' ');
+  const name=input.normalize('NFC').trim().replace(/\s+/gu,' ');
   if(name.length<2||name.length>80||Buffer.byteLength(name,'utf8')>220||
-     /[\\u0000-\\u001F\\u007F<>]/u.test(name))return null;
+     /[\u0000-\u001F\u007F<>]/u.test(name))return null;
   return name;
 }
 async function updateRecruiterProfile({db,uid,verifiedEmail,profileName,now=Date.now()}={}){
