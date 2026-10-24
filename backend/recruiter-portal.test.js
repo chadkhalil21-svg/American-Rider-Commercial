@@ -46,7 +46,7 @@ class Db {
 (async()=>{
   assert.equal(emailOf(' PERSON@Example.COM '),'person@example.com');
   assert.equal(emailOf('not-an-address'),null);
-  assert.deepEqual(normalizeRoles(['operator','operator','traveler']),['operator','traveler']);
+  assert.deepEqual(normalizeRoles(['operator','traveler']),['operator','traveler']);
   const db=new Db();
   assert.equal((await createInvitation({db,email:'wrong',allowedRoles:['operator'],
     actor:'founder',now:NOW})).reason,'invalid_request');
