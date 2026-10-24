@@ -26,6 +26,12 @@ function newYorkBusinessDay(now=Date.now()){
 const QUERIES=Object.freeze([
   ['registeredAccountProfiles',db=>db.collection('users')],
   ['operatorProfiles',db=>db.collection('operators')],
+  ['operatorsStartedOnboardingToday',(db,day)=>db.collection('users')
+    .where('operatorOnboardingStartedAt','>=',day.start)
+    .where('operatorOnboardingStartedAt','<',day.end)],
+  ['operatorsQualifiedToday',(db,day)=>db.collection('users')
+    .where('qualification.qualifiedAt','>=',day.start)
+    .where('qualification.qualifiedAt','<',day.end)],
   ['operatorsReportingAvailable',db=>db.collection('operators').where('available','==',true)],
   ['activeTravelRecords',db=>db.collection('rides').where('status','in',['assigned','accepted','arrived','onboard'])],
   ['completedTravelRecords',db=>db.collection('rides').where('status','==','completed')],
@@ -53,7 +59,9 @@ async function founderPlatformCounts(db,{deadlineMs=OPS_BOARD_DEADLINE_MS,now=Da
   return {ok:unavailable.length===0,counts,unavailable,day,asOf:now,
     meanings:{
       registeredAccountProfiles:'Firebase-linked user profiles; Operators may have the same user profile, not distinct Traveler-only people',
-      operatorProfiles:'Operator registration records, not necessarily qualified or dispatchable',
+      operatorProfiles:'Operator fleet records, not necessarily qualified or dispatchable',
+      operatorsStartedOnboardingToday:'First recorded active-market Operator enrollment start today; historical starts before tracking are not backfilled',
+      operatorsQualifiedToday:'Operator profiles whose current verified qualification period began today; not a first-ever onboarded count or live duty availability',
       operatorsReportingAvailable:'Self-reported available; not proof of eligibility',
       activeTravelRecords:'Assigned through onboard records as currently stored',
       completedTravelRecords:'Completed Travel records, not proof of collection',
@@ -66,6 +74,8 @@ function overviewMarkup(result){
   const labels=[
     ['registeredAccountProfiles','Registered accounts'],
     ['operatorProfiles','Operator profiles'],
+    ['operatorsStartedOnboardingToday','Operators beginning onboarding today'],
+    ['operatorsQualifiedToday','Operators qualifying today'],
     ['operatorsReportingAvailable','Operators reporting available'],
     ['activeTravelRecords','Travels in progress'],
     ['completedTravelRecords','Completed Travel records, all time'],
@@ -82,7 +92,7 @@ function overviewMarkup(result){
     (result?.unavailable?.length?'<p role="alert">Some totals could not be verified. Unavailable is not zero.</p>':'')+
     '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px">'+cards+'</div>'+
     '<p>Registered accounts may also be Operators. We cannot yet provide an exact distinct Traveler-only count or genuine enrollment geography from unverified role/location fields; no identities or precise locations are exposed.</p>'+
-    '<p>Available is not qualified. Completed is not paid. Settled is not final net revenue after possible reversals. These are operational counts, not a financial statement.</p>'+
+    '<p>New onboarding totals only include events recorded after this reporting feature is deployed. Qualifying today describes the current qualified period, not first-ever account creation. Available is not qualified. Completed is not paid. Settled is not final net revenue after possible reversals. These are operational counts, not a financial statement.</p>'+
     '<p><a href="/ops">Return to Operations</a></p>';
 }
 module.exports={QUERIES,ZONE,newYorkBusinessDay,founderPlatformCounts,overviewMarkup};

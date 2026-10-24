@@ -59,7 +59,7 @@ const TOOLS = [
     inputSchema: { type: 'object', properties: { regionId: { type: 'string', description: 'Optional configured region ID, e.g. fl-southeast.' } }, additionalProperties: false },
     annotations: { readOnlyHint: true }, scope: 'market:read' },
   { name:'platform_overview',title:'Founder Platform Overview',
-    description:'Read verified on-demand production totals: registered accounts, Operator profiles, availability, active and completed Travels, Eastern-calendar Travels created and settled today, and recruiter accounts. Returns null for unavailable values. Distinct Traveler-only counts or residence locations must not be inferred. Requires existing named production Operations OAuth.',
+    description:'Read verified on-demand production totals: registered accounts, Operator profiles, Operator onboarding starts and current qualification starts today, availability, active and completed Travels, Eastern-calendar Travels created and settled today, and recruiter accounts. Returns null for unavailable values. Distinct Traveler-only counts or residence locations must not be inferred. Requires existing named production Operations OAuth.',
     inputSchema:{type:'object',properties:{},additionalProperties:false},
     annotations:{readOnlyHint:true},scope:'market:read'},
   { name: 'prepare_market', title: 'Prepare a new jurisdiction', description: 'Record a noncommercial expansion plan for a U.S. state and optionally an imported county. Does not activate service or approve legal evidence.',

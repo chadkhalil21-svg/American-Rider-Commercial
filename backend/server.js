@@ -2997,7 +2997,9 @@ app.post('/operator/market', requireAuth, LIMITS.market, async (req, res) => {
   try {
     const now = Date.now();
     if (m) {
-      await db.collection('users').doc(String(req.uid)).set({ operatingMarket: { id: m.id, via, at: now } }, { merge: true });
+      await require('./operator-onboarding-start').recordOperatorMarketSelection({
+        db, uid: req.uid, market: m, via, now,
+      });
     }
     const available = await operatorMarketOptions();
     const selected = listedMarket(m, available);
