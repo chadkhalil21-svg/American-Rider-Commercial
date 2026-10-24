@@ -946,7 +946,9 @@ app.post('/referrals/claim',requireReferralLaunch,requireAuth,
       const verified=await require('firebase-admin/auth').getAuth().getUser(String(req.uid));
       if(verified.disabled)return res.status(403).json({ok:false,code:'account_disabled'});
       const createdAt=Date.parse(verified.metadata.creationTime||'');
-      const out=await referrals.claim({db,uid:String(req.uid),code,role,authCreatedAtMs:createdAt});
+      const program=require('./recruiter-finance-policy').fromConfig(readKey);
+      const out=await referrals.claim({db,uid:String(req.uid),code,role,
+        authCreatedAtMs:createdAt,program});
       return res.status(out.ok?200:out.reason==='claim_unavailable'?503:409).json(out);
     }catch{
       return res.status(503).json({ok:false,code:'account_verification_unavailable'});
