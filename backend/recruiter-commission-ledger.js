@@ -201,6 +201,9 @@ async function reconcileRecruiterPayout({db,batchId,proof,now=Date.now()}={}){
   const ws=await tx.get(walletRef),w=walletOf(ws);
   const events=await Promise.all(p.eventIds.map(id=>
     tx.get(db.collection('referral_reward_events').doc(id))));
+  const feeRef=p.provider==='stripe_connect'
+    ?db.collection('recruiter_connect_fee_months').doc(p.uid+'_'+p.feeMonth):null;
+  const feeSnap=feeRef?await tx.get(feeRef):null;
   let full=0,restored=0,reversed=0,recoveryDue=0;
   for(let i=0;i<events.length;i++){
     const e=events[i].exists?events[i].data():null;
@@ -229,12 +232,9 @@ async function reconcileRecruiterPayout({db,batchId,proof,now=Date.now()}={}){
        payoutReconciledAt:now});
   }
   if(p.provider==='stripe_connect'){
-    const feeRef=db.collection('recruiter_connect_fee_months').doc(
-      p.uid+'_'+p.feeMonth);
-    const fs=await tx.get(feeRef);
     if(p.feeCents===200){
-      if(!fs.exists||fs.data().batchId!==batchId||
-         fs.data().status!=='reserved')return state({},'fee_record_conflict');
+      if(!feeSnap.exists||feeSnap.data().batchId!==batchId||
+         feeSnap.data().status!=='reserved')return state({},'fee_record_conflict');
       tx.update(feeRef,{status:proof.status==='paid'?'collected':'released',
         payoutId:proof.providerPaymentId,reconciledAt:now});
       if(proof.status==='paid'){
