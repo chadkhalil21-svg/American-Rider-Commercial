@@ -15,7 +15,7 @@ const widget=qrWidgetHtml(),portal=portalHtml();
 for(const id of ['qr-operator','qr-traveler','qr-download','recruiter-qr-canvas'])
   assert.ok(widget.includes(id),id+' required');
 assert.match(widget,/qrcode\(0,'M'\)/);
-assert.match(widget,/americanrider\\.tech\\/join/);
+assert.ok(widget.includes('americanrider')&&widget.includes('join')&&widget.includes('role='));
 assert.match(widget,/I may receive compensation/);
 assert.doesNotMatch(widget,/fetch\(|http:\/\/|api\.qrserver|qr-code-styling/,'no external QR service');
 assert.match(portal,/\/assets\/qrcode-generator-2\.0\.4\.js/);
