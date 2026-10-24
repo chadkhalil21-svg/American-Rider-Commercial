@@ -8,23 +8,9 @@
 const {shareLink}=require('./referral-service');
 
 const PROGRAM_ENABLED=false;
+const {eligibleApproval,recruiterMayRefer}=require('./recruiter-eligibility');
 const validRole=role=>role==='operator'||role==='traveler';
 const ownUid=uid=>typeof uid==='string'&&uid.length>=4&&uid.length<=128&&!uid.includes('/');
-function eligibleApproval(approval,role,now=Date.now()){
-  if(!approval||typeof approval!=='object'||!validRole(role)||
-     !Number.isSafeInteger(now)||now<=0)return false;
-  if(approval.status!=='approved'||approval.suspended===true||
-     approval.identityVerified!==true||approval.agreementAccepted!==true||
-     approval.payoutEligibilityVerified!==true||
-     !Array.isArray(approval.allowedRoles)||!approval.allowedRoles.includes(role))return false;
-  if(typeof approval.approvedBy!=='string'||approval.approvedBy.length<2||
-     !Number.isSafeInteger(approval.approvedAt)||approval.approvedAt<=0||
-     approval.approvedAt>now||
-     !Number.isSafeInteger(approval.agreementAcceptedAt)||
-     approval.agreementAcceptedAt<=0||approval.agreementAcceptedAt>now)return false;
-  if(!Number.isSafeInteger(approval.expiresAt)||approval.expiresAt<=now)return false;
-  return true;
-}
 async function approvedRecruiterLink({
   db,uid,role,now=Date.now(),programEnabled=PROGRAM_ENABLED,
   linkVerified=false,
@@ -35,8 +21,12 @@ async function approvedRecruiterLink({
     return {ok:false,reason:'invalid_request'};
   try{
     // Exactly one authoritative read per attempt, not a scan or live listener.
-    const snap=await db.collection('recruiter_approvals').doc(uid).get();
-    if(!snap.exists||!eligibleApproval(snap.data(),role,now))
+    const [snap,account]=await Promise.all([
+      db.collection('recruiter_approvals').doc(uid).get(),
+      db.collection('recruiter_accounts').doc(uid).get(),
+    ]);
+    if(!snap.exists||!account.exists||
+       !recruiterMayRefer(account.data(),snap.data(),role,now))
       return {ok:false,reason:'not_approved'};
     const out=await shareLink({db,uid,role,now,
       origin:'https://americanrider.tech'});
