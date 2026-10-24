@@ -3981,6 +3981,7 @@ mountFounderMcp(app, express, {
   db: adminDb, opsSignedIn, actorFingerprint: oauthActorFingerprint, authMode: opsAuthMode,
   isProduction: () => DEPLOYMENT_MODE === 'production' && keyMode === 'live',
   markets: allMarkets, regions: REGIONS, proposeMarket,
+  platformOverview:()=>require('./founder-platform-counts').founderPlatformCounts(adminDb()),
   oauthLimit: LIMITS.founderOauthIp, mcpLimit: LIMITS.founderMcpIp,
   founderCanInviteRecruiter:actor=>opsAuthMode()==='named'&&
     founderRecruiterNames.has(actor)&&recruiterInvitesEnabled,
