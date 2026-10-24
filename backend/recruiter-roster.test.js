@@ -27,12 +27,12 @@ function db(){
         return {where(field2,op2,role){
           assert.equal(field2,'role');assert.equal(op2,'==');
           let max=Infinity,after=null;
-          return {orderBy(field3,dir){assert.equal(field3,'claimedAt');assert.equal(dir,'desc');
+          return {orderBy(field3,dir){assert.equal(field3,'__name__');assert.equal(dir,'asc');
             return {limit(n){max=n;
               return {startAfter(s){after=s.id;return this;},
                 async get(){reads.push('INDEX_ONLY_'+value+'_'+role);
                   let a=DB.filter(r=>r.inviterUid===value&&r.role===role)
-                    .sort((a,b)=>b.claimedAt-a.claimedAt||a.id.localeCompare(b.id));
+                    .sort((a,b)=>a.id.localeCompare(b.id));
                   if(after){const pos=a.findIndex(z=>z.id===after);a=a.slice(pos+1);}
                   return {docs:a.slice(0,max).map(z=>snap(z.id,z))};
                 }};
