@@ -30,9 +30,11 @@ async function acceptRecruiterAgreement({db,uid,verifiedEmail,version,accepted=f
    if(a.data().agreementVersion===version&&a.data().agreementSha256===terms.sha256&&
      a.data().agreementAccepted===true)return {ok:true,alreadyAccepted:true,version};
    tx.update(ref,{agreementVersion:version,agreementSha256:terms.sha256,
-     agreementAccepted:true,agreementAcceptedAt:now});
+     agreementAccepted:true,agreementAcceptedAt:now,
+     programVersion:require('./referral-accrual').PROGRAM.version});
    tx.update(apRef,{agreementVersion:version,agreementSha256:terms.sha256,
      agreementAccepted:true,agreementAcceptedAt:now,
+     programVersion:require('./referral-accrual').PROGRAM.version,
      expiresAt:terms.expiresAt,updatedAt:now});
    return {ok:true,version};
   });
