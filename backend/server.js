@@ -713,7 +713,7 @@ app.get('/about', (req, res) => res.type('html').send(ABOUT_HTML));
 // Travels never depend on Recruiter activation.
 const recruiterPortal=require('./recruiter-portal');
 // Web-first recruiter invitations need a verified, live website acceptance path.
-// Native referral links have their OWN separate app-link gate.
+// Web fallback is independently verified; native links stay separately attested.
 const recruiterInvitesEnabled=readKey('AR_RECRUITER_INVITES_ENABLED')==='1'&&
   readKey('AR_RECRUITER_WEB_ACCEPTANCE_VERIFIED')==='1'&&
   readKey('AR_RECRUITER_PROGRAM_ENABLED')==='1';
@@ -832,7 +832,7 @@ const recruiterRewardsEnabled=()=>recruiterStripeEnabled()&&
   readKey('AR_RECRUITER_PAYOUT_SCHEDULE_APPROVED')==='1'&&
   readKey('AR_RECRUITER_STRIPE_PAYOUTS_ENABLED')==='1'&&
   readKey('AR_REFERRALS_ENABLED')==='1'&&
-  readKey('AR_APP_LINKS_VERIFIED')==='1'&&
+  readKey('AR_RECRUITER_WEB_REFERRAL_VERIFIED')==='1'&&
   Number(readKey('AR_RECRUITER_REWARD_HOLD_MS'))>=86400000&&
   Number(readKey('AR_RECRUITER_REWARD_HOLD_MS'))<=120*86400000&&
   Number(readKey('AR_RECRUITER_MIN_PAYOUT_CENTS'))>200&&
@@ -908,7 +908,7 @@ app.get('/recruiters/link',requireAuth,requireFreshAuth,requireVerifiedEmail,
   res.set('Cache-Control','private, no-store, max-age=0');
   const flags=readKey('AR_RECRUITER_PROGRAM_ENABLED')==='1'&&
     readKey('AR_REFERRALS_ENABLED')==='1';
-  const verified=readKey('AR_APP_LINKS_VERIFIED')==='1';
+  const verified=readKey('AR_RECRUITER_WEB_REFERRAL_VERIFIED')==='1';
   const role=req.query?.role;
   const out=await require('./recruiter-approval').approvedRecruiterLink({
     db:adminDb(),uid:String(req.uid),role,
@@ -938,7 +938,7 @@ app.get('/recruiters/me',requireAuth,requireVerifiedEmail,recruiterLimit,async(r
     readKey('AR_REFERRALS_ENABLED')==='1';
   const out=await recruiterPortal.recruiterSummary({
     db:adminDb(),uid:String(req.uid),verifiedEmail:req.email,
-    programEnabled,linkVerified:readKey('AR_APP_LINKS_VERIFIED')==='1',
+    programEnabled,linkVerified:readKey('AR_RECRUITER_WEB_REFERRAL_VERIFIED')==='1',
     activityTrackingEnabled:readKey('AR_RECRUITER_TRAVEL_TRACKING_ENABLED')==='1',
     financialEnabled:recruiterRewardsEnabled(),
   });
@@ -976,10 +976,11 @@ app.get('/referrals/share',requireReferralLaunch,requireAuth,
       return res.status(400).json({ok:false,code:'invalid_role'});
     const db=adminDb();
     if(!db)return res.status(503).json({ok:false,code:'database_unavailable'});
-    // New invitations use only the owned .tech domain. Old client links
-    // remain supported by the claim path, never minted for new invitations.
-    if(readKey('AR_APP_LINKS_VERIFIED')!=='1')
-      return res.status(503).json({ok:false,code:'signed_app_links_not_verified'});
+    // New invitations use the verified owned .tech /join landing; the code
+    // can be entered manually when signed native association is unavailable.
+    // Legacy .app links remain supported only for existing invitations.
+    if(readKey('AR_RECRUITER_WEB_REFERRAL_VERIFIED')!=='1')
+      return res.status(503).json({ok:false,code:'recruiter_web_referral_not_verified'});
     const out=await referrals.shareLink({db,uid:String(req.uid),role,
       origin:'https://americanrider.tech',
       paidRecruiterProgramEnabled:recruiterRewardsEnabled()});
