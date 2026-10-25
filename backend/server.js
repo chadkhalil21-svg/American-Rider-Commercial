@@ -979,8 +979,9 @@ app.get('/referrals/share',requireReferralLaunch,requireAuth,
     // New invitations use the verified owned .tech /join landing; the code
     // can be entered manually when signed native association is unavailable.
     // Legacy .app links remain supported only for existing invitations.
-    if(readKey('AR_RECRUITER_WEB_REFERRAL_VERIFIED')!=='1')
-      return res.status(503).json({ok:false,code:'recruiter_web_referral_not_verified'});
+    if(readKey('AR_RECRUITER_WEB_REFERRAL_VERIFIED')!=='1'&&
+       readKey('AR_APP_LINKS_VERIFIED')!=='1')
+      return res.status(503).json({ok:false,code:'referral_landing_not_verified'});
     const out=await referrals.shareLink({db,uid:String(req.uid),role,
       origin:'https://americanrider.tech',
       paidRecruiterProgramEnabled:recruiterRewardsEnabled()});
