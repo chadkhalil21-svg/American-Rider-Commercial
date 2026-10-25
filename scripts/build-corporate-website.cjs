@@ -71,9 +71,17 @@ out(doc+"/"+lang,render((doc==="terms"?"Terms of Service":"Privacy Policy")+" | 
 }
 out("account-deletion",render("Account deletion | American Rider",'<div class="shell"><article class="legal-body">'+extract(ACCOUNT_DELETION_HTML)+'</article></div>',"account-deletion"));
 fs.writeFileSync(path.join(root,"robots.txt"),"User-agent: *\nAllow: /\n", "utf8");
-// Signed domain associations are emitted ONLY after verified Apple/Play IDs
-// are provided. No fake fingerprint and no automatic referral activation.
-require('./build-app-links-associations.cjs').writeAssociations(root); 
+// Apple team 6Z24V6YD4A was independently confirmed from the signed iOS
+// distribution profile in successful workflow 40154373578 (24 October 2026).
+// Serve Apple's association independently of unknown Android Play signing data.
+// Never publish a guessed Google certificate. This file alone is NOT proof of
+// OS-verified Universal Links, which require Apple entitlement + device checks.
+const APPLE_TEAM_VERIFIED='6Z24V6YD4A';
+if(process.env.AR_APPLE_TEAM_ID && process.env.AR_APPLE_TEAM_ID!==APPLE_TEAM_VERIFIED)
+  throw Error('Public website Apple Team ID conflicts with actual signed release');
+require('./build-app-links-associations.cjs').writeAssociations(root,{
+  ...process.env,AR_APPLE_TEAM_ID:APPLE_TEAM_VERIFIED,
+}); 
 fs.writeFileSync(path.join(root,"sitemap.xml"),'<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'+["","travel","operate","safety","company","support","recruitment","smart-travel","terms","privacy","account-deletion"].map(s=>"<url><loc>https://americanrider.tech/"+(s?s+"/":"")+"</loc></url>").join("")+"</urlset>\n","utf8");
 console.log("Corporate site built:",root);
 }
