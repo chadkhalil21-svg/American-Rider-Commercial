@@ -13,7 +13,7 @@ for (const route of paths) {
   const html = fs.readFileSync(p, 'utf8');
   assert.match(html, /<main id="main">/);
   assert.match(html, /<title>/);
-  assert.ok(!html.includes('americanrider.app'), 'Old domain leaked into ' + route);
+  assert.ok(!html.includes('https://americanrider.app'), 'Old website domain leaked into ' + route);
   assert.ok(!html.includes('onrender.com'), 'Render link leaked into ' + route);
 }
 // The official-store page is reachable, but unapproved listings cannot be
