@@ -205,6 +205,9 @@ def main():
     if approval not in valid or not re.fullmatch(r"[0-9a-f]{40}",sha):
         raise Stop("Manual founder approval and exact current branch SHA required.")
     activate_recruiters=approval=="DEPLOY_AND_ACTIVATE_PAID_RECRUITERS"
+    founder_uid=os.environ.get("FOUNDER_FIREBASE_UID","").strip()
+    if founder_uid and not re.fullmatch(r"[A-Za-z0-9_-]{6,128}",founder_uid):
+        raise Stop("Founder Firebase UID must be a single exact provider UID, not an email, wildcard or token.")
     actor=os.environ.get("RECRUITER_FOUNDER_USERNAME","").strip()
     if activate_recruiters and not re.fullmatch(r"[A-Za-z0-9_-]{1,80}",actor):
         raise Stop("Activation needs your existing named Operations username, not a password.")
@@ -249,6 +252,10 @@ def main():
     # gcloud --update-env-vars is additive; all previous secrets, payment keys
     # and non-payment settings are preserved by Cloud Run.
     updates=f"AR_RELEASE_COMMIT={sha}"
+    if founder_uid:
+        # Additive only: preserve all existing live money, credentials and scheduler.
+        # A separate Firebase Admin verifier binds this exact identity to counts only.
+        updates+=",AR_FOUNDER_FIREBASE_UIDS="+founder_uid
     if enable_manual:
         updates+=",AR_MANUAL_TRAVEL_CAPTURE=true"
     if activate_recruiters:
