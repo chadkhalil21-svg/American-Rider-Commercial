@@ -39,18 +39,18 @@ assert.match(googleProtocol, /reauthenticateWithCredential\(user,/,
   'Google credential must support recent-login reauthentication');
 console.log('Google-to-Firebase credential protocol invariants: PASS');
 
-// Expo's iOS production contract requires the native Apple authentication control.
+// Apple's authentication remains native, even when the visual control is custom.
+// Explicitly verify the button invokes the real native Apple sign-in handler,
+// the secure nonce/Firebase flow above, and the matching Google control.
 const authScreen = fs.readFileSync('src/screens/AuthScreen.tsx','utf8');
-assert.match(authScreen, /AppleAuthentication\.AppleAuthenticationButton/,
-  'iOS Apple sign-in must be initiated by Expo native AppleAuthenticationButton');
-assert.match(authScreen, /AppleAuthenticationButtonType\.CONTINUE/,
-  'native Apple control must use an approved Apple button type');
-console.log('Apple native control invariant: PASS');
-
-// The Apple native control and Google's custom SSO control must have identical
-// 46pt outer dimensions; do not regress to mismatched provider button heights.
-assert.match(authScreen, /appleButton: \{ width: '100%', height: 46 \}/);
+assert.match(authScreen, /<SsoButton label=\{t\('auth\.continueWithApple'\)\} onPress=\{onApple\} glyph="apple" primary \/>/,
+  'Apple label + white Apple mark must be linked to native Apple auth');
+assert.match(authScreen, /const onApple = async \(\) => \{/);
+assert.match(authScreen, /const r = await signInWithApple\(\)/,
+  'Apple tap must still invoke authenticated Apple provider API');
+assert.match(authScreen, /<GoogleEntry[\s\S]*?auth\.continueWithGoogle/,
+  'Google sign-in must remain available with its own branded label');
 assert.match(authScreen, /ssoButton: \{ width: '100%', height: 46, paddingVertical: 0, justifyContent: 'center' \}/);
 assert.match(authScreen, /s\.btn, s\.ssoButton, primary \? s\.btnInk : s\.btnSso/);
-assert.match(authScreen, /cornerRadius=\{12\}/);
-console.log('Apple and Google SSO button geometry: PASS');
+assert.match(authScreen, /btnText: \{ fontSize: 15, fontWeight: '600' \}/);
+console.log('Apple native authentication via compact branded SSO control + Google visual parity: PASS');
