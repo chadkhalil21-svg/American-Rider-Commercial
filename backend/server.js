@@ -166,6 +166,7 @@ const WORKER_ID = crypto.randomUUID();
 const { send, receiptEmail, emailReady: mailReady } = require('./email');
 const {enqueueTravelReceipt,sweepTravelReceipts} = require('./travel-receipt-outbox');
 const { mount: mountOps, opsAuthMode, signedIn: opsSignedIn, actorOf: opsActorOf, oauthActorFingerprint } = require('./ops');
+const {mountFounderReadonly}=require('./founder-readonly-access');
 const { mount: mountFounderMcp } = require('./chatgpt-mcp');
 const { readDocument, documentsReady, READER_VERSION } = require('./documents');
 const { ready: r2Ready, uploadUrl: r2UploadUrl, readUrl: r2ReadUrl, owns: r2Owns } = require('./r2');
@@ -4143,6 +4144,8 @@ app.post('/operator/screening/existing', requireAuth, LIMITS.screening, requireS
 
 // --- The operations view. -----------------------------------------------------------------
 mountOps(app, express, { checks: qualificationChecks, liveMoney: () => operationalMode });
+// Read-only Google/Firebase metrics; no authority to perform privileged Operations actions.
+mountFounderReadonly(app);
  // Founder-only delegated ChatGPT connection. OAuth requests reuse the same Ops MFA.
  // No new provider, privileged database bypass, or parallel market authority.
 mountFounderMcp(app, express, {
