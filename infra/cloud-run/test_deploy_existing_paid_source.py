@@ -113,6 +113,18 @@ class PaidSourceTest(unittest.TestCase):
         self.assertNotIn('"--set-secrets=',text)
         self.assertNotIn('"--allow-unauthenticated"',text)
         self.assertNotIn('STRIPE_SECRET_KEY=sk_live_',text)
+    def test_optional_founder_uid_is_exact_and_additive(self):
+        source=FILE.read_text()
+        workflow=pathlib.Path(__file__).resolve().parents[2]/".github/workflows/cloud-run-update-paid-source.yml"
+        self.assertIn('FOUNDER_FIREBASE_UID',source)
+        self.assertIn('AR_FOUNDER_FIREBASE_UIDS=',source)
+        self.assertIn('AR_FOUNDER_FIREBASE_UIDS='+chr(34)+'+founder_uid',source)
+        self.assertIn('r"[A-Za-z0-9_-]{6,128}"',source)
+        self.assertIn('founder_firebase_uid:',workflow.read_text())
+        self.assertIn('DEPLOY_EXISTING_PAID_CODE_ONLY',workflow.read_text())
+        self.assertIn('"--no-traffic"',source)
+        self.assertNotIn('"--allow-unauthenticated"',source)
+
     def test_missing_stripe_secret_ref_refuses(self):
         x=svc()
         x["spec"]["template"]["spec"]["containers"][0]["env"][3]={"name":"STRIPE_SECRET_KEY","value":"sk_test_unsafe"}
