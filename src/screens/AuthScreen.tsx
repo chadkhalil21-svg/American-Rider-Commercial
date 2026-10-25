@@ -742,9 +742,9 @@ const s = StyleSheet.create({
     fontWeight: '600',
   },
   tagline: { textAlign: 'center', fontSize: 14.5, color: colors.ink2, letterSpacing: 0.1, marginTop: 20, lineHeight: 20 },
-  // Both providers use the same 48pt footprint. Keep Apple's approved native button.
-  appleButton: { width: '100%', height: 48 },
-  ssoButton: { width: '100%', height: 48, paddingVertical: 0, justifyContent: 'center' },
+  // Match the existing compact Google footprint at 46pt; retain Apple's approved native button.
+  appleButton: { width: '100%', height: 46 },
+  ssoButton: { width: '100%', height: 46, paddingVertical: 0, justifyContent: 'center' },
   btn: { borderRadius: 12, paddingVertical: 14, alignItems: 'center' },
   btnRow: { flexDirection: 'row', justifyContent: 'center', gap: 10 },
   btnInk: { backgroundColor: colors.ink },
