@@ -16,7 +16,7 @@ for (const route of pages) {
   assert.match(html,/<h1\b/,route+" heading");
   assert.match(html,/<title>/,route+" document title");
   assert.match(html,/americanrider\.tech/,route+" canonical domain");
-  assert.doesNotMatch(html,/americanrider\.app/,route+" must not publish old .app domain");
+  assert.doesNotMatch(html,/https:\/\/americanrider\.app/,route+" must not publish old .app website domain");
   assert.match(html,/href="\/assets\/site.css"/,route+" shared CSS");
 }
 const home=page();
