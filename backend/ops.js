@@ -196,6 +196,7 @@ const LOGIN = `
       font-size:16px;background:#fff;color:${T.ink};box-sizing:border-box;margin-top:10px;">
     <button type="submit" class="cta" style="border:0;cursor:pointer;">Sign in</button>
   </form>
+  <p style="margin:20px 0 0;font-size:14px"><a href="https://americanrider.tech/founder/" rel="noopener">For read-only company figures, sign in with Google.</a></p>
 </section>`;
 
 /** A stat line: a quiet label and a value, the app's own row idiom. */

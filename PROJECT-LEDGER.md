@@ -1,3 +1,9 @@
+## 25 October 2026 | REPAIR FOUNDER OVERVIEW LINK (NOT FINANCIAL AUTHORITY)
+
+Founder reported https://americanrider.tech/founder/ returned Not Found because the Google sign-in page was a draft PR, not deployed. This source-only fix ports PR #329 to current release without altering Operations MFA, Travel, Stripe, Recruiter payments, market controls or app binary. The page is unlisted and noindexed; Google/Firebase UI sign-in gives the user an exact account reference for independent Founder UID authorization. New paid Cloud Run /founder/overview/read route rejects everyone until the verified exact UID is provisioned in AR_FOUNDER_FIREBASE_UIDS by authorized workflow. Website on Render and backend on Render deploy separately from paid Cloud Run; live counts and access must be authenticated/verified, not inferred from merge. Existing mobile TestFlight build and store approval are distinct. One-time real Founder Google sign-in plus protected UID configuration are required before reading totals. Do not loosen named Operations MFA to fix read-only counts.
+
+---
+
 ## 25 October 2026 | STORE DOWNLOAD FALLBACK, WEBSITE REVIEW BRANCH
 
 **FOUNDER DIRECTION:** American Rider should offer an App Store and Google Play download path from the company website and preserved referral-code invitation page. The signed iOS Build 54 was successfully uploaded to Apple App Store Connect using the older repository's existing Expo and Apple credentials with an isolated Mac runner (successful GitHub run [40218403224](https://github.com/chadkhalil21-svg/American-Rider/actions/runs/40218403224)). This does not establish public App Store publication or install availability. Build 54 intentionally omitted the `Associated Domains` entitlement from its temporary signed build checkout because the September 23 distribution provisioning profile did not contain it; the Commercial source still declares `applinks:americanrider.tech`.
