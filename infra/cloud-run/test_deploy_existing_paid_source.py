@@ -121,7 +121,7 @@ class PaidSourceTest(unittest.TestCase):
 
     def test_live_recruiter_web_landing_requires_all_three_real_routes(self):
         required={
-            "/join/":"join-referral-code join-copy /join/",
+            "/join/":"join-referral-code join-copy Keep your invitation code",
             "/recruitment/accept/":"accept-panel recruiters/accept emailVerified",
             "/recruiters/portal/":"recruiters/link recruiters/me emailVerified",
         }
