@@ -24,11 +24,12 @@ function founderTokenAllowed(decoded,allowlist,nowSeconds=Math.floor(Date.now()/
 function json(res,status,body){
   return res.status(status).json(body);
 }
-function mountFounderReadonly(app,{verifyToken,db,readUids,clock}={}){
+function mountFounderReadonly(app,{verifyToken,db,readUids,clock,dbReady}={}){
   const verify=verifyToken||((token)=>getAuth().verifyIdToken(token,true));
   const database=db||adminDb;
   const uids=readUids||allowedFounderUids;
   const now=clock||Date.now;
+  const isReady=dbReady||(()=>adminStatus().ok);
   // Bounded per-process throttling after verified identity; avoid polling Firestore.
   const calls=new Map();
   app.post('/founder/overview/read',async(req,res)=>{
@@ -57,9 +58,10 @@ function mountFounderReadonly(app,{verifyToken,db,readUids,clock}={}){
     }
     if(old&&time-old.windowStart<5*60*1000)old.count++;
     else calls.set(uid,{count:1,windowStart:time});
-    if(!adminStatus().ok||!database())return json(res,503,{code:'overview_temporarily_unavailable'});
+    const handle=isReady()?database():null;
+    if(!handle)return json(res,503,{code:'overview_temporarily_unavailable'});
     try{
-      const result=await founderPlatformCounts(database(),{now:time});
+      const result=await founderPlatformCounts(handle,{now:time});
       if(!result.counts)return json(res,503,{code:'overview_temporarily_unavailable'});
       return json(res,200,{
         asOf:result.asOf,day:result.day?.date||null,timezone:'America/New_York',
