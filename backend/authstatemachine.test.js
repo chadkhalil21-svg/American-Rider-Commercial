@@ -38,6 +38,21 @@ for (const provider of ['password', 'google', 'apple']) {
   assert.equal(gate(restarted), 'app', provider + ' restored session must survive restart');
 }
 
+// Repro: registration is interrupted before role selection. A later successful
+// password sign-in must dismiss stale onboarding instead of returning to Sign In.
+let interrupted = { initializing: false, user: null, onboarding: true };
+assert.equal(gate(interrupted), 'auth');
+interrupted = { ...publish(interrupted, { uid: 'reviewer' }), onboarding: false };
+assert.equal(gate(interrupted), 'app', 'successful sign-in must clear stale registration overlay');
+
+// Prevent a model-only fix: check that the native auth provider actually
+// clears stale onboarding after a successful password sign-in and sign-out.
+const nativeAuth = require('node:fs').readFileSync('src/state/AuthContext.tsx', 'utf8');
+assert.match(nativeAuth,
+  /signIn: \(email, password\) =>\s*run\(async \(\) => \{\s*await signInWithEmailAndPassword\(auth, email\.trim\(\), password\);[\s\S]*?setOnboarding\(false\);\s*\}\)/);
+assert.match(nativeAuth,
+  /await fbSignOut\(auth\);\s*\/\/ Do not carry an interrupted registration overlay into the next session\.[\s\S]*?setOnboarding\(false\);/);
+
 // Credential/provider failure must never manufacture a user.
 state = publish({ initializing: true, user: null, onboarding: false }, null);
 assert.equal(gate(state), 'auth');
