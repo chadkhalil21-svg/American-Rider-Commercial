@@ -13,6 +13,7 @@ const markup=String.raw`<section class="page-hero shell" style="padding-bottom:4
     <p>Sign in with your authorized Google account. No Operations password or authenticator code is required for this read-only overview.</p>
     <button type="button" class="action primary" id="founder-google">Continue with Google</button>
     <p role="status" aria-live="polite" id="founder-message">Access requires an approved Founder account.</p>
+    <p style="font-size:13px">If Google sign-in returns to this page without completing, open <strong>americanrider.tech/founder/</strong> directly in Safari or Chrome, not inside another app, and try again.</p>
     <p id="founder-identity" hidden style="font-size:13px;overflow-wrap:anywhere">Account reference: <code id="founder-account-id"></code> <button id="founder-copy" type="button" class="action secondary" style="margin:10px 0">Copy reference</button></p>
   </section>
   <section id="founder-workspace" hidden aria-label="Company operating figures">
@@ -26,8 +27,8 @@ const markup=String.raw`<section class="page-hero shell" style="padding-bottom:4
   </section>
 </div>
 <script type="module">
-import {initializeApp,getApps,getApp} from 'https://www.gstatic.com/firebasejs/12.16.0/firebase-app.js';
-import {getAuth,browserSessionPersistence,setPersistence,GoogleAuthProvider,signInWithPopup,onAuthStateChanged,signOut} from 'https://www.gstatic.com/firebasejs/12.16.0/firebase-auth.js';
+import {initializeApp,getApps,getApp} from 'https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js';
+import {getAuth,browserSessionPersistence,setPersistence,GoogleAuthProvider,signInWithPopup,onAuthStateChanged,signOut} from 'https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js';
 const cfg={apiKey:'AIzaSyAQMJ1ikGvhrmCZY9D0OjM6EM2r2m0V4OY',authDomain:'american-rider-35688.firebaseapp.com',projectId:'american-rider-35688',appId:'1:623854974930:web:d73e4dec7949c3756efa0b'};
 const auth=getAuth(getApps().length?getApp():initializeApp(cfg));
 const endpoint='https://american-rider-api-production-623854974930.us-east1.run.app/founder/overview/read';
@@ -41,6 +42,15 @@ const fields=[
 ];
 let busy=false;
 function message(t){by('founder-message').textContent=t;}
+function googleSignInError(error){
+ const code=String(error?.code||'');
+ if(code==='auth/popup-blocked'||code==='auth/operation-not-supported-in-this-environment')return 'Your browser blocked the Google sign-in window. Open americanrider.tech/founder/ directly in Safari or Chrome and try again.';
+ if(code==='auth/popup-closed-by-user'||code==='auth/cancelled-popup-request')return 'Google sign-in did not finish. If the window closed on its own, open this page directly in Safari or Chrome and retry.';
+ if(code==='auth/unauthorized-domain')return 'This website domain is not authorized for Google sign-in. Founder access needs a configuration correction; retrying cannot resolve it.';
+ if(code==='auth/operation-not-allowed')return 'Google sign-in has not been enabled for this project. Founder access needs a configuration correction.';
+ if(code==='auth/network-request-failed')return 'The Google sign-in network request failed. Check your connection and retry.';
+ return 'Google sign-in could not complete (' +( /^auth\/[a-z0-9-]+$/.test(code)?code:'unknown error')+'). Open this page directly in Safari or Chrome if you are using an in-app browser.';
+}
 function showLogin(text,showReference=false){
  by('founder-identity').hidden=!(showReference&&auth.currentUser);
  if(showReference&&auth.currentUser)by('founder-account-id').textContent=auth.currentUser.uid;
@@ -94,8 +104,8 @@ by('founder-google').addEventListener('click',async()=>{
  try{
    const provider=new GoogleAuthProvider();provider.setCustomParameters({prompt:'select_account'});
    await signInWithPopup(auth,provider);await load();
- }catch{
-   message('Google sign-in was not completed. Please retry using the Google account authorized for American Rider.');
+ }catch(error){
+   message(googleSignInError(error));
  }finally{by('founder-google').disabled=false;}
 });
 by('founder-copy').addEventListener('click',()=>{
