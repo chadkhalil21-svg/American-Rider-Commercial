@@ -1,3 +1,16 @@
+## Latest Recruiter activation status and next exact gate (24 October, 20:06 Eastern)
+
+| Layer | Evidence / current status |
+| --- | --- |
+| Founder approved terms | Ratified $0.15 per qualifying role-Travel, 200 qualifying role-Travels per recruit, 24-hour hold, $25 monthly threshold, $2 per active payout month, 90-day residual settlement. |
+| Source on release/current | PR #326 merged at bda9df0; 8 CI checks previously passed. |
+| Corporate website | Render confirms successful LIVE deployment at bda9df0; does not prove native association or authenticated website enrollment. |
+| Protected Cloud Run paid Recruiters | Founder workflow stopped BEFORE redeploy on mandatory Apple/Play link check. Recruiter production finance still OFF / not attested. Existing paid backend preserved. |
+| Repair under review | Distinct verified website fallback with copyable referral code, web acceptance and private portal; native `AR_APP_LINKS_VERIFIED` remains false unless both real association files pass. Code branch `fix/recruiter-web-referral-fallback-20261024`, not yet merged or live. |
+| Next required production evidence | Test required web HTTPS pages/Firebase auth, finish CI/merge repair, rerun protected `DEPLOY_AND_ACTIVATE_PAID_RECRUITERS` at exact release/current; confirm Cloud Run serving SHA and payout gates, enroll real people via Stripe as they join. Never claim actual bank deposit without provider evidence. |
+
+**Supersedes only older checklist statements about an attorney signoff or unconditional native-link gate; keeps independent identity, KYC, tax, web access and real provider controls intact.**
+
 # American Rider | Commercial activation decision and evidence (24 October 2026)
 
 **Goal:** Publicly operational paid Traveler bookings and eligible Operator payouts, plus invite-only paid Recruiters whose verified referrals accrue correctly and eventually pay into verified bank accounts. One Founder, one phone. A first customer or first bank deposit is **not** required to certify deterministic software, but no simulation substitutes for actual regulated approvals or store acceptance.
