@@ -35,7 +35,7 @@ assert.match(portal,/private recruiter|recruitment account/i);
 assert.match(portal,/recruiters\/me/);
 assert.match(portal,/getIdToken/);
 assert.match(portal,/recruiters\/link/);
-assert.match(portal,/Stripe Connect|banking and identity verification/i);
+assert.match(portal,/Stripe handles identity and bank verification|Stripe Connect/i);
 assert.doesNotMatch(portal,/Bank enrollment, compensation and payment history are not yet commissioned/i);
 assert.doesNotMatch(portal,/public self-enroll|Start earning immediately/i);
 const recruiter = fs.readFileSync(path.join(root, 'recruitment', 'index.html'), 'utf8');
