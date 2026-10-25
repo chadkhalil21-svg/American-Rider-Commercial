@@ -11,37 +11,37 @@ function applyEditorialDesign(pages) {
     '<div class="heritage-hero-inner shell">',
     '<p class="heritage-kicker">Independent transportation · United States</p>',
     '<h1 id="heritage-title">American<br>Rider</h1>',
-    '<div class="heritage-hero-bottom"><p>Connecting Travelers with qualified independent Operators through clear arrangements and attentive service.</p><a class="heritage-on-dark" href="/company/">About the company <span aria-hidden="true">↗</span></a></div>',
+    '<div class="heritage-hero-bottom"><p>A transportation company connecting Travelers with qualified independent Operators. Beginning in select communities.</p><a class="heritage-on-dark" href="/company/">Discover the company <span aria-hidden="true">↗</span></a></div>',
     '</div>',
     '<p class="heritage-caption">Grand Central Terminal, New York · Photograph: Jack Finnigan / Unsplash · Architectural reference</p>',
     '</section>',
     '<section class="heritage-intro shell" aria-labelledby="heritage-about">',
     '<p class="heritage-index">01 &nbsp;/&nbsp; THE COMPANY</p>',
-    '<div><h2 id="heritage-about">Transportation with purpose and precision.</h2><p>American Rider connects Travelers with qualified independent Operators. Clear pricing, professional standards and accessible assistance are central to each arrangement.</p><a class="heritage-link" href="/company/">About American Rider <span aria-hidden="true">↗</span></a></div>',
+    '<div><h2 id="heritage-about">An American company, with a considered approach to transportation.</h2><p>American Rider brings people and independent transportation professionals together. The work is practical: make the experience clear, support the people involved, and establish the requirements under which each journey takes place.</p><a class="heritage-link" href="/company/">About American Rider <span aria-hidden="true">↗</span></a></div>',
     '</section>',
     '<section class="heritage-paths" aria-label="Explore American Rider"><div class="shell">',
     '<div class="heritage-section-head"><p class="heritage-index">02 &nbsp;/&nbsp; OUR SERVICE</p><h2>For those who travel.<br>For those who operate.</h2></div>',
-    '<div class="heritage-two"><article><span class="heritage-number">I</span><h3>Travelers</h3><p>A clear price before confirmation, Operator and vehicle details when assigned, and assistance throughout the journey.</p><a class="heritage-link" href="/travel/">Explore Travel <span aria-hidden="true">↗</span></a></article>',
-    '<article><span class="heritage-number">II</span><h3>Operators</h3><p>A defined fare share, independent professional work and clear requirements for each service area.</p><a class="heritage-link" href="/operate/">Explore Operating <span aria-hidden="true">↗</span></a></article></div>',
+    '<div class="heritage-two"><article><span class="heritage-number">I</span><h3>Travelers</h3><p>Information, transportation arrangements, and access to assistance, organized around the journey itself.</p><a class="heritage-link" href="/travel/">Explore Travel <span aria-hidden="true">↗</span></a></article>',
+    '<article><span class="heritage-number">II</span><h3>Operators</h3><p>Independent professional work with defined terms, documented requirements, and a clear relationship with the company.</p><a class="heritage-link" href="/operate/">Explore Operating <span aria-hidden="true">↗</span></a></article></div>',
     '</div></section>',
     '<section class="heritage-dark" aria-labelledby="heritage-ambition"><div class="shell heritage-dark-inner"><p class="heritage-index">03 &nbsp;/&nbsp; OUR OUTLOOK</p>',
-    '<h2 id="heritage-ambition">National outlook. Local responsibility.</h2>',
-    '<div class="heritage-dark-bottom"><p>American Rider is organized for service across the United States. Availability is determined by each service area’s operating requirements and qualified Operators. The same standards of transparency and professional conduct guide every authorized market.</p><a class="heritage-on-dark" href="/safety/">Our operating standards <span aria-hidden="true">↗</span></a></div>',
+    '<h2 id="heritage-ambition">From the first community to the wider nation.</h2>',
+    '<div class="heritage-dark-bottom"><p>American Rider is being developed for service across the United States. Expansion will take place where qualified Operators and applicable requirements permit operations. Transport arrangements are made through the American Rider application, subject to service-area availability.</p><a class="heritage-on-dark" href="/safety/">Our operating standards <span aria-hidden="true">↗</span></a></div>',
     '</div></section>',
-    '<section class="heritage-closing shell"><p class="heritage-index">04 &nbsp;/&nbsp; RELATIONSHIPS</p><div><h2>Work with American Rider.</h2><p>American Rider welcomes inquiries from prospective independent Recruiters and business partners. Each authorized relationship begins with clear terms and verified eligibility.</p><a class="heritage-link" href="/recruitment/">Recruitment and business inquiries <span aria-hidden="true">↗</span></a></div></section>'
+    '<section class="heritage-closing shell"><p class="heritage-index">04 &nbsp;/&nbsp; RELATIONSHIPS</p><div><h2>Work with American Rider.</h2><p>We welcome professional inquiries as we develop the company and its independent recruitment program.</p><a class="heritage-link" href="/recruitment/">Recruitment and business inquiries <span aria-hidden="true">↗</span></a></div></section>'
   ].join("");
 
   pages.travel.title = "For Travelers | American Rider";
   pages.travel.body = [
-    '<section class="page-hero shell"><p class="section-label">FOR TRAVELERS</p><h1>Travel with American Rider.</h1><p>A Travel begins with clear information and continues with attention to each stage of the journey.</p></section>',
-    '<div class="shell"><section class="page-section"><h2>Your journey</h2><p>The application presents available transportation options and the Total before confirmation. When an Operator is assigned, the service provides identifying details about the Operator and vehicle.</p></section>',
-    '<section class="page-section"><h2>Assistance</h2><p>For questions about a Travel, payment or account, assistance is available through the designated support channel. Safety concerns have a separate reporting path.</p><p><a class="text-link" href="/support/">Contact support ↗</a></p></section>',
-    '<section class="page-section"><h2>Availability</h2><p>Travel arrangements are handled through the American Rider application, not this corporate website. Availability depends on the location, qualified Operators and offered service types.</p></section></div>'
+    '<section class="page-hero shell"><p class="section-label">FOR TRAVELERS</p><h1>Travel with American Rider.</h1><p>Transportation should be straightforward to arrange and clearly presented from the first request to the journey’s completion.</p></section>',
+    '<div class="shell"><section class="page-section"><h2>Your journey</h2><p>American Rider is designed to show the transportation options available for your location, the total price before confirmation, and the identity and vehicle details of the Operator assigned to your Travel.</p></section>',
+    '<section class="page-section"><h2>Assistance</h2><p>Account, payment and Travel assistance are part of the service. Safety-related matters have their own reporting path.</p><p><a class="text-link" href="/support/">Contact support ↗</a></p></section>',
+    '<section class="page-section"><h2>Availability</h2><p>Transportation bookings are made through the American Rider application, not this corporate website. Service and vehicle availability depend on the location and qualified Operators.</p></section></div>'
   ].join("");
 
   pages.operate.title = "For Operators | American Rider";
   pages.operate.body = [
-    '<section class="page-hero shell"><p class="section-label">FOR INDEPENDENT OPERATORS</p><h1>Independent work. Clearly defined terms.</h1><p>American Rider connects qualified independent Operators with Travelers through a clear commercial arrangement. Operators remain independent professionals.</p></section>',
+    '<section class="page-hero shell"><p class="section-label">FOR INDEPENDENT OPERATORS</p><h1>A professional relationship, on defined terms.</h1><p>American Rider is built to connect qualified independent Operators with transportation opportunities, while preserving the Operator’s independent business.</p></section>',
     '<div class="shell"><section class="page-section"><h2>The commercial arrangement</h2><p>Operators retain <strong>99% of the Travel Fare</strong>. The separate Platform Fee starts at $2.50 per Travel and is included in the Traveler’s agreed Total. It is not deducted from the Operator’s fare share.</p><p>Actual earnings depend on eligible completed Travels. Vehicle, insurance, taxes and other business expenses remain the Operator’s responsibility.</p></section>',
     '<section class="page-section"><h2>Professional eligibility</h2><p>Operating requires current driving credentials, a qualifying vehicle, appropriate commercial coverage, screening, and the requirements that apply to the service area. Eligibility is reviewed throughout the relationship.</p></section>',
     '<section class="page-section"><h2>Payment and participation</h2><p>Eligible amounts are processed through a connected Stripe account, subject to applicable terms. Enrollment requires an open service market and completed individual qualification.</p></section></div>'
@@ -49,28 +49,29 @@ function applyEditorialDesign(pages) {
 
   pages.company.title = "The Company | American Rider";
   pages.company.body = [
-    '<section class="page-hero shell"><p class="section-label">THE COMPANY</p><h1>American Rider.</h1><p>An American transportation company connecting Travelers and qualified independent Operators, with national scope and responsibility to each service area.</p></section>',
-    '<div class="shell"><section class="page-section"><h2>Our purpose</h2><p>To connect Travelers and independent Operators through clear terms, reliable information and accessible assistance.</p></section>',
+    '<section class="page-hero shell"><p class="section-label">THE COMPANY</p><h1>American Rider.</h1><p>An independent transportation company with a national outlook and a practical regard for each journey.</p></section>',
+    '<div class="shell"><section class="page-section"><h2>Our purpose</h2><p>To connect Travelers and qualified independent Operators through a service in which arrangements are understandable, responsibilities are defined, and assistance is accessible when needed.</p></section>',
     '<section class="page-section"><h2>The way we operate</h2><p>The company coordinates access, technology and payments. Transportation is performed by independent Operators, not a company-owned chauffeur fleet. Each Operator must meet the requirements that apply to that person, vehicle and service area.</p></section>',
-    '<section class="page-section"><h2>Our future</h2><p>American Rider is structured for national reach. Service is offered only where qualified Operators and the applicable operating requirements permit it.</p></section></div>'
+    '<section class="page-section"><h2>Our future</h2><p>American Rider intends to extend service across the United States as qualified Operators and applicable requirements permit. A national outlook does not imply service in every location.</p></section>',
+    '<section class="page-section" aria-labelledby="research-approach"><h2 id="research-approach">Research informing our approach</h2><div class="inset"><p>Our attention to professional compensation and standards of service is informed by published research on the relationship between investment in service professionals, continuity and customer experience. The research guides our operating principles; it does not establish particular outcomes for American Rider.</p><p><a class="text-link" href="https://hbr.org/1994/03/putting-the-service-profit-chain-to-work-2">Heskett and colleagues · Service–profit chain (1994) ↗</a></p><p><a class="text-link" href="https://journals.aom.org/doi/10.5465/3069383">Batt · Service practices and organizational performance (2002) ↗</a></p><p><a class="text-link" href="https://pubsonline.informs.org/doi/10.1287/orsc.2019.1347">Ton · Compensation and service systems (2020) ↗</a></p></div></section></div>'
   ].join("");
 
   pages.safety.title = "Operating Standards | American Rider";
   pages.safety.body = [
-    '<section class="page-hero shell"><p class="section-label">OUR STANDARDS</p><h1>Responsibility in practice.</h1><p>Professional transportation begins with defined requirements for each Operator, vehicle and service location.</p></section>',
-    '<div class="shell"><section class="page-section"><h2>Operator and vehicle qualifications</h2><p>Operators must maintain appropriate driving credentials, qualifying commercial insurance and required vehicle documentation. Eligibility is reviewed against the rules applicable to each service area.</p></section>',
-    '<section class="page-section"><h2>Screening</h2><p>Screening and driving-history requirements are assessed according to the standards of the service location.</p></section>',
-    '<section class="page-section"><h2>Assistance and privacy</h2><p>For routine concerns, contact American Rider Support. In an emergency, contact local emergency services first. Submit sensitive records only through the designated secure process, not by ordinary email.</p><p><a class="text-link" href="/support/">Support and company contacts ↗</a></p></section></div>'
+    '<section class="page-hero shell"><p class="section-label">OUR STANDARDS</p><h1>Responsibility in practice.</h1><p>Transportation depends on the continuing eligibility of the people and vehicles providing it.</p></section>',
+    '<div class="shell"><section class="page-section"><h2>Operator and vehicle qualifications</h2><p>Independent Operators must maintain suitable credentials, qualifying commercial insurance and vehicle documentation under the rules of the applicable market. Expired or insufficient evidence cannot establish eligibility for new service.</p></section>',
+    '<section class="page-section"><h2>Screening</h2><p>Screening and driving-history requirements are applied in accordance with the service area and applicable requirements.</p></section>',
+    '<section class="page-section"><h2>Assistance and privacy</h2><p>Travel-related concerns may be reported through support channels. If anyone is in immediate danger, contact local emergency services. Sensitive records must be submitted through the authenticated process, not ordinary email.</p><p><a class="text-link" href="/support/">Support and company contacts ↗</a></p></section></div>'
   ].join("");
 
   pages.recruitment.title = "Recruitment | American Rider";
   pages.recruitment.body = [
-    '<section class="page-hero shell"><p class="section-label">PROFESSIONAL RELATIONSHIPS</p><h1>Independent recruitment.</h1><p>American Rider considers inquiries from prospective independent Recruiters. An authorized relationship follows an individual invitation, approved terms and verified enrollment.</p></section>',
-    '<div class="shell"><section class="page-section"><h2>A separate professional undertaking</h2><p>Recruitment is a separate professional activity. Travelers and Operators may use American Rider without joining a recruitment program. Only approved Recruiters may act on the company’s behalf.</p></section>',
-    '<section class="page-section"><h2>Current program status</h2><p>Under the approved program, eligible independent Recruiters may earn $0.15 for each qualifying paid and settled Travel attributed to an introduced Operator or Traveler role, subject to the individual agreement and program limits. Personal invitation links and Stripe enrollment are provided only after approval. An inquiry or introduction alone does not earn a commission.</p></section>',
-    '<section class="page-section"><h2>Correspondence</h2><p>For consideration, provide a brief professional introduction and the areas you wish to serve. Correspondence does not establish authorization, employment or entitlement to compensation.</p>',
+    '<section class="page-hero shell"><p class="section-label">PROFESSIONAL RELATIONSHIPS</p><h1>Independent recruitment.</h1><p>American Rider is accepting inquiries from prospective independent Recruiters now. Formal compensated enrollment follows an approved agreement and verified onboarding.</p></section>',
+    '<div class="shell"><section class="page-section"><h2>A separate professional undertaking</h2><p>Independent recruitment is distinct from Travel and Operating. It does not change the Invite a Traveler feature or confer authority to represent American Rider without company approval.</p></section>',
+    '<section class="page-section"><h2>Current program status</h2><p>Prospective Recruiters may express interest immediately. Under the approved program, a verified Recruiter may earn $0.15 per qualifying paid and settled Travel attributed to an introduced Operator or Traveler role, subject to individual agreement and program limits. Personal links, QR codes and payout eligibility follow approved enrollment. An inquiry alone does not establish compensation.</p></section>',
+    '<section class="page-section"><h2>Correspondence</h2><p>We are receiving recruitment inquiries now. Briefly introduce yourself, your professional background and preferred service areas. Contact does not create an authorized Recruiter account, employment relationship or compensation agreement.</p>',
     '<p><a class="action primary" href="mailto:relations@americanrider.tech?subject=Independent%20recruiter%20inquiry">Contact Recruitment Relations ↗</a></p>',
-    '<p class="muted">relations@americanrider.tech · Submit identity, tax and banking information only through the designated secure process.</p></section></div>'
+    '<p class="muted">relations@americanrider.tech · Do not send identity documents, financial details, or tax records by email.</p></section></div>'
   ].join("");
 
   return [
