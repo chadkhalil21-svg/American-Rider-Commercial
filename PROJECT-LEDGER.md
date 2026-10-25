@@ -1,3 +1,13 @@
+## 25 October 2026 | FOUNDER GOOGLE SIGN-IN RECONCILED WITH CURRENT COMMERCIAL RELEASE
+
+**FOUNDER-REQUESTED FOLLOW-UP:** Restore unfinished private read-only Google sign-in for `https://americanrider.tech/founder/` from draft PR #329 on latest `release/current`; preserve newer website, native sign-in and separately running TestFlight source. Founder reported repeatedly failing Operations password/TOTP login; do not disable sensitive MFA or guess credentials.
+
+**AUTHENTICATION:** Static unlisted page includes no private operating statistics. Read-only `POST /founder/overview/read` requires independently verified Firebase Google identity token (revocation-aware), verified email, recent sign-in and exact Founder UID allowlist `AR_FOUNDER_FIREBASE_UIDS`. No email-based implicit ownership, public database export, financial controls, customer identities, market activation or Operator document exposure. Protected named-MFA `/ops` remains unchanged. Display unavailable where data is unavailable, never synthetic zeroes.
+
+**DEPLOYMENT BOUNDARY:** Source merge is not authenticated production Cloud Run activation. The public website can auto-deploy on Render, but the read-only API must deploy via protected existing `cloud-run-update-paid-source.yml`. Its optional `founder_firebase_uid` input requires authentic verification of the Founder Google account before binding; never provision from a claimed email/name. Real iPhone/iPad Google sign-in, verified ten read-only counts and rejection of unrelated accounts must pass before claiming working dashboard. This private webpage does not itself connect Founder Commands to ChatGPT and cannot make protected market/payment commands.
+
+---
+
 ## 25 October 2026 | STORE DOWNLOAD FALLBACK, WEBSITE REVIEW BRANCH
 
 **FOUNDER DIRECTION:** American Rider should offer an App Store and Google Play download path from the company website and preserved referral-code invitation page. The signed iOS Build 54 was successfully uploaded to Apple App Store Connect using the older repository's existing Expo and Apple credentials with an isolated Mac runner (successful GitHub run [40218403224](https://github.com/chadkhalil21-svg/American-Rider/actions/runs/40218403224)). This does not establish public App Store publication or install availability. Build 54 intentionally omitted the `Associated Domains` entitlement from its temporary signed build checkout because the September 23 distribution provisioning profile did not contain it; the Commercial source still declares `applinks:americanrider.tech`.
