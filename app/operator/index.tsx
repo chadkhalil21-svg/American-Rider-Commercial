@@ -149,6 +149,8 @@ export default function OperatorHome() {
   }, [clearTimers, cbar]);
 
   const openRequest = useCallback((r: SimRequest) => {
+    // Reopening an offer must never leave an older countdown running.
+    clearTimers();
     setRequest(r);
     setCountdown(RESPOND_SECONDS);
     cbar.setValue(1);
@@ -161,7 +163,7 @@ export default function OperatorHome() {
     tickTimer.current = setInterval(() => {
       setCountdown((c) => c - 1);
     }, 1000);
-  }, [cbar]);
+  }, [cbar, clearTimers]);
 
   // Only an intentional tap declines the offer with the server. A timed-out offer
   // remains eligible for re-offering; a tap must never be treated as a silent timeout.
@@ -242,7 +244,18 @@ export default function OperatorHome() {
     if (op.online && !request && op.incoming && op.incoming.rideId !== op.op?.rideId) openRequest(op.incoming);
   }, [op.online, op.op, op.incoming, request, openRequest]);
 
-  useFocusEffect(clearTimers);
+  // A focused offer needs a running countdown. Navigation away pauses it;
+  // returning re-arms the visual and numeric timer, without declining a Travel.
+  useFocusEffect(useCallback(() => {
+    if (requestRef.current && AppState.currentState === 'active' &&
+        !acceptingRef.current && !decliningRef.current) {
+      openRequest(requestRef.current);
+    }
+    return () => {
+      clearTimers();
+      cbar.stopAnimation();
+    };
+  }, [openRequest, clearTimers, cbar]));
 
   // Never invent an offer price from the local tariff. Both values must come from the
   // server-priced Travel record, with the exact toll reimbursement included.
