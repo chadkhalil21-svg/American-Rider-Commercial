@@ -1,3 +1,22 @@
+## 25 October 2026 | STORE DOWNLOAD FALLBACK, WEBSITE REVIEW BRANCH
+
+**FOUNDER DIRECTION:** American Rider should offer an App Store and Google Play download path from the company website and preserved referral-code invitation page. The signed iOS Build 54 was successfully uploaded to Apple App Store Connect using the older repository's existing Expo and Apple credentials with an isolated Mac runner (successful GitHub run [40218403224](https://github.com/chadkhalil21-svg/American-Rider/actions/runs/40218403224)). This does not establish public App Store publication or install availability. Build 54 intentionally omitted the `Associated Domains` entitlement from its temporary signed build checkout because the September 23 distribution provisioning profile did not contain it; the Commercial source still declares `applinks:americanrider.tech`.
+
+**WEBSITE CHANGE PREPARED, NOT DEPLOYED:** Add a restrained Get the App page, footer entry, and official-store choices directly on `/join/`, preserving the displayed referral code and first-party narrative. Store URLs are based on the known Apple App Store Connect app ID `6798078543` and Android package `com.americanrider.app`, but neither is advertised as a working public download until independent store-listing confirmation. The website build requires independent per-platform `AR_IOS_STORE_LISTING_PUBLIC_VERIFIED=1` or `AR_ANDROID_STORE_LISTING_PUBLIC_VERIFIED=1`; absent approval, each shows a non-clickable Coming soon state. Confirm each listing and redeploy the website before activating its respective URL. This adds **no** Firestore reads/writes, backend/payment changes, new vendor, paid Recruiter activation or native mobile changes.
+
+**RESTORING UNIVERSAL LINKS FOR PUBLIC iOS RELEASE:** In Apple's Certificates, Identifiers & Profiles, enable Associated Domains on the explicit `com.americanrider.app` App ID, regenerate the App Store distribution provisioning profile, update EAS signing credentials, retain the Commercial `ios.associatedDomains` setting and verified HTTPS `/.well-known/apple-app-site-association` on `americanrider.tech`, and create a **new signed iOS binary**. Test installed-link opening, absent-app website fallback and referral code attribution on a physical iPhone. A website redeploy alone cannot add an entitlement to an existing signed binary. The currently signed Build 54 remains usable for separate beta tests; the final public binary must be re-certified and approved by Apple.
+
+**Current-status update (this proposal):**
+
+| Surface | Current evidence | Release boundary |
+| --- | --- | --- |
+| Corporate store/download fallback | Source review branch; site test and CI pending | Not merged, Render deployment unverified; both store download buttons disabled by default |
+| Apple TestFlight Build 54 | Signed IPA and App Store Connect upload accepted, run 40218403224 | Apple processing/tester installation not independently verified; no public approval |
+| iOS Universal Links | Commercial source config and website association exist; signed Build 54 omitted entitlement | Enable capability + regenerated profile, then another signed binary and physical-device verification |
+| Google Play | Package ID known, public store listing not verified | No active Google Play download link until independently published |
+
+---
+
 ## 25 October 2026 | FOUNDER-APPROVED HAMBURGER MENU TITLE CASE; AMERICAN RIDER MESSAGES SCOPE
 
 **Design direction:** Founder approved conventional **English Title Case across every Traveler/Operator hamburger menu row**, while retaining lower-case minor joining words (e.g., "Invite a Traveler", "Switch to Operator View") and proper brand/acronym casing. Examples previously inconsistent: "American Rider messages" → **"American Rider Messages"**, "Scheduled travel" → **"Scheduled Travel"**, "Operator qualification status" → **"Operator Qualification Status"**, "Travel in progress" → **"Travel in Progress"**. Apply as **menu-only presentation** via the centralized `menuTitleCase` helper and protect other languages' grammatical casing. Don't rewrite long-form explanations, account/operation mechanics, translate English casing blindly into Spanish/French/Italian/German, introduce new buttons, or restructure the approved restrained drawers. Native UI change requires a **future signed store binary**; source merge alone does not update already installed Build 53.

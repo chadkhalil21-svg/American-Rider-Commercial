@@ -24,6 +24,42 @@ pages.join.body = [
   '<script>(function(){const q=new URLSearchParams(location.search);const code=String(q.get("r")||"").trim().toUpperCase();const role=q.get("role");history.replaceState(null,"",location.pathname);const ok=/^[A-Z0-9]{8,32}$/.test(code)&&["operator","traveler"].includes(role);const output=document.getElementById("join-referral-code");const message=document.getElementById("join-message");const copy=document.getElementById("join-copy");if(!ok){message.textContent="This invitation is incomplete. Please request a new link or code.";return;}document.getElementById("join-role").textContent=role==="operator"?"Invited to explore Operating? Keep this code for the optional referral step during qualification.":"Invited to Travel? Keep this code for optional entry when creating your American Rider account.";output.textContent=code;copy.hidden=false;message.textContent="Keep this code until American Rider confirms the introduction.";copy.addEventListener("click",async()=>{try{await navigator.clipboard.writeText(code);message.textContent="Code copied. Save it before installing the app."}catch{message.textContent="Select the code above to copy it."}})})();</script>'
 ].join("");
 
+// Verified public listings only. Known identifiers are not proof of a public
+// download: never send a visitor to a nonexistent store listing.
+const officialStoreUrls=Object.freeze({
+  ios:'https://apps.apple.com/app/id6798078543',
+  android:'https://play.google.com/store/apps/details?id=com.americanrider.app',
+});
+function storeDownloadChoices({ios=false,android=false}={}){
+  const store=(label,url,published)=>published
+    ? '<a class="action secondary" href="'+url+'" rel="noopener noreferrer" target="_blank">'+label+' ↗</a>'
+    : '<span class="action secondary" role="note" aria-disabled="true">'+label+' · Coming soon</span>';
+  return '<div class="actions" aria-label="Official app stores">'
+    +store('App Store',officialStoreUrls.ios,ios)
+    +store('Google Play',officialStoreUrls.android,android)
+    +'</div>'
+    +(!ios||!android?'<p class="muted">Download links become available here when each store publishes American Rider.</p>':'');
+}
+const publishedStores={
+  ios:process.env.AR_IOS_STORE_LISTING_PUBLIC_VERIFIED==='1',
+  android:process.env.AR_ANDROID_STORE_LISTING_PUBLIC_VERIFIED==='1',
+};
+// Site-builder deployment may mark each listing verified ONLY after independently
+// checking its public store page. No TestFlight/AAB presence counts as publication.
+pages.download={
+  title:'Get the App | American Rider',
+  body:'<section class="page-hero shell"><p class="section-label">AMERICAN RIDER MOBILE</p><h1>Get the app.</h1><p>American Rider is designed for Travelers and qualified independent Operators. Choose your device’s official store when available.</p></section>'
+    +'<section class="shell page-section"><h2>Official app stores</h2>'
+    +storeDownloadChoices(publishedStores)
+    +'<p>Service availability depends on location and Operator eligibility. This website does not accept bookings or payment.</p></section>',
+};
+pages.join.body=pages.join.body.replace(
+  '<h2>After installing the app</h2>',
+  '<h2>Install American Rider</h2><p>Copy your invitation code before leaving this page.</p>'
+    +storeDownloadChoices(publishedStores)
+    +'<h2>After installing the app</h2>'
+);
+
 // One private Recruiter sign-in entry; no duplicate panel.
 
 function escapeHtml(s){return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;")}
@@ -32,7 +68,7 @@ function render(title,body,route){
 const navItems=[["/travel/","Travel"],["/operate/","Operate"],["/company/","Company"],["/safety/","Standards"],["/recruitment/","Recruitment"],["/support/","Support"]];
 const item=(u,t)=>`<a href="${u}"${route===u.slice(1,-1)?' aria-current="page"':''}>${t}</a>`;
 const nav=navItems.map(v=>item(...v)).join("");
-const footerLinks=[["/travel/","Travelers"],["/operate/","Operators"],["/recruitment/","Recruitment"],["/safety/","Safety"],["/company/","Company"],["/support/","Support"]];
+const footerLinks=[["/travel/","Travelers"],["/download/","Get the App"],["/operate/","Operators"],["/recruitment/","Recruitment"],["/safety/","Safety"],["/company/","Company"],["/support/","Support"]];
 const location=route?route+"/":"";
 const canonical="https://americanrider.tech/"+location;
 const language=["es","fr","it","de"].includes(route.split("/")[1]) ? route.split("/")[1] : "en";
@@ -85,10 +121,10 @@ if(process.env.AR_APPLE_TEAM_ID && process.env.AR_APPLE_TEAM_ID!==APPLE_TEAM_VER
 require('./build-app-links-associations.cjs').writeAssociations(root,{
   ...process.env,AR_APPLE_TEAM_ID:APPLE_TEAM_VERIFIED,
 }); 
-fs.writeFileSync(path.join(root,"sitemap.xml"),'<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'+["","travel","operate","safety","company","support","recruitment","smart-travel","terms","privacy","account-deletion"].map(s=>"<url><loc>https://americanrider.tech/"+(s?s+"/":"")+"</loc></url>").join("")+"</urlset>\n","utf8");
+fs.writeFileSync(path.join(root,"sitemap.xml"),'<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'+["","travel","operate","safety","company","support","recruitment","download","smart-travel","terms","privacy","account-deletion"].map(s=>"<url><loc>https://americanrider.tech/"+(s?s+"/":"")+"</loc></url>").join("")+"</urlset>\n","utf8");
 console.log("Corporate site built:",root);
 }
 
 if (require.main === module) build();
 
-module.exports = { build, pages, render };
+module.exports = { build, pages, render, storeDownloadChoices };

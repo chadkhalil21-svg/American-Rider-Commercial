@@ -6,16 +6,34 @@ const { build } = require('../scripts/build-corporate-website.cjs');
 
 build();
 const root = path.join(__dirname, '..', 'dist-corporate');
-const paths = ['', 'travel', 'operate', 'safety', 'company', 'about', 'support', 'recruitment', 'recruiters/portal', 'recruitment/accept', 'smart-travel', 'join', 'terms', 'privacy', 'account-deletion', 'terms/es', 'privacy/fr'];
+const paths = ['', 'travel', 'operate', 'safety', 'company', 'about', 'support', 'recruitment', 'recruiters/portal', 'recruitment/accept', 'smart-travel', 'join', 'download', 'terms', 'privacy', 'account-deletion', 'terms/es', 'privacy/fr'];
 for (const route of paths) {
   const p = path.join(root, route, 'index.html');
   assert.ok(fs.existsSync(p), 'Missing public route: ' + route);
   const html = fs.readFileSync(p, 'utf8');
   assert.match(html, /<main id="main">/);
   assert.match(html, /<title>/);
-  assert.ok(!html.includes('americanrider.app'), 'Old domain leaked into ' + route);
+  assert.ok(!html.includes('https://americanrider.app'), 'Old website domain leaked into ' + route);
   assert.ok(!html.includes('onrender.com'), 'Render link leaked into ' + route);
 }
+// The official-store page is reachable, but unapproved listings cannot be
+// advertised as working downloads. Independent publication unlocks each link.
+const download=fs.readFileSync(path.join(root,'download','index.html'),'utf8');
+const invited=fs.readFileSync(path.join(root,'join','index.html'),'utf8');
+for(const html of [download,invited]){
+  assert.match(html,/Official app stores/);
+  assert.match(html,/App Store · Coming soon/);
+  assert.match(html,/Google Play · Coming soon/);
+  assert.doesNotMatch(html,/href="https:\/\/apps\.apple\.com/);
+  assert.doesNotMatch(html,/href="https:\/\/play\.google\.com/);
+}
+assert.match(invited,/Copy your invitation code before leaving this page/);
+const {storeDownloadChoices}=require('../scripts/build-corporate-website.cjs');
+assert.match(storeDownloadChoices({ios:true}),/href="https:\/\/apps\.apple\.com\/app\/id6798078543"/);
+assert.doesNotMatch(storeDownloadChoices({ios:true}),/href="https:\/\/play\.google\.com/);
+assert.match(storeDownloadChoices({android:true}),/href="https:\/\/play\.google\.com\/store\/apps\/details\?id=com\.americanrider\.app"/);
+assert.doesNotMatch(storeDownloadChoices({android:true}),/href="https:\/\/apps\.apple\.com/);
+
 const home = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
 assert.match(home, /American<br>Rider/);
 assert.doesNotMatch(home, /99%|Traveler Total|One confirmed Total/);
