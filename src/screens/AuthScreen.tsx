@@ -107,7 +107,7 @@ function SsoButton({
       onPress={onPress}
       accessibilityRole="button"
       accessibilityLabel={label}
-      style={({ pressed }) => [s.btn, primary ? s.btnInk : s.btnSso, pressed && { opacity: 0.86 }]}
+      style={({ pressed }) => [s.btn, s.ssoButton, primary ? s.btnInk : s.btnSso, pressed && { opacity: 0.86 }]}
     >
       <View style={s.ssoInner}>
         {glyph === 'apple' ? (
@@ -436,7 +436,7 @@ export function AuthScreen() {
                 <AppleAuthentication.AppleAuthenticationButton
                   buttonType={AppleAuthentication.AppleAuthenticationButtonType.CONTINUE}
                   buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.BLACK}
-                  cornerRadius={13}
+                  cornerRadius={12}
                   style={s.appleButton}
                   onPress={onApple}
                 />
@@ -742,7 +742,9 @@ const s = StyleSheet.create({
     fontWeight: '600',
   },
   tagline: { textAlign: 'center', fontSize: 14.5, color: colors.ink2, letterSpacing: 0.1, marginTop: 20, lineHeight: 20 },
-  appleButton: { width: '100%', height: 52 },
+  // Both providers use the same 48pt footprint. Keep Apple's approved native button.
+  appleButton: { width: '100%', height: 48 },
+  ssoButton: { width: '100%', height: 48, paddingVertical: 0, justifyContent: 'center' },
   btn: { borderRadius: 12, paddingVertical: 14, alignItems: 'center' },
   btnRow: { flexDirection: 'row', justifyContent: 'center', gap: 10 },
   btnInk: { backgroundColor: colors.ink },
