@@ -46,7 +46,7 @@ assert.equal((recruiter.match(/href="\/recruiters\/portal\/"/g)||[]).length,1,'R
 assert.doesNotMatch(recruiter,/Invited representatives|No commission rate, payment date/i);
 assert.match(recruiter,/recruiter-access-detail/);
 assert.match(recruiter,/eligible independent Recruiters may earn \$0\.15 for each qualifying paid and settled Travel/);
-assert.doesNotMatch(recruiter, /Friday payout|earn \$\d+/i);
+assert.doesNotMatch(recruiter, /Friday payout|guaranteed earnings|immediate payouts/i);
 const terms = fs.readFileSync(path.join(root, 'terms', 'index.html'), 'utf8');
 assert.match(terms, /Terms of Service/);
 const privacy = fs.readFileSync(path.join(root, 'privacy', 'index.html'), 'utf8');
