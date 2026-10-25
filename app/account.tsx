@@ -7,6 +7,7 @@ import React from 'react';
 import { Linking, Pressable, StyleSheet, View } from 'react-native';
 import { Text } from '../src/components/AppText';
 import { LEGAL_URL } from '../src/config';
+import { menuTitleCase } from '../src/menuTitleCase';
 import { useGoBack } from '../src/components/nav';
 import {
   Card,
@@ -32,6 +33,7 @@ function Group({
   items: { title: string; onPress: () => void }[];
   first?: boolean; // the demo's first group label sits at 26, the rest at 24
 }) {
+  const { language } = useLanguage();
   return (
     <>
       <SectionLabel style={[styles.lbl, first && { marginTop: 26 }]}>{label}</SectionLabel>
@@ -39,7 +41,7 @@ function Group({
         {items.map((item, i) => (
           <Pressable key={item.title} onPress={item.onPress}>
             <View style={[styles.row, i > 0 && styles.hair]}>
-              <Text style={styles.rowTitle}>{item.title}</Text>
+              <Text style={styles.rowTitle}>{menuTitleCase(item.title, language)}</Text>
               <Chev />
             </View>
           </Pressable>
