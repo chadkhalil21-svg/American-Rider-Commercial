@@ -11,6 +11,10 @@ on:
         description: 'Your existing named Operations username; required ONLY when activating paid Recruiters'
         required: false
         type: string
+      founder_firebase_uid:
+        description: 'Optional exact Firebase UID verified from Founder Google sign-in; READ-ONLY overview'
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -29,6 +33,7 @@ jobs:
     env:
       FOUNDER_CONFIRM: ${{ inputs.confirmation }}
       RECRUITER_FOUNDER_USERNAME: ${{ inputs.founder_user }}
+      FOUNDER_FIREBASE_UID: ${{ inputs.founder_firebase_uid }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

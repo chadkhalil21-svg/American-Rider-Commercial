@@ -97,6 +97,10 @@ out("about",render(pages.company.title,pages.company.body,"company"));
 const recruiterPortal=require("./corporate-recruiter-portal.cjs").portalHtml();
 out("recruiters/portal",render("Private recruiter account | American Rider",recruiterPortal,"recruiters/portal")
   .replace("<head>","<head><meta name=\"robots\" content=\"noindex,nofollow\"><meta name=\"referrer\" content=\"no-referrer\">"));
+// Unlisted, noindexed Founder page; all actual company figures remain protected behind Firebase.
+const founderOverview=require("./corporate-founder-overview.cjs").founderHtml();
+out("founder",render("Founder overview | American Rider",founderOverview,"founder")
+  .replace("<head>","<head><meta name=\"robots\" content=\"noindex,nofollow\"><meta name=\"referrer\" content=\"no-referrer\">"));
 const recruiterAcceptance=require("./corporate-recruiter-accept.cjs").invitationHtml();
 out("recruitment/accept",render("Private recruitment invitation | American Rider",recruiterAcceptance,"recruitment/accept")
   .replace("<head>","<head><meta name=\"robots\" content=\"noindex,nofollow\"><meta name=\"referrer\" content=\"no-referrer\">"));
