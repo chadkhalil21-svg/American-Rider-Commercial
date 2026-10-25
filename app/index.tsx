@@ -14,6 +14,7 @@ import { travelDateShort } from '../src/dates';
 import { receiptFromRide } from '../src/receipt';
 import { resolveCurrentDeparture } from '../src/location';
 import { LEGAL_URL } from '../src/config';
+import { menuTitleCase } from '../src/menuTitleCase';
 import { fetchQuote, isUnavailable } from '../src/backend/fares';
 import { useNative } from '../src/components/anim';
 import {
@@ -842,13 +843,13 @@ export default function Home() {
       <Drawer open={menuOpen} onClose={() => setMenuOpen(false)}>
         <Pressable onPress={() => go('/profile')} style={styles.drawerHead} accessibilityRole="button">
           <Text style={styles.drawerName} numberOfLines={1}>{headName}</Text>
-          <Text style={styles.drawerProfileLink}>{t('traveler.accountDetails')} ›</Text>
+          <Text style={styles.drawerProfileLink}>{menuTitleCase(t('traveler.accountDetails'), language)} ›</Text>
         </Pressable>
         {MENU_GROUPS.map((group) => (
           <View key={group.label}>
             <SectionLabel style={styles.drawerLabel}>{group.label}</SectionLabel>
             {group.rows.map((item) => (
-              <DrawerRow key={item.label} label={item.label} onPress={item.onPress} />
+              <DrawerRow key={item.label} label={menuTitleCase(item.label, language)} onPress={item.onPress} />
             ))}
           </View>
         ))}
@@ -856,7 +857,7 @@ export default function Home() {
             navigation rows. Its own top hairline provides enough separation without turning
             a reversible session action into a special or destructive control. */}
         <DrawerRow
-          label={t('traveler.signOut')}
+          label={menuTitleCase(t('traveler.signOut'), language)}
           color={colors.ink2}
           chev={false}
           onPress={() => {
