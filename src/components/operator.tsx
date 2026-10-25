@@ -10,6 +10,7 @@ import { Text } from './AppText';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
 import { LEGAL_URL } from '../config';
+import { menuTitleCase } from '../menuTitleCase';
 import { useOperator } from '../state/OperatorContext';
 import { useLanguage } from '../state/LanguageContext';
 import { colors, mono, radii } from '../theme';
@@ -164,7 +165,7 @@ export function OperatorDrawer({
   onClose: () => void;
   onNote: (t: string) => void;
 }) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const router = useRouter();
   const op = useOperator();
   const go = (fn: () => void) => {
@@ -224,11 +225,11 @@ export function OperatorDrawer({
               same score for every operator in the fleet — including one who had never driven.
               Same defect as the borrowed rating removed from the traveler's ride screen and
               receipt. Restore it when operators have real ratings. */}
-          <Text style={styles.drawerProfileLink}>{t('traveler.viewProfile')} ›</Text>
+          <Text style={styles.drawerProfileLink}>{menuTitleCase(t('traveler.viewProfile'), language)} ›</Text>
         </View>
       </Pressable>
       {ROWS.map((item) => (
-        <DrawerRow key={item.label} label={item.label} onPress={item.onPress} />
+        <DrawerRow key={item.label} label={menuTitleCase(item.label, language)} onPress={item.onPress} />
       ))}
       <View style={{ flex: 1 }} />
     </Drawer>
