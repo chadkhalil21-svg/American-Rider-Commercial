@@ -1,0 +1,42 @@
+name: Read-only live American Rider website user journey
+on:
+  push:
+    branches: [audit/live-website-user-journey-20261024]
+    paths:
+      - '.github/workflows/live-website-user-audit-20261024.yml'
+      - 'scripts/audit-corporate-live-site.cjs'
+permissions:
+  contents: read
+jobs:
+  live-http:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify all public pages, static resources and internal links against actual website
+        run: node scripts/audit-corporate-live-site.cjs http
+  browser-journeys:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install disposable headless browser without touching application dependencies
+        run: |
+          mkdir -p /tmp/ar-playwright
+          npm install --prefix /tmp/ar-playwright --no-save --ignore-scripts playwright@1.58.2
+          /tmp/ar-playwright/node_modules/.bin/playwright install --with-deps chromium
+      - name: Test navigation, recruiter sign-in entry, referral-page controls and responsive layout
+        run: node scripts/audit-corporate-live-site.cjs browser
+      - name: Preserve phone, tablet and desktop screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: website-audit-screenshots
+          path: site-audit-images
+          if-no-files-found: ignore
