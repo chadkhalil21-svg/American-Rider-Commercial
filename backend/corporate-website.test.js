@@ -6,7 +6,7 @@ const { build } = require('../scripts/build-corporate-website.cjs');
 
 build();
 const root = path.join(__dirname, '..', 'dist-corporate');
-const paths = ['', 'travel', 'operate', 'safety', 'company', 'support', 'recruitment', 'recruiters/portal', 'recruitment/accept', 'smart-travel', 'join', 'terms', 'privacy', 'account-deletion', 'terms/es', 'privacy/fr'];
+const paths = ['', 'travel', 'operate', 'safety', 'company', 'about', 'support', 'recruitment', 'recruiters/portal', 'recruitment/accept', 'smart-travel', 'join', 'terms', 'privacy', 'account-deletion', 'terms/es', 'privacy/fr'];
 for (const route of paths) {
   const p = path.join(root, route, 'index.html');
   assert.ok(fs.existsSync(p), 'Missing public route: ' + route);
@@ -23,6 +23,10 @@ assert.match(home, /qualified independent Operators/i);
 assert.doesNotMatch(home, /Book now|Download on the App Store|nationwide bookings are available/i);
 const operators = fs.readFileSync(path.join(root, 'operate', 'index.html'), 'utf8');
 assert.match(operators, /\$2\.50/);
+// Legacy signed iOS Build 53 opens /about. Keep it identical to the real Company page.
+const company=fs.readFileSync(path.join(root,'company','index.html'),'utf8');
+const legacyAbout=fs.readFileSync(path.join(root,'about','index.html'),'utf8');
+assert.equal(legacyAbout,company,'Old signed About link must render exact current Company page');
 const portal=fs.readFileSync(path.join(root,'recruiters','portal','index.html'),'utf8');
 assert.match(portal,/noindex,nofollow/);
 const invitationSite=fs.readFileSync(path.join(root,'recruitment','accept','index.html'),'utf8');
