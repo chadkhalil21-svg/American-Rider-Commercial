@@ -10,8 +10,9 @@ const pages={"":{"title":"American Rider | National Transportation","body":"\n<s
 
 // Founder-directed redesign: established institutional standards, no slogan or deck-driven homepage.
 css += require("./corporate-heritage-design.cjs").applyEditorialDesign(pages);
+css += '\n.page-section .recruiter-access-detail{grid-column:2;min-width:0}\n.page-section .recruiter-access-detail p{margin:0 0 22px}\n.page-section .recruiter-access-detail .action{width:auto;max-width:100%;white-space:normal;text-align:center}\n';
 
-pages.recruitment.body += '<section class="shell page-section"><h2>Private recruiter access</h2><p>Authorized recruiters may sign in to review their own verified introduction records. This does not open public enrollment.</p><a href="/recruiters/portal/" class="action secondary">Recruiter sign-in ↗</a></section>';
+pages.recruitment.body += '<section class="shell page-section" aria-label="Invited Recruiter sign-in"><h2>Private recruiter access</h2><div class="recruiter-access-detail"><p>Approved Recruiters may sign in to review their introductions, eligible activity and payment status. Enrollment requires a personal invitation and verified identity.</p><a href="/recruiters/portal/" class="action secondary">Recruiter sign-in ↗</a></div></section>';
 pages.join.body = [
   '<section class="page-hero shell"><p class="section-label">PERSONAL INVITATION</p><h1>Your introduction to American Rider.</h1><p>A single invitation for the journey ahead. Use the link you received or keep the code below when installing the app.</p></section>',
   '<section class="shell page-section"><h2>Keep your invitation code</h2><p id="join-role">The code identifies who introduced you. It does not verify eligibility or award compensation.</p>',
@@ -23,8 +24,7 @@ pages.join.body = [
   '<script>(function(){const q=new URLSearchParams(location.search);const code=String(q.get("r")||"").trim().toUpperCase();const role=q.get("role");history.replaceState(null,"",location.pathname);const ok=/^[A-Z0-9]{8,32}$/.test(code)&&["operator","traveler"].includes(role);const output=document.getElementById("join-referral-code");const message=document.getElementById("join-message");const copy=document.getElementById("join-copy");if(!ok){message.textContent="This invitation is incomplete. Please request a new link or code.";return;}document.getElementById("join-role").textContent=role==="operator"?"Invited to explore Operating? Keep this code for the optional referral step during qualification.":"Invited to Travel? Keep this code for optional entry when creating your American Rider account.";output.textContent=code;copy.hidden=false;message.textContent="Keep this code until American Rider confirms the introduction.";copy.addEventListener("click",async()=>{try{await navigator.clipboard.writeText(code);message.textContent="Code copied. Save it before installing the app."}catch{message.textContent="Select the code above to copy it."}})})();</script>'
 ].join("");
 
-// Recruitment is a professional, private account, separate from the public inquiry page.
-pages.recruitment.body += '<div class="shell"><section class="page-section"><h2>Invited representatives</h2><p>Existing invited recruiters may access their private account with a verified sign-in.</p><p><a class="text-link" href="/recruiters/portal/">Private recruitment account ↗</a></p></section></div>';
+// Single private Recruiter sign-in action. Do not duplicate its CTA.
 
 function escapeHtml(s){return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;")}
 
