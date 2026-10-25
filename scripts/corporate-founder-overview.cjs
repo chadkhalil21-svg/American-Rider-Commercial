@@ -13,6 +13,7 @@ const markup=String.raw`<section class="page-hero shell" style="padding-bottom:4
     <p>Sign in with your authorized Google account. No Operations password or authenticator code is required for this read-only overview.</p>
     <button type="button" class="action primary" id="founder-google">Continue with Google</button>
     <p role="status" aria-live="polite" id="founder-message">Access requires an approved Founder account.</p>
+    <p id="founder-identity" hidden style="font-size:13px;overflow-wrap:anywhere">Account reference: <code id="founder-account-id"></code> <button id="founder-copy" type="button" class="action secondary" style="margin:10px 0">Copy reference</button></p>
   </section>
   <section id="founder-workspace" hidden aria-label="Company operating figures">
     <div style="display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:18px;margin:18px 0">
@@ -40,7 +41,9 @@ const fields=[
 ];
 let busy=false;
 function message(t){by('founder-message').textContent=t;}
-function showLogin(text){
+function showLogin(text,showReference=false){
+ by('founder-identity').hidden=!(showReference&&auth.currentUser);
+ if(showReference&&auth.currentUser)by('founder-account-id').textContent=auth.currentUser.uid;
  by('founder-signout').disabled=false;
  by('founder-workspace').hidden=true;
  by('sign-in-panel').hidden=false;
@@ -71,7 +74,7 @@ async function load(){
   const payload=await response.json().catch(()=>({}));
   if(!response.ok){
    if(response.status===403){
-     showLogin('This Google account is not registered for Founder access. Account reference: '+auth.currentUser.uid+'. Access requires one-time authorization.');
+     showLogin('This Google account has not been authorized for Founder access. Its account reference is shown below for one-time verification.',true);
    }else if(payload.code==='founder_account_not_configured'){
      showLogin('Founder sign-in is awaiting production authorization. Your Google account reference is '+auth.currentUser.uid+'. No operating data has been disclosed.');
    }else if(response.status===401){
@@ -94,6 +97,10 @@ by('founder-google').addEventListener('click',async()=>{
  }catch{
    message('Google sign-in was not completed. Please retry using the Google account authorized for American Rider.');
  }finally{by('founder-google').disabled=false;}
+});
+by('founder-copy').addEventListener('click',()=>{
+ const uid=by('founder-account-id').textContent;
+ if(uid&&navigator.clipboard?.writeText)navigator.clipboard.writeText(uid).catch(()=>{});
 });
 by('founder-refresh').addEventListener('click',load);
 by('founder-signout').addEventListener('click',async()=>{await signOut(auth);showLogin('Signed out.');});
