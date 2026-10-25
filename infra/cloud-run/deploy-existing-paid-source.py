@@ -144,7 +144,7 @@ def require_live_recruiter_links():
 def require_live_recruiter_web():
     """Verify real HTTPS landing and sign-in pages. Do not infer native association."""
     expected={
-        "/join/":("join-referral-code","join-copy","/join/"),
+        "/join/":("join-referral-code","join-copy","Keep your invitation code"),
         "/recruitment/accept/":("accept-panel","recruiters/accept","emailVerified"),
         "/recruiters/portal/":("recruiters/link","recruiters/me","emailVerified"),
     }
