@@ -118,5 +118,45 @@ class PaidSourceTest(unittest.TestCase):
         x["spec"]["template"]["spec"]["containers"][0]["env"][3]={"name":"STRIPE_SECRET_KEY","value":"sk_test_unsafe"}
         with self.assertRaisesRegex(m.Stop,"not fully"):m.assert_live(x,job())
 
+
+    def test_live_recruiter_web_landing_requires_all_three_real_routes(self):
+        required={
+            "/join/":"join-referral-code join-copy Keep your invitation code",
+            "/recruitment/accept/":"accept-panel recruiters/accept emailVerified",
+            "/recruiters/portal/":"recruiters/link recruiters/me emailVerified",
+        }
+        class Result:
+            status=200
+            def __init__(self,url,body):self.url,self.body=url,body
+            def geturl(self):return self.url
+            def read(self,n):return self.body.encode()
+            def __enter__(self):return self
+            def __exit__(self,*_):return False
+        def fetch(request,timeout=None):
+            route=request.full_url.replace("https://americanrider.tech","")
+            return Result(request.full_url,required[route])
+        with mock.patch.object(m.urllib.request,"urlopen",side_effect=fetch):
+            m.require_live_recruiter_web()
+        def broken(request,timeout=None):
+            route=request.full_url.replace("https://americanrider.tech","")
+            return Result(request.full_url,"not an actual referral page" if route=="/join/" else required[route])
+        with mock.patch.object(m.urllib.request,"urlopen",side_effect=broken):
+            with self.assertRaisesRegex(m.Stop,"/join/"):
+                m.require_live_recruiter_web()
+        def redirected(request,timeout=None):
+            route=request.full_url.replace("https://americanrider.tech","")
+            return Result("https://unrelated.example/",required[route])
+        with mock.patch.object(m.urllib.request,"urlopen",side_effect=redirected):
+            with self.assertRaisesRegex(m.Stop,"not verifiable"):
+                m.require_live_recruiter_web()
+
+    def test_native_links_are_not_falsely_claimed_when_web_fallback_is_used(self):
+        text=FILE.read_text()
+        self.assertIn("require_live_recruiter_web()",text)
+        self.assertIn("native_links_verified=True",text)
+        self.assertIn("native_links_verified=False",text)
+        self.assertIn('"AR_RECRUITER_WEB_REFERRAL_VERIFIED":"1"',text)
+        self.assertIn('"AR_APP_LINKS_VERIFIED":"1" if native_links_verified else "0"',text)
+
 if __name__=="__main__":
     unittest.main()

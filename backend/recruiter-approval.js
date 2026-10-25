@@ -16,7 +16,7 @@ async function approvedRecruiterLink({
   linkVerified=false,compensationEnabled=false,
 }={}){
   if(programEnabled!==true)return {ok:false,reason:'recruiter_program_off'};
-  if(linkVerified!==true)return {ok:false,reason:'app_links_not_verified'};
+  if(linkVerified!==true)return {ok:false,reason:'referral_landing_not_verified'};
   if(compensationEnabled!==true)return {ok:false,reason:'recruiter_finance_not_ready'};
   if(!db||!ownUid(uid)||!validRole(role)||!Number.isSafeInteger(now))
     return {ok:false,reason:'invalid_request'};

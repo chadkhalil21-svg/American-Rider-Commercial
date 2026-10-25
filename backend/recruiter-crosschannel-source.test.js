@@ -40,6 +40,11 @@ assert.match(accept,/id="create-account"/);
 assert.match(portal,/Save name/);
 assert.match(portal,/Your email address is confirmed/);
 assert.match(server, /https:\/\/americanrider\.tech/);
+assert.match(server, /AR_RECRUITER_WEB_REFERRAL_VERIFIED/);
+// Existing signed native invite sharing must still work without the new recruiter web flag.
+assert.match(server, /readKey\('AR_APP_LINKS_VERIFIED'\)!=='1'/);
+assert.match(read('infra/cloud-run/deploy-existing-paid-source.py'), /require_live_recruiter_web\(\)/);
+assert.match(read('infra/cloud-run/deploy-existing-paid-source.py'), /native_links_verified else "0"/);
 assert.match(email, /row\('Duration', minutes\)/);
 assert.match(email, /row\('Distance', miles\)/);
 assert.match(read('app/receipt.tsx'), /traveler\.shareReceipt/);

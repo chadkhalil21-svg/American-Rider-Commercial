@@ -32,13 +32,14 @@ assert.match(server,/requireOpsMutation,recruiterInviteLimit,requireRecruiterInv
 assert.match(server,/app\.post\('\/recruiters\/accept',requireRecruiterInviteLaunch,requireAuth/);
 assert.match(server,/requireFreshAuth,requireVerifiedEmail,recruiterLimit/);
 assert.match(server,/app\.get\('\/recruiters\/me',requireAuth,requireVerifiedEmail,recruiterLimit/);
-assert.match(server,/AR_APP_LINKS_VERIFIED/);
+assert.match(server,/AR_RECRUITER_WEB_REFERRAL_VERIFIED/);
+assert.match(read('infra/cloud-run/deploy-existing-paid-source.py'),/AR_APP_LINKS_VERIFIED/);
 assert.doesNotMatch(server,/AR_RECRUITER_LEGAL_SIGNOFF/);
 assert.match(server,/AR_RECRUITER_PROGRAM_ENABLED/);
 assert.match(server,/AR_REFERRALS_ENABLED/);
 assert.match(server,/recruiterPortal\.recruiterSummary\(\{/);
 assert.match(server,/uid:String\(req\.uid\),verifiedEmail:req\.email/);
-assert.match(server,/programEnabled,linkVerified:readKey\('AR_APP_LINKS_VERIFIED'\)/);
+assert.match(server,/programEnabled,linkVerified:readKey\('AR_RECRUITER_WEB_REFERRAL_VERIFIED'\)/);
 
 assert.match(portal,/crypto\.randomBytes\(32\)/);
 assert.match(portal,/createHash\('sha256'\)/);

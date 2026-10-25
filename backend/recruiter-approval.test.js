@@ -32,7 +32,7 @@ const approved={status:'approved',suspended:false,identityVerified:true,
   approvedAt:now-5000,agreementAcceptedAt:now-4500,expiresAt:now+90*86400000};
 assert.equal(PROGRAM_ENABLED,false);
 assert.equal((await approvedRecruiterLink({db,uid,role:'operator',now,
-  programEnabled:true})).reason,'app_links_not_verified');
+  programEnabled:true})).reason,'referral_landing_not_verified');
 assert.equal(eligibleApproval(approved,'operator',now),true);
 const first=await approvedRecruiterLink({db,uid,role:'operator',now});
 assert.equal(first.reason,'recruiter_program_off');
