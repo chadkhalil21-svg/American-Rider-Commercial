@@ -63,4 +63,12 @@ assert.match(css,/prefers-reduced-motion/);
 assert.match(css,/\.heritage-hero/);
 assert.match(css,/clamp\(58px,18vw,105px\)/,"small mobile headings must fit");
 assert.ok(!fs.existsSync(path.join(root,".env")),"no server secrets in site");
+// Native Universal Links require a valid HTTPS association and a JSON MIME type. 
+const hosting=JSON.parse(fs.readFileSync(path.join(repo,"firebase.json"),"utf8")).hosting;
+const appleHeaders=hosting.headers.find(h=>h.source==="/.well-known/apple-app-site-association")?.headers||[];
+assert.ok(appleHeaders.some(h=>h.key.toLowerCase()==="content-type"&&h.value.startsWith("application/json")),
+  "AASA must be served as JSON by Firebase Hosting");
+const aasa=JSON.parse(fs.readFileSync(path.join(root,".well-known","apple-app-site-association"),"utf8"));
+assert.ok(aasa.applinks.details.some(d=>d.appIDs?.includes("6Z24V6YD4A.com.americanrider.app")),
+  "AASA must match actual American Rider Apple Team and bundle identifier");
 console.log("PASS: corporate website, recruitment, accessible CSS, local legal pages, and domain truth");
