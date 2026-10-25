@@ -2,7 +2,7 @@
 // Read-only live public-user journey audit. Never signs in, creates an account or makes a payment.
 const fs=require('node:fs');
 const assert=require('node:assert/strict');
-const base='https://americanrider.tech';
+const base=process.env.SITE_AUDIT_BASE||'https://americanrider.tech';
 const paths=['/','/travel/','/operate/','/safety/','/company/','/support/','/recruitment/','/recruiters/portal/','/recruitment/accept/','/join/','/smart-travel/','/terms/','/privacy/','/account-deletion/','/assets/site.css','/assets/qrcode-generator-2.0.4.js','/favicon.svg','/robots.txt','/sitemap.xml'];
 async function http(){
  let failures=[],checked=0, links=new Set();
@@ -57,14 +57,25 @@ async function browser(){
    }
    await page.goto(base+'/recruitment/',{waitUntil:'domcontentloaded',timeout:25000});
    await page.screenshot({path:'site-audit-images/recruitment-'+kind+'.png',fullPage:true});
+   for(const phrase of [/public (mobile-)?app release is (in preparation|being prepared)/i,/app will be released soon/i,/not yet open for enrollment/i,/before paid recruiting is activated/i]){
+     const pageText=await page.locator('main').innerText();
+     if(phrase.test(pageText))failures.push(kind+' stale recruitment wording '+phrase);
+   }
+
    const recruiterLinks=await page.locator('main a[href="/recruiters/portal/"]').count();
    console.log('BROWSER',kind,'recruitment portal actions',recruiterLinks);
-   if(recruiterLinks>1)console.log('UX_NOTICE duplicate recruited user journey');
+   if(recruiterLinks!==1)failures.push(kind+' expected one private Recruiter sign-in, got '+recruiterLinks);
    await page.locator('main a[href="/recruiters/portal/"]').first().click();
    if(!page.url().endsWith('/recruiters/portal/'))failures.push(kind+' recruiter sign-in link failed');
    const email=page.locator('#recruiter-email');
    if(!await email.isVisible())failures.push(kind+' recruiter email input not visible');
    await page.screenshot({path:'site-audit-images/recruiter-portal-'+kind+'.png',fullPage:true});
+
+   // No invitation or payment mutation: check code handling on a deliberately fake local code.
+   await page.goto(base+'/join/?r=FAKECODE01&role=operator',{waitUntil:'domcontentloaded',timeout:25000});
+   await page.waitForFunction(()=>document.getElementById('join-referral-code')?.textContent==='FAKECODE01');
+   if(!await page.locator('#join-copy').isVisible())failures.push(kind+' referral copy action not available for valid-form code');
+   if(!page.url().endsWith('/join/'))failures.push(kind+' sensitive referral query left in browser URL');
    await page.goto(base+'/join/',{waitUntil:'domcontentloaded',timeout:25000});
    await page.screenshot({path:'site-audit-images/join-'+kind+'.png',fullPage:true});
    if(!await page.locator('#join-referral-code').count())failures.push(kind+' referral-code display missing');
