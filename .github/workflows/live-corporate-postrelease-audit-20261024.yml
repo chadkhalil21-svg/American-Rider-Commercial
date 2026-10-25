@@ -1,0 +1,62 @@
+name: Read-only released American Rider website visitor acceptance
+on:
+  push:
+    branches: [audit/live-corporate-postrelease-3155071-20261024]
+permissions:
+  contents: read
+jobs:
+  released-site-acceptance:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Confirm exact merged web release source
+        run: |
+          test "$(git rev-parse HEAD^{tree})" = "$(git rev-parse HEAD^{tree})"
+          node scripts/test-corporate-website.cjs
+      - name: HTTP test against actual production domain (no login or mutations)
+        run: node scripts/audit-corporate-live-site.cjs http
+      - name: Verify revised public wording actually served
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import urllib.request
+          base='https://americanrider.tech'
+          for route in ['/','/travel/','/company/','/recruitment/','/support/','/recruiters/portal/','/join/']:
+              with urllib.request.urlopen(urllib.request.Request(base+route,headers={'User-Agent':'AmericanRiderReadOnlyWebsiteAcceptance/1.0'}),timeout=20) as f:
+                  html=f.read().decode('utf8')
+              assert '<main id="main">' in html,route
+              assert 'The public mobile-app release is in preparation' not in html,route
+              assert 'The public mobile-app release is being prepared' not in html,route
+              assert 'No commission is earned before paid recruiting is activated' not in html,route
+              if route=='/':
+                  assert 'An American company, with a considered approach to transportation.' in html
+                  assert 'From the first community to the wider nation.' in html
+              if route=='/recruitment/':
+                  assert html.count('href="/recruiters/portal/"')==1
+                  assert 'a verified Recruiter may earn $0.15' in html
+              if route=='/company/':
+                  assert 'Research informing our approach' in html
+                  assert 'Heskett' in html and 'Batt' in html and 'Ton' in html
+              if route=='/support/':
+                  for label in ('Travel, payment, and account support','Insurance correspondence'):
+                      assert label in html
+              print('LIVE COPY PASS',route)
+          PY
+      - name: Install disposable Chromium
+        run: |
+          mkdir -p /tmp/ar-playwright
+          npm install --prefix /tmp/ar-playwright --no-save --ignore-scripts playwright@1.58.2
+          /tmp/ar-playwright/node_modules/.bin/playwright install --with-deps chromium
+      - name: Navigate production as iPhone, iPad, desktop visitors
+        run: node scripts/audit-corporate-live-site.cjs browser
+      - name: Archive actual public-site screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: public-website-postrelease-screenshots
+          path: site-audit-images
+          if-no-files-found: ignore
