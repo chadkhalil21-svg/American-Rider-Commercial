@@ -38,7 +38,8 @@ assert.match(service,/recruiter_accounts/,'revoked recruiters must not keep clai
 assert.match(service,/referrer_not_eligible/);
 assert.match(service,/rewardEnabled:paid/,'only an approved and commissioned Recruiter may earn; ordinary invitations remain unpaid');
 const api=read('backend/server.js');
-assert.match(api,/AR_APP_LINKS_VERIFIED/);
+assert.match(api,/AR_RECRUITER_WEB_REFERRAL_VERIFIED/);
+assert.match(read('infra/cloud-run/deploy-existing-paid-source.py'),/AR_APP_LINKS_VERIFIED/);
 assert.match(api,/origin:'https:\/\/americanrider\.tech'/);
 const portal=read('scripts/corporate-recruiter-portal.cjs');
 assert.match(portal,/I may receive compensation/,'compensated invitations disclose the relationship');
