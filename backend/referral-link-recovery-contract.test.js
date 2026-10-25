@@ -45,7 +45,7 @@ const portal=read('scripts/corporate-recruiter-portal.cjs');
 assert.match(portal,/I may receive compensation/,'compensated invitations disclose the relationship');
 const builder=read('scripts/build-corporate-website.cjs');
 assert.match(builder,/Your introduction to American Rider/);
-assert.match(builder,/This page preserves an invitation code; it does not accept payment or transportation reservations/,'landing page must not promise an unverified public store install or booking');
+assert.match(builder,/This invitation page preserves a referral code. It does not accept transportation bookings or payments./,'landing page must not promise an unverified public store install or booking');
 assert.match(builder,/role==="operator"/,'landing differentiates referral roles');
 const invite=read('app/invite.tsx');
 assert.match(invite,/traveler\.sendInvitation/,'the established Traveler Invite surface remains');
