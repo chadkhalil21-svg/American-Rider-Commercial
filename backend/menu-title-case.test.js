@@ -1,19 +1,18 @@
-import assert from 'node:assert/strict';
-import fs from 'node:fs';
-import path from 'node:path';
-import vm from 'node:vm';
-import ts from 'typescript';
-import { fileURLToPath } from 'node:url';
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
+'use strict';
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+const vm = require('node:vm');
+const ts = require('typescript');
 const read = (p) => fs.readFileSync(path.join(__dirname, '..', p), 'utf8');
 
 // Evaluate the production TypeScript helper, not a second hand-written casing algorithm.
 const code = ts.transpileModule(read('src/menuTitleCase.ts'), {
   compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
 }).outputText;
-const exports = {};
-vm.runInNewContext(code, { exports });
-const title = exports.menuTitleCase;
+const output = {};
+vm.runInNewContext(code, { exports: output });
+const title = output.menuTitleCase;
 assert.equal(typeof title, 'function');
 for (const [text, expected] of [
   ['American Rider messages', 'American Rider Messages'],
