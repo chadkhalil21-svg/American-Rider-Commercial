@@ -1,0 +1,51 @@
+name: Review proposed national corporate website voice and journeys
+on:
+  push:
+    branches: [audit/live-website-user-journey-20261024]
+    paths:
+      - '.github/workflows/live-website-preview-acceptance-20261024.yml'
+      - 'scripts/build-corporate-website.cjs'
+      - 'scripts/corporate-heritage-design.cjs'
+      - 'scripts/corporate-recruiter-portal.cjs'
+      - 'scripts/corporate-recruiter-accept.cjs'
+      - 'scripts/audit-corporate-live-site.cjs'
+      - 'scripts/test-corporate-website.cjs'
+      - 'backend/corporate-website.test.js'
+permissions:
+  contents: read
+jobs:
+  signed-off-preview-qa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Build proposed site and verify all legal and editorial contracts
+        run: |
+          node scripts/test-corporate-website.cjs
+          node backend/corporate-website.test.js
+      - name: Run local read-only preview
+        run: |
+          python3 -m http.server 8087 --bind 127.0.0.1 --directory dist-corporate >/tmp/ar-corporate-preview.log 2>&1 &
+          sleep 2
+          curl --fail http://127.0.0.1:8087/
+          SITE_AUDIT_BASE=http://127.0.0.1:8087 node scripts/audit-corporate-live-site.cjs http
+      - name: Install isolated Chromium for user journey checks
+        run: |
+          mkdir -p /tmp/ar-playwright
+          npm install --prefix /tmp/ar-playwright --no-save --ignore-scripts playwright@1.58.2
+          /tmp/ar-playwright/node_modules/.bin/playwright install --with-deps chromium
+      - name: Test proposed iPhone, iPad and desktop journeys
+        run: |
+          python3 -m http.server 8087 --bind 127.0.0.1 --directory dist-corporate >/tmp/ar-corporate-preview.log 2>&1 &
+          sleep 2
+          SITE_AUDIT_BASE=http://127.0.0.1:8087 node scripts/audit-corporate-live-site.cjs browser
+      - name: Save editorial QA screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: preview-website-voice-screenshots
+          path: site-audit-images
+          if-no-files-found: ignore
