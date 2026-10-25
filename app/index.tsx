@@ -348,7 +348,7 @@ export default function Home() {
           },
         }
       : operator.verification === 'pending'
-        ? { label: t('traveler.finishOperatorQualification'), onPress: () => go('/operator/review') }
+        ? { label: t('traveler.operatorQualificationStatus'), onPress: () => go('/operator/review') }
         : null;
 
   // A Traveler can add the Operator role later. The front-door role choice promises this,
@@ -405,7 +405,7 @@ export default function Home() {
           label: t('traveler.aboutAmericanRider'),
           onPress: () => {
             setMenuOpen(false);
-            Linking.openURL(`${LEGAL_URL}/about`).catch(() => {
+            Linking.openURL(`${LEGAL_URL}/company/`).catch(() => {
               router.navigate('/settings');
             });
           },
