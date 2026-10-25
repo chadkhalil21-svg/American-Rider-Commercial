@@ -46,3 +46,11 @@ assert.match(authScreen, /AppleAuthentication\.AppleAuthenticationButton/,
 assert.match(authScreen, /AppleAuthenticationButtonType\.CONTINUE/,
   'native Apple control must use an approved Apple button type');
 console.log('Apple native control invariant: PASS');
+
+// The Apple native control and Google's custom SSO control must have identical
+// 48pt outer dimensions; do not regress to mismatched provider button heights.
+assert.match(authScreen, /appleButton: \{ width: '100%', height: 48 \}/);
+assert.match(authScreen, /ssoButton: \{ width: '100%', height: 48, paddingVertical: 0, justifyContent: 'center' \}/);
+assert.match(authScreen, /s\.btn, s\.ssoButton, primary \? s\.btnInk : s\.btnSso/);
+assert.match(authScreen, /cornerRadius=\{12\}/);
+console.log('Apple and Google SSO button geometry: PASS');
