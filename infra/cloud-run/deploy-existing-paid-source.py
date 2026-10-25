@@ -141,6 +141,29 @@ def require_live_recruiter_links():
     print("Verified official live association JSON and both Recruiter enrollment pages.")
 
 
+def require_live_recruiter_web():
+    """Verify real HTTPS landing and sign-in pages. Do not infer native association."""
+    expected={
+        "/join/":("join-referral-code","join-copy","/join/"),
+        "/recruitment/accept/":("accept-panel","recruiters/accept","emailVerified"),
+        "/recruiters/portal/":("recruiters/link","recruiters/me","emailVerified"),
+    }
+    for route,markers in expected.items():
+        url="https://americanrider.tech"+route
+        try:
+            with urllib.request.urlopen(urllib.request.Request(url,
+                headers={"Accept":"text/html"}),timeout=20) as response:
+                if response.status!=200 or response.geturl()!=url:
+                    raise ValueError("unexpected redirect or HTTP status")
+                html=response.read(350_000).decode("utf8")
+            if not all(x in html for x in markers):
+                raise ValueError("missing required recruiter functionality")
+        except Exception:
+            raise Stop("Live web recruiter route "+route+
+                       " is not verifiable; existing paid operations unchanged.") from None
+    print("Verified website Recruiter acceptance, private portal, and referral-code fallback.")
+
+
 def wait_for_created_ready_revision(previous, attempts=16, delay_seconds=8):
     """Google may retain the previously routed revision in latestReadyRevisionName.
 
@@ -200,7 +223,16 @@ def main():
     scheduler=meta("scheduler","jobs","describe",JOB,f"--project={PROJECT}",f"--location={REGION}")
     old_env=assert_live(before,scheduler)
     if activate_recruiters:
-        require_live_recruiter_links()
+        # Native associations are an optional convenience for signed apps.
+        # Recruiter enrollment and compensated QR/manual-code referral have a
+        # verified website route independent of Apple/Play signing timelines.
+        require_live_recruiter_web()
+        try:
+            require_live_recruiter_links()
+            native_links_verified=True
+        except Stop:
+            native_links_verified=False
+            print("Signed iOS/Android app links unverified; use live web referral code fallback.")
         if not old_env.get("STRIPE_CONNECT_WEBHOOK_SECRET"):
             raise Stop("Live connected-account Stripe webhook secret is missing; no activation.")
         if not old_env.get("OPS_USERS") or not old_env.get("OPS_MFA_SECRETS"):
@@ -232,7 +264,8 @@ def main():
             "AR_RECRUITER_TRAVEL_TRACKING_ENABLED":"1",
             "AR_RECRUITER_OPERATOR_SHARED_PAYOUT_ENABLED":"1",
             "AR_REFERRALS_ENABLED":"1",
-            "AR_APP_LINKS_VERIFIED":"1",
+            "AR_RECRUITER_WEB_REFERRAL_VERIFIED":"1",
+            "AR_APP_LINKS_VERIFIED":"1" if native_links_verified else "0",
             "AR_RECRUITER_REWARD_HOLD_MS":"86400000",
             "AR_RECRUITER_MIN_PAYOUT_CENTS":"2500",
             "AR_RECRUITER_FOUNDER_USERS":actor,
