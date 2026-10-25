@@ -13,9 +13,11 @@ const markup=String.raw`<section class="page-hero shell" style="padding-bottom:4
     <p>Sign in with your authorized Google account. No Operations password or authenticator code is required for this read-only overview.</p>
     <button type="button" class="action primary" id="founder-google">Continue with Google</button>
     <p role="status" aria-live="polite" id="founder-message">Access requires an approved Founder account.</p>
-    <div id="founder-signed-actions" hidden style="display:flex;flex-wrap:wrap;gap:10px;margin-top:14px">
-      <button type="button" class="action secondary" id="founder-retry">Retry overview</button>
-      <button type="button" class="action secondary" id="founder-login-signout">Use a different Google account</button>
+    <div id="founder-signed-actions" hidden>
+      <div style="display:flex;flex-wrap:wrap;gap:10px;margin-top:14px">
+        <button type="button" class="action secondary" id="founder-retry">Retry overview</button>
+        <button type="button" class="action secondary" id="founder-login-signout">Use a different Google account</button>
+      </div>
     </div>
     <p style="font-size:13px">If Google sign-in returns to this page without completing, open <strong>americanrider.tech/founder/</strong> directly in Safari or Chrome, not inside another app, and try again.</p>
     <p id="founder-identity" hidden style="font-size:13px;overflow-wrap:anywhere">Account reference: <code id="founder-account-id"></code> <button id="founder-copy" type="button" class="action secondary" style="margin:10px 0">Copy reference</button></p>
