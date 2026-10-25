@@ -71,7 +71,7 @@ function applyEditorialDesign(pages) {
     '<section class="page-section"><h2>Current program status</h2><p>Prospective Recruiters may express interest immediately. Under the approved program, a verified Recruiter may earn $0.15 per qualifying paid and settled Travel attributed to an introduced Operator or Traveler role, subject to individual agreement and program limits. Personal links, QR codes and payout eligibility follow approved enrollment. An inquiry alone does not establish compensation.</p></section>',
     '<section class="page-section"><h2>Correspondence</h2><p>We are receiving recruitment inquiries now. Briefly introduce yourself, your professional background and preferred service areas. Contact does not create an authorized Recruiter account, employment relationship or compensation agreement.</p>',
     '<p><a class="action primary" href="mailto:relations@americanrider.tech?subject=Independent%20recruiter%20inquiry">Contact Recruitment Relations ↗</a></p>',
-    '<p class="muted">relations@americanrider.tech · Do not send identity documents, financial details, or tax records by email.</p></section></div>'
+    '<p class="muted">Please submit identity, financial and tax documentation only through the designated secure process.</p></section></div>'
   ].join("");
 
   return [
