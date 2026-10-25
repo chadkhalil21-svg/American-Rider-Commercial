@@ -53,6 +53,9 @@ fs.writeFileSync(path.join(root,"assets","site.css"),css,"utf8");
    path.join(root,"assets","LICENSE-qrcode-generator.txt"));
 fs.writeFileSync(path.join(root,"favicon.svg"),'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" fill="#101b31"/><text x="50%" y="52%" fill="#fff" font-size="23" font-family="Arial,sans-serif" font-weight="700" letter-spacing="-1" text-anchor="middle" dominant-baseline="middle">AR</text></svg>',"utf8");
 for(const [route,page] of Object.entries(pages))out(route,render(page.title,page.body,route));
+// Compatibility with signed iOS Build 53 and any older devices opening /about.
+// Render the existing Company content verbatim, no new layout or unverified redirect.
+out("about",render(pages.company.title,pages.company.body,"company"));
 // Publish the private portal shell without exposing recruiter records in static assets.
 // Every private value is fetched only after independently verified Firebase sign-in.
 const recruiterPortal=require("./corporate-recruiter-portal.cjs").portalHtml();

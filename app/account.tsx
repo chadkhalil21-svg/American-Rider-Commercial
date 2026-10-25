@@ -121,7 +121,7 @@ export default function Menu() {
             // Opens the real company page — also where the 99% model is stated once, as an
             // institutional fact rather than a slogan (founders' brief §10A).
             title: t('traveler.aboutAmericanRider'),
-            onPress: () => Linking.openURL(`${LEGAL_URL}/about`),
+            onPress: () => Linking.openURL(`${LEGAL_URL}/company/`),
           },
         ]}
       />

@@ -888,7 +888,7 @@ export default {
     assessing: 'Évaluation',
     privacy: 'Protection des Données et Confidentialité',
     aboutAmericanRider: 'À propos d’American Rider',
-    finishOperatorQualification: 'Terminez votre qualification d’Opérateur',
+    operatorQualificationStatus: 'Statut de qualification d’Opérateur',
     anonymousRecords: 'Dossiers du Service',
     addName: 'Ajouter un nom',
     addNumber: 'Ajouter un numéro',

@@ -902,7 +902,7 @@ export default {
     assessing: 'Assessing',
     privacy: 'Data Protection & Privacy Governance',
     aboutAmericanRider: 'About American Rider',
-    finishOperatorQualification: 'Finish operator qualification',
+    operatorQualificationStatus: 'Operator qualification status',
     anonymousRecords: 'Service Records',
     addName: 'Add name',
     addNumber: 'Add number',
