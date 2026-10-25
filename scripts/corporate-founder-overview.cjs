@@ -27,8 +27,8 @@ const markup=String.raw`<section class="page-hero shell" style="padding-bottom:4
   </section>
 </div>
 <script type="module">
-import {initializeApp,getApps,getApp} from 'https://www.gstatic.com/firebasejs/12.16.0/firebase-app.js';
-import {getAuth,browserSessionPersistence,setPersistence,GoogleAuthProvider,signInWithPopup,onAuthStateChanged,signOut} from 'https://www.gstatic.com/firebasejs/12.16.0/firebase-auth.js';
+import {initializeApp,getApps,getApp} from 'https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js';
+import {getAuth,browserSessionPersistence,setPersistence,GoogleAuthProvider,signInWithPopup,onAuthStateChanged,signOut} from 'https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js';
 const cfg={apiKey:'AIzaSyAQMJ1ikGvhrmCZY9D0OjM6EM2r2m0V4OY',authDomain:'american-rider-35688.firebaseapp.com',projectId:'american-rider-35688',appId:'1:623854974930:web:d73e4dec7949c3756efa0b'};
 const auth=getAuth(getApps().length?getApp():initializeApp(cfg));
 const endpoint='https://american-rider-api-production-623854974930.us-east1.run.app/founder/overview/read';
