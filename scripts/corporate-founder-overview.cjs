@@ -13,6 +13,12 @@ const markup=String.raw`<section class="page-hero shell" style="padding-bottom:4
     <p>Sign in with your authorized Google account. No Operations password or authenticator code is required for this read-only overview.</p>
     <button type="button" class="action primary" id="founder-google">Continue with Google</button>
     <p role="status" aria-live="polite" id="founder-message">Access requires an approved Founder account.</p>
+    <div id="founder-signed-actions" hidden>
+      <div style="display:flex;flex-wrap:wrap;gap:10px;margin-top:14px">
+        <button type="button" class="action secondary" id="founder-retry">Retry overview</button>
+        <button type="button" class="action secondary" id="founder-login-signout">Use a different Google account</button>
+      </div>
+    </div>
     <p style="font-size:13px">If Google sign-in returns to this page without completing, open <strong>americanrider.tech/founder/</strong> directly in Safari or Chrome, not inside another app, and try again.</p>
     <p id="founder-identity" hidden style="font-size:13px;overflow-wrap:anywhere">Account reference: <code id="founder-account-id"></code> <button id="founder-copy" type="button" class="action secondary" style="margin:10px 0">Copy reference</button></p>
   </section>
@@ -52,12 +58,20 @@ function googleSignInError(error){
  return 'Google sign-in could not complete (' +( /^auth\/[a-z0-9-]+$/.test(code)?code:'unknown error')+'). Open this page directly in Safari or Chrome if you are using an in-app browser.';
 }
 function showLogin(text,showReference=false){
- by('founder-identity').hidden=!(showReference&&auth.currentUser);
- if(showReference&&auth.currentUser)by('founder-account-id').textContent=auth.currentUser.uid;
+ const signedIn=!!auth.currentUser;
+ // This status MUST remain visible after a successful Google login.
+ // Missing Cloud Run deployment or one-time UID approval is NOT a login failure.
+ by('founder-identity').hidden=!signedIn;
+ by('founder-signed-actions').hidden=!signedIn;
+ by('founder-google').hidden=signedIn;
+ // The shared .action CSS sets display:inline-flex, so also set display
+ // explicitly: an author rule must not override the HTML hidden attribute.
+ by('founder-google').style.display=signedIn?'none':'';
+ if(signedIn)by('founder-account-id').textContent=auth.currentUser.uid;
  by('founder-signout').disabled=false;
  by('founder-workspace').hidden=true;
  by('sign-in-panel').hidden=false;
- message(text||'Sign in with the authorized Google account.');
+ message(text||(signedIn?'Google sign-in succeeded. Checking Founder authorization…':'Sign in with your authorized Google account.'));
 }
 function renderOverview(data){
  const cards=by('founder-metrics');cards.replaceChildren();
@@ -84,19 +98,19 @@ async function load(){
   const payload=await response.json().catch(()=>({}));
   if(!response.ok){
    if(response.status===403){
-     showLogin('This Google account has not been authorized for Founder access. Its account reference is shown below for one-time verification.',true);
+     showLogin('Google sign-in succeeded. This account is awaiting Founder authorization. Copy the account reference below for one-time secure approval.',true);
    }else if(payload.code==='founder_account_not_configured'){
-     showLogin('Founder sign-in is awaiting production authorization. Your Google account reference is '+auth.currentUser.uid+'. No operating data has been disclosed.');
+     showLogin('Google sign-in succeeded, but production Founder authorization has not been configured. Copy your account reference below. No operating data has been disclosed.',true);
    }else if(response.status===401){
-     showLogin('Please sign in again to confirm your identity.');
+     showLogin('Google signed in, but your secure session needs renewing. Select Use a different Google account, then sign in again.',true);
    }else if(response.status===429){
-     message('Please refresh later.');by('founder-workspace').hidden=false;by('sign-in-panel').hidden=true;
+     showLogin('Google sign-in succeeded, but the read-only overview is rate-limited. Try again later.',true);
    }else{
-     showLogin('Overview access is awaiting deployment or is temporarily unavailable. Account reference: '+auth.currentUser.uid+'. No zero counts are assumed.');
+     showLogin('Google sign-in succeeded. The private overview API may be awaiting deployment or temporarily unavailable (HTTP '+response.status+'). Your account reference is below; no counts have been assumed.',true);
    }
   }else renderOverview(payload);
  }catch{
-  showLogin('The live overview is temporarily unavailable. No figures have been assumed.');
+  showLogin('Google sign-in succeeded, but the live overview could not be reached. Your account reference is below. No figures have been assumed.',true);
  }finally{busy=false;by('founder-refresh').disabled=false;}
 }
 by('founder-google').addEventListener('click',async()=>{
@@ -113,9 +127,14 @@ by('founder-copy').addEventListener('click',()=>{
  if(uid&&navigator.clipboard?.writeText)navigator.clipboard.writeText(uid).catch(()=>{});
 });
 by('founder-refresh').addEventListener('click',load);
+by('founder-retry').addEventListener('click',load);
+by('founder-login-signout').addEventListener('click',async()=>{await signOut(auth);showLogin('Choose your authorized Google account.');});
 by('founder-signout').addEventListener('click',async()=>{await signOut(auth);showLogin('Signed out.');});
 setPersistence(auth,browserSessionPersistence).then(()=>{
- onAuthStateChanged(auth,async user=>{if(user)await load();else showLogin('Sign in with your authorized Google account.');});
+ onAuthStateChanged(auth,async user=>{
+   if(user){showLogin('Google sign-in succeeded. Checking read-only access…',true);await load();}
+   else showLogin('Sign in with your authorized Google account.');
+ });
 }).catch(()=>showLogin('Secure sign-in is temporarily unavailable.'));
 </script>`;
 module.exports={founderHtml:()=>markup};
