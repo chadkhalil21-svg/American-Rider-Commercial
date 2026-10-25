@@ -201,7 +201,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     },
     signIn: (email, password) =>
-      run(() => signInWithEmailAndPassword(auth, email.trim(), password)),
+      run(async () => {
+        await signInWithEmailAndPassword(auth, email.trim(), password);
+        // Account creation may have left the onboarding overlay active.
+        // Successful explicit sign-in must always open the authenticated app.
+        setOnboarding(false);
+      }),
     // The demo's sign-in screen offers "Forgot password?"; here it really sends the
     // reset email. Firebase deliberately succeeds even for unknown addresses, so the
     // screen's confirmation never reveals whether an account exists.
@@ -319,6 +324,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         await clearPushToken();
         await clearAccountStorage();
         await fbSignOut(auth);
+        // Do not carry an interrupted registration overlay into the next session.
+        setOnboarding(false);
       }),
     onboarding,
     setOnboarding,
