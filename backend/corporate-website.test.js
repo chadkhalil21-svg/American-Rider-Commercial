@@ -40,7 +40,7 @@ assert.doesNotMatch(portal,/Bank enrollment, compensation and payment history ar
 assert.doesNotMatch(portal,/public self-enroll|Start earning immediately/i);
 const recruiter = fs.readFileSync(path.join(root, 'recruitment', 'index.html'), 'utf8');
 assert.match(recruiter, /accepting inquiries from prospective independent Recruiters/i);
-assert.match(recruiter, /no commission is earned before paid recruiting is activated/i);
+assert.match(recruiter,/An inquiry or invitation alone earns no commission/i);
 assert.match(recruiter, /relations@americanrider.tech/i);
 assert.equal((recruiter.match(/href="\/recruiters\/portal\/"/g)||[]).length,1,'Recruitment page must present one private Recruiter sign-in path');
 assert.doesNotMatch(recruiter,/Invited representatives|No commission rate, payment date/i);
