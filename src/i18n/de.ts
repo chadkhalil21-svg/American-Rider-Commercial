@@ -883,6 +883,7 @@ export default {
     privacy: 'Datenschutz und Datenverwaltung',
     aboutAmericanRider: 'Über American Rider',
     finishOperatorQualification: 'Schließen Sie Ihre Operator-Qualifizierung ab',
+    operatorQualificationStatus: 'Status der Operator-Qualifizierung',
     anonymousRecords: 'Dienstunterlagen',
     addName: 'Namen hinzufügen',
     addNumber: 'Nummer hinzufügen',
