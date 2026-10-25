@@ -898,7 +898,6 @@ export default {
     assessing: 'Evaluando',
     privacy: 'Protección de Datos y Privacidad',
     aboutAmericanRider: 'Acerca de American Rider',
-    finishOperatorQualification: 'Complete su habilitación como Operador',
     operatorQualificationStatus: 'Estado de habilitación como Operador',
     anonymousRecords: 'Registros del Servicio',
     addName: 'Añadir nombre',
