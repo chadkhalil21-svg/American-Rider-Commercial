@@ -111,14 +111,14 @@ function SsoButton({
     >
       <View style={s.ssoInner}>
         {glyph === 'apple' ? (
-          <Svg width={19} height={19} viewBox="0 0 24 24">
+          <Svg width={17} height={17} viewBox="0 0 24 24">
             <Path
               d="M17.05 12.54c.02-2.3 1.88-3.4 1.96-3.45-1.07-1.56-2.73-1.78-3.32-1.8-1.41-.14-2.76.83-3.48.83-.72 0-1.83-.81-3.01-.79-1.55.02-2.98.9-3.78 2.28-1.61 2.8-.41 6.94 1.16 9.21.77 1.11 1.68 2.36 2.88 2.31 1.16-.05 1.6-.75 3-.75s1.79.75 3.01.72c1.24-.02 2.03-1.13 2.79-2.25.88-1.29 1.24-2.54 1.26-2.6-.03-.01-2.42-.93-2.44-3.69zM14.8 5.4c.64-.78 1.07-1.85.95-2.93-.92.04-2.03.61-2.69 1.38-.59.69-1.11 1.79-.97 2.84 1.03.08 2.07-.52 2.71-1.29z"
               fill={onDark}
             />
           </Svg>
         ) : (
-          <Svg width={19} height={19} viewBox="0 0 24 24">
+          <Svg width={17} height={17} viewBox="0 0 24 24">
             <Path
               d="M21.6 12.23c0-.71-.06-1.4-.18-2.05H12v3.88h5.38a4.6 4.6 0 0 1-2 3.02v2.5h3.23c1.89-1.74 2.99-4.3 2.99-7.35z"
               fill={colors.ink}
@@ -742,12 +742,12 @@ const s = StyleSheet.create({
     fontWeight: '600',
   },
   tagline: { textAlign: 'center', fontSize: 14.5, color: colors.ink2, letterSpacing: 0.1, marginTop: 20, lineHeight: 20 },
-  // Both provider buttons occupy the same 46pt full-width hit target. Apple's
-  // native lettering is optically larger than our custom Google 15pt label;
-  // the Google typography, mark and border below compensate without enlarging
-  // its clickable frame or substituting an imitation Apple button.
-  appleButton: { width: '100%', height: 46 },
-  ssoButton: { width: '100%', height: 46, paddingVertical: 0, justifyContent: 'center' },
+  // Compact, consistent full-width provider controls. Native Apple's taller
+  // lettering was visually heavier than the custom Google treatment in Build 55.
+  // Preserve the smaller Google proportions and trim the Apple frame. Both
+  // controls remain at least 44pt high for a usable touch target.
+  appleButton: { width: '100%', height: 44 },
+  ssoButton: { width: '100%', height: 44, paddingVertical: 0, justifyContent: 'center' },
   btn: { borderRadius: 12, paddingVertical: 14, alignItems: 'center' },
   btnRow: { flexDirection: 'row', justifyContent: 'center', gap: 10 },
   btnInk: { backgroundColor: colors.ink },
@@ -773,9 +773,9 @@ const s = StyleSheet.create({
   legalLink: { color: colors.ink, fontWeight: '500' },
   legalLinkPressed: { color: colors.ink, textDecorationLine: 'underline' },
   // A single-sign-on control: the same geometry as the ghost button, mark beside the label.
-  btnSso: { backgroundColor: colors.card, borderWidth: 1.5, borderColor: colors.border },
-  btnTextSso: { color: colors.ink, fontSize: 17, fontWeight: '600' },
-  ssoInner: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 9 },
+  btnSso: { backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border },
+  btnTextSso: { color: colors.ink },
+  ssoInner: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10 },
   orRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginVertical: 11 },
   orRule: { flex: 1, height: 1, backgroundColor: colors.hairline },
   orText: { fontSize: 12.5, color: colors.muted },
