@@ -882,6 +882,7 @@ export default {
     privacy: 'Protezione dei Dati e Privacy',
     aboutAmericanRider: 'Informazioni su American Rider',
     finishOperatorQualification: 'Completi la sua qualifica di Operatore',
+    operatorQualificationStatus: 'Stato della qualifica di Operatore',
     anonymousRecords: 'Registri del Servizio',
     addName: 'Aggiungere il nome',
     addNumber: 'Aggiungere il numero',
