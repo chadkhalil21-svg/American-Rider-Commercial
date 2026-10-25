@@ -73,13 +73,13 @@ async function load(){
    if(response.status===403){
      showLogin('This Google account is not registered for Founder access. Account reference: '+auth.currentUser.uid+'. Access requires one-time authorization.');
    }else if(payload.code==='founder_account_not_configured'){
-     showLogin('The Founder account has not yet been registered on the live backend. No operating data is exposed.');
+     showLogin('Founder sign-in is awaiting production authorization. Your Google account reference is '+auth.currentUser.uid+'. No operating data has been disclosed.');
    }else if(response.status===401){
      showLogin('Please sign in again to confirm your identity.');
    }else if(response.status===429){
      message('Please refresh later.');by('founder-workspace').hidden=false;by('sign-in-panel').hidden=true;
    }else{
-     showLogin('Operating figures are temporarily unavailable. No zero counts are assumed.');
+     showLogin('Overview access is awaiting deployment or is temporarily unavailable. Account reference: '+auth.currentUser.uid+'. No zero counts are assumed.');
    }
   }else renderOverview(payload);
  }catch{
