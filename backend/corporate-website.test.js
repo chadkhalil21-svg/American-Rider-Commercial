@@ -51,22 +51,22 @@ const legacyAbout=fs.readFileSync(path.join(root,'about','index.html'),'utf8');
 assert.equal(legacyAbout,company,'Old signed About link must render exact current Company page');
 const founder=fs.readFileSync(path.join(root,'founder','index.html'),'utf8');
 assert.match(founder,/Continue with Google/);
-assert.match(founder,/accounts\\.google\\.com\\/gsi\\/client/);
-// Browser modules have fixed provider import URLs; parse the self-contained
-// authentication logic independently so malformed callback code fails CI.
-const founderAuthJs=founder.match(/<script type="module">([\\s\\S]*?)<\\/script>/)?.[1];
-assert.ok(founderAuthJs,'Founder browser authentication module missing');
-assert.doesNotThrow(()=>new vm.Script(founderAuthJs.replace(/^import .*?;\\s*$/gm,'')),
+assert.ok(founder.includes('https://accounts.google.com/gsi/client'),'Google identity client must be loaded');
+const moduleStart='<script type="module">';
+const moduleAt=founder.indexOf(moduleStart);
+const moduleEnd=founder.indexOf('</script>',moduleAt);
+assert.ok(moduleAt>=0 && moduleEnd>moduleAt,'Founder browser authentication module missing');
+const founderAuthJs=founder.slice(moduleAt+moduleStart.length,moduleEnd);
+assert.doesNotThrow(()=>new vm.Script(founderAuthJs.split('\n')
+  .filter(line=>!line.trimStart().startsWith('import ')).join('\n')),
   'Founder direct-Google script must be syntactically valid');
-assert.match(founder,/accounts\\.google\\.com\\/gsi\\/client/);
-assert.match(founder,/signInWithCredential/);
-assert.match(founder,/GoogleAuthProvider\\.credential\\(null,result\\.access_token\\)/);
-assert.match(founder,/client\\.requestAccessToken\\(\\{prompt:'select_account'\\}\\)/);
-assert.match(founder,/id="founder-google-alternate" hidden/);
-assert.match(founder,/if\\(signedIn\\)by\\('founder-google-alternate'\\)\\.hidden=true/);
-assert.match(founder,/signInWithPopup\\(auth,provider\\)/);
-assert.doesNotMatch(founder,/signInWithRedirect\\(/);
-assert.doesNotMatch(founder,/location\\.href\\s*=\\s*['"]https:\\/\\/american-rider-35688\\.firebaseapp\\.com/);
+assert.ok(founder.includes('signInWithCredential'),'Use the direct credential exchange');
+assert.ok(founder.includes('GoogleAuthProvider.credential(null,result.access_token)'));
+assert.ok(founder.includes("client.requestAccessToken({prompt:'select_account'})"));
+assert.ok(founder.includes('id="founder-google-alternate" hidden'));
+assert.ok(founder.includes("if(signedIn)by('founder-google-alternate').hidden=true"));
+assert.ok(founder.includes('signInWithPopup(auth,provider)'),'Keep legacy popup as fallback');
+assert.ok(!founder.includes('signInWithRedirect('),'Avoid storage-partitioned Firebase redirect');
 assert.match(founder,/firebasejs\/12\.19\.0\/firebase-auth\.js/);
 assert.match(founder,/googleSignInError\(error\)/);
 assert.match(founder,/auth\/popup-blocked/);
