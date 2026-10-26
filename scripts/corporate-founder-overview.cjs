@@ -105,7 +105,7 @@ function showLogin(text,showReference=false){
  by('founder-identity').hidden=!signedIn;
  by('founder-signed-actions').hidden=!signedIn;
  by('founder-google').hidden=signedIn;
- by('founder-google-alternate').hidden=signedIn;
+ if(signedIn)by('founder-google-alternate').hidden=true;
  // The shared .action CSS sets display:inline-flex, so also set display
  // explicitly: an author rule must not override the HTML hidden attribute.
  by('founder-google').style.display=signedIn?'none':'';
