@@ -22,6 +22,7 @@ module.exports = {
   },
   plugins: [
     ...base.plugins,
+    './plugins/with-android-photo-permission-default',
     ...(enabled ? [[
       '@twilio/voice-react-native-sdk',
       { apsEnvironment, microphoneUsageDescription: 'American Rider uses your microphone only when you choose to answer or place a Travel call.' },
