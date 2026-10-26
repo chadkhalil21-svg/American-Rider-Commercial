@@ -2,6 +2,7 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
+const vm = require('node:vm');
 const { build } = require('../scripts/build-corporate-website.cjs');
 
 build();
@@ -50,6 +51,13 @@ const legacyAbout=fs.readFileSync(path.join(root,'about','index.html'),'utf8');
 assert.equal(legacyAbout,company,'Old signed About link must render exact current Company page');
 const founder=fs.readFileSync(path.join(root,'founder','index.html'),'utf8');
 assert.match(founder,/Continue with Google/);
+assert.match(founder,/accounts\\.google\\.com\\/gsi\\/client/);
+// Browser modules have fixed provider import URLs; parse the self-contained
+// authentication logic independently so malformed callback code fails CI.
+const founderAuthJs=founder.match(/<script type="module">([\\s\\S]*?)<\\/script>/)?.[1];
+assert.ok(founderAuthJs,'Founder browser authentication module missing');
+assert.doesNotThrow(()=>new vm.Script(founderAuthJs.replace(/^import .*?;\\s*$/gm,'')),
+  'Founder direct-Google script must be syntactically valid');
 assert.match(founder,/accounts\\.google\\.com\\/gsi\\/client/);
 assert.match(founder,/signInWithCredential/);
 assert.match(founder,/GoogleAuthProvider\\.credential\\(null,result\\.access_token\\)/);
