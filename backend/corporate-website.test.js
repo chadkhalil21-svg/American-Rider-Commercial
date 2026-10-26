@@ -55,7 +55,7 @@ assert.match(founder,/signInWithCredential/);
 assert.match(founder,/GoogleAuthProvider\\.credential\\(null,result\\.access_token\\)/);
 assert.match(founder,/client\\.requestAccessToken\\(\\{prompt:'select_account'\\}\\)/);
 assert.match(founder,/id="founder-google-alternate" hidden/);
-assert.match(founder,/founder-google-alternate'\\)\\.hidden=signedIn/);
+assert.match(founder,/if\\(signedIn\\)by\\('founder-google-alternate'\\)\\.hidden=true/);
 assert.match(founder,/signInWithPopup\\(auth,provider\\)/);
 assert.doesNotMatch(founder,/signInWithRedirect\\(/);
 assert.doesNotMatch(founder,/location\\.href\\s*=\\s*['"]https:\\/\\/american-rider-35688\\.firebaseapp\\.com/);
