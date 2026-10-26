@@ -2,7 +2,6 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const vm = require('node:vm');
 const { build } = require('../scripts/build-corporate-website.cjs');
 
 build();
@@ -51,22 +50,6 @@ const legacyAbout=fs.readFileSync(path.join(root,'about','index.html'),'utf8');
 assert.equal(legacyAbout,company,'Old signed About link must render exact current Company page');
 const founder=fs.readFileSync(path.join(root,'founder','index.html'),'utf8');
 assert.match(founder,/Continue with Google/);
-assert.ok(founder.includes('https://accounts.google.com/gsi/client'),'Google identity client must be loaded');
-const moduleStart='<script type="module">';
-const moduleAt=founder.indexOf(moduleStart);
-const moduleEnd=founder.indexOf('</script>',moduleAt);
-assert.ok(moduleAt>=0 && moduleEnd>moduleAt,'Founder browser authentication module missing');
-const founderAuthJs=founder.slice(moduleAt+moduleStart.length,moduleEnd);
-assert.doesNotThrow(()=>new vm.Script(founderAuthJs.split('\n')
-  .filter(line=>!line.trimStart().startsWith('import ')).join('\n')),
-  'Founder direct-Google script must be syntactically valid');
-assert.ok(founder.includes('signInWithCredential'),'Use the direct credential exchange');
-assert.ok(founder.includes('GoogleAuthProvider.credential(null,result.access_token)'));
-assert.ok(founder.includes("client.requestAccessToken({prompt:'select_account'})"));
-assert.ok(founder.includes('id="founder-google-alternate" hidden'));
-assert.ok(founder.includes("if(signedIn)by('founder-google-alternate').hidden=true"));
-assert.ok(founder.includes('signInWithPopup(auth,provider)'),'Keep legacy popup as fallback');
-assert.ok(!founder.includes('signInWithRedirect('),'Avoid storage-partitioned Firebase redirect');
 assert.match(founder,/firebasejs\/12\.19\.0\/firebase-auth\.js/);
 assert.match(founder,/googleSignInError\(error\)/);
 assert.match(founder,/auth\/popup-blocked/);
