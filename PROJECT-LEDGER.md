@@ -1,3 +1,13 @@
+## 26 October 2026 | FOUNDER AUTH RECONCILIATION: PRESERVE PROVEN GOOGLE POPUP
+
+**Evidence from Founder iPad screenshot captured 25 October:** Google/Firebase sign-in had actually succeeded at `americanrider.tech/founder/`. The page explicitly said production Founder authorization was not configured and displayed a signed-in Firebase account reference. That is proof of **authentication only**, not proof of `AR_FOUNDER_FIREBASE_UIDS` allowlisting or live private counts. Do not ask the Founder to repeat successful authentication just to investigate the initial authorization defect.
+
+**Regression introduced 26 October:** PR #351 made a separate Google Identity Services JavaScript OAuth token client the primary Founder sign-in method. Google returned `400 origin_mismatch` because the associated browser OAuth client's authorized JavaScript origins did not include the company's website. The prior working Firebase `signInWithPopup` already avoided this additional OAuth client configuration. **Corrective release:** restore the exact previously verified Founder page and test from before PR #351; do not impose a new Google Cloud OAuth-origin task merely to undo this regression. Keep existing Firebase verified-provider/email/revocation/recent-session protections and exact UID allowlist. Authorization still requires independently verified actual Founder identity via protected Cloud Run workflow. Do not insert UIDs by guessing or copy screenshots into source.
+
+**Council and external guidance:** Prefer the shortest proven secure flow; preserve Apple/Google platform conventions and prevent unnecessary manual founder work. Firebase [official redirect best practices](https://firebase.google.com/docs/auth/web/redirect-best-practices) list popup sign-in as a supported option; Google's [OAuth documentation](https://developers.google.com/identity/protocols/oauth2/javascript-implicit-flow) confirms `origin_mismatch` concerns the new JS client registration. This is a *website-only* correction, not a change to the submitted iOS Build 56, Android signing, production fares, dispatch, recruiter money or market activation. Only claim a fully working Founder dashboard when a real authenticated, specifically authorized session returns actual live counts.
+
+---
+
 ## 25 October 2026 | FOUNDER GOOGLE SIGN-IN RECONCILED WITH CURRENT COMMERCIAL RELEASE
 
 **FOUNDER-REQUESTED FOLLOW-UP:** Restore unfinished private read-only Google sign-in for `https://americanrider.tech/founder/` from draft PR #329 on latest `release/current`; preserve newer website, native sign-in and separately running TestFlight source. Founder reported repeatedly failing Operations password/TOTP login; do not disable sensitive MFA or guess credentials.
