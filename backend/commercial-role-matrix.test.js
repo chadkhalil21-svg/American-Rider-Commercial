@@ -5,7 +5,7 @@
 // create production Operators, contact Stripe, or send funds.
 const assert=require('node:assert/strict');
 const {claimDecision,normalizedCode,inviteLink}=require('./referral-policy');
-const {PROGRAM,evidence,recordHeldAccrual}=require('./referral-accrual');
+const {PROGRAM,recordHeldAccrual}=require('./referral-accrual');
 const {planRecruiterAchBatch}=require('./recruiter-ach-batch');
 
 class MemoryDb {
@@ -125,7 +125,7 @@ async function accrue(ctx,program=enabled){
     const r=await accrue(c);assert.equal(r.events,0);assert.equal(events(c.db).length,0);
   });
   await test('no funded reward-budget evidence is rejected',async()=>{
-    const c=context({roles:['operator'],budget:undefined});
+    const c=context({roles:['operator'],changes:{referralAvailableCents:undefined}});
     const r=await accrue(c);assert.equal(r.reason,'no_funded_budget');
     assert.equal(events(c.db).length,0);
   });
