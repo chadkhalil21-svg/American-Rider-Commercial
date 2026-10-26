@@ -34,6 +34,9 @@ assert.doesNotMatch(storeDownloadChoices({ios:true}),/href="https:\/\/play\.goog
 assert.match(storeDownloadChoices({android:true}),/href="https:\/\/play\.google\.com\/store\/apps\/details\?id=com\.americanrider\.app"/);
 assert.doesNotMatch(storeDownloadChoices({android:true}),/href="https:\/\/apps\.apple\.com/);
 
+const corporateCss=fs.readFileSync(path.join(root,'assets','site.css'),'utf8');
+assert.match(corporateCss,/\[hidden\]:not\(\[hidden=until-found\]\)\{display:none!important\}/,
+  'Private Recruiter and Founder guest-only panels must respect hidden even with author display CSS');
 const home = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
 assert.match(home, /American<br>Rider/);
 assert.doesNotMatch(home, /99%|Traveler Total|One confirmed Total/);
