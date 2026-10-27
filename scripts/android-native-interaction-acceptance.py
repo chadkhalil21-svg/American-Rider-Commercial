@@ -71,7 +71,9 @@ def wait_visible(*patterns, label="screen", seconds=40):
         nodes=snapshot(label)
         last_nodes = nodes
         node=locate(nodes, patterns)
-        if node:
+        # xml.etree.ElementTree leaf nodes are falsy even when found.
+        # Test identity, not Python truthiness, for a visible UI control.
+        if node is not None:
             return node
         time.sleep(2)
     visible = [desc(n) for n in last_nodes if desc(n)][:35]
