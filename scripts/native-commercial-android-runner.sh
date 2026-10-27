@@ -3,7 +3,7 @@ set -euo pipefail
 set -e
 export PATH="$HOME/.maestro/bin:$PATH"
 mkdir -p artifacts/native-commercial-android
-adb install -r android/app/build/outputs/apk/release/app-release.apk
+adb install -r .qa-native-build-cache/android/app-release.apk
 # Disposable Operator fixture is at this Miami test position. Do not
 # let the emulator default to Google's California headquarters.
 adb emu geo fix -80.1918 25.7617

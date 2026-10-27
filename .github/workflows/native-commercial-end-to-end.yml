@@ -9,6 +9,7 @@ on:
       - 'backend/native-commercial-qa-*.cjs'
       - 'backend/native-qa-isolation.js'
       - 'scripts/native-commercial-env-preflight.cjs'
+      - 'scripts/native-build-fingerprint.cjs'
   workflow_dispatch:
 
 permissions:
@@ -75,6 +76,8 @@ jobs:
         run: node backend/native-qa-isolation.test.js
       - name: Validate native Android runner syntax before expensive builds
         run: bash -n scripts/native-commercial-android-runner.sh
+      - name: Verify native Maestro password selectors before expensive builds
+        run: node scripts/verify-native-maestro-selectors.cjs
 
   paid-native-journey:
     needs: [retire-superseded-native-builds, isolated-commercial-safety]
@@ -177,8 +180,20 @@ jobs:
           set -euo pipefail
           curl -fsSL 'https://get.maestro.mobile.dev' | bash
           echo "$HOME/.maestro/bin" >> "$GITHUB_PATH"
-      - name: Set up Android SDK and native release APK
-        if: matrix.platform == 'android'
+      - name: Fingerprint exact native application sources, excluding only QA scripts
+        id: native-fingerprint
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "digest=$(node scripts/native-build-fingerprint.cjs)" >> "$GITHUB_OUTPUT"
+      - name: Restore precompiled unsigned QA app (never a production release)
+        id: native-build-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: .qa-native-build-cache/${{ matrix.platform }}
+          key: qa-native-release-v1-${{ runner.os }}-${{ matrix.platform }}-${{ steps.native-fingerprint.outputs.digest }}
+      - name: Compile Android only when no identical APK is cached
+        if: matrix.platform == 'android' && steps.native-build-cache.outputs.cache-hit != 'true'
         shell: bash
         run: |
           set -euo pipefail
@@ -188,6 +203,32 @@ jobs:
           chmod +x gradlew
           NODE_ENV=production ./gradlew --no-daemon --max-workers=2 --console=plain :app:assembleRelease
           test -s app/build/outputs/apk/release/app-release.apk
+          mkdir -p ../.qa-native-build-cache/android
+          cp app/build/outputs/apk/release/app-release.apk ../.qa-native-build-cache/android/app-release.apk
+          cd ../.qa-native-build-cache/android
+          shasum -a 256 app-release.apk > native.sha256
+      - name: Verify Android app bytes before installation
+        if: matrix.platform == 'android'
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd .qa-native-build-cache/android
+          test -s app-release.apk
+          shasum -a 256 -c native.sha256
+      - name: Save Android binary across QA-only test revisions
+        if: matrix.platform == 'android' && steps.native-build-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: .qa-native-build-cache/android
+          key: qa-native-release-v1-${{ runner.os }}-${{ matrix.platform }}-${{ steps.native-fingerprint.outputs.digest }}
+      - name: Preserve the exact Android APK independently of test results
+        if: matrix.platform == 'android'
+        uses: actions/upload-artifact@v4
+        with:
+          name: commercial-qa-android-app
+          path: .qa-native-build-cache/android/
+          retention-days: 14
+          if-no-files-found: error
       - name: Enable KVM for actual Android
         if: matrix.platform == 'android'
         shell: bash
@@ -206,23 +247,46 @@ jobs:
           emulator-options: -no-window -no-audio -no-snapshot -no-boot-anim -gpu swiftshader_indirect
           disable-animations: true
           script: bash scripts/native-commercial-android-runner.sh
-      - name: Build unsigned iOS native Release app and boot iPhone Simulator
+      - name: Boot iPhone simulator and install cached or newly compiled app
         if: matrix.platform == 'ios'
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p artifacts/native-commercial-ios
-          NODE_ENV=production npx expo prebuild --clean --platform ios --non-interactive
+          mkdir -p artifacts/native-commercial-ios .qa-native-build-cache/ios
           SIM="$(xcrun simctl list -j devices available | python3 -c 'import json,sys;d=json.load(sys.stdin)["devices"];print(next(z["udid"] for a in d.values() for z in a if z.get("isAvailable") and "iPhone" in z["name"]))')"
           echo "SIM_DEVICE=$SIM" >> "$GITHUB_ENV"
           xcrun simctl boot "$SIM" || true
           xcrun simctl bootstatus "$SIM" -b
-          # Match the isolated Miami Operator and pickup fixture on the simulator.
           xcrun simctl location "$SIM" set 25.7617,-80.1918
-          NODE_ENV=production xcodebuild -workspace ios/AmericanRider.xcworkspace -scheme AmericanRider -configuration Release -destination "id=$SIM" -derivedDataPath "$RUNNER_TEMP/QARelease" CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO build > artifacts/native-commercial-ios/xcode.log 2>&1 || { tail -120 artifacts/native-commercial-ios/xcode.log; exit 1; }
-          APP="$RUNNER_TEMP/QARelease/Build/Products/Release-iphonesimulator/AmericanRider.app"
-          test -d "$APP"
-          xcrun simctl install "$SIM" "$APP"
+          if [[ "${{ steps.native-build-cache.outputs.cache-hit }}" != "true" ]]; then
+            NODE_ENV=production npx expo prebuild --clean --platform ios --non-interactive
+            NODE_ENV=production xcodebuild -workspace ios/AmericanRider.xcworkspace -scheme AmericanRider -configuration Release -destination "id=$SIM" -derivedDataPath "$RUNNER_TEMP/QARelease" CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO build > artifacts/native-commercial-ios/xcode.log 2>&1 || { tail -120 artifacts/native-commercial-ios/xcode.log; exit 1; }
+            APP="$RUNNER_TEMP/QARelease/Build/Products/Release-iphonesimulator/AmericanRider.app"
+            test -d "$APP"
+            tar -czf .qa-native-build-cache/ios/AmericanRider.app.tgz -C "$(dirname "$APP")" AmericanRider.app
+            (cd .qa-native-build-cache/ios && shasum -a 256 AmericanRider.app.tgz > native.sha256)
+          fi
+          cd .qa-native-build-cache/ios
+          test -s AmericanRider.app.tgz
+          shasum -a 256 -c native.sha256
+          mkdir -p "$RUNNER_TEMP/qa-cached-ios"
+          tar -xzf AmericanRider.app.tgz -C "$RUNNER_TEMP/qa-cached-ios"
+          test -d "$RUNNER_TEMP/qa-cached-ios/AmericanRider.app"
+          xcrun simctl install "$SIM" "$RUNNER_TEMP/qa-cached-ios/AmericanRider.app"
+      - name: Save iOS simulator app across QA-only test revisions
+        if: matrix.platform == 'ios' && steps.native-build-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: .qa-native-build-cache/ios
+          key: qa-native-release-v1-${{ runner.os }}-${{ matrix.platform }}-${{ steps.native-fingerprint.outputs.digest }}
+      - name: Preserve exact iOS simulator app independently of test results
+        if: matrix.platform == 'ios'
+        uses: actions/upload-artifact@v4
+        with:
+          name: commercial-qa-ios-simulator-app
+          path: .qa-native-build-cache/ios/
+          retention-days: 14
+          if-no-files-found: error
       - name: Execute native iPhone Traveler and Operator paid journeys
         if: matrix.platform == 'ios'
         shell: bash

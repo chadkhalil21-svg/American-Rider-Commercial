@@ -10,23 +10,17 @@ appId: com.americanrider.app
 - extendedWaitUntil:
     visible: "Welcome back"
     timeout: 30000
-- tapOn: "Password"
+# Use the password EditText hint, not the static PASSWORD label.
+- tapOn: "Your password"
 - inputText: "Native-QA-Only-7819-Strong"
-# On Android Maestro hideKeyboard dispatches BACK. After password input,
-# submit by pressing the keyboard action key wired to TextInput.onSubmitEditing.
-- runFlow:
-    when:
-      platform: Android
-    commands:
-      - assertVisible: "Welcome back"
-      - pressKey: enter
-- runFlow:
-    when:
-      platform: iOS
-    commands:
-      - hideKeyboard
-      - tapOn:
-          id: "auth-primary-action"
+# Focused password IME may be dismissed safely. Tap the actual Sign In
+# control after asserting that entering the password enabled it.
+- hideKeyboard
+- assertVisible:
+    id: "auth-primary-action"
+    enabled: true
+- tapOn:
+    id: "auth-primary-action"
 # Guard against invisible-route matches while the credential form remains.
 - extendedWaitUntil:
     notVisible: "Welcome back"

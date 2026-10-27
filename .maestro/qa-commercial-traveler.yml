@@ -10,25 +10,18 @@ appId: com.americanrider.app
 - hideKeyboard
 - tapOn: "Continue"
 - assertVisible: "Welcome back"
-- tapOn: "Password"
+# The emulator's native hierarchy exposes PASSWORD as a static heading.
+# Input target is the editable field whose hint is "Your password".
+- tapOn: "Your password"
 - inputText: "Native-QA-Only-7819-Strong"
-# On Android Maestro hideKeyboard sends a BACK key event, which left the app on
-# the launcher in run 40549821639 after entering the password. Use the real
-# password field onSubmitEditing instead. Do not bypass actual Firebase login.
-- runFlow:
-    when:
-      platform: Android
-    commands:
-      - assertVisible: "Welcome back"
-      - pressKey: enter
-# Keep the existing iPhone button interaction until iOS evidence is evaluated.
-- runFlow:
-    when:
-      platform: iOS
-    commands:
-      - hideKeyboard
-      - tapOn:
-          id: "auth-primary-action"
+# With the real TextInput focused, hideKeyboard dismisses the visible IME.
+# Never rely on Enter silently submitting the form.
+- hideKeyboard
+- assertVisible:
+    id: "auth-primary-action"
+    enabled: true
+- tapOn:
+    id: "auth-primary-action"
 # The last iPhone run (40549821639) incorrectly matched an underlying
 # Arrange Your Travel view while the Welcome back screen was still foreground.
 # Require the login form to disappear BEFORE accepting any home-screen match.
