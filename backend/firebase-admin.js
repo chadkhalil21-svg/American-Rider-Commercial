@@ -20,6 +20,7 @@
 // private key. It is a REAL SECRET — it goes in backend/.env (gitignored) and in Render's
 // environment, never in the repo.
 const { readKey } = require('./env');
+const {isolatedNativeQa}=require('./native-qa-isolation');
 
 let _state = null;
 
@@ -50,7 +51,10 @@ function admin() {
       // JSON document, where whitespace inside string values is content. Trim the ends only.
       const raw = (process.env.FIREBASE_SERVICE_ACCOUNT || '').trim().replace(/^["']|["']$/g, '');
       const path = readKey('GOOGLE_APPLICATION_CREDENTIALS');
-      if (raw) {
+      if (isolatedNativeQa()) {
+        // Local Firebase emulators only; bypasses export of any service-account key.
+        appMod.initializeApp({projectId:'demo-american-rider-qa'});
+      } else if (raw) {
         appMod.initializeApp({ credential: appMod.cert(JSON.parse(raw)) });
       } else if (path) {
         // Local/Render file-backed application default credentials.

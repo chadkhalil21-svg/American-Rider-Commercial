@@ -1,0 +1,89 @@
+name: Native commercial QA genuine provider and local isolation preflight
+
+on:
+  pull_request:
+    branches: [release/current]
+    paths:
+      - 'backend/native-commercial-qa-preflight.cjs'
+      - 'backend/native-qa-isolation.js'
+      - 'backend/native-qa-isolation.test.js'
+      - '.github/workflows/native-commercial-provider-preflight.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  native-commercial-provider-preflight:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      CI: '1'
+      NODE_ENV: test
+      EXPO_PUBLIC_AR_NATIVE_QA: '1'
+      AR_NATIVE_COMMERCIAL_QA: '1'
+      EXPO_PUBLIC_API_URL: http://10.0.2.2:4242
+      FIRESTORE_EMULATOR_HOST: 127.0.0.1:8080
+      FIREBASE_AUTH_EMULATOR_HOST: 127.0.0.1:9099
+      FIREBASE_PROJECT_ID: demo-american-rider-qa
+      GOOGLE_CLOUD_PROJECT: demo-american-rider-qa
+      STRIPE_SECRET_KEY: ${{ secrets.STRIPE_TEST_SECRET_KEY }}
+      STRIPE_PUBLISHABLE_KEY: ${{ secrets.STRIPE_TEST_PUBLISHABLE_KEY }}
+      PORT: '4242'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Require strictly TEST-only credentials, refuse all production API endpoints
+        shell: bash
+        run: |
+          set -euo pipefail
+          node -e "if(!process.env.STRIPE_SECRET_KEY?.startsWith('sk_test_')||!process.env.STRIPE_PUBLISHABLE_KEY?.startsWith('pk_test_')){console.error('::error::Missing Stripe TEST private or publishable key in protected GitHub secrets');process.exit(1)}"
+          test "$EXPO_PUBLIC_API_URL" = http://10.0.2.2:4242
+          test "$GOOGLE_CLOUD_PROJECT" = demo-american-rider-qa
+          test -z "${K_SERVICE:-}"
+          test -z "${STRIPE_LIVE_SECRET_KEY:-}"
+      - name: Install pinned dependencies
+        run: |
+          npm ci --ignore-scripts
+          npm ci --prefix backend --omit=dev
+          npm ci --prefix infra/rules-emulator
+      - name: Assert commercial QA cannot run against deployed or live credentials
+        shell: bash
+        run: node backend/native-qa-isolation.test.js
+      - name: Create ephemeral local Auth/Firestore test configuration
+        shell: bash
+        run: |
+          node - <<'NODE'
+          const fs=require('node:fs');
+          const json=JSON.parse(fs.readFileSync('firebase.json','utf8'));
+          json.emulators={...(json.emulators||{}),auth:{host:'127.0.0.1',port:9099},firestore:{host:'127.0.0.1',port:8080}};
+          fs.writeFileSync('firebase.native-commerce-qa.json',JSON.stringify(json));
+          NODE
+          ./infra/rules-emulator/node_modules/.bin/firebase emulators:start --only auth,firestore --project demo-american-rider-qa --config firebase.native-commerce-qa.json > "$RUNNER_TEMP/firebase.log" 2>&1 &
+          echo $! > "$RUNNER_TEMP/firebase.pid"
+          for i in $(seq 1 90); do
+            if curl -fsS http://127.0.0.1:9099/emulator/v1/projects/demo-american-rider-qa/config >/dev/null; then break; fi
+            sleep 2
+          done
+          curl -fsS http://127.0.0.1:9099/emulator/v1/projects/demo-american-rider-qa/config >/dev/null
+      - name: Start unprivileged local backend, never Cloud Run
+        shell: bash
+        run: |
+          set -euo pipefail
+          node backend/server.js > "$RUNNER_TEMP/backend.log" 2>&1 &
+          echo $! > "$RUNNER_TEMP/backend.pid"
+          for i in $(seq 1 45); do
+            if curl -fsS http://127.0.0.1:4242/health >/dev/null; then break; fi
+            sleep 2
+          done
+          curl -fsS http://127.0.0.1:4242/health >/dev/null || { tail -50 "$RUNNER_TEMP/backend.log"; exit 1; }
+      - name: Authenticate actual Stripe TEST provider read-only and prove isolated backend reachable
+        run: node backend/native-commercial-qa-preflight.cjs
+      - name: State correct boundary
+        if: always()
+        run: |
+          echo '## Native paid commercial preflight, NOT a journey' >> "$GITHUB_STEP_SUMMARY"
+          echo 'This job must pass before actual mobile paid journeys are eligible to run. It does not itself tap either mobile app, seed an Operator, process a payment, or certify a bank transfer.' >> "$GITHUB_STEP_SUMMARY"
+          echo 'Only test credentials and disposable local Firebase Auth/Firestore are permitted. Missing credentials block, never fall back to production.' >> "$GITHUB_STEP_SUMMARY"
