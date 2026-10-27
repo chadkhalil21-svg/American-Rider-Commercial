@@ -15,6 +15,17 @@ permissions:
   contents: read
 
 jobs:
+  isolated-commercial-safety:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Refuse all live Stripe and production Firebase contexts, keep old sign-in QA safe
+        run: node backend/native-qa-isolation.test.js
+
   paid-native-journey:
     strategy:
       fail-fast: false
