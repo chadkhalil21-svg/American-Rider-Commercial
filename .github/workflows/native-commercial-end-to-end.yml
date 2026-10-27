@@ -257,21 +257,27 @@ jobs:
           chmod +x gradlew
           NODE_ENV=production ./gradlew --no-daemon --max-workers=2 --console=plain :app:assembleRelease
           test -s app/build/outputs/apk/release/app-release.apk
-          # Test the ACTUAL compiled manifest, not merely the source XML.
-          # Refuse caching/reusing any QA APK whose Android security policy
-          # does not contain the deliberately local-only emulator exception.
-          # Don't grep -q a streaming command under pipefail: the producer
-          # may terminate SIGPIPE. Compiled resource archive paths may also
-          # be shortened by aapt2, so verify the resource SYMBOL, not filename.
-          AAPT="$ANDROID_HOME/build-tools/36.0.0/aapt2"
-          "$AAPT" dump xmltree app/build/outputs/apk/release/app-release.apk AndroidManifest.xml > "$RUNNER_TEMP/qa-compiled-manifest.txt"
-          "$AAPT" dump resources app/build/outputs/apk/release/app-release.apk > "$RUNNER_TEMP/qa-compiled-resources.txt"
-          grep -q 'networkSecurityConfig' "$RUNNER_TEMP/qa-compiled-manifest.txt"
-          grep -q 'american_rider_qa_network_security_config' "$RUNNER_TEMP/qa-compiled-resources.txt"
+          # Preserve the expensive, freshly compiled APK BEFORE ANY postbuild
+          # verification command. If aapt2/lint/automation fails, evidence
+          # still survives in a checksum-verified GitHub artifact.
           mkdir -p ../.qa-native-build-cache/android
           cp app/build/outputs/apk/release/app-release.apk ../.qa-native-build-cache/android/app-release.apk
-          cd ../.qa-native-build-cache/android
-          shasum -a 256 app-release.apk > native.sha256
+          (cd ../.qa-native-build-cache/android && shasum -a 256 app-release.apk > native.sha256)
+      - name: Verify actual compiled Android manifest and resource symbols
+        if: matrix.platform == 'android'
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK='.qa-native-build-cache/android/app-release.apk'
+          test -s "$APK"
+          AAPT="$ANDROID_HOME/build-tools/36.0.0/aapt2"
+          test -x "$AAPT"
+          # Official Android AAPT2 requires --file for xmltree. Do not
+          # interpret Gradle success as a passed postbuild manifest check.
+          "$AAPT" dump xmltree --file AndroidManifest.xml "$APK" > "$RUNNER_TEMP/qa-compiled-manifest.txt"
+          "$AAPT" dump resources "$APK" > "$RUNNER_TEMP/qa-compiled-resources.txt"
+          grep -F 'networkSecurityConfig' "$RUNNER_TEMP/qa-compiled-manifest.txt" >/dev/null
+          grep -F 'american_rider_qa_network_security_config' "$RUNNER_TEMP/qa-compiled-resources.txt" >/dev/null
       - name: Verify Android app bytes before installation
         if: matrix.platform == 'android'
         shell: bash
@@ -287,13 +293,13 @@ jobs:
           path: .qa-native-build-cache/android
           key: qa-native-release-v1-${{ runner.os }}-${{ matrix.platform }}-${{ steps.native-fingerprint.outputs.digest }}
       - name: Preserve the exact Android APK independently of test results
-        if: matrix.platform == 'android'
+        if: ${{ always() && matrix.platform == 'android' }}
         uses: actions/upload-artifact@v4
         with:
           name: commercial-qa-android-app
           path: .qa-native-build-cache/android/
           retention-days: 14
-          if-no-files-found: error
+          if-no-files-found: warn
       - name: Enable KVM for actual Android
         if: matrix.platform == 'android'
         shell: bash
