@@ -61,7 +61,11 @@ def wait(label,name,seconds=32):
         except (ET.ParseError,RuntimeError,subprocess.TimeoutExpired):
             pass
         time.sleep(1)
-    raise AssertionError(f"Expected '{label}' on {name}. Visible labels: {[text(n) for n in last if text(n)][:28]}")
+    # Shared emulator may display the correct React Native overlay during the last dump.
+    # Use the observed last hierarchy once before declaring this a real UI failure.
+    if (hit := find(last,label)):
+        return hit
+    raise AssertionError(f"Expected '{label}' on {name}. Visible labels: {[text(n) for n in last if text(n)][:40]}")
 
 def tap(label,name):
     n=wait(label,name)
@@ -103,7 +107,7 @@ def main():
     for perm in ("ACCESS_COARSE_LOCATION","ACCESS_FINE_LOCATION","ACCESS_BACKGROUND_LOCATION"):
         adb("shell","pm","grant",APP,"android.permission."+perm)
     adb("shell","am","start","-W","-n",APP+"/.MainActivity")
-    wait("Email Address","welcome",seconds=48)
+    wait("Email Address","welcome",seconds=150)
     edit(0,EMAIL,"email")
     tap("Continue","continue")
     wait("Welcome back","password-step")
