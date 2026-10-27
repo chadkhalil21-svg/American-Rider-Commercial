@@ -13,7 +13,10 @@ appId: com.americanrider.app
 - tapOn: "Password"
 - inputText: "Native-QA-Only-7819-Strong"
 - hideKeyboard
-- tapOn: "Sign In"
+# The actual React Native Pressable has a stable testID; do not confuse
+# accessibility/visible label changes with missing real authentication.
+- tapOn:
+    id: "auth-primary-action"
 - extendedWaitUntil:
     visible: "Arrange Your Travel"
     timeout: 60000
