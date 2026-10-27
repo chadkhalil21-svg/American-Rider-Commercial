@@ -21,5 +21,10 @@ assert.match(button, /height:\s*46\b/);
 assert.match(source, /btnText:\s*\{\s*fontSize:\s*15\b/);
 assert.match(source, /ssoInner:\s*\{[^}]*alignItems:\s*'center'/);
 assert.match(source, /btnSso:\s*\{[^}]*borderWidth:\s*1\b/);
-assert.equal((source.match(/<Svg width=\{17\} height=\{17\} viewBox="0 0 24 24">/g) || []).length, 2);
-console.log('PASS: 46pt Apple official native button / Google custom control; provider labels and original wording preserved');
+assert.equal((source.match(/<Svg width=\{17\} height=\{17\} viewBox="0 0 24 24">/g) || []).length, 1,
+  'only the nonproduction Apple preview may use its previous SVG');
+assert.match(source, /source=\{\{ uri: GOOGLE_OFFICIAL_G_DATA_URI \}\}/,
+  'Google must use the unmodified bundled color identity mark');
+assert.match(source, /googleOfficialMark:\s*\{ width: 17, height: 17 \}/,
+  'preserve the founder-approved 17pt logo footprint');
+console.log('PASS: 46pt Apple official native button / Google 46pt with official full-color 17pt G; labels preserved');
