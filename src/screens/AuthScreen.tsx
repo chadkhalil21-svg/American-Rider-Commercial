@@ -14,7 +14,6 @@ import { Text } from '../components/AppText';
 import { Screen } from '../components/UI';
 import { LEGAL_URL, PAYMENT_SERVER_URL } from '../config';
 import Svg, { Path } from 'react-native-svg';
-import * as AppleAuthentication from 'expo-apple-authentication';
 
 import { appleSignInAvailable, signInWithApple } from '../state/appleSignIn';
 import { googleSignInConfigured, useGoogleSignIn } from '../state/googleSignIn';
@@ -32,7 +31,6 @@ import { useAuth } from '../state/AuthContext';
 import { savePendingInvite } from '../backend/referralPending';
 import { useLanguage } from '../state/LanguageContext';
 import { colors } from '../theme';
-import { GOOGLE_OFFICIAL_G_SOURCE } from '../brand/googleOfficialG';
 
 const emailOk = (e: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e.trim());
 
@@ -53,6 +51,7 @@ function InkButton({
       disabled={disabled}
       accessibilityRole="button"
       accessibilityLabel={label}
+      testID="auth-primary-action"
       accessibilityState={{ disabled: !!disabled }}
       style={({ pressed }) => [
         s.btn,
@@ -65,8 +64,7 @@ function InkButton({
   );
 }
 
-// A single-sign-on control with an official Google gradient G and the app's
-// existing bordered 46pt layout. The Apple fallback below is preview-only.
+// A single-sign-on control: bordered, monochrome, the provider's mark drawn in ink.
 // Chad's instruction (13 Sept 2026) was explicit — no consumer brand colours on this screen.
 // GOOGLE'S HOOK THROWS DURING RENDER WHEN NO CLIENT ID IS CONFIGURED — "Client Id property
 // `iosClientId` must be defined" — and it took the whole app down on launch, because a hook
@@ -89,8 +87,11 @@ function GoogleEntry({ label, onFailed, onStart }: { label: string; onFailed: ()
   );
 }
 
-// The OS supplies the official Apple sign-in artwork in every production iOS build.
-// This custom control is for Google and explicitly opted-in non-production previews only.
+// Same compact layout for both official sign-in options. Keep Apple black
+// with a white mark, Google outlined with its recognizable G mark, and BOTH
+// full "Continue with [provider]" labels. Apple's native button printed larger
+// text on Build 55. App Review evaluates custom Apple buttons; the Apple glyph
+// must be replaced with Apple's official approved artwork before publication.
 function SsoButton({
   label,
   onPress,
@@ -119,15 +120,24 @@ function SsoButton({
             />
           </Svg>
         ) : (
-          // Google-owned iOS SDK multicolor G is bundled without modification,
-          // so it still appears offline. Preserve the 17pt icon footprint
-          // and the 46pt founder-approved equal sign-in button heights.
-          <Image
-            source={GOOGLE_OFFICIAL_G_SOURCE}
-            style={s.googleOfficialMark}
-            resizeMode="contain"
-            accessibilityIgnoresInvertColors
-          />
+          <Svg width={17} height={17} viewBox="0 0 24 24">
+            <Path
+              d="M21.6 12.23c0-.71-.06-1.4-.18-2.05H12v3.88h5.38a4.6 4.6 0 0 1-2 3.02v2.5h3.23c1.89-1.74 2.99-4.3 2.99-7.35z"
+              fill={colors.ink}
+            />
+            <Path
+              d="M12 22c2.7 0 4.96-.9 6.61-2.42l-3.23-2.5c-.9.6-2.05.96-3.38.96-2.6 0-4.8-1.76-5.59-4.12H3.07v2.59A10 10 0 0 0 12 22z"
+              fill={colors.ink2}
+            />
+            <Path
+              d="M6.41 13.92a6 6 0 0 1 0-3.84V7.49H3.07a10 10 0 0 0 0 9.02l3.34-2.59z"
+              fill={colors.muted}
+            />
+            <Path
+              d="M12 5.98c1.47 0 2.79.51 3.83 1.5l2.86-2.86C16.95 2.99 14.7 2 12 2a10 10 0 0 0-8.93 5.49l3.34 2.59C7.2 7.72 9.4 5.98 12 5.98z"
+              fill={colors.ink}
+            />
+          </Svg>
         )}
         <Text style={[s.btnText, primary ? s.btnTextInk : s.btnTextSso]}>{label}</Text>
       </View>
@@ -424,19 +434,7 @@ export function AuthScreen() {
 
           {(appleReady || SSO_PREVIEW) && (
             <>
-              {appleReady ? (
-                <AppleAuthentication.AppleAuthenticationButton
-                  buttonType={AppleAuthentication.AppleAuthenticationButtonType.CONTINUE}
-                  buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.BLACK}
-                  cornerRadius={12}
-                  style={s.appleOfficialButton}
-                  onPress={onApple}
-                />
-              ) : (
-                // Non-production visual preview only. Never show a hand-drawn logo
-                // in a signed iOS App Store build.
-                <SsoButton label={t('auth.continueWithApple')} onPress={onApple} glyph="apple" primary />
-              )}
+              <SsoButton label={t('auth.continueWithApple')} onPress={onApple} glyph="apple" primary />
               <View style={{ height: 10 }} />
             </>
           )}
@@ -736,12 +734,11 @@ const s = StyleSheet.create({
     fontWeight: '600',
   },
   tagline: { textAlign: 'center', fontSize: 14.5, color: colors.ink2, letterSpacing: 0.1, marginTop: 20, lineHeight: 20 },
-  // Both buttons retain the founder-approved 46pt footprint and Continue wording.
-// Apple's official native control owns its logo and lettering; Google's label
-// remains the approved 15pt. Signed iOS builds never render the preview Apple SVG.
-  appleOfficialButton: { width: '100%', height: 46 },
+  // Native AppleAuthorizationButton used larger lettering in Build 55 despite
+  // having the same declared 46pt height as Google. Both controls now use the
+  // exact same compact 46pt layout, 15pt label, and 17pt provider mark.
+  // The authentication handlers remain their genuine Apple/Google providers.
   ssoButton: { width: '100%', height: 46, paddingVertical: 0, justifyContent: 'center' },
-  googleOfficialMark: { width: 17, height: 17 },
   btn: { borderRadius: 12, paddingVertical: 14, alignItems: 'center' },
   btnRow: { flexDirection: 'row', justifyContent: 'center', gap: 10 },
   btnInk: { backgroundColor: colors.ink },

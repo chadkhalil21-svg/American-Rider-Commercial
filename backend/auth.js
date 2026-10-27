@@ -5,6 +5,7 @@
 // We verify it by fetching Google's PUBLIC signing certificates and checking the signature plus
 // the audience/issuer/expiry. Nothing secret is involved — only the public project id.
 const jwt = require('jsonwebtoken');
+const {isolatedNativeQa}=require('./native-qa-isolation');
 const { X509Certificate } = require('crypto');
 
 const PROJECT_ID = process.env.FIREBASE_PROJECT_ID || 'american-rider-35688';
@@ -43,6 +44,13 @@ async function getCerts() {
  * running the whole loop end to end and reading Stripe's record of what it had been told.
  */
 async function verifyIdToken(idToken) {
+  if (isolatedNativeQa()) {
+    const {adminStatus}=require('./firebase-admin');
+    if (!adminStatus().ok) throw new Error('Local Auth/Firestore QA emulator unavailable');
+    const {getAuth}=require('firebase-admin/auth');
+    const decoded=await getAuth().verifyIdToken(idToken,true);
+    return {uid:decoded.uid,email:decoded.email||'',emailVerified:!!decoded.email_verified};
+  }
   const decoded = jwt.decode(idToken, { complete: true });
   if (!decoded || !decoded.header || !decoded.header.kid) throw new Error('malformed token');
   const certs = await getCerts();

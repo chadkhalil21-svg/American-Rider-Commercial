@@ -712,8 +712,6 @@ export default {
     errDeleteFailed: 'La suppression du compte n’a pas pu être confirmée. Reconnectez-vous pour réessayer ou contactez l’assistance. Les nouveaux voyages restent suspendus jusque-là.',
     errReauthenticationCancelled: 'La suppression du compte a été annulée. Votre compte reste ouvert.',
     deleteConfirmApple: 'Continuez avec Apple pour confirmer qu’il s’agit de votre compte.',
-    appleRevokeAfterDeletion: 'Après la suppression de votre compte American Rider, vérifiez si cette app apparaît encore dans Se connecter avec Apple. Si oui, retirez son autorisation dans Réglages > votre nom > Se connecter avec Apple > American Rider > Supprimer. Votre compte Apple ne sera pas supprimé.',
-    appleRevokeInstructions: 'Instructions Apple pour déconnecter cette app',
     deleteConfirmGoogle: 'Continuez avec Google pour confirmer qu’il s’agit de votre compte.',
     errDeleteProvider: 'Ce compte ne dispose d’aucune méthode de connexion compatible avec la suppression de compte.',
     delSignInDetails: 'L’ensemble des identifiants, coordonnées et jetons d’authentification seront définitivement supprimés.',

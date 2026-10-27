@@ -19,7 +19,6 @@ import * as Crypto from 'expo-crypto';
 import {
   OAuthProvider,
   reauthenticateWithCredential,
-  revokeAccessToken,
   signInWithCredential,
   updateProfile,
 } from 'firebase/auth';
@@ -113,28 +112,13 @@ export async function signInWithApple(): Promise<AppleResult> {
 }
 
 /** Ask Apple for a fresh credential and apply it to the account that is already signed in. */
-export async function reauthenticateWithApple({ forAccountDeletion = false }: { forAccountDeletion?: boolean } = {}): Promise<AppleResult> {
+export async function reauthenticateWithApple(): Promise<AppleResult> {
   const user = auth.currentUser;
   if (!user) return { ok: false, cancelled: false, reason: 'no_current_user' };
   const authResult = await appleCredential();
   if (!authResult.ok) return authResult;
   try {
-    const fresh = await reauthenticateWithCredential(user, authResult.credential);
-    if (forAccountDeletion) {
-      // Firebase's JavaScript SDK can revoke an Apple OAuth access token when
-      // the credential exchange actually returns one. Native Apple auth primarily
-      // yields an authorization code and an ID token, which are NOT interchangeable
-      // with an Apple OAuth access token. Never send a code as an access token.
-      // If no access token is returned, Apple's TN3194 permits the documented
-      // manual disconnection path shown on Delete Account. A revocation outage
-      // must never stop deletion of the account and its personal data.
-      const token = OAuthProvider.credentialFromResult(fresh)?.accessToken;
-      if (token) {
-        await revokeAccessToken(auth, token).catch(() => {
-          // Apple manual revocation instructions are always visible before deletion.
-        });
-      }
-    }
+    await reauthenticateWithCredential(user, authResult.credential);
     return { ok: true };
   } catch (e: unknown) {
     return { ok: false, cancelled: false, reason: safeAuthReason(e) };

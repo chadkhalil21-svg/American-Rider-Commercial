@@ -722,8 +722,6 @@ export default {
     errDeleteFailed: 'No se pudo confirmar la eliminación de la cuenta. Inicie sesión para reintentar o contacte con Atención. Los viajes nuevos permanecerán en pausa hasta resolverlo.',
     errReauthenticationCancelled: 'Se canceló la eliminación de la cuenta. Su cuenta permanece abierta.',
     deleteConfirmApple: 'Continúe con Apple para confirmar que esta es su cuenta.',
-    appleRevokeAfterDeletion: 'Tras eliminar su cuenta de American Rider, compruebe si Apple sigue mostrando esta app en Iniciar sesión con Apple. Si aparece, retire su autorización en Ajustes > su nombre > Iniciar sesión con Apple > American Rider > Eliminar. Esto no elimina su cuenta de Apple.',
-    appleRevokeInstructions: 'Instrucciones de Apple para desvincular esta app',
     deleteConfirmGoogle: 'Continúe con Google para confirmar que esta es su cuenta.',
     errDeleteProvider: 'Esta cuenta no tiene un método de inicio de sesión compatible con la eliminación de cuentas.',
     delSignInDetails: 'Se eliminarán de forma permanente todas las credenciales de identidad, los datos de contacto y los tokens de autenticación.',

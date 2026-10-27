@@ -15,7 +15,8 @@ import React, {
 import { accountInitials, accountName } from '../account';
 import { APP_FEE, coordinationFee, fareFromTotal } from '../data';
 import { operatorOfferAmounts } from '../operatorOfferMoney';
-import { goOffline, goOnline, settlePendingPayouts, submitForReview } from '../backend/connect';
+import { goOffline, goOnline, settlePendingPayouts, submitForReview, qualificationStatus } from '../backend/connect';
+import { insuranceStatus } from '../backend/insuranceStatus';
 import { confirmOperatorBackgroundLocationUse, startBackgroundPresence, stopBackgroundPresence } from '../backend/presence';
 import {
   acceptTravel,
@@ -401,6 +402,35 @@ export function OperatorProvider({ children }: { children: React.ReactNode }) {
   // Mirror of the revenue blob so mutations never nest setState inside an updater
   // (React updaters must stay pure — StrictMode runs them twice).
   const revRef = useRef<RevenueBlob>(EMPTY_REVENUE);
+
+  // Isolated commercial acceptance ONLY: restore the on-device presentation for
+  // the single disposable QA Operator from AUTHENTICATED, server-assessed evidence.
+  // The server still owns qualification, insurance, dispatch, Stripe and settlement.
+  // This never runs in an App Store build, production Firebase project or remote API.
+  useEffect(() => {
+    const isolated = Platform.OS !== 'web' &&
+      process.env.EXPO_PUBLIC_AR_NATIVE_QA === '1' &&
+      (process.env.EXPO_PUBLIC_API_URL === 'http://10.0.2.2:4242' ||
+       process.env.EXPO_PUBLIC_API_URL === 'http://127.0.0.1:4242') &&
+      user?.uid === 'native-qa-operator';
+    if (!isolated) return;
+    let active = true;
+    void (async () => {
+      const [qualification, coverage] = await Promise.all([
+        qualificationStatus(), insuranceStatus(),
+      ]);
+      if (!active || userUidRef.current !== 'native-qa-operator' ||
+          qualification.status !== 'qualified' ||
+          coverage?.ok !== true ||
+          !/^\d{4}-\d{2}-\d{2}$/.test(coverage.policyExpiry || '')) return;
+      // The synthetic plate and vehicle below match the isolated Firestore QA
+      // Operator fixture. This is NOT evidence of a real-world vehicle or policy.
+      setVerification('commissioned');
+      setVehicleState({car:'QA Test Vehicle',plate:'QATEST1'});
+      setInsuranceExpiryState(coverage.policyExpiry!);
+    })();
+    return () => { active = false; };
+  }, [user?.uid]);
 
   // ---- load persisted state once ----
   useEffect(() => {

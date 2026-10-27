@@ -7,7 +7,7 @@
 // what goes, what stays, and why we keep what we keep.
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import { Linking, Platform, Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { Text } from '../src/components/AppText';
 import { useGoBack } from '../src/components/nav';
 import { Card, LetterheadBar, Screen, SectionLabel, Sub, Title } from '../src/components/UI';
@@ -181,20 +181,6 @@ export default function DeleteAccount() {
           </View>
         </Card>
       )}
-      {provider === 'apple' ? (
-        <Card style={styles.card}>
-          <View style={styles.block}>
-            <Text style={styles.blockSub}>{t('traveler.appleRevokeAfterDeletion')}</Text>
-            <Pressable
-              accessibilityRole="link"
-              onPress={() => { void Linking.openURL('https://support.apple.com/102571'); }}
-              style={{ minHeight: 44, justifyContent: 'center' }}
-            >
-              <Text style={styles.blockTitle}>{t('traveler.appleRevokeInstructions')}</Text>
-            </Pressable>
-          </View>
-        </Card>
-      ) : null}
       <Text style={styles.note}>{t('traveler.signedInAs', { email: user?.email ?? '' })}</Text>
 
       {error ? <Text style={styles.error}>{error}</Text> : null}
@@ -244,7 +230,7 @@ export default function DeleteAccount() {
               await reauthenticateWithPassword(user, password);
               return;
             }
-            const result = await reauthenticateWithApple({ forAccountDeletion: true });
+            const result = await reauthenticateWithApple();
             if (!result.ok) throw providerResultError(result);
           })}
           t={t}

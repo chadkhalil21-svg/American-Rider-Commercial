@@ -726,8 +726,6 @@ export default {
     errDeleteFailed: 'Account deletion could not be confirmed. Sign in to retry or contact Support. New Travel remains paused until this is resolved.',
     errReauthenticationCancelled: 'Account deletion was cancelled. Your account remains open.',
     deleteConfirmApple: 'Continue with Apple to confirm that this is your account.',
-    appleRevokeAfterDeletion: 'After deleting your American Rider account, check whether Apple still lists this app under Sign in with Apple. If it does, remove its authorization in iPhone Settings > your name > Sign in with Apple > American Rider > Delete. This does not delete your Apple Account.',
-    appleRevokeInstructions: 'Apple instructions for disconnecting this app',
     deleteConfirmGoogle: 'Continue with Google to confirm that this is your account.',
     errDeleteProvider: 'This account has no supported sign-in method for account deletion.',
     delSignInDetails: 'All personal identity credentials, contact details, and authentication tokens will be permanently removed.',
