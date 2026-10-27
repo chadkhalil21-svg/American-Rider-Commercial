@@ -51,6 +51,28 @@ assert.ok(booking.includes('- tapOn: "Search a place or address"'),
   'core destination must target the actual editable search input');
 assert.ok(booking.includes('- inputText: "Wynwood"'),
   'local QA booking must not rely on missing commercial geocoder credentials');
+const resultRowLabel='Wynwood, Estimated travel time · 11 minutes, ›';
+const inputLabel='Wynwood';
+const realDestinationSelector='.*Wynwood, Estimated travel time.*';
+const destinationRowPattern=new RegExp(realDestinationSelector);
+assert.ok(booking.includes('visible: "'+realDestinationSelector+'"') &&
+          booking.includes('- tapOn: "'+realDestinationSelector+'"'),
+  'Match the actual Wynwood suggestion row, never the still-focused Wynwood TextInput');
+assert.ok(destinationRowPattern.test(resultRowLabel) && !destinationRowPattern.test(inputLabel),
+  'Maestro destination selector must distinguish result-row button from editable search field');
+assert.doesNotMatch(booking, /^- tapOn: "Wynwood"$/m,
+  'Ambiguous Wynwood selector clicked the input, not the result, in run 40601800241');
+assert.ok(booking.includes('notVisible: "Search a place or address"') &&
+          booking.includes('visible: "Complete Travel Cost"') &&
+          booking.includes('text: "Confirm Travel"') &&
+          booking.includes('enabled: true'),
+  'Require search mode exit, actual quote display, and enabled Confirm Travel');
+const reserveScreen=fs.readFileSync('app/reserve.tsx','utf8');
+assert.ok(reserveScreen.includes("t('traveler.estimatedTravelTime', { n: p.minutes })") &&
+          reserveScreen.includes('chooseDestination({ name: p.name') &&
+          reserveScreen.includes('setSearching(false)'),
+  'Destination-result accessibility row and its search-mode exit changed; review Maestro selector');
+
 assert.doesNotMatch(booking,/- inputText: "Miami International Airport"/,
   'separate airport acceptance from core isolated commercial Travel');
 assert.ok(booking.includes('- inputText: "123"'),
