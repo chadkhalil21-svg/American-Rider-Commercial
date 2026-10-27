@@ -1,0 +1,47 @@
+# Actual native application: Traveler -> destination -> authorized Stripe TEST booking.
+# Runs ONLY against isolated local Firebase/Auth and sandbox API.
+appId: com.americanrider.app
+---
+- launchApp:
+    clearState: true
+- assertVisible: "AMERICAN RIDER"
+- tapOn: "Email Address"
+- inputText: "native.qa.traveler@example.test"
+- hideKeyboard
+- tapOn: "Continue"
+- assertVisible: "Welcome back"
+- tapOn: "Password"
+- inputText: "Native-QA-Only-7819-Strong"
+- hideKeyboard
+- tapOn: "Sign In"
+- extendedWaitUntil:
+    visible: "Arrange Your Travel"
+    timeout: 60000
+- tapOn: "Select your destination"
+- inputText: "Miami International Airport"
+- extendedWaitUntil:
+    visible: "Miami International Airport"
+    timeout: 40000
+- tapOn: "Miami International Airport"
+- extendedWaitUntil:
+    visible: "Travel Confirmation"
+    timeout: 60000
+- assertVisible: "Complete Travel Cost"
+- tapOn: "Confirm Travel"
+- extendedWaitUntil:
+    visible: "Add a payment method"
+    timeout: 45000
+# The Stripe TEST PaymentSheet card entry and authenticated authorization must
+# be completed on-device. This suite fails rather than claiming success if the
+# PaymentSheet does not appear or the eligible Operator is not available.
+- tapOn: "Card number"
+- inputText: "4242424242424242"
+- tapOn: "MM / YY"
+- inputText: "1230"
+- tapOn: "CVC"
+- inputText: "123"
+- hideKeyboard
+- tapOn: "Pay"
+- extendedWaitUntil:
+    visible: "Finding your operator"
+    timeout: 60000
