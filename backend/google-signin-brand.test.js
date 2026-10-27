@@ -15,7 +15,7 @@ assert.match(bundled, /data:image\/png;base64,iVBORw0KGgo/,
 assert.match(ui, /<Image\s+source=\{\{ uri: GOOGLE_OFFICIAL_G_DATA_URI \}\}/,
   'render the offline-bundled official Google mark');
 assert.match(ui, /style=\{s\.googleOfficialMark\}[\s\S]*?resizeMode="contain"/,
-  'preserve Google's icon aspect ratio');
+  'preserve the official Google icon aspect ratio');
 assert.match(ui, /googleOfficialMark:\s*\{\s*width:\s*17,\s*height:\s*17\s*\}/,
   'keep founder-approved 17pt logo footprint');
 assert.match(ui, /ssoButton:\s*\{\s*width:\s*'100%',\s*height:\s*46/,
