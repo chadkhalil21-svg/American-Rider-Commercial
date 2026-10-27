@@ -1,4 +1,5 @@
 name: Founder one-time REAL Stripe TEST refund and manual-capture acceptance
+# Corrected TEST refund assertion: verify captured PaymentIntent, not omitted Refund.livemode.
 # Rerun only against Stripe TEST to distinguish accepted refunds from confirmed settlement.
 on:
   push:
