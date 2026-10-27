@@ -89,6 +89,13 @@ assert.match(recruiter,/a verified Recruiter may earn \$0\.15 per qualifying pai
 assert.doesNotMatch(recruiter, /Friday payout|guaranteed earnings|immediate payouts/i);
 const terms = fs.readFileSync(path.join(root, 'terms', 'index.html'), 'utf8');
 assert.match(terms, /Terms of Service/);
+const deletionPage = fs.readFileSync(path.join(root, 'account-deletion', 'index.html'), 'utf8');
+assert.match(deletionPage, /Delete your American Rider account/i,
+  'Google Play must expose a public external account-deletion request page');
+assert.match(deletionPage, /mailto:americanrider\.communications@gmail\.com\?subject=American%20Rider%20Account%20Deletion/,
+  'account deletion requests must be possible without installing or signing into the mobile app');
+assert.match(deletionPage, /verify your account/i,
+  'identity verification must occur through a secure support workflow, not a public query string');
 const privacy = fs.readFileSync(path.join(root, 'privacy', 'index.html'), 'utf8');
 assert.match(privacy, /Privacy Policy/);
 console.log('Corporate website routes, attribution language, domain isolation and legal continuity: PASS');
