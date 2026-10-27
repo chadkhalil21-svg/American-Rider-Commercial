@@ -26,8 +26,11 @@ jobs:
     permissions:
       actions: write
       contents: read
+    outputs:
+      platforms: ${{ steps.cleanup.outputs.platforms }}
     steps:
-      - name: Cancel older running and queued QA builds for this exact PR
+      - name: Preserve an unfinished iOS build; cancel only superseded non-iOS work
+        id: cleanup
         uses: actions/github-script@v7
         with:
           script: |
@@ -50,18 +53,43 @@ jobs:
               }
               if (data.workflow_runs.length < 100) break;
             }
-            core.info('Obsolete native runs to cancel: ' + JSON.stringify(obsolete));
+            // IMPORTANT: cancelWorkflowRun cancels BOTH jobs of an older
+            // matrix run. Do not throw away its expensive iOS compile just
+            // because the previous Android job already failed. GitHub reports
+            // individual job statuses through listJobsForWorkflowRun.
+            const cancelled = [];
+            const preservedIos = [];
             for (const run_id of obsolete) {
+              const jobs = await github.paginate(github.rest.actions.listJobsForWorkflowRun, {
+                owner, repo, run_id, per_page: 100
+              });
+              const unfinishedIos = jobs.some(j =>
+                j.name === 'paid-native-journey (ios)' &&
+                ['queued','in_progress','waiting','pending','requested'].includes(j.status)
+              );
+              if (unfinishedIos) {
+                preservedIos.push(run_id);
+                core.info('Preserving still-compiling iOS in older run '+run_id);
+                continue;
+              }
               try {
                 await github.rest.actions.cancelWorkflowRun({owner,repo,run_id});
-                core.info('Cancellation requested for run ' + run_id);
+                cancelled.push(run_id);
+                core.info('Cancellation requested for obsolete run '+run_id);
               } catch(error) {
                 if (error.status !== 409 && error.status !== 422) throw error;
-                core.info('Run already finished: ' + run_id);
+                core.info('Run already finished: '+run_id);
               }
             }
-            await core.summary.addHeading('Superseded native builds')
-              .addRaw('Cancelled or already completed older runs: ' + obsolete.length)
+            // If another run owns an unfinished iOS build, test Android NOW
+            // without scheduling a new iOS matrix job in the same concurrency
+            // group (which would automatically cancel the still-compiling one).
+            const platforms = preservedIos.length ? ['android'] : ['ios','android'];
+            core.setOutput('platforms',JSON.stringify(platforms));
+            await core.summary.addHeading('Native QA binary reuse')
+              .addRaw('Preserved running iOS runs: '+preservedIos.join(', ') +
+                '; cancelled superseded runs: '+cancelled.join(', ') +
+                '; this run platforms: '+platforms.join(', '))
               .write();
 
   isolated-commercial-safety:
@@ -78,6 +106,8 @@ jobs:
         run: bash -n scripts/native-commercial-android-runner.sh
       - name: Verify native Maestro password selectors before expensive builds
         run: node scripts/verify-native-maestro-selectors.cjs
+      - name: Validate scoped Android emulator HTTP exception before expensive builds
+        run: node scripts/native-qa-android-network.test.cjs
 
   paid-native-journey:
     needs: [retire-superseded-native-builds, isolated-commercial-safety]
@@ -88,7 +118,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        platform: [ios, android]
+        # Preserve an older unfinished iOS build while immediately rebuilding
+        # only the Android QA APK with its scoped Firebase emulator network XML.
+        platform: ${{ fromJSON(needs.retire-superseded-native-builds.outputs.platforms) }}
         include:
           - platform: ios
             os: macos-26
@@ -199,10 +231,19 @@ jobs:
           set -euo pipefail
           sdkmanager --install 'platforms;android-36' 'build-tools;36.0.0' || true
           NODE_ENV=production npx expo prebuild --platform android --clean --non-interactive
+          # Android 9+ release packages block plain HTTP even to 10.0.2.2.
+          # Only this disposable Android QA APK may reach LOCAL emulators.
+          # Change neither app.json nor production network policy.
+          node scripts/native-qa-android-network.cjs
           cd android
           chmod +x gradlew
           NODE_ENV=production ./gradlew --no-daemon --max-workers=2 --console=plain :app:assembleRelease
           test -s app/build/outputs/apk/release/app-release.apk
+          # Test the ACTUAL compiled manifest, not merely the source XML.
+          # Refuse caching/reusing any QA APK whose Android security policy
+          # does not contain the deliberately local-only emulator exception.
+          "$ANDROID_HOME/build-tools/36.0.0/aapt2" dump xmltree app/build/outputs/apk/release/app-release.apk AndroidManifest.xml | grep -q 'networkSecurityConfig'
+          unzip -l app/build/outputs/apk/release/app-release.apk | grep -q 'res/xml/american_rider_qa_network_security_config.xml'
           mkdir -p ../.qa-native-build-cache/android
           cp app/build/outputs/apk/release/app-release.apk ../.qa-native-build-cache/android/app-release.apk
           cd ../.qa-native-build-cache/android

@@ -31,12 +31,19 @@ appId: com.americanrider.app
 - extendedWaitUntil:
     visible: "Arrange Your Travel"
     timeout: 60000
+# The server-owned local fixture includes Wynwood (not MIA Airport), so
+# core commercial checkout does not depend on an unconfigured HERE/Photon
+# account. Airport pickup/drop-off compliance is a SEPARATE acceptance test.
 - tapOn: "Select your destination"
-- inputText: "Miami International Airport"
 - extendedWaitUntil:
-    visible: "Miami International Airport"
+    visible: "Search a place or address"
+    timeout: 15000
+- tapOn: "Search a place or address"
+- inputText: "Wynwood"
+- extendedWaitUntil:
+    visible: "Wynwood"
     timeout: 40000
-- tapOn: "Miami International Airport"
+- tapOn: "Wynwood"
 - extendedWaitUntil:
     visible: "Travel Confirmation"
     timeout: 60000

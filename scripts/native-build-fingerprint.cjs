@@ -10,6 +10,9 @@ const ignored = (p) => p.startsWith('.github/') || p.startsWith('.maestro/') ||
   p.startsWith('backend/') || p.startsWith('docs/') ||
   p.startsWith('infra/') || ['AGENTS.md','PROJECT-LEDGER.md',
   'scripts/native-build-fingerprint.cjs',
+  'scripts/verify-native-maestro-selectors.cjs',
+  'scripts/native-qa-android-network.cjs',
+  'scripts/native-qa-android-network.test.cjs',
   'scripts/native-commercial-android-runner.sh',
   'scripts/native-commercial-env-preflight.cjs'].includes(p);
 const h = crypto.createHash('sha256');
@@ -26,4 +29,12 @@ for (const p of files) {
   count++;
 }
 if (count < 20) throw new Error('Too few native files; refusing an unsafe cache key: '+count);
+// A generator modifies only the Android QA *native manifest* after Expo prebuild.
+// Include its exact bytes in the Android APK key but not the iOS simulator key.
+if (process.env.AR_NATIVE_PLATFORM === 'android') {
+  const patch='scripts/native-qa-android-network.cjs';
+  if (!fs.existsSync(patch)) throw new Error('Missing Android QA security policy generator');
+  h.update(patch+'\0');
+  h.update(crypto.createHash('sha256').update(fs.readFileSync(patch)).digest());
+}
 process.stdout.write(h.digest('hex')+'\n');
