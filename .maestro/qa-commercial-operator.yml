@@ -16,21 +16,21 @@ appId: com.americanrider.app
 - tapOn: "Sign In"
 - openLink: "americanrider:///operator"
 - extendedWaitUntil:
-    visible: "Accept"
+    visible: "Accept Traveler"
     timeout: 60000
-- tapOn: "Accept"
+- tapOn: "Accept Traveler"
 - extendedWaitUntil:
-    visible: "Arrival"
+    visible: "Confirm Arrival"
     timeout: 60000
-- tapOn: "Arrived"
+- tapOn: "Confirm Arrival"
 - extendedWaitUntil:
-    visible: "Begin Travel"
+    visible: "Commence Travel"
     timeout: 60000
-- tapOn: "Begin Travel"
+- tapOn: "Commence Travel"
 - extendedWaitUntil:
-    visible: "Complete"
+    visible: "Complete Operation"
     timeout: 60000
-- tapOn: "Complete"
+- tapOn: "Complete Operation"
 - extendedWaitUntil:
     visible: "Operation Complete"
     timeout: 60000
