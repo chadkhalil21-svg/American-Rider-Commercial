@@ -1,0 +1,48 @@
+name: Full commercial native journey acceptance (fail-closed)
+
+on:
+  pull_request:
+    branches: [release/current]
+    paths:
+      - '.github/workflows/native-commercial-full-journeys.yml'
+      - 'scripts/verify-native-commercial-journeys.cjs'
+      - 'scripts/test-native-commercial-evidence.cjs'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  native-commercial-proof-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify the native journey evidence gate does not accept fabricated passes
+        run: node scripts/test-native-commercial-evidence.cjs
+
+  native-commercial-acceptance:
+    needs: native-commercial-proof-contract
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    env:
+      EXPECTED_RELEASE_SHA: 0c60a95e6a15e03b7cc764bf65c5155b4c003f0c
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Require linked real native journey, Stripe TEST, and on-device evidence for BOTH operating systems
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/verify-native-commercial-journeys.cjs artifacts/native-commercial
+      - name: Explain incomplete evidence without calling the platform ready
+        if: failure()
+        run: |
+          echo 'NOT CERTIFIED. No native paid end-to-end travel passes unless actual iOS and Android device logs, matching Trip IDs, Stripe TEST authorizations/captures/Connect transfers, and failure scenarios are provided.' >> "$GITHUB_STEP_SUMMARY"
+          echo 'Existing passing backend synthetic tests and standalone Stripe TEST runs are not substitutes for this gate.' >> "$GITHUB_STEP_SUMMARY"
+          echo 'Do not merge this unfinished acceptance or submit another App Store build on the strength of green synthetic jobs.' >> "$GITHUB_STEP_SUMMARY"
