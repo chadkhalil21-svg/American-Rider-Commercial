@@ -10,12 +10,29 @@ appId: com.americanrider.app
 - extendedWaitUntil:
     visible: "Welcome back"
     timeout: 30000
+# iOS evidence from run 40569443959 showed CREATE ACCOUNT in front
+# although a text-only "Welcome back" assertion passed. Require the
+# Sign In page to be foreground; never enter a password on signup.
+- assertVisible: "Sign in to your account."
+- assertNotVisible: "Create your account"
 # Use the password EditText hint, not the static PASSWORD label.
 - tapOn: "Your password"
 - inputText: "Native-QA-Only-7819-Strong"
-# Focused password IME may be dismissed safely. Tap the actual Sign In
-# control after asserting that entering the password enabled it.
-- hideKeyboard
+# Maestro official known issue: iOS hideKeyboard relies on a swipe and can
+# FAIL without any app defect. Android uses its system Back dismissal.
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - hideKeyboard
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      # Tap a harmless static heading rather than invoke flaky iOS hideKeyboard.
+      - tapOn: "Sign in to your account."
+# The shared InkButton id is NOT enough to prove Sign In: also assert label.
+- assertVisible: "Sign In"
 - assertVisible:
     id: "auth-primary-action"
     enabled: true
