@@ -122,6 +122,10 @@ def run():
     wait_visible("Enter a valid email address",label="invalid-email-alert")
     print("PASS client-side invalid-email validation; no server account lookup")
     adb("shell","pm","clear",PACKAGE)
+    # Clearing app data also revokes Android runtime permissions; regrant
+    # them to the disposable emulator fixture before testing the next screen.
+    for permission in ("ACCESS_COARSE_LOCATION","ACCESS_FINE_LOCATION","ACCESS_BACKGROUND_LOCATION"):
+        adb("shell","pm","grant",PACKAGE,"android.permission."+permission)
     go_home()
     first_edit("email-valid")
     adb("shell","input","text","qa@example.com")
