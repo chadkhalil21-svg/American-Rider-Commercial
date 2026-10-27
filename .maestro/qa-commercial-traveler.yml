@@ -12,11 +12,23 @@ appId: com.americanrider.app
 - assertVisible: "Welcome back"
 - tapOn: "Password"
 - inputText: "Native-QA-Only-7819-Strong"
-- hideKeyboard
-# The actual React Native Pressable has a stable testID; do not confuse
-# accessibility/visible label changes with missing real authentication.
-- tapOn:
-    id: "auth-primary-action"
+# On Android Maestro hideKeyboard sends a BACK key event, which left the app on
+# the launcher in run 40549821639 after entering the password. Use the real
+# password field onSubmitEditing instead. Do not bypass actual Firebase login.
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - assertVisible: "Welcome back"
+      - pressKey: enter
+# Keep the existing iPhone button interaction until iOS evidence is evaluated.
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - hideKeyboard
+      - tapOn:
+          id: "auth-primary-action"
 - extendedWaitUntil:
     visible: "Arrange Your Travel"
     timeout: 60000
