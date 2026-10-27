@@ -40,6 +40,20 @@ async function authorize(name){
      {idempotencyKey:'ar_sandbox_capture_'+run+'_full'});
    assure(captured.status==='succeeded'&&captured.amount_received===1000,
      'completed Travel did not capture 1000 cents');
+   // An actual TEST-mode refund after successful settlement, including a repeated
+   // delivery of the same request. This must neither pay anyone nor refund twice.
+   const refundArgs={payment_intent:captured.id,amount:1000,reason:'requested_by_customer'};
+   const refundKey='ar_sandbox_refund_'+run+'_full';
+   const returned=await stripe.refunds.create(refundArgs,{idempotencyKey:refundKey});
+   assure(returned.livemode===false&&returned.amount===1000&&returned.status==='succeeded',
+     'full TEST charge was not fully refunded');
+   const retried=await stripe.refunds.create(refundArgs,{idempotencyKey:refundKey});
+   assure(retried.id===returned.id,'refund retry generated a different Stripe Refund');
+   const listed=await stripe.refunds.list({payment_intent:captured.id,limit:10});
+   assure(!listed.has_more&&listed.data.filter(x=>x.id===returned.id).length===1&&
+     listed.data.filter(x=>x.status==='succeeded').length===1,
+     'one completed charge must have exactly one settled refund');
+   console.log('PASS: real Stripe TEST full captured-charge refund, idempotent retry and single provider refund ledger.');
    const free=await authorize('free-cancel');
    const voided=await stripe.paymentIntents.cancel(free.id,{cancellation_reason:'requested_by_customer'},
      {idempotencyKey:'ar_sandbox_void_'+run});

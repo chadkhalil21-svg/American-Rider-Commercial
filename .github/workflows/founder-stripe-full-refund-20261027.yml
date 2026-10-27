@@ -1,0 +1,33 @@
+name: Founder one-time REAL Stripe TEST refund and manual-capture acceptance
+on:
+  push:
+    branches: [release/current]
+    paths:
+      - .github/workflows/founder-stripe-full-refund-20261027.yml
+permissions:
+  contents: read
+jobs:
+  stripe-test-full-journey:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      STRIPE_TEST_SECRET_KEY: ${{ secrets.STRIPE_TEST_SECRET_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Require actual Stripe TEST key, refuse production key
+        shell: bash
+        run: |
+          set -euo pipefail
+          case "$STRIPE_TEST_SECRET_KEY" in
+            sk_test_*) echo 'Isolated TEST-mode Stripe key verified by prefix';;
+            *) echo "::error::No Stripe TEST key, real money explicitly refused"; exit 1;;
+          esac
+      - run: npm ci --prefix backend --omit=dev
+      - name: Verify Stripe TEST authorization, full capture, refund, idempotent refund, free cancel, partial capture
+        run: node backend/stripe-manual-sandbox-acceptance.cjs
+      - name: Explicit safety boundary
+        if: always()
+        run: echo 'No live transfers, Express account or bank payout is represented as tested.' >> "$GITHUB_STEP_SUMMARY"
