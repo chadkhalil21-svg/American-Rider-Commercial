@@ -92,7 +92,7 @@ assert.match(terms, /Terms of Service/);
 const deletionPage = fs.readFileSync(path.join(root, 'account-deletion', 'index.html'), 'utf8');
 assert.match(deletionPage, /Delete your American Rider account/i,
   'Google Play must expose a public external account-deletion request page');
-assert.match(deletionPage, /mailto:americanrider\.communications@gmail\.com\?subject=American%20Rider%20Account%20Deletion/,
+assert.match(deletionPage, /mailto:support@americanrider\.tech\?subject=American%20Rider%20Account%20Deletion/,
   'account deletion requests must be possible without installing or signing into the mobile app');
 assert.match(deletionPage, /verify your account/i,
   'identity verification must occur through a secure support workflow, not a public query string');
