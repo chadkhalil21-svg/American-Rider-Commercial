@@ -14,6 +14,12 @@ on:
 permissions:
   contents: read
 
+# A newly pushed QA candidate supersedes older attempts for the same PR.
+# Otherwise every edit starts a 30–100 minute dual-platform native build.
+concurrency:
+  group: native-commercial-qa-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   isolated-commercial-safety:
     runs-on: ubuntu-latest
