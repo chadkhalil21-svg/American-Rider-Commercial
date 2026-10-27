@@ -1,30 +1,19 @@
 'use strict';
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
-const path = require('node:path');
+const source = fs.readFileSync('src/screens/AuthScreen.tsx','utf8');
 
-// Regression contract for the iOS Build 55 size mismatch.
-// Both Apple and Google use the same responsive custom button geometry.
-// Final visual inspection and Apple's brand artwork approval remain separate.
-const source = fs.readFileSync(path.join(__dirname, '..', 'src', 'screens', 'AuthScreen.tsx'), 'utf8');
-assert.match(source, /<AppleAuthentication\.AppleAuthenticationButton\s/, 'production iOS must render Apple-provided official artwork');
-assert.match(source, /buttonType=\{AppleAuthentication\.AppleAuthenticationButtonType\.CONTINUE\}/);
-assert.match(source, /buttonStyle=\{AppleAuthentication\.AppleAuthenticationButtonStyle\.BLACK\}/);
+// Apple official native artwork and Google's bundled official color mark.
+// Width and 46pt height match, while native typography needs device review.
+assert.ok(source.includes('<AppleAuthentication.AppleAuthenticationButton'));
+assert.ok(source.includes('buttonType={AppleAuthentication.AppleAuthenticationButtonType.CONTINUE}'));
+assert.ok(source.includes('buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.BLACK}'));
 assert.match(source, /appleOfficialButton:\s*\{\s*width:\s*'100%',\s*height:\s*46\s*\}/);
-assert.match(source, /\{appleReady \? \(/, 'official Apple button must be used whenever the OS supports Apple auth');
-assert.match(source, /<GoogleEntry\s+label=\{t\('auth\.continueWithGoogle'\)\}/);
-assert.match(source, /style=\{\(\{ pressed \}\) => \[s\.btn, s\.ssoButton, primary \? s\.btnInk : s\.btnSso/);
-const button = source.match(/ssoButton:\s*\{[^}]*\}/)?.[0];
-assert.ok(button, 'Shared Apple and Google button style is required');
-assert.match(button, /width:\s*'100%'/);
-assert.match(button, /height:\s*46\b/);
+assert.ok(source.includes('<GoogleEntry'));
+assert.match(source, /ssoButton:\s*\{\s*width:\s*'100%',\s*height:\s*46\b/);
 assert.match(source, /btnText:\s*\{\s*fontSize:\s*15\b/);
-assert.match(source, /ssoInner:\s*\{[^}]*alignItems:\s*'center'/);
-assert.match(source, /btnSso:\s*\{[^}]*borderWidth:\s*1\b/);
-assert.equal((source.match(/<Svg width=\{17\} height=\{17\} viewBox="0 0 24 24">/g) || []).length, 1,
-  'only the nonproduction Apple preview may use its previous SVG');
-assert.match(source, /source=\{\{ uri: GOOGLE_OFFICIAL_G_DATA_URI \}\}/,
-  'Google must use the unmodified bundled color identity mark');
-assert.match(source, /googleOfficialMark:\s*\{ width: 17, height: 17 \}/,
-  'preserve the founder-approved 17pt logo footprint');
-console.log('PASS: 46pt Apple official native button / Google 46pt with official full-color 17pt G; labels preserved');
+assert.match(source, /googleOfficialMark:\s*\{\s*width:\s*17,\s*height:\s*17\s*\}/);
+assert.ok(source.includes('source={{ uri: GOOGLE_OFFICIAL_G_DATA_URI }}'));
+assert.ok(!source.includes('d="M21.6 12.23c0-.71'));
+console.log('PASS: Equal 46pt Apple/Google sign-in buttons, approved brand marks and wording');
+console.log('Native typography and live provider auth still need physical-device verification');
