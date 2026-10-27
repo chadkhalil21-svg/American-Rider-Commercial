@@ -263,21 +263,6 @@ jobs:
           mkdir -p ../.qa-native-build-cache/android
           cp app/build/outputs/apk/release/app-release.apk ../.qa-native-build-cache/android/app-release.apk
           (cd ../.qa-native-build-cache/android && shasum -a 256 app-release.apk > native.sha256)
-      - name: Verify actual compiled Android manifest and resource symbols
-        if: matrix.platform == 'android'
-        shell: bash
-        run: |
-          set -euo pipefail
-          APK='.qa-native-build-cache/android/app-release.apk'
-          test -s "$APK"
-          AAPT="$ANDROID_HOME/build-tools/36.0.0/aapt2"
-          test -x "$AAPT"
-          # Official Android AAPT2 requires --file for xmltree. Do not
-          # interpret Gradle success as a passed postbuild manifest check.
-          "$AAPT" dump xmltree --file AndroidManifest.xml "$APK" > "$RUNNER_TEMP/qa-compiled-manifest.txt"
-          "$AAPT" dump resources "$APK" > "$RUNNER_TEMP/qa-compiled-resources.txt"
-          grep -F 'networkSecurityConfig' "$RUNNER_TEMP/qa-compiled-manifest.txt" >/dev/null
-          grep -F 'american_rider_qa_network_security_config' "$RUNNER_TEMP/qa-compiled-resources.txt" >/dev/null
       - name: Verify Android app bytes before installation
         if: matrix.platform == 'android'
         shell: bash
@@ -300,6 +285,21 @@ jobs:
           path: .qa-native-build-cache/android/
           retention-days: 14
           if-no-files-found: warn
+      - name: Verify actual compiled Android manifest and resource symbols
+        if: matrix.platform == 'android'
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK='.qa-native-build-cache/android/app-release.apk'
+          test -s "$APK"
+          AAPT="$ANDROID_HOME/build-tools/36.0.0/aapt2"
+          test -x "$AAPT"
+          # Official Android AAPT2 requires --file for xmltree. Do not
+          # interpret Gradle success as a passed postbuild manifest check.
+          "$AAPT" dump xmltree --file AndroidManifest.xml "$APK" > "$RUNNER_TEMP/qa-compiled-manifest.txt"
+          "$AAPT" dump resources "$APK" > "$RUNNER_TEMP/qa-compiled-resources.txt"
+          grep -F 'networkSecurityConfig' "$RUNNER_TEMP/qa-compiled-manifest.txt" >/dev/null
+          grep -F 'american_rider_qa_network_security_config' "$RUNNER_TEMP/qa-compiled-resources.txt" >/dev/null
       - name: Enable KVM for actual Android
         if: matrix.platform == 'android'
         shell: bash
