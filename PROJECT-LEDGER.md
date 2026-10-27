@@ -1,3 +1,13 @@
+## 27 October 2026 | iOS actual destination-result mis-selection in native run 40601800241
+
+**Evidence:** [Full native commercial journeys run 40601800241](https://github.com/chadkhalil21-svg/American-Rider-Commercial/actions/runs/40601800241) installed and reused its checksummed iOS simulator binary, then passed *real* native sign-in, “Arrange Your Travel,” destination search, and Wynwood text entry. Maestro wrongly tapped a **text input** with accessibility text `Wynwood`, not the separate destination **button** with accessible text `Wynwood, Estimated travel time · 11 minutes, ›`. The “Travel Confirmation” heading remains visible in edit mode, so its assertion was a false positive. The captured screenshot showed iOS keyboard open, a focused Wynwood TextInput, Wynwood result row below, and no fare/Confirm control. The next `Complete Travel Cost` assertion failed correctly. The test **did not** reach quote/checkout, Stripe TEST payment, Operator acceptance, or completion.
+
+**QA-only fix:** Target the result row using the metadata-bearing accessibility regex `.*Wynwood, Estimated travel time.*`, explicitly wait for search input to disappear, then wait for `Complete Travel Cost` and an enabled `Confirm Travel` control before tapping. Extend prebuild source contract to reject tapping bare `Wynwood`, distinguish exact result-button accessibility from input text, and validate native reserve.tsx row/quote wiring. Source is unchanged, existing preserved iOS app remains reusable. Stage separate from ongoing Android compile, then merge into active PR #383 only when it cannot discard its in-flight expensive runner.
+
+**Verification boundary:** Actual device proof of this latest selector fix and the complete financial settlement remains pending; do not call the whole journey passed until both on-device roles and the same Firestore record's Stripe TEST capture/Connect transfer reconcile.
+
+---
+
 ## 27 October 2026 | Full native QA run 40592170783 and systematic harness repairs
 
 **Actual latest results:** [Run 40592170783](https://github.com/chadkhalil21-svg/American-Rider-Commercial/actions/runs/40592170783) ended with BOTH native journeys failed, not certified. iOS completed a successful native simulator Xcode build, installed it, saved cache key `qa-native-release-v1-macOS-ios-33433a15789d4837c522dcef682584ee55e395d759893dc9b20c1ae265b9df15`, and uploaded artifact **12779016091**. Actual iOS Maestro stopped at its FIRST `hideKeyboard` command after email entry, before authentication. Android Gradle `assembleRelease` succeeded (722 tasks, 20m 38s); its postbuild `aapt2 dump xmltree` command omitted required `--file AndroidManifest.xml` and failed **before** the newly compiled APK was saved. Thus Android emulator did not start.
