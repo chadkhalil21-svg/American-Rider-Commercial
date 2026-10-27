@@ -1,0 +1,36 @@
+# Same isolated backend/Travel as Traveler flow. Require actual Operator interaction.
+appId: com.americanrider.app
+---
+- launchApp:
+    clearState: true
+- tapOn: "Email Address"
+- inputText: "native.qa.operator@example.test"
+- hideKeyboard
+- tapOn: "Continue"
+- extendedWaitUntil:
+    visible: "Welcome back"
+    timeout: 30000
+- tapOn: "Password"
+- inputText: "Native-QA-Only-7819-Strong"
+- hideKeyboard
+- tapOn: "Sign In"
+- openLink: "americanrider:///operator"
+- extendedWaitUntil:
+    visible: "Accept"
+    timeout: 60000
+- tapOn: "Accept"
+- extendedWaitUntil:
+    visible: "Arrival"
+    timeout: 60000
+- tapOn: "Arrived"
+- extendedWaitUntil:
+    visible: "Begin Travel"
+    timeout: 60000
+- tapOn: "Begin Travel"
+- extendedWaitUntil:
+    visible: "Complete"
+    timeout: 60000
+- tapOn: "Complete"
+- extendedWaitUntil:
+    visible: "Operation Complete"
+    timeout: 60000
