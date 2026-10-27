@@ -70,14 +70,14 @@ console.log('PASS prebuild Maestro target contract: editable password + enabled 
 // because an untested aapt2 invocation or artifact order was wrong.
 // This inexpensive contract runs in the isolated safety job on Linux.
 const nativeWorkflow=fs.readFileSync('.github/workflows/native-commercial-end-to-end.yml','utf8');
-assert.ok(nativeWorkflow.includes('dump xmltree --file AndroidManifest.xml "$APK"'),
+assert.ok(nativeWorkflow.includes('dump xmltree "$APK" --file AndroidManifest.xml'),
   'AAPT2 xmltree requires --file AndroidManifest.xml before the APK');
 assert.ok(nativeWorkflow.includes('dump resources "$APK"'),
   'AAPT2 resource inspection must receive the compiled APK');
 const compiled=nativeWorkflow.indexOf('NODE_ENV=production ./gradlew --no-daemon');
 const preserved=nativeWorkflow.indexOf('cp app/build/outputs/apk/release/app-release.apk');
 const hashed=nativeWorkflow.indexOf('shasum -a 256 app-release.apk > native.sha256');
-const inspected=nativeWorkflow.indexOf('dump xmltree --file AndroidManifest.xml "$APK"');
+const inspected=nativeWorkflow.indexOf('dump xmltree "$APK" --file AndroidManifest.xml');
 assert.ok(compiled>=0&&compiled<preserved&&preserved<hashed&&hashed<inspected,
   'Save and checksum expensive Android app bytes before invoking postbuild inspectors');
 const cacheStep=nativeWorkflow.indexOf('      - name: Save Android binary across QA-only test revisions');
@@ -85,6 +85,10 @@ const artifactStep=nativeWorkflow.indexOf('      - name: Preserve the exact Andr
 const verifierStep=nativeWorkflow.indexOf('      - name: Verify actual compiled Android manifest and resource symbols');
 assert.ok(cacheStep>hashed&&artifactStep>cacheStep&&verifierStep>artifactStep,
   'Save binary cache AND upload artifact before potentially failing AAPT2 postbuild verification');
+assert.ok(nativeWorkflow.includes("j.name.startsWith('paid-native-journey (ios,')"),
+  'Preserve prior iOS build even when its matrix job name includes OS and URL');
+assert.ok(nativeWorkflow.includes('artifact-ids: 12779016091'),
+  'Fallback to latest SHA-checked iOS simulator artifact after cache eviction');
 assert.ok(nativeWorkflow.includes("if: ${{ always() && matrix.platform == 'android' }}"),
   'Always preserve APK artifact when a later tool or test fails');
 assert.ok(nativeWorkflow.includes('if-no-files-found: warn'),
