@@ -10,6 +10,7 @@ const ignored = (p) => p.startsWith('.github/') || p.startsWith('.maestro/') ||
   p.startsWith('backend/') || p.startsWith('docs/') ||
   p.startsWith('infra/') || ['AGENTS.md','PROJECT-LEDGER.md',
   'scripts/native-build-fingerprint.cjs',
+  'scripts/verify-native-maestro-selectors.cjs',
   'scripts/native-commercial-android-runner.sh',
   'scripts/native-commercial-env-preflight.cjs'].includes(p);
 const h = crypto.createHash('sha256');
