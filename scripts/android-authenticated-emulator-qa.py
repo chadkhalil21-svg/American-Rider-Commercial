@@ -65,6 +65,9 @@ def wait(label,name,seconds=32):
 
 def tap(label,name):
     n=wait(label,name)
+    nodes=screen(name+"-tap-target")
+    matched=[item for item in nodes if label.casefold() in text(item).casefold()]
+    n=next((item for item in matched if item.attrib.get("clickable")=="true" and text(item).casefold()==label.casefold()),None) or next((item for item in matched if item.attrib.get("clickable")=="true"),None) or n
     x,y=bounds(n)
     adb("shell","input","tap",str(x),str(y))
     print("PASS REAL TAP "+name+" "+label,flush=True)
@@ -75,7 +78,7 @@ def edit(index,value,name):
     if len(fields)<=index:raise AssertionError("Missing native text input for "+name)
     x,y=bounds(fields[index])
     adb("shell","input","tap",str(x),str(y))
-    adb("shell","input","text",value.replace("@","%s40"))
+    adb("shell","input","text",value)
     adb("shell","input","keyevent","KEYCODE_BACK")
     print("PASS REAL TEXT ENTRY "+name,flush=True)
 
