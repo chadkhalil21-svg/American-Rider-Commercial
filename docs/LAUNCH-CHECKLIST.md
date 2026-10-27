@@ -14,7 +14,7 @@ This document records the current release boundary. Historical demo-era status h
 ## Code release
 
 - Accounts/authentication, authoritative fare economics, Stripe payment/settlement architecture, real routing/location integration, dispatch/matching, Operator qualification, Family/Teen, Smart Travel, support, localization, security controls and release builds are implemented in the current release candidate.
-- The Traveler Platform Fee is governed by `backend/economics.js`: the smallest whole-cent amount required by the current cost model, with the current $2.00 floor. The Operator retains 99% of the Travel Fare.
+- The Traveler Platform Fee is governed by `backend/economics.js`: the smallest whole-cent amount required by the current cost model, with the current $2.50 floor. The Operator retains 99% of the Travel Fare.
 - Production fails closed when a required jurisdiction, qualification record, provider, credential or authoritative state is unavailable.
 - The GitHub Release Gate must pass for the exact candidate SHA before commissioning evidence is accepted.
 
