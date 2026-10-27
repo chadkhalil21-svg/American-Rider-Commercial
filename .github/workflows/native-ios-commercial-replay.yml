@@ -125,12 +125,16 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p artifacts/native-commercial-ios "$RUNNER_TEMP/qa-cached-ios"
-          cd .qa-native-build-cache/ios
-          test -s AmericanRider.app.tgz
-          shasum -a 256 -c native.sha256
-          tar -xzf AmericanRider.app.tgz -C "$RUNNER_TEMP/qa-cached-ios"
+          # download-artifact@v4 with artifact-ids (and no name) extracts
+          # into a child directory named after the artifact. The prior
+          # run 40605117546 tested the parent and failed before installation.
+          # Verify the actual archive and checksum inside that child.
+          APP_ARCHIVE="$GITHUB_WORKSPACE/.qa-native-build-cache/ios/commercial-qa-ios-simulator-app"
+          test -s "$APP_ARCHIVE/AmericanRider.app.tgz"
+          test -s "$APP_ARCHIVE/native.sha256"
+          (cd "$APP_ARCHIVE" && shasum -a 256 -c native.sha256)
+          tar -xzf "$APP_ARCHIVE/AmericanRider.app.tgz" -C "$RUNNER_TEMP/qa-cached-ios"
           test -d "$RUNNER_TEMP/qa-cached-ios/AmericanRider.app"
-          cd ../..
           SIM="$(xcrun simctl list -j devices available | python3 -c 'import json,sys;d=json.load(sys.stdin)["devices"];print(next(z["udid"] for a in d.values() for z in a if z.get("isAvailable") and "iPhone" in z["name"]))')"
           echo "SIM_DEVICE=$SIM" >> "$GITHUB_ENV"
           xcrun simctl boot "$SIM" || true
