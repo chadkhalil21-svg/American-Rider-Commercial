@@ -57,13 +57,14 @@ def wait(label,name,seconds=32):
         try:
             last=screen(name)
             hit=find(last,label)
-            if hit:return hit
+            # ElementTree leaf controls compare False even if present.
+            if hit is not None:return hit
         except (ET.ParseError,RuntimeError,subprocess.TimeoutExpired):
             pass
         time.sleep(1)
     # Shared emulator may display the correct React Native overlay during the last dump.
     # Use the observed last hierarchy once before declaring this a real UI failure.
-    if (hit := find(last,label)):
+    if (hit := find(last,label)) is not None:
         return hit
     raise AssertionError(f"Expected '{label}' on {name}. Visible labels: {[text(n) for n in last if text(n)][:40]}")
 
@@ -91,7 +92,7 @@ def deep_link(route,label):
         "-d",f"americanrider:///{route}","-p",APP)
     time.sleep(3)
     nodes=screen(label)
-    if find(nodes,"Welcome back") or find(nodes,"Create your account"):
+    if find(nodes,"Welcome back") is not None or find(nodes,"Create your account") is not None:
         raise AssertionError("Logged-in session unexpectedly displayed auth gate on "+label)
     pid=adb("shell","pidof",APP).strip()
     if not pid:raise AssertionError("App exited on "+label)
@@ -117,7 +118,7 @@ def main():
     nodes=screen("authenticated-home")
     # We require the full-screen authentication overlay to DISAPPEAR, not merely
     # an Activity or an unrelated screen capture to succeed.
-    if find(nodes,"Welcome back") or find(nodes,"Sign in to your account"):
+    if find(nodes,"Welcome back") is not None or find(nodes,"Sign in to your account") is not None:
         raise AssertionError("Local QA sign-in did not leave authentication screen; labels: "+
           repr([text(n) for n in nodes if text(n)][:35]))
     if not adb("shell","pidof",APP).strip():raise AssertionError("App crashed after sign-in")
@@ -126,7 +127,7 @@ def main():
     adb("shell","am","start","-W","-n",APP+"/.MainActivity")
     time.sleep(8)
     nodes=screen("authenticated-after-force-stop")
-    if find(nodes,"Welcome back") or find(nodes,"Sign in to your account") or find(nodes,"Email Address"):
+    if any(find(nodes, label) is not None for label in ("Welcome back", "Sign in to your account", "Email Address")):
         raise AssertionError("Account session did not persist after force stop")
     print("PASS signed-in session survives native process restart",flush=True)
     for route,label in [
