@@ -62,16 +62,25 @@ def center(node):
     x1,y1,x2,y2=map(int,m.groups())
     return (x1+x2)//2,(y1+y2)//2
 
-def wait_visible(*patterns, label="screen", seconds=22):
+def wait_visible(*patterns, label="screen", seconds=40):
+    # Native Release cold starts on shared CI may spend considerable time loading JS.
+    # Preserve strict UI evidence: retry genuine hierarchy dumps, never infer PASS from pid.
     expiry = time.monotonic()+seconds
+    last_nodes = []
     while time.monotonic()<expiry:
         nodes=snapshot(label)
+        last_nodes = nodes
         node=locate(nodes, patterns)
         if node:
             return node
         time.sleep(2)
-    # Distinct failure. No "pass" just because an activity was foreground.
-    raise AssertionError(f"Expected displayed control {patterns} not found on {label}")
+    visible = [desc(n) for n in last_nodes if desc(n)][:35]
+    try:
+        log = adb("logcat","-d","-v","brief","-s","AndroidRuntime:E","ReactNativeJS:E")
+        (ARTIFACTS / "startup-errors.txt").write_text(log)
+    except Exception:
+        pass
+    raise AssertionError(f"Expected displayed control {patterns} not found on {label}; last labels={visible}")
 
 def touch(patterns,label):
     node=wait_visible(*patterns,label=label)
@@ -90,7 +99,7 @@ def first_edit(label):
 def go_home():
     adb("shell","am","force-stop",PACKAGE)
     adb("shell","am","start","-W","-n",PACKAGE+"/.MainActivity")
-    wait_visible("Email Address", label="anonymous-welcome", seconds=40)
+    wait_visible("Email Address", label="anonymous-welcome", seconds=150)
     print("PASS actual Android signed-out first screen and email-entry control")
 
 def assert_no_private_screen(label):
