@@ -30,7 +30,7 @@ function apply(manifestPath=path.join('android','app','src','main','AndroidManif
 <network-security-config>
   <base-config cleartextTrafficPermitted="false" />
   <domain-config cleartextTrafficPermitted="true">
-    <domain>10.0.2.2</domain>
+    <domain includeSubdomains="false">10.0.2.2</domain>
   </domain-config>
 </network-security-config>
 `;

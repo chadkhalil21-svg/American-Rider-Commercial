@@ -1,3 +1,13 @@
+## 27 October 2026 | ANDROID LINT REJECTION FOUND BEFORE EMULATION IN QA RUN 40587771526
+
+**Evidence:** QA GitHub run https://github.com/chadkhalil21-svg/American-Rider-Commercial/actions/runs/40587771526 Android paid-native job failed during Gradle `:app:lintVitalRelease` with `android/app/src/main/res/xml/american_rider_qa_network_security_config.xml:5: Error: Missing includeSubdomains attribute [NetworkSecurityConfig]`. **Android never reached the emulator in this run.** The narrow local-network exception generator emitted `<domain>10.0.2.2</domain>` without explicit `includeSubdomains="false"`. The existing Node cheap check unfortunately did not test for this compile-time lint rule. Fix exactly that XML tag, and fail the cheap QA prebuild test if the attribute is omitted or broadened. The source remains QA-only and fail-closed for production. This changes Android app bytes and thus invalidates only the Android native digest, not iOS.
+
+**Second preflight check:** The workflow checked the compiled APK with `unzip -l ... | grep -q 'res/xml/american_rider_qa_network_security_config.xml'`; AAPT2 may rename compiled resource paths, so checking exact zip entry names is brittle. Also `grep -q` on a streaming producer combined with `set -o pipefail` may reject a valid package on SIGPIPE. Replace with `aapt2 dump xmltree` and `aapt2 dump resources`, writing to files first and asserting the compiled manifest attribute and compiled named XML resource separately. No authorization to weaken release lint or production security.
+
+**iOS contemporaneous status:** Same run's iOS job remained in native simulator setup/build when Android failed. Do not cancel or restart its iOS runner to patch Android lint. Android QA compilation has failed with an actionable reported error and should not be represented as running or passed. Full paid journeys remain unverified; do not claim progress merely because CI reached Gradle.
+
+---
+
 ## 27 October 2026 | FOUNDER-DIRECTED NATIVE QA ECONOMY: BUILD ONCE, TEST MANY, PROVE THE JOURNEY
 
 **Standing decision:** The Founder identified repeated, expensive Android/iOS native rebuilds after Maestro-only test-script fixes. Stop treating script failures as reasons to recompile an unchanged app. Keep one authoritative, auditable native QA campaign; do not start overlapping device jobs or cancel a compiling run merely to edit a Maestro selector. First inspect the recorded screen, accessibility hierarchy, emulator/Simulator logs, backend fixture and authoritative payment state; classify **script defect / test-environment mismatch / native application defect / provider failure** before selecting the least-cost repair.

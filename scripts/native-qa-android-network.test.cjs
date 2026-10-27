@@ -20,9 +20,13 @@ try {
  const cfg=fs.readFileSync(path.join(root,'res','xml','american_rider_qa_network_security_config.xml'),'utf8');
  assert.match(updated,/android:networkSecurityConfig="@xml\/american_rider_qa_network_security_config"/);
  assert.match(cfg,/<base-config cleartextTrafficPermitted="false"/);
- assert.match(cfg,/<domain>10\.0\.2\.2<\/domain>/);
+ assert.match(cfg,/<domain includeSubdomains="false">10\.0\.2\.2<\/domain>/);
  assert.match(cfg,/<domain-config cleartextTrafficPermitted="true"/);
  assert.doesNotMatch(cfg,/includeSubdomains="true"|<domain>\*|<base-config cleartextTrafficPermitted="true"/);
+ // Android lintVitalRelease rejects a domain without an explicit
+ // includeSubdomains attribute. Catch this BEFORE Gradle compilation.
+ assert.match(cfg,/<domain includeSubdomains="false">10\.0\.2\.2<\/domain>/);
+ assert.equal((cfg.match(/<domain\s/g)||[]).length,1,'Never broaden QA HTTP host scope');
  for(const wrong of [{AR_NATIVE_QA_LOCAL:'0'},{EXPO_PUBLIC_AR_NATIVE_QA:'0'},
   {GOOGLE_CLOUD_PROJECT:'american-rider-35688'},
   {EXPO_PUBLIC_API_URL:'https://americanrider.tech'}]) {
