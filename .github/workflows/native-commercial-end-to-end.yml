@@ -34,6 +34,7 @@ jobs:
       NODE_ENV: test
       AR_NATIVE_PLATFORM: ${{ matrix.platform }}
       AR_NATIVE_QA_LOCAL: '1'
+      AR_NATIVE_COMMERCIAL_QA: '1'
       EXPO_PUBLIC_AR_NATIVE_QA: '1'
       EXPO_PUBLIC_API_URL: ${{ matrix.local_url }}
       EXPO_PUBLIC_REFERRALS_ENABLED: '1'
