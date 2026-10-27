@@ -78,6 +78,8 @@ jobs:
         run: bash -n scripts/native-commercial-android-runner.sh
       - name: Verify native Maestro password selectors before expensive builds
         run: node scripts/verify-native-maestro-selectors.cjs
+      - name: Validate scoped Android emulator HTTP exception before expensive builds
+        run: node scripts/native-qa-android-network.test.cjs
 
   paid-native-journey:
     needs: [retire-superseded-native-builds, isolated-commercial-safety]
@@ -199,6 +201,10 @@ jobs:
           set -euo pipefail
           sdkmanager --install 'platforms;android-36' 'build-tools;36.0.0' || true
           NODE_ENV=production npx expo prebuild --platform android --clean --non-interactive
+          # Android 9+ release packages block plain HTTP even to 10.0.2.2.
+          # Only this disposable Android QA APK may reach LOCAL emulators.
+          # Change neither app.json nor production network policy.
+          node scripts/native-qa-android-network.cjs
           cd android
           chmod +x gradlew
           NODE_ENV=production ./gradlew --no-daemon --max-workers=2 --console=plain :app:assembleRelease
