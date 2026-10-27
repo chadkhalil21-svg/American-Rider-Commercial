@@ -1,3 +1,9 @@
+## 26 October 2026 | INDEPENDENT REAL STRIPE TEST-ONLY REFUND REPLAY
+
+Founder-directed payment acceptance. Extend independently observed Stripe TEST-mode authorization, capture, free cancellation and partial capture with a captured-payment full refund, duplicate idempotency-key replay, and single-refund reconciliation. The one-time provider job must pass before any claim that the refund integration is verified. Strictly NO production key, live charge, banking payout, actual qualified Operator, complete native checkout or change to Apple Build 56 is included in this source-only QA work.
+
+---
+
 ## 26 OCT 2026 | APP STORE BUILD 56 REJECTED ITEM, OFFICIAL APPLE BUTTON AND DELETION CREDENTIAL HANDLING
 
 **Apple submission meaning verified:** Founder App Store Connect screenshot for American Rider iOS 1.0 / Build 56 shows iOS Submission "Unresolved Issues" and app item rejected under Guideline 2.1 (App Completeness). Text "no other items submitted can be accepted or approved" describes this **one unresolved submission**; it does not bar uploading or selecting a new binary. Apple official [resolve submission](https://developer.apple.com/help/app-store-connect/manage-submissions-to-app-review/manage-a-submission-with-unresolved-issues/) steps: Edit rejected item, make changes/choose new binary when necessary, Add for Review, Resubmit to App Review. Do not claim App Store Connect action occurred from a GitHub merge.
