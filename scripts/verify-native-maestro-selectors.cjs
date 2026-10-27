@@ -51,8 +51,16 @@ assert.ok(booking.includes('- tapOn: "Search a place or address"'),
   'core destination must target the actual editable search input');
 assert.ok(booking.includes('- inputText: "Wynwood"'),
   'local QA booking must not rely on missing commercial geocoder credentials');
-const resultRowLabel='Wynwood, Estimated travel time · 11 minutes, ›';
-const inputLabel='Wynwood';
+// These names come from the actual captured iOS accessibility hierarchy,
+// not from an invented test string. Preserve the fixture with test evidence.
+const recordedHierarchy=JSON.parse(fs.readFileSync(
+  '.maestro/fixtures/ios-wynwood-search-hierarchy.json','utf8'));
+assert.ok(recordedHierarchy.evidence.includes('40601800241'),
+  'real iOS accessibility hierarchy evidence must be attributed');
+const resultRowLabel=recordedHierarchy.destinationResultButton.accessibilityText;
+const inputLabel=recordedHierarchy.editingSearchInput.text;
+assert.equal(recordedHierarchy.visibleHeading,'Travel Confirmation',
+  'heading alone is a false positive because it remains visible in search edit mode');
 const realDestinationSelector='.*Wynwood, Estimated travel time.*';
 const destinationRowPattern=new RegExp(realDestinationSelector);
 assert.ok(booking.includes('visible: "'+realDestinationSelector+'"') &&
