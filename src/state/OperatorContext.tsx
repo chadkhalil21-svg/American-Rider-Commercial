@@ -422,7 +422,7 @@ export function OperatorProvider({ children }: { children: React.ReactNode }) {
       if (!active || userUidRef.current !== 'native-qa-operator' ||
           qualification.status !== 'qualified' ||
           coverage?.ok !== true ||
-          !/^\\d{4}-\\d{2}-\\d{2}$/.test(coverage.policyExpiry || '')) return;
+          !/^\d{4}-\d{2}-\d{2}$/.test(coverage.policyExpiry || '')) return;
       // The synthetic plate and vehicle below match the isolated Firestore QA
       // Operator fixture. This is NOT evidence of a real-world vehicle or policy.
       setVerification('commissioned');
