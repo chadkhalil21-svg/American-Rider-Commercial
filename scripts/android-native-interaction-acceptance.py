@@ -108,6 +108,10 @@ def run():
     print("NATIVE_INTERACTION_MODE=anonymous_only")
     # Erase test emulator data ONLY, never a real identity or production Firestore.
     adb("shell","pm","clear",PACKAGE)
+    # Resetting the test app clears Android's permissions as well. Accept the
+    # OS-level location request before asserting the app's sign-in UI.
+    for permission in ("ACCESS_COARSE_LOCATION","ACCESS_FINE_LOCATION","ACCESS_BACKGROUND_LOCATION"):
+        adb("shell","pm","grant",PACKAGE,"android.permission."+permission)
     go_home()
     # Real touchscreen and hardware keyboard controls, not source-only UI checks.
     first_edit("email-invalid")
@@ -117,6 +121,10 @@ def run():
     wait_visible("Enter a valid email address",label="invalid-email-alert")
     print("PASS client-side invalid-email validation; no server account lookup")
     adb("shell","pm","clear",PACKAGE)
+    # Resetting the test app clears Android's permissions as well. Accept the
+    # OS-level location request before asserting the app's sign-in UI.
+    for permission in ("ACCESS_COARSE_LOCATION","ACCESS_FINE_LOCATION","ACCESS_BACKGROUND_LOCATION"):
+        adb("shell","pm","grant",PACKAGE,"android.permission."+permission)
     go_home()
     first_edit("email-valid")
     adb("shell","input","text","qa@example.com")
