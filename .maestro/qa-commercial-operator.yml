@@ -18,9 +18,15 @@ appId: com.americanrider.app
 - tapOn:
     id: "auth-primary-action"
 - openLink: "americanrider:///operator"
+# The fixture may be eligible at the SERVER, but on-device Operator duty
+# must still be explicitly commenced by tapping the real native control.
+- extendedWaitUntil:
+    visible: "Commence Operations"
+    timeout: 90000
+- tapOn: "Commence Operations"
 - extendedWaitUntil:
     visible: "Accept Traveler"
-    timeout: 60000
+    timeout: 90000
 - tapOn: "Accept Traveler"
 - extendedWaitUntil:
     visible: "Confirm Arrival"
