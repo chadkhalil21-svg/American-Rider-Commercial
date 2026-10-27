@@ -108,6 +108,11 @@ def run():
     print("NATIVE_INTERACTION_MODE=anonymous_only")
     # Erase test emulator data ONLY, never a real identity or production Firestore.
     adb("shell","pm","clear",PACKAGE)
+    # App-data reset revokes the granted runtime permissions. Restore them
+    # before opening the real login screen, or Android displays its location
+    # permission dialog instead of the UI under test.
+    for permission in ("ACCESS_COARSE_LOCATION","ACCESS_FINE_LOCATION","ACCESS_BACKGROUND_LOCATION"):
+        adb("shell","pm","grant",PACKAGE,"android.permission."+permission)
     go_home()
     # Real touchscreen and hardware keyboard controls, not source-only UI checks.
     first_edit("email-invalid")
