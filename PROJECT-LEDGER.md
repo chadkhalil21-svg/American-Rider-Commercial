@@ -1,3 +1,9 @@
+## 26 October 2026 | STRIPE SANDBOX REFUND RESPONSE CONTRACT CORRECTED
+
+One-time TEST-only Stripe refund verification (run 40443523730) reported a *succeeded* $10.00 refund with an actual refund balance transaction, but its synthetic acceptance assertion failed because it required Refund.livemode === false; Stripe omitted that optional field in the returned Refund object. The independent Stripe TEST account balance check had already established livemode=false, and the TEST PaymentIntent may independently establish livemode=false. This change verifies test mode from that account and captured PaymentIntent, binds each returned/refetched Refund to the precise captured PaymentIntent, rejects any explicit live-mode refund, and checks idempotent replay and a single refund ledger record. Full post-merge provider run must still succeed before certification. It does not test actual native Stripe checkout, real bank payouts, or alter Build 56.
+
+---
+
 ## 26 October 2026 | STRIPE TEST REFUND PROVIDER STATUS RECONCILIATION
 
 The founder-directed, TEST-only provider job initially failed because a full-amount Stripe refund was not immediately reported as *succeeded*. A genuine refund may be *pending*, which is not proof that funds settled. The isolated test now verifies the provider's returned refund, idempotent retry, one ledger entry, pending reason and all remaining authorization/cancel/partial capture steps; it still fails overall until Stripe independently confirms the refund succeeded. This test does not contact any live customer, modify the production app, or verify actual Operator/Recruiter bank payouts.
