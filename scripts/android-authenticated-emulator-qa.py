@@ -72,7 +72,11 @@ def tap(label,name):
     n=wait(label,name)
     nodes=screen(name+"-tap-target")
     matched=[item for item in nodes if label.casefold() in text(item).casefold()]
-    n=next((item for item in matched if item.attrib.get("clickable")=="true" and text(item).casefold()==label.casefold()),None) or next((item for item in matched if item.attrib.get("clickable")=="true"),None) or n
+    selected=next((item for item in matched if item.attrib.get("clickable")=="true" and text(item).casefold()==label.casefold()),None)
+    if selected is None:
+        selected=next((item for item in matched if item.attrib.get("clickable")=="true"),None)
+    if selected is not None:
+        n=selected
     x,y=bounds(n)
     adb("shell","input","tap",str(x),str(y))
     print("PASS REAL TAP "+name+" "+label,flush=True)
