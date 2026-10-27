@@ -1,0 +1,96 @@
+name: Founder complete commercial acceptance evidence (one time)
+
+on:
+  pull_request:
+    branches: [release/current]
+    paths:
+      - '.github/workflows/founder-full-commercial-acceptance-once-20261026.yml'
+  push:
+    branches: [release/current]
+    paths:
+      - '.github/workflows/founder-full-commercial-acceptance-once-20261026.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  synthetic-commercial-acceptance:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      CI: "true"
+      NODE_ENV: test
+      AR_SYNTHETIC_ONLY: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Confirm exact source and no payment credentials in this test
+        run: |
+          git rev-parse HEAD
+          test "$AR_SYNTHETIC_ONLY" = "1"
+      - name: Install checked-in dependencies
+        run: |
+          npm ci
+          npm ci --prefix backend
+      - name: Full application code, authentication contracts, routing and backend test suite
+        run: npm run check
+      - name: Traveler and Operator complete synthetic lifecycle, refunds and support
+        run: node scripts/prelaunch-synthetic-acceptance.cjs
+      - name: Recruiter absent, present, single- and dual-role attribution, release and payout refusals
+        run: node backend/commercial-role-matrix.test.js
+      - name: Deterministic settlement, retries, recovery, charges and real-SDK provider-failure fixtures
+        run: node scripts/run-deterministic-commissioning.mjs
+      - name: Whole platform two-pass adversarial trace with actual module executions
+        run: node scripts/run-double-whole-platform-trace.mjs
+      - name: Recruiter and Founder public website safety contract
+        run: |
+          node scripts/test-corporate-website.cjs
+          node backend/corporate-website.test.js
+      - name: State explicit commercial boundary
+        if: always()
+        shell: bash
+        run: |
+          echo '## Commercial acceptance evidence boundaries' >> "$GITHUB_STEP_SUMMARY"
+          echo 'This job executes isolated synthetic real application modules. It does NOT operate the actual iOS/Android UI, use verified live Operators, or establish real bank payouts.' >> "$GITHUB_STEP_SUMMARY"
+          echo 'Authenticated physical/mobile device journeys, platform-wallet OS capabilities and commissioned Recruiter payouts remain separate gates. Never certify them from a green synthetic run.' >> "$GITHUB_STEP_SUMMARY"
+      - name: Save deterministic acceptance trace
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: founder-commercial-synthetic-evidence
+          path: artifacts/commissioning/
+          if-no-files-found: ignore
+
+  actual-stripe-test-only-payment-cycle:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/release/current'
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      STRIPE_TEST_SECRET_KEY: ${{ secrets.STRIPE_TEST_SECRET_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Refuse missing key or any non-test Stripe credential
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -z "$STRIPE_TEST_SECRET_KEY" ]; then
+            echo "::error::Stripe TEST secret is not configured. No payment test performed."
+            exit 1
+          fi
+          case "$STRIPE_TEST_SECRET_KEY" in
+            sk_test_*) echo "TEST-only Stripe credential found.";;
+            *) echo "::error::Non-test Stripe credential refused. No transactions performed."; exit 1;;
+          esac
+      - run: npm ci --prefix backend --omit=dev
+      - name: Execute REAL Stripe TEST authorization, capture, cancel and partial capture
+        run: node backend/stripe-manual-sandbox-acceptance.cjs
+      - name: Clarify provider limits
+        if: always()
+        run: |
+          echo 'This job refuses production Stripe credentials. It cannot certify Apple Pay, Google Pay, Connect bank transfers, or a Recruiter ACH rail.' >> "$GITHUB_STEP_SUMMARY"
