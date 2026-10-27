@@ -86,6 +86,7 @@ def wait_visible(*patterns, label="screen", seconds=40):
 
 def touch(patterns,label):
     node=wait_visible(*patterns,label=label)
+    # A found XML leaf node is a valid control despite bool(node) == False.
     x,y=center(node)
     adb("shell","input","tap",str(x),str(y))
     print(f"PASS actual Android touchscreen tap: {label}")
