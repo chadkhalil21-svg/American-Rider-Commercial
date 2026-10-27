@@ -76,6 +76,8 @@ jobs:
         run: node backend/native-qa-isolation.test.js
       - name: Validate native Android runner syntax before expensive builds
         run: bash -n scripts/native-commercial-android-runner.sh
+      - name: Verify native Maestro password selectors before expensive builds
+        run: node scripts/verify-native-maestro-selectors.cjs
 
   paid-native-journey:
     needs: [retire-superseded-native-builds, isolated-commercial-safety]
