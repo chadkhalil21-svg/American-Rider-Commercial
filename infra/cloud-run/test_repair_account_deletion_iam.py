@@ -11,8 +11,8 @@ spec.loader.exec_module(mod)
 
 def records(runtime=None, role_exists=False, bound=False, additional=()):
     runtime = runtime or mod.RUNTIME
-    existing = ([{"name": mod.ROLE, "includedPermissions": mod.PERMISSIONS, "stage": "GA"}]
-                if role_exists else [])
+    # List returns summary-only records: includedPermissions is intentionally absent.
+    existing = ([{"name": mod.ROLE, "stage": "GA"}] if role_exists else [])
     bindings = [{"role": role, "members": [mod.MEMBER]} for role in additional]
     if bound:
         bindings.append({"role": mod.ROLE, "members": [mod.MEMBER]})
@@ -21,6 +21,10 @@ def records(runtime=None, role_exists=False, bound=False, additional=()):
             return {"spec": {"template": {"spec": {"serviceAccountName": runtime}}}}
         if args[:3] == ("iam", "roles", "list"):
             return existing
+        if args[:3] == ("iam", "roles", "describe"):
+            if not role_exists:
+                raise AssertionError("Unexpected description of an absent role")
+            return {"name": mod.ROLE, "includedPermissions": mod.PERMISSIONS, "stage": "GA"}
         if args[:2] == ("projects", "get-iam-policy"):
             return {"bindings": bindings}
         raise AssertionError("Unexpected cloud query: " + repr(args))
@@ -35,6 +39,12 @@ class AccountDeletionIAMTests(TestCase):
     def test_audit_when_permission_missing(self):
         with mock.patch.object(mod, "cli", return_value=mod.PROJECT), mock.patch.object(mod, "doc", side_effect=records()):
             self.assertEqual(mod.audit(), (False, False))
+
+    def test_existing_role_summary_missing_permissions(self):
+        # Regression for 26 Oct production Cloud Shell: the list omitted permissions,
+        # even though gcloud iam roles describe showed exactly users.delete.
+        with mock.patch.object(mod, "cli", return_value=mod.PROJECT), mock.patch.object(mod, "doc", side_effect=records(role_exists=True, bound=False)):
+            self.assertEqual(mod.audit(), (True, False))
 
     def test_idempotent_verified_role_binding(self):
         with mock.patch.object(mod, "cli", return_value=mod.PROJECT), mock.patch.object(mod, "doc", side_effect=records(role_exists=True, bound=True)):
@@ -53,8 +63,8 @@ class AccountDeletionIAMTests(TestCase):
     def test_custom_role_must_not_contain_other_permissions(self):
         def fake(*args):
             result = records(role_exists=True)(*args)
-            if args[:3] == ("iam", "roles", "list"):
-                result[0]["includedPermissions"] = ["firebaseauth.users.delete", "firebaseauth.users.create"]
+            if args[:3] == ("iam", "roles", "describe"):
+                result["includedPermissions"] = ["firebaseauth.users.delete", "firebaseauth.users.create"]
             return result
         with mock.patch.object(mod, "cli", return_value=mod.PROJECT), mock.patch.object(mod, "doc", side_effect=fake):
             with self.assertRaisesRegex(RuntimeError, "Custom role conflicts"):
