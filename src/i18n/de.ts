@@ -706,6 +706,8 @@ export default {
     errDeleteFailed: 'Die Kontolöschung konnte nicht bestätigt werden. Melden Sie sich erneut an oder wenden Sie sich an den Support. Neue Fahrten bleiben bis zur Klärung ausgesetzt.',
     errReauthenticationCancelled: 'Die Kontolöschung wurde abgebrochen. Ihr Konto bleibt bestehen.',
     deleteConfirmApple: 'Fahren Sie mit Apple fort, um dieses Konto zu bestätigen.',
+    appleRevokeAfterDeletion: 'Prüfen Sie nach dem Löschen Ihres American Rider-Kontos, ob diese App weiterhin unter Mit Apple anmelden aufgeführt ist. Falls ja, entfernen Sie die Berechtigung unter Einstellungen > Ihr Name > Mit Apple anmelden > American Rider > Löschen. Ihr Apple Account wird dabei nicht gelöscht.',
+    appleRevokeInstructions: 'Apple-Anleitung zum Trennen dieser App',
     deleteConfirmGoogle: 'Fahren Sie mit Google fort, um dieses Konto zu bestätigen.',
     errDeleteProvider: 'Dieses Konto hat keine unterstützte Anmeldemethode für die Kontolöschung.',
     delSignInDetails: 'Sämtliche Identitätsnachweise, Kontaktdaten und Authentifizierungstoken werden dauerhaft entfernt.',
