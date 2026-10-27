@@ -47,3 +47,24 @@ const suggestions=destinationsNear(origin,20).destinations;
 assert.ok(suggestions.some(item=>item.name==='Wynwood'),
   'the isolated emulator must offer the same Wynwood destination as Maestro');
 console.log('PASS prebuild Maestro target contract: editable password + enabled native Sign In');
+
+
+// Prevent another costly Android compile from succeeding and then failing
+// because an untested aapt2 invocation or artifact order was wrong.
+// This inexpensive contract runs in the isolated safety job on Linux.
+const nativeWorkflow=fs.readFileSync('.github/workflows/native-commercial-end-to-end.yml','utf8');
+assert.ok(nativeWorkflow.includes('dump xmltree --file AndroidManifest.xml "$APK"'),
+  'AAPT2 xmltree requires --file AndroidManifest.xml before the APK');
+assert.ok(nativeWorkflow.includes('dump resources "$APK"'),
+  'AAPT2 resource inspection must receive the compiled APK');
+const compiled=nativeWorkflow.indexOf('NODE_ENV=production ./gradlew --no-daemon');
+const preserved=nativeWorkflow.indexOf('cp app/build/outputs/apk/release/app-release.apk');
+const hashed=nativeWorkflow.indexOf('shasum -a 256 app-release.apk > native.sha256');
+const inspected=nativeWorkflow.indexOf('dump xmltree --file AndroidManifest.xml "$APK"');
+assert.ok(compiled>=0&&compiled<preserved&&preserved<hashed&&hashed<inspected,
+  'Save and checksum expensive Android app bytes before invoking postbuild inspectors');
+assert.ok(nativeWorkflow.includes("if: ${{ always() && matrix.platform == 'android' }}"),
+  'Always preserve APK artifact when a later tool or test fails');
+assert.ok(nativeWorkflow.includes('if-no-files-found: warn'),
+  'Missing APK should preserve root failure without obscuring it');
+console.log('PASS prebuild AAPT2 invocation and fail-safe Android APK preservation contract');
