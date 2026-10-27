@@ -7,6 +7,7 @@ const {adminDb}=require('./firebase-admin');
 const {getAuth}=require('firebase-admin/auth');
 const Stripe=require('stripe');
 const {DISCLOSURE_VERSION}=require('./disclosure');
+const {initialMonitoringFromDocument,applyIndependentConfirmation}=require('./insurance-monitoring');
 async function main(){
   assert.equal(isolatedNativeQa(),true,'Refusing QA fixtures outside isolated local backend');
   const key=process.env.STRIPE_SECRET_KEY||'';
@@ -57,7 +58,9 @@ async function main(){
     operatingMarket:{id:'fl-miami-dade'},
     insuranceDisclosure:{version:DISCLOSURE_VERSION,at:now-1000},
     documents:{license:doc(),registration:doc({plate:'QATEST1'}),insurance},
-    insuranceMonitoring:{status:'verified_active',source:'local_qa_fixture',checkedAt:now,expiresAt:Date.parse('2099-01-01')},
+    insuranceMonitoring:applyIndependentConfirmation(initialMonitoringFromDocument(insurance,now),{
+      status:'verified_active',source:'local_qa_fixture',now,
+    }),
     screening:{decision:'pass',recheckDue:now+86400000},
   });
   await db.collection('operators').doc(ids.operator).set({
