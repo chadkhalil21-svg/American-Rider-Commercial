@@ -1,3 +1,17 @@
+## 26 October 2026 | BUILD 56 SYSTEMATIC LAUNCH-GAP AUDIT AFTER SUCCESSFUL ACCOUNT DELETION
+
+**Device result:** Founder explicitly confirms account deletion now works in installed TestFlight Build 56, following the verified production custom IAM account-delete binding. Record success of this specific reported test; do not infer Apple/Google linked account deletion, provider token revocation, or all device variants from it. The prior 9:46 PM grant is genuine and no new native build was necessary for this permission correction.
+
+**Audit method and evidence:** Compared `release/current` current app/backend source, verified CI, authenticated Google Cloud read-only workflow 40433663228, Founder Build 56 recording and screenshots, and Apple developer review guidance. Preserved prelaunch constraints: real on-duty Operators and completed paid Travels cannot be fabricated. Full evidence with source references is in [Build 56 gap audit](docs/APPLE-BUILD56-GAP-AUDIT-2026-10-26.md).
+
+**Confirmed Apple-facing source gaps, not fixed by IAM:** [#358](https://github.com/chadkhalil21-svg/American-Rider-Commercial/issues/358) Sign in with Apple deletion reauthenticates and removes Firebase but does not implement Apple credential-token revocation (Apple TN3194 / published deletion guidance); [#359](https://github.com/chadkhalil21-svg/American-Rider-Commercial/issues/359) the hand-authored SVG Apple sign-in logo is not official Apple Design Resources artwork. User-visible Build 56 itself was not silently modified; correcting native source would require another signed binary. These findings do not negate the successful tested deletion for the user's account.
+
+**Other launch-evidence gaps:** PR #355's iPhone deep-link scheme correction was merged after Build 56, therefore newest source checks cannot certify it in the signed build; paid Cloud Run `/live` is healthy but the authenticated latest store-SHA audit explicitly reports current source mismatch (possibly changes unrelated to backend); fully valid multi-role Apple demo accounts and real provider wallet/mobile results are not independently confirmed. These are differentiated as unverified or version-parity mismatches, not asserted runtime failures. Apple's 2.1 Information Needed review response and resubmission remain pending in App Store Connect.
+
+**Disposition:** Two independently tracked Apple-code gaps, one auditable matrix, no speculative release, insurance, Stripe, pricing, Operator, Render or Cloud Run changes. Do not assume already passing synthetic tests certify an installed App Store binary.
+
+---
+
 ## 26 October 2026 | PRODUCTION FIREBASE ACCOUNT-DELETION PERMISSION BOUND, DEVICE OUTCOME PENDING
 
 **Founder-confirmed Google Cloud Shell evidence, 9:46 PM Eastern:** The corrected, pinned IAM repair from merge PR #356 (`cd0e3149f64bece2f87d75cf3e4917bf24038922`) ran successfully against project `american-rider-35688`. Shell output explicitly verified the existing Cloud Run production runtime identity `ar-production-live-runtime@american-rider-35688.iam.gserviceaccount.com`, existing custom role `americanRiderAuthAccountDelete`, and `delete permission bound: True`. Final output: "Verified: the production runtime has the account-delete permission only." This corrects prior ledger language that said the IAM binding remained unverified. The change is only an IAM binding, not a Cloud Run service deployment, Stripe change or native app revision.
