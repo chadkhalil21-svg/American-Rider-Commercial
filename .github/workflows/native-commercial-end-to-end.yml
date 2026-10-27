@@ -143,6 +143,9 @@ jobs:
             export PATH="$HOME/.maestro/bin:$PATH"
             mkdir -p artifacts/native-commercial-android
             adb install -r android/app/build/outputs/apk/release/app-release.apk
+            # Disposable Operator fixture is at this Miami test position. Do not
+            # let the emulator default to Google's California headquarters.
+            adb emu geo fix -80.1918 25.7617
             adb shell pm grant com.americanrider.app android.permission.ACCESS_FINE_LOCATION
             adb shell pm grant com.americanrider.app android.permission.ACCESS_COARSE_LOCATION
             maestro test .maestro/qa-commercial-traveler.yml > artifacts/native-commercial-android/traveler.log 2>&1 || { tail -75 artifacts/native-commercial-android/traveler.log; exit 1; }
@@ -159,6 +162,8 @@ jobs:
           echo "SIM_DEVICE=$SIM" >> "$GITHUB_ENV"
           xcrun simctl boot "$SIM" || true
           xcrun simctl bootstatus "$SIM" -b
+          # Match the isolated Miami Operator and pickup fixture on the simulator.
+          xcrun simctl location "$SIM" set 25.7617,-80.1918
           NODE_ENV=production xcodebuild -workspace ios/AmericanRider.xcworkspace -scheme AmericanRider -configuration Release -destination "id=$SIM" -derivedDataPath "$RUNNER_TEMP/QARelease" CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO build > artifacts/native-commercial-ios/xcode.log 2>&1 || { tail -120 artifacts/native-commercial-ios/xcode.log; exit 1; }
           APP="$RUNNER_TEMP/QARelease/Build/Products/Release-iphonesimulator/AmericanRider.app"
           test -d "$APP"
