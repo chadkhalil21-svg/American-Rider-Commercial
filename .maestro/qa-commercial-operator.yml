@@ -12,11 +12,21 @@ appId: com.americanrider.app
     timeout: 30000
 - tapOn: "Password"
 - inputText: "Native-QA-Only-7819-Strong"
-- hideKeyboard
-# The actual React Native Pressable has a stable testID; do not confuse
-# accessibility/visible label changes with missing real authentication.
-- tapOn:
-    id: "auth-primary-action"
+# On Android Maestro hideKeyboard dispatches BACK. After password input,
+# submit by pressing the keyboard action key wired to TextInput.onSubmitEditing.
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - assertVisible: "Welcome back"
+      - pressKey: enter
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - hideKeyboard
+      - tapOn:
+          id: "auth-primary-action"
 - openLink: "americanrider:///operator"
 # The fixture may be eligible at the SERVER, but on-device Operator duty
 # must still be explicitly commenced by tapping the real native control.
