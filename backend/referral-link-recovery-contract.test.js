@@ -21,7 +21,13 @@ const pending=read('src/backend/referralPending.ts');
 assert.match(pending,/AGE_MS=72\*60\*60\*1000/);
 assert.match(pending,/AsyncStorage/);
 const auth=read('src/screens/AuthScreen.tsx');
-assert.match(auth,/savePendingInvite\(invitationCode\.trim\(\)\.toUpperCase\(\), role\)/);
+assert.match(auth,/savePendingInvite\\(invitationCode\\.trim\\(\\)\\.toUpperCase\\(\\), 'traveler'\\)/);
+assert.match(auth,/beforeSignIn=\\{stageTravelerInvitation\\}/, 'Google sign-in must stage invitation');
+assert.match(auth,/if \\(\\!\\(await stageTravelerInvitation\\(\\)\\)\\) return;/, 'Apple and signup stage invitation before authenticating');
+assert.match(auth,/await signUp\\(email, password, name, mobile\\)/);
+assert.doesNotMatch(auth,/setStep\\('select'\\)|step === 'select'|selectRole/, 'no account selection screen');
+assert.doesNotMatch(auth,/setOnboarding\\(true\\)/, 'new Traveler enters home automatically');
+assert.match(auth,/invitationField\\(\\)/, 'optional invitation field exists');
 assert.match(auth,/t\('auth\.invitationCodeOptional'\)/);
 const traveler=read('app/index.tsx');
 assert.match(traveler,/useFocusEffect\(useCallback/);
@@ -54,4 +60,4 @@ for(const lang of ['en','es','fr','it','de']){
   for(const key of ['invitationCodeOptional','invitationCodeInvalid','referralQuestion','referralCodeOptional','referralRecorded','referralFailed'])
     assert.ok(dict.includes(key+':'),lang+' needs '+key);
 }
-console.log('PASS referral recovery: signed-domain intent config, both roles, reversible failures, five languages, zero reward');
+console.log('PASS referral recovery: Traveler-first signup, email/social invitation, both roles, five languages, zero reward');
