@@ -1,0 +1,99 @@
+name: iOS native simulator release build and deep-link evidence
+
+on:
+  pull_request:
+    branches: [release/current]
+    paths:
+      - '.github/workflows/ios-native-simulator-release-parity.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  actual-ios-simulator:
+    # Test-only source verification. Neither App Store Connect nor production data changes.
+    runs-on: macos-26-intel
+    timeout-minutes: 85
+    env:
+      CI: '1'
+      EXPO_PUBLIC_API_URL: https://american-rider-api-production-623854974930.us-east1.run.app
+      EXPO_PUBLIC_REFERRALS_ENABLED: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Select supported Xcode 26 for Expo SDK 57
+        shell: bash
+        run: |
+          set -euo pipefail
+          for dir in /Applications/Xcode_26.6.app /Applications/Xcode_26.5.app /Applications/Xcode_26.4.app; do
+            if [ -d "$dir" ]; then sudo xcode-select -s "$dir/Contents/Developer"; break; fi
+          done
+          xcodebuild -version
+          test "$(xcodebuild -version | head -1 | awk '{print $2}' | cut -d. -f1)" = 26 || {
+            echo 'No supported Xcode 26 selected for SDK 57'; exit 1;
+          }
+      - name: Install checked-in app dependencies
+        run: npm ci
+      - name: Boot actual iPhone simulator
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json,subprocess,os
+          obj=json.loads(subprocess.check_output(['xcrun','simctl','list','-j','devices','available'],text=True))
+          found=[v for ds in obj['devices'].values() for v in ds if v.get('isAvailable') and v.get('name','').startswith('iPhone')]
+          if not found:raise SystemExit('No available iPhone simulator runtime')
+          selected=next((v for v in found if 'iPhone 17' in v['name']),found[0])
+          with open(os.environ['GITHUB_ENV'],'a') as f:f.write('SIM_DEVICE='+selected['udid']+'\n')
+          print('Selected physical simulator runtime:',selected['name'],selected['udid'])
+          PY
+          xcrun simctl boot "$(grep '^SIM_DEVICE=' "$GITHUB_ENV" | tail -1 | cut -d= -f2)" || true
+          xcrun simctl bootstatus "$(grep '^SIM_DEVICE=' "$GITHUB_ENV" | tail -1 | cut -d= -f2)" -b
+      - name: Compile and install RELEASE iOS application on iPhone simulator
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/ios-native-qa
+          LOG="$GITHUB_WORKSPACE/artifacts/ios-native-qa/xcode-build.log" npm run build:sim
+          test -s .expo/simulator-build.json
+          node -e "const fs=require('fs'); const j=JSON.parse(fs.readFileSync('.expo/simulator-build.json')); if(j.dirty||j.api!==process.env.EXPO_PUBLIC_API_URL)process.exit(1);console.log('Release simulator compiled:',j.commit,j.api)"
+      - name: Verify BUILT application URL schemes and exercise deep-link routes
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP="$(node -p "require('./.expo/simulator-build.json').app")"
+          export APP
+          python3 - <<'PY'
+          import plistlib,os,pathlib
+          p=pathlib.Path(os.environ['APP'])/'Info.plist'
+          data=plistlib.load(open(p,'rb'))
+          assert data.get('CFBundleIdentifier')=='com.americanrider.app',data.get('CFBundleIdentifier')
+          schemes={v for row in data.get('CFBundleURLTypes',[]) for v in row.get('CFBundleURLSchemes',[])}
+          assert 'americanrider' in schemes,schemes
+          assert any(v.startswith('com.googleusercontent.apps.') for v in schemes),schemes
+          print('PASS built Info.plist: American Rider and Google callback schemes')
+          PY
+          xcrun simctl io "$SIM_DEVICE" screenshot artifacts/ios-native-qa/welcome.png
+          xcrun simctl openurl "$SIM_DEVICE" 'americanrider:///join?r=QAONLY12345&role=traveler'
+          sleep 3
+          xcrun simctl io "$SIM_DEVICE" screenshot artifacts/ios-native-qa/traveler-invite.png
+          xcrun simctl openurl "$SIM_DEVICE" 'americanrider:///join?r=QAONLY12345&role=operator'
+          sleep 3
+          xcrun simctl io "$SIM_DEVICE" screenshot artifacts/ios-native-qa/operator-invite.png
+          xcrun simctl openurl "$SIM_DEVICE" 'americanrider:///operator/payouts'
+          sleep 3
+          xcrun simctl io "$SIM_DEVICE" screenshot artifacts/ios-native-qa/protected-operator-route.png
+          echo 'PASS iPhone simulator: native binary installed; both URI registrations present; three links opened without simctl error.'
+          echo 'NOT tested: actual credential sign-in, permission retention on signed physical device, payment, production operator or payout.'
+      - name: Save screenshots and logs on failure or success
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-release-native-simulator-evidence
+          path: artifacts/ios-native-qa/
+          if-no-files-found: warn
+          retention-days: 14
