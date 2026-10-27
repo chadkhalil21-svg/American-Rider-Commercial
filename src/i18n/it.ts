@@ -705,6 +705,8 @@ export default {
     errDeleteFailed: 'Non è stato possibile confermare l’eliminazione dell’account. Acceda di nuovo per riprovare o contatti l’assistenza. I nuovi viaggi restano sospesi fino alla risoluzione.',
     errReauthenticationCancelled: 'L’eliminazione dell’account è stata annullata. L’account rimane aperto.',
     deleteConfirmApple: 'Continui con Apple per confermare che questo è il suo account.',
+    appleRevokeAfterDeletion: 'Dopo aver eliminato il suo account American Rider, verifichi se l’app compare ancora in Accedi con Apple. In tal caso, revochi l’autorizzazione in Impostazioni > il suo nome > Accedi con Apple > American Rider > Elimina. Questa operazione non elimina il suo account Apple.',
+    appleRevokeInstructions: 'Istruzioni Apple per scollegare questa app',
     deleteConfirmGoogle: 'Continui con Google per confermare che questo è il suo account.',
     errDeleteProvider: 'Questo account non dispone di un metodo di accesso compatibile con l’eliminazione dell’account.',
     delSignInDetails: 'Tutte le credenziali di identità, i recapiti e i token di autenticazione saranno rimossi in modo permanente.',
