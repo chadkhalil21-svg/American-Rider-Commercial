@@ -29,7 +29,7 @@ appId: com.americanrider.app
 - assertVisible: "Complete Travel Cost"
 - tapOn: "Confirm Travel"
 - extendedWaitUntil:
-    visible: "Add a payment method"
+    visible: "Card number"
     timeout: 45000
 # The Stripe TEST PaymentSheet card entry and authenticated authorization must
 # be completed on-device. This suite fails rather than claiming success if the
@@ -43,5 +43,5 @@ appId: com.americanrider.app
 - hideKeyboard
 - tapOn: "Pay"
 - extendedWaitUntil:
-    visible: "Finding your operator"
+    visible: "Awaiting Operator confirmation"
     timeout: 60000
