@@ -160,8 +160,8 @@ jobs:
             adb emu geo fix -80.1918 25.7617
             adb shell pm grant com.americanrider.app android.permission.ACCESS_FINE_LOCATION
             adb shell pm grant com.americanrider.app android.permission.ACCESS_COARSE_LOCATION
-            maestro test .maestro/qa-commercial-traveler.yml > artifacts/native-commercial-android/traveler.log 2>&1 || { tail -75 artifacts/native-commercial-android/traveler.log; exit 1; }
-            maestro test .maestro/qa-commercial-operator.yml > artifacts/native-commercial-android/operator.log 2>&1 || { tail -75 artifacts/native-commercial-android/operator.log; exit 1; }
+            maestro test .maestro/qa-commercial-traveler.yml > artifacts/native-commercial-android/traveler.log 2>&1 || { tail -75 artifacts/native-commercial-android/traveler.log; mkdir -p artifacts/native-commercial-android/maestro-debug; cp -R "$HOME/.maestro/tests/." artifacts/native-commercial-android/maestro-debug/ 2>/dev/null || true; adb exec-out screencap -p > artifacts/native-commercial-android/failure-screen.png 2>/dev/null || true; exit 1; }
+            maestro test .maestro/qa-commercial-operator.yml > artifacts/native-commercial-android/operator.log 2>&1 || { tail -75 artifacts/native-commercial-android/operator.log; mkdir -p artifacts/native-commercial-android/maestro-debug; cp -R "$HOME/.maestro/tests/." artifacts/native-commercial-android/maestro-debug/ 2>/dev/null || true; adb exec-out screencap -p > artifacts/native-commercial-android/failure-screen.png 2>/dev/null || true; exit 1; }
             node backend/native-commercial-qa-reconcile.cjs
       - name: Build unsigned iOS native Release app and boot iPhone Simulator
         if: matrix.platform == 'ios'
@@ -186,8 +186,8 @@ jobs:
         run: |
           set -euo pipefail
           export PATH="$HOME/.maestro/bin:$PATH"
-          maestro test .maestro/qa-commercial-traveler.yml > artifacts/native-commercial-ios/traveler.log 2>&1 || { tail -75 artifacts/native-commercial-ios/traveler.log; exit 1; }
-          maestro test .maestro/qa-commercial-operator.yml > artifacts/native-commercial-ios/operator.log 2>&1 || { tail -75 artifacts/native-commercial-ios/operator.log; exit 1; }
+          maestro test .maestro/qa-commercial-traveler.yml > artifacts/native-commercial-ios/traveler.log 2>&1 || { tail -75 artifacts/native-commercial-ios/traveler.log; mkdir -p artifacts/native-commercial-ios/maestro-debug; cp -R "$HOME/.maestro/tests/." artifacts/native-commercial-ios/maestro-debug/ 2>/dev/null || true; xcrun simctl io "$SIM_DEVICE" screenshot artifacts/native-commercial-ios/failure-screen.png || true; exit 1; }
+          maestro test .maestro/qa-commercial-operator.yml > artifacts/native-commercial-ios/operator.log 2>&1 || { tail -75 artifacts/native-commercial-ios/operator.log; mkdir -p artifacts/native-commercial-ios/maestro-debug; cp -R "$HOME/.maestro/tests/." artifacts/native-commercial-ios/maestro-debug/ 2>/dev/null || true; xcrun simctl io "$SIM_DEVICE" screenshot artifacts/native-commercial-ios/failure-screen.png || true; exit 1; }
           node backend/native-commercial-qa-reconcile.cjs
       - name: Preserve platform evidence even when full journey fails
         if: always()
