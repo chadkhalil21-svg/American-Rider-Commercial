@@ -22,6 +22,18 @@ for (const role of ['traveler','operator']) {
     path+': use correct platform-specific keyboard behavior');
   assert.ok(src.includes('- tapOn: "Sign in to your account."'),
     path+': iOS keyboard workaround uses a harmless static heading');
+  assert.ok(src.includes('- assertVisible: "AMERICAN RIDER"'),
+    path+': ensure static title is present before trying to dismiss iOS email keyboard');
+  assert.ok(src.includes('- tapOn: "AMERICAN RIDER"'),
+    path+': iOS must tap a known static title after typing email, not swipe blindly');
+  const androidKeyboardGuards=[...src.matchAll(/- runFlow:\s*\n\s*when:\s*\n\s*platform: Android\s*\n\s*commands:\s*\n\s*- hideKeyboard/g)];
+  assert.equal(androidKeyboardGuards.length,2,
+    path+': both email and password keyboard dismissals must be Android-only');
+  const allKeyboardActions=[...src.matchAll(/^\s*- hideKeyboard\s*$/gm)];
+  assert.equal(allKeyboardActions.length,2,
+    path+': unguarded iOS hideKeyboard found; keep only Android-guarded actions');
+  assert.doesNotMatch(src,/^- hideKeyboard\s*$/m,
+    path+': unguarded root hideKeyboard blocks iOS before entering test flow');
   assert.ok(src.includes('- assertVisible: "Sign In"'),
     path+': auth-primary-action is shared with Create Account, ensure correct label');
 }
@@ -41,6 +53,11 @@ assert.ok(booking.includes('- inputText: "Wynwood"'),
   'local QA booking must not rely on missing commercial geocoder credentials');
 assert.doesNotMatch(booking,/- inputText: "Miami International Airport"/,
   'separate airport acceptance from core isolated commercial Travel');
+assert.ok(booking.includes('- inputText: "123"'),
+  'Stripe TEST PaymentSheet CVC entry missing');
+const paymentBlock=booking.slice(booking.indexOf('- tapOn: "CVC"'),booking.indexOf('- tapOn: "Pay"'));
+assert.ok(paymentBlock.includes('- inputText: "123"') && !paymentBlock.includes('- hideKeyboard'),
+  'Do not swipe iOS keyboard within native Stripe PaymentSheet; tap Pay directly');
 const {destinationsNear}=require('../backend/places');
 const origin={lat:25.7617,lng:-80.1918};
 const suggestions=destinationsNear(origin,20).destinations;
