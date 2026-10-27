@@ -1,3 +1,9 @@
+## 26 October 2026 | REAL STRIPE TEST-MODE CAPTURE AND REFUND ACCEPTANCE
+
+Founder directed all possible full commercial simulations. The existing real Stripe TEST checkout acceptance already verified manual authorization, complete capture, free cancellation of an uncaptured hold, and partial capture, independently of the full synthetic Traveler/Operator journey. This PR extends provider acceptance to a real TEST-mode refund after the completed capture, an identical idempotency-key retry, and an authoritative one-refund Stripe ledger verification. GitHub Actions explicitly rejects absent or non-test Stripe keys. The result must remain unverified until the one-time post-merge test job actually passes. No live payment, Operator Connect transfer, banking payout, Recruiter compensation, real Operator qualification, or new Apple Build 56 is created or certified by this change.
+
+---
+
 ## 26 October 2026 | PRODUCTION FIREBASE ACCOUNT-DELETION PERMISSION BOUND, DEVICE OUTCOME PENDING
 
 **Founder-confirmed Google Cloud Shell evidence, 9:46 PM Eastern:** The corrected, pinned IAM repair from merge PR #356 (`cd0e3149f64bece2f87d75cf3e4917bf24038922`) ran successfully against project `american-rider-35688`. Shell output explicitly verified the existing Cloud Run production runtime identity `ar-production-live-runtime@american-rider-35688.iam.gserviceaccount.com`, existing custom role `americanRiderAuthAccountDelete`, and `delete permission bound: True`. Final output: "Verified: the production runtime has the account-delete permission only." This corrects prior ledger language that said the IAM binding remained unverified. The change is only an IAM binding, not a Cloud Run service deployment, Stripe change or native app revision.
