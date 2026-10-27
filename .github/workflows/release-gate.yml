@@ -26,6 +26,8 @@ jobs:
       - run: npm run check
       - name: Verify prelaunch synthetic paid Travel, native wallet source, pickup and Cloud Run contracts
         run: node scripts/prelaunch-synthetic-acceptance.cjs
+      - name: Verify account deletion IAM repair after custom-role creation
+        run: python3 -m unittest discover -s infra/cloud-run -p 'test_repair_account_deletion_iam.py' -v
       - name: Offline Census/BLS geographic source-integrity and 51-jurisdiction tests twice
         run: |
           python3 scripts/assemble-national-economic-geography.test.py
