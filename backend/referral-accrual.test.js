@@ -74,5 +74,42 @@ assert.equal(x.events,2);
 const ride5='travel-123460';db.rows.set('rides/'+ride5,{...ride});
 x=await recordHeldAccrual({db,rideId:ride5,program:enabled});
 assert.equal(x.events,1,'capped Operator may not receive a 201st Travel reward');
-console.log('PASS referral-accrual: real ride fields, dual budgets, replay, cap, refund and program-off');
+// Deterministic load test, NOT a physical-device/Stripe/provider stress proof:
+ // 205 genuine-shaped settled Travels * 2 attributed roles, 3 retries per ride.
+ // Each role earns exactly 200 qualifying $0.15 entries then must stop at $30.
+ const stress=new Db(),traveler='stress-traveler',operator='stress-operator';
+ for(const [uid,role] of [[traveler,'traveler'],[operator,'operator']]) {
+   stress.rows.set('referral_attributions/'+uid+'_'+role,{
+     role,inviteeUid:uid,inviterUid:'independent-recruiter-001',
+     rewardEnabled:true,programVersion:PROGRAM.version,
+     qualifiedTravels:0,earnedCents:0});
+ }
+ let total=0;
+ for(let n=1;n<=205;n++){
+   const id='travel-stress-'+String(n).padStart(5,'0');
+   stress.rows.set('rides/'+id,{...ride,operatorId:operator,travelerUid:traveler,referralAvailableCents:30});
+   const result=await recordHeldAccrual({db:stress,rideId:id,program:enabled,now:86400001+n});
+   assert.equal(result.ok,true,'settled travel '+n);
+   assert.equal(result.events,n<=200?2:0,'bounded role accrual on travel '+n);
+   total+=result.heldCents;
+   const writes=stress.writes;
+   for(let repeat=0;repeat<3;repeat++){
+     const again=await recordHeldAccrual({db:stress,rideId:id,program:enabled,now:86402000+n});
+     assert.equal(again.events,0,'duplicate replay '+n);
+     assert.equal(stress.writes,writes,'no duplicate writes '+n);
+   }
+ }
+ assert.equal(total,6000,'200 x 15c x 2 roles = $60 total, never a 201st reward');
+ for(const role of ['traveler','operator']){
+   const uid=role==='traveler'?traveler:operator;
+   const account=stress.rows.get('referral_attributions/'+uid+'_'+role);
+   assert.equal(account.qualifiedTravels,200,role+' count');
+   assert.equal(account.earnedCents,3000,role+' $30 cap');
+   assert.equal(stress.rows.has('referral_reward_events/travel-stress-00201_'+role),false,
+     role+' no 201st event');
+ }
+ assert.equal([...stress.rows.keys()].filter(k=>k.startsWith('referral_reward_events/')).length,400,
+   'exactly 400 fixed-ID events, nothing for the 201st through 205th Travels');
+ console.log('PASS referral-accrual 205x2-role cap/retry stress: 400 events, $60 max, 615 no-op retries');
+ console.log('PASS referral-accrual: real ride fields, dual budgets, replay, cap, refund and program-off');
 })().catch(e=>{console.error(e);process.exitCode=1;});
