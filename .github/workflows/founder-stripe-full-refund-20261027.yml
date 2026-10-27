@@ -1,7 +1,7 @@
 name: Founder one-time REAL Stripe TEST refund and manual-capture acceptance
 on:
   push:
-    branches: [release/current]
+    branches: [release/current, qa/full-stripe-test-refund-idempotency-20261027]
     paths:
       - .github/workflows/founder-stripe-full-refund-20261027.yml
 permissions:
