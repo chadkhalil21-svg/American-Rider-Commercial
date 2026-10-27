@@ -32,6 +32,7 @@ import { useAuth } from '../state/AuthContext';
 import { savePendingInvite } from '../backend/referralPending';
 import { useLanguage } from '../state/LanguageContext';
 import { colors } from '../theme';
+import { GOOGLE_OFFICIAL_G_SOURCE } from '../brand/googleOfficialG';
 
 const emailOk = (e: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e.trim());
 
@@ -118,11 +119,11 @@ function SsoButton({
             />
           </Svg>
         ) : (
-          // Source: Google's current official multicolor sign-in mark. A
-          // monochrome, hand-drawn G is forbidden by Google brand guidelines.
-          // Keep its 1:1 aspect ratio and the existing 46pt button geometry.
+          // Google-owned iOS SDK multicolor G is bundled without modification,
+          // so it still appears offline. Preserve the 17pt icon footprint
+          // and the 46pt founder-approved equal sign-in button heights.
           <Image
-            source={{ uri: 'https://developers.google.com/static/identity/images/g-logo.png' }}
+            source={GOOGLE_OFFICIAL_G_SOURCE}
             style={s.googleOfficialMark}
             resizeMode="contain"
             accessibilityIgnoresInvertColors
