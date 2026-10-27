@@ -7,7 +7,19 @@ appId: com.americanrider.app
 - assertVisible: "AMERICAN RIDER"
 - tapOn: "Email Address"
 - inputText: "native.qa.traveler@example.test"
-- hideKeyboard
+# Android back dismisses the keyboard. iOS hideKeyboard uses a swipe and
+# previously FAILED before the account could proceed (run 40592170783).
+# Tap a visible, non-interactive native title instead on iOS.
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - hideKeyboard
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - tapOn: "AMERICAN RIDER"
 - tapOn: "Continue"
 - assertVisible: "Welcome back"
 # iOS evidence from run 40569443959 showed CREATE ACCOUNT in front
@@ -78,7 +90,8 @@ appId: com.americanrider.app
 - inputText: "1230"
 - tapOn: "CVC"
 - inputText: "123"
-- hideKeyboard
+# Do not use an unreliable blind iOS swipe in native Stripe PaymentSheet.
+# Tap the actual primary Pay action; a failed tap remains a test failure.
 - tapOn: "Pay"
 - extendedWaitUntil:
     visible: "Awaiting Operator confirmation"
