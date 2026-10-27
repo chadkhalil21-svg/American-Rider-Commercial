@@ -209,6 +209,11 @@ jobs:
           chmod +x gradlew
           NODE_ENV=production ./gradlew --no-daemon --max-workers=2 --console=plain :app:assembleRelease
           test -s app/build/outputs/apk/release/app-release.apk
+          # Test the ACTUAL compiled manifest, not merely the source XML.
+          # Refuse caching/reusing any QA APK whose Android security policy
+          # does not contain the deliberately local-only emulator exception.
+          "$ANDROID_HOME/build-tools/36.0.0/aapt2" dump xmltree app/build/outputs/apk/release/app-release.apk AndroidManifest.xml | grep -q 'networkSecurityConfig'
+          unzip -l app/build/outputs/apk/release/app-release.apk | grep -q 'res/xml/american_rider_qa_network_security_config.xml'
           mkdir -p ../.qa-native-build-cache/android
           cp app/build/outputs/apk/release/app-release.apk ../.qa-native-build-cache/android/app-release.apk
           cd ../.qa-native-build-cache/android
