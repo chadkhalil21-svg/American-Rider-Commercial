@@ -51,6 +51,7 @@ function InkButton({
       disabled={disabled}
       accessibilityRole="button"
       accessibilityLabel={label}
+      testID="auth-primary-action"
       accessibilityState={{ disabled: !!disabled }}
       style={({ pressed }) => [
         s.btn,
