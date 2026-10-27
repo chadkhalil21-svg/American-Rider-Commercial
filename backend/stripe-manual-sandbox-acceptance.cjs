@@ -45,15 +45,30 @@ async function authorize(name){
    const refundArgs={payment_intent:captured.id,amount:1000,reason:'requested_by_customer'};
    const refundKey='ar_sandbox_refund_'+run+'_full';
    const returned=await stripe.refunds.create(refundArgs,{idempotencyKey:refundKey});
-   assure(returned.livemode===false&&returned.amount===1000&&returned.status==='succeeded',
-     'full TEST charge was not fully refunded');
+   console.log('Stripe TEST refund provider result:', JSON.stringify({
+     mode:returned.livemode===false?'test':'not-test',
+     amount:returned.amount,status:returned.status,
+     pendingReason:returned.pending_reason||null,
+     balanceTransactionCreated:!!returned.balance_transaction
+   }));
+   assure(returned.livemode===false&&returned.amount===1000&&
+     ['succeeded','pending'].includes(returned.status),
+     'full TEST refund request was not accepted by Stripe');
    const retried=await stripe.refunds.create(refundArgs,{idempotencyKey:refundKey});
    assure(retried.id===returned.id,'refund retry generated a different Stripe Refund');
    const listed=await stripe.refunds.list({payment_intent:captured.id,limit:10});
    assure(!listed.has_more&&listed.data.filter(x=>x.id===returned.id).length===1&&
-     listed.data.filter(x=>x.status==='succeeded').length===1,
-     'one completed charge must have exactly one settled refund');
-   console.log('PASS: real Stripe TEST full captured-charge refund, idempotent retry and single provider refund ledger.');
+     listed.data.filter(x=>['succeeded','pending'].includes(x.status)).length===1,
+     'the completed charge must have exactly one accepted Stripe refund record');
+   const refundLatest=await stripe.refunds.retrieve(returned.id);
+   assure(refundLatest.id===returned.id&&refundLatest.livemode===false&&
+     refundLatest.amount===1000,
+     'Stripe failed authoritative full-amount refund reconciliation');
+   console.log('PASS: real Stripe TEST accepted full refund, idempotent retry and exactly one refund record.');
+   if(refundLatest.status==='pending') console.log(
+     'NOT SETTLED: Stripe refund pending; reason='+String(refundLatest.pending_reason||'not supplied'));
+   else assure(refundLatest.status==='succeeded',
+     'Stripe provider refund did not settle: '+String(refundLatest.status));
    const free=await authorize('free-cancel');
    const voided=await stripe.paymentIntents.cancel(free.id,{cancellation_reason:'requested_by_customer'},
      {idempotencyKey:'ar_sandbox_void_'+run});
@@ -74,6 +89,9 @@ async function authorize(name){
    assure(part.status==='succeeded'&&part.amount_received===400,
      'partial capture did not collect exactly 400 cents');
    console.log('PASS: three REAL Stripe TEST PaymentIntents: full capture, free authorization release with no settled money movement, 400-cent partial capture.');
+   assure(refundLatest.status==='succeeded',
+     'REFUND_PENDING_NOT_SETTLED: Refund was accepted and idempotent, but Stripe reports '+
+     String(refundLatest.status)+' (reason '+String(refundLatest.pending_reason||'not supplied')+').');
    console.log('Test-only PaymentIntent IDs:',made.join(', '));
  } catch(e) {
    console.error('Stripe TEST acceptance FAILED:',String(e.code||e.type||e.message||e));
