@@ -14,12 +14,6 @@ on:
 permissions:
   contents: read
 
-# A newly pushed QA candidate supersedes older attempts for the same PR.
-# Otherwise every edit starts a 30–100 minute dual-platform native build.
-concurrency:
-  group: native-commercial-qa-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
-
 jobs:
   # GitHub's concurrency only cancels NEW runs sharing a group. The 2026-10-27
   # PR builds started before that group existed, so explicitly cancel their
@@ -82,6 +76,10 @@ jobs:
 
   paid-native-journey:
     needs: [retire-superseded-native-builds]
+    # Never hold the cleanup job itself behind a pre-concurrency build.
+    concurrency:
+      group: native-commercial-device-${{ github.event.pull_request.number || github.ref }}-${{ matrix.platform }}
+      cancel-in-progress: true
     strategy:
       fail-fast: false
       matrix:
