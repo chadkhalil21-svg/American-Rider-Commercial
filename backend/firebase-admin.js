@@ -50,7 +50,17 @@ function admin() {
       // JSON document, where whitespace inside string values is content. Trim the ends only.
       const raw = (process.env.FIREBASE_SERVICE_ACCOUNT || '').trim().replace(/^["']|["']$/g, '');
       const path = readKey('GOOGLE_APPLICATION_CREDENTIALS');
-      if (raw) {
+      // LOCAL CI only: the disposable demo Firebase project intentionally has no
+      // service-account key. Production must NEVER take this branch.
+      const isolatedQa = process.env.AR_NATIVE_QA_LOCAL === '1' &&
+        !process.env.K_SERVICE && process.env.NODE_ENV !== 'production' &&
+        process.env.GOOGLE_CLOUD_PROJECT === 'demo-american-rider-qa' &&
+        process.env.FIREBASE_PROJECT_ID === 'demo-american-rider-qa' &&
+        process.env.FIRESTORE_EMULATOR_HOST === '127.0.0.1:8080' &&
+        process.env.FIREBASE_AUTH_EMULATOR_HOST === '127.0.0.1:9099';
+      if (isolatedQa) {
+        appMod.initializeApp({projectId:'demo-american-rider-qa'});
+      } else if (raw) {
         appMod.initializeApp({ credential: appMod.cert(JSON.parse(raw)) });
       } else if (path) {
         // Local/Render file-backed application default credentials.
