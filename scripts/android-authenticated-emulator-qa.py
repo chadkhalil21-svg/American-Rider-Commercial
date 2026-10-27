@@ -97,6 +97,11 @@ def main():
     if os.environ.get("EXPO_PUBLIC_AR_NATIVE_QA")!="1" or os.environ.get("EXPO_PUBLIC_API_URL")!="http://10.0.2.2:4242":
         raise RuntimeError("Strictly isolated native QA emulator variables are required")
     adb("shell","pm","clear",APP)
+    # pm clear revokes permissions: approve them as an isolated test account
+    # before the Auth screen so the Android location dialog is not mistaken
+    # for a failed sign-in screen.
+    for perm in ("ACCESS_COARSE_LOCATION","ACCESS_FINE_LOCATION","ACCESS_BACKGROUND_LOCATION"):
+        adb("shell","pm","grant",APP,"android.permission."+perm)
     adb("shell","am","start","-W","-n",APP+"/.MainActivity")
     wait("Email Address","welcome",seconds=48)
     edit(0,EMAIL,"email")
