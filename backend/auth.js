@@ -42,7 +42,25 @@ async function getCerts() {
  * Both receipt paths, built at both ends, dead for the same missing line. Found 28 Aug 2026 by
  * running the whole loop end to end and reading Stripe's record of what it had been told.
  */
+// Test-only issuer is accepted exclusively for the isolated, disposable demo
+// Firebase project when BOTH emulator ports are loopback and Cloud Run absent.
+// Production retains Google-signed RS256 certificate verification unchanged.
+function isolatedQaAuth() {
+  return process.env.AR_NATIVE_QA_LOCAL === '1' &&
+    !process.env.K_SERVICE && process.env.NODE_ENV !== 'production' &&
+    process.env.GOOGLE_CLOUD_PROJECT === 'demo-american-rider-qa' &&
+    process.env.FIREBASE_PROJECT_ID === 'demo-american-rider-qa' &&
+    process.env.FIRESTORE_EMULATOR_HOST === '127.0.0.1:8080' &&
+    process.env.FIREBASE_AUTH_EMULATOR_HOST === '127.0.0.1:9099';
+}
+
 async function verifyIdToken(idToken) {
+  if (isolatedQaAuth()) {
+    if (!require('./firebase-admin').adminStatus().ok) throw new Error('QA Firebase Admin unavailable');
+    const {getAuth}=require('firebase-admin/auth');
+    const decoded=await getAuth().verifyIdToken(idToken,true);
+    return {uid:decoded.uid,email:decoded.email||'',emailVerified:!!decoded.email_verified};
+  }
   const decoded = jwt.decode(idToken, { complete: true });
   if (!decoded || !decoded.header || !decoded.header.kid) throw new Error('malformed token');
   const certs = await getCerts();
