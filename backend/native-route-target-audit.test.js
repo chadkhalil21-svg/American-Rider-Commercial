@@ -33,5 +33,28 @@ for(const file of all){
 }
 assert(visited>=59,'Audit unexpectedly lost app screens');
 assert(links>=100,'Audit unexpectedly lost navigation destinations');
+// iOS Info.plist has a manual Google OAuth scheme; both it and the app's own
+// scheme must survive Expo prebuild. A missing americanrider scheme caused the
+// native iPhone simulator to refuse every Traveler/Operator deep link (error 115).
+const config=require('../app.json').expo;
+const eas=require('../eas.json');
+const iosSchemes=config.ios?.infoPlist?.CFBundleURLTypes
+  ?.flatMap(entry=>entry.CFBundleURLSchemes||[])||[];
+const googleClient=eas.build.production.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID;
+const expectedGoogle='com.googleusercontent.apps.'+
+  googleClient.replace(/\.apps\.googleusercontent\.com$/,'');
+assert.equal(config.scheme,'americanrider','Expo Router must keep canonical scheme');
+assert.equal(config.ios?.bundleIdentifier,'com.americanrider.app');
+assert.equal(config.ios?.usesAppleSignIn,true,'Apple sign-in must be preserved');
+assert.ok(iosSchemes.includes('americanrider'),
+  'iOS app URL scheme must remain explicitly registered beside Google OAuth scheme');
+assert.ok(iosSchemes.includes(expectedGoogle),
+  'Google iOS callback URL scheme must not be replaced by app routing');
+assert.equal(new Set(iosSchemes).size,iosSchemes.length,'URL schemes must be unique');
+assert.ok(config.ios?.associatedDomains?.includes('applinks:americanrider.tech'));
+assert.ok(config.android?.intentFilters?.some(filter=>
+  filter.data?.some(d=>d.host==='americanrider.tech'&&d.pathPrefix==='/join')),
+  'existing Android referral links must remain intact');
+
 console.log('PASS: '+links+' literal native navigation references across '+visited+
  ' app screens point to real routes; dynamic routes require device checks.');

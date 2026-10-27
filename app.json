@@ -32,6 +32,11 @@
             "CFBundleURLSchemes": [
               "com.googleusercontent.apps.623854974930-4muug9hi3jjrml3tokaqh3n2tbd0h2ms"
             ]
+          },
+          {
+            "CFBundleURLSchemes": [
+              "americanrider"
+            ]
           }
         ]
       },
