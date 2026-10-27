@@ -14,6 +14,16 @@ for (const role of ['traveler','operator']) {
   assert.ok(src.includes('id: "auth-primary-action"') &&
     src.includes('enabled: true'),path+': verify the real Sign In button is enabled');
   assert.ok(src.includes('notVisible: "Welcome back"'),path+': require auth screen exit');
+  assert.ok(src.includes('- assertVisible: "Sign in to your account."'),
+    path+': verify exact sign-in page, not text behind another screen');
+  assert.ok(src.includes('- assertNotVisible: "Create your account"'),
+    path+': reject signup screen that was wrongly accepted on real iOS');
+  assert.ok(src.includes('platform: Android') && src.includes('platform: iOS'),
+    path+': use correct platform-specific keyboard behavior');
+  assert.ok(src.includes('- tapOn: "Sign in to your account."'),
+    path+': iOS keyboard workaround uses a harmless static heading');
+  assert.ok(src.includes('- assertVisible: "Sign In"'),
+    path+': auth-primary-action is shared with Create Account, ensure correct label');
 }
 // Changing this cheap source-contract guard must not force rebuilding a
 // binary that uses exactly the same native app sources.

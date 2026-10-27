@@ -111,6 +111,10 @@ jobs:
 
   paid-native-journey:
     needs: [retire-superseded-native-builds, isolated-commercial-safety]
+    # A manual dispatch SKIPS the PR-specific cancellation job. GitHub's
+    # default needs behavior would then skip BOTH device jobs forever.
+    # Still fail closed unless the safety preflight actually passed.
+    if: ${{ always() && needs.isolated-commercial-safety.result == 'success' && (needs.retire-superseded-native-builds.result == 'success' || needs.retire-superseded-native-builds.result == 'skipped') }}
     # Never hold the cleanup job itself behind a pre-concurrency build.
     concurrency:
       group: native-commercial-device-${{ github.event.pull_request.number || github.ref }}-${{ matrix.platform }}
@@ -120,7 +124,7 @@ jobs:
       matrix:
         # Preserve an older unfinished iOS build while immediately rebuilding
         # only the Android QA APK with its scoped Firebase emulator network XML.
-        platform: ${{ fromJSON(needs.retire-superseded-native-builds.outputs.platforms) }}
+        platform: ${{ fromJSON(needs.retire-superseded-native-builds.outputs.platforms || '["ios","android"]') }}
         include:
           - platform: ios
             os: macos-26

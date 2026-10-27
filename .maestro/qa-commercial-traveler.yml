@@ -10,13 +10,30 @@ appId: com.americanrider.app
 - hideKeyboard
 - tapOn: "Continue"
 - assertVisible: "Welcome back"
+# iOS evidence from run 40569443959 showed CREATE ACCOUNT in front
+# although a text-only "Welcome back" assertion passed. Require the
+# Sign In page to be foreground; never enter a password on signup.
+- assertVisible: "Sign in to your account."
+- assertNotVisible: "Create your account"
 # The emulator's native hierarchy exposes PASSWORD as a static heading.
 # Input target is the editable field whose hint is "Your password".
 - tapOn: "Your password"
 - inputText: "Native-QA-Only-7819-Strong"
-# With the real TextInput focused, hideKeyboard dismisses the visible IME.
-# Never rely on Enter silently submitting the form.
-- hideKeyboard
+# Maestro official known issue: iOS hideKeyboard relies on a swipe and can
+# FAIL without any app defect. Android uses its system Back dismissal.
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - hideKeyboard
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      # Tap a harmless static heading rather than invoke flaky iOS hideKeyboard.
+      - tapOn: "Sign in to your account."
+# The shared InkButton id is NOT enough to prove Sign In: also assert label.
+- assertVisible: "Sign In"
 - assertVisible:
     id: "auth-primary-action"
     enabled: true
