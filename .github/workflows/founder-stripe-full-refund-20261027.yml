@@ -1,5 +1,5 @@
 name: Founder one-time REAL Stripe TEST refund and manual-capture acceptance
-# Rerun only against Stripe TEST to distinguish accepted refunds from confirmed settlement.
+# Rerun only against Stripe TEST to bind succeeded Refund to the TEST PaymentIntent, then verify retry and remaining flows.
 on:
   push:
     branches: [release/current]
