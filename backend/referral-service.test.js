@@ -129,5 +129,37 @@ class MemoryDb {
   assert.equal(db.rows.get('referral_attributions/new-traveler_operator').role,'operator');
   assert.equal(db.rows.get('referral_attributions/new-traveler_operator').rewardEnabled,false);
   assert.equal(db.rows.get('referral_attributions/new-traveler_traveler').rewardEnabled,false);
+  // Deterministic 150 independent invitation-code registries and 150 eligible
+  // Traveler claims. A QR encodes the SAME URL; manual recovery uses its 'r'
+  // token. No user phone/email contact information is ever needed or stored here.
+  const cohort=new MemoryDb();
+  const codes=new Set();
+  for(let n=0;n<150;n++){
+    const inviter='recruiter-test-'+String(n).padStart(4,'0');
+    const registered=await shareLink({db:cohort,uid:inviter,role:'traveler',now,
+      origin:'https://americanrider.tech',paidRecruiterProgramEnabled:false});
+    assert.equal(registered.ok,true);
+    const parsed=new URL(registered.url);
+    assert.equal(parsed.hostname,'americanrider.tech');
+    assert.equal(parsed.pathname,'/join');
+    assert.equal(parsed.searchParams.get('role'),'traveler');
+    const code=parsed.searchParams.get('r');
+    assert.equal(codes.has(code),false,'every account has a unique verified code');
+    codes.add(code);
+    assert.equal(cohort.rows.get('referral_codes/'+code).ownerUid,inviter);
+    const roleLink=await shareLink({db:cohort,uid:inviter,role:'operator',now,
+      origin:'https://americanrider.tech'});
+    assert.equal(new URL(roleLink.url).searchParams.get('r'),code,
+      'QR, manual code and Operator link have one ownership authority');
+    const invitee='joined-traveler-'+String(n).padStart(4,'0');
+    const entered=await claim({db:cohort,uid:invitee,code,role:'traveler',authCreatedAtMs:now-1000,now});
+    assert.equal(entered.recorded,true);
+    assert.equal(cohort.rows.get('referral_attributions/'+invitee+'_traveler').inviterUid,inviter);
+    const duplicate=await claim({db:cohort,uid:invitee,code,role:'traveler',authCreatedAtMs:now-1000,now});
+    assert.equal(duplicate.reason,'already_attributed');
+  }
+  assert.equal(codes.size,150);
+  assert.equal([...cohort.rows.keys()].filter(k=>k.startsWith('referral_attributions/')).length,150);
+  console.log('PASS referral identity 150-inviter stress: unique links, QR payloads, manual codes, 150 atomic-shaped claims, 150 duplicate rejects');
   console.log('PASS referral-service: fixed claims, roles, no share-click writes, no money');
 })().catch(e=>{console.error(e);process.exitCode=1;});

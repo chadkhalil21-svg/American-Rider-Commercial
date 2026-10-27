@@ -7,7 +7,6 @@
 //
 // The legal line links to LEGAL_URL (Cloudflare Pages), NOT the Render backend: App
 // Review opens those links and the free-tier server sleeps. See src/config.ts.
-import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { Image, Linking, Platform, Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { Text } from '../components/AppText';
@@ -36,7 +35,7 @@ import { GOOGLE_OFFICIAL_G_SOURCE } from '../brand/googleOfficialG';
 
 const emailOk = (e: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e.trim());
 
-type Step = 'welcome' | 'signin' | 'signup' | 'select';
+type Step = 'welcome' | 'signin' | 'signup';
 
 function InkButton({
   label,
@@ -73,7 +72,12 @@ function InkButton({
 // cannot be called conditionally and my guard sat inside the press handler instead. The hook
 // lives in this component, and the parent mounts the component only when the ids exist, so
 // the unconfigured case never reaches it. Found by running the build, not by reading it.
-function GoogleEntry({ label, onFailed, onStart }: { label: string; onFailed: () => void; onStart: () => void }) {
+function GoogleEntry({ label, onFailed, onStart, beforeSignIn }: {
+  label: string;
+  onFailed: () => void;
+  onStart: () => void;
+  beforeSignIn: () => Promise<boolean>;
+}) {
   const google = useGoogleSignIn();
   if (!google.ready) return null;
   return (
@@ -81,6 +85,7 @@ function GoogleEntry({ label, onFailed, onStart }: { label: string; onFailed: ()
       label={label}
       glyph="google"
       onPress={async () => {
+        if (!(await beforeSignIn())) return;
         onStart();
         const r = await google.signIn();
         if (!r.ok && !r.cancelled) onFailed();
@@ -164,7 +169,7 @@ function legalSentence(text: string, nodes: Record<string, React.ReactNode>) {
 
 export function AuthScreen() {
   const { t, language, setLanguage, languages } = useLanguage();
-  const { signUp, signIn, resetPassword, busy, error, diagnosticCode, setOnboarding } = useAuth();
+  const { signUp, signIn, resetPassword, busy, error, diagnosticCode } = useAuth();
   // AuthContext owns provider errors. The front door owns which flow they belong to.
   // A failure from Sign In must not be rendered as though Create Account just failed.
   // Chad's entry architecture. `appleReady` is the device's own answer, not an assumption;
@@ -174,6 +179,53 @@ export function AuthScreen() {
   const activeLanguage = languages.find((l) => l.code === language);
   const [appleReady, setAppleReady] = useState(false);
   const [ssoError, setSsoError] = useState('');
+  const [invitationOpen, setInvitationOpen] = useState(false);
+  const [invitationCode, setInvitationCode] = useState('');
+  const [invitationError, setInvitationError] = useState('');
+  // Stage a typed code BEFORE authentication. Firebase immediately mounts Home
+  // when an account is created. This must never block signup without a code.
+  const stageTravelerInvitation = async (): Promise<boolean> => {
+    if (process.env.EXPO_PUBLIC_REFERRALS_ENABLED !== '1' || !invitationCode.trim()) return true;
+    const saved = await savePendingInvite(invitationCode.trim().toUpperCase(), 'traveler');
+    if (!saved) {
+      setInvitationError(t('auth.invitationCodeInvalid'));
+      return false;
+    }
+    setInvitationError('');
+    return true;
+  };
+  // Shared unobtrusive manual fallback for Apple/Google and email registration.
+  // An invitation link itself is saved by app/join.tsx, no entry required.
+  const invitationField = () => process.env.EXPO_PUBLIC_REFERRALS_ENABLED !== '1' ? null : (
+    <View style={{ marginTop: 10 }}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={t('auth.invitationCodeOptional')}
+        accessibilityState={{ expanded: invitationOpen }}
+        onPress={() => { setInvitationOpen(v => !v); setInvitationError(''); }}
+        hitSlop={8}
+      >
+        <Text style={s.invitationToggle}>{t('auth.invitationCodeOptional')}</Text>
+      </Pressable>
+      {invitationOpen && (
+        <>
+          <TextInput
+            accessibilityLabel={t('auth.invitationCodePlaceholder')}
+            value={invitationCode}
+            onChangeText={v => { setInvitationCode(v); setInvitationError(''); }}
+            autoCapitalize="characters"
+            autoCorrect={false}
+            maxLength={32}
+            placeholder={t('auth.invitationCodePlaceholder')}
+            placeholderTextColor={colors.faint}
+            style={s.invitationInput}
+          />
+          {!!invitationError && <Text accessibilityRole="alert" style={s.invitationError}>{invitationError}</Text>}
+          <Text style={s.invitationNote}>{t('auth.invitationCodeVerifyNote')}</Text>
+        </>
+      )}
+    </View>
+  );
 
   useEffect(() => {
     let live = true;
@@ -191,6 +243,7 @@ export function AuthScreen() {
       setSsoError(t('auth.ssoNotConfigured'));
       return;
     }
+    if (!(await stageTravelerInvitation())) return;
     const r = await signInWithApple();
     // A cancel is the traveler's decision, not a failure, and is reported as nothing at all.
     if (!r.ok && !r.cancelled) setSsoError(t('auth.appleUnavailable'));
@@ -231,11 +284,8 @@ export function AuthScreen() {
       clearTimeout(timer);
     };
   }, []);
-  const router = useRouter();
   const [step, setStep] = useState<Step>('welcome');
   const [name, setName] = useState('');
-  const [invitationCode, setInvitationCode] = useState('');
-  const [invitationError, setInvitationError] = useState('');
   const [mobile, setMobile] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -274,31 +324,13 @@ export function AuthScreen() {
     if (!canSubmit) return;
     setAuthAttemptStep(step === 'signup' ? 'signup' : 'signin');
     if (step === 'signup') {
-      setOnboarding(true); // keep the front door up through code → role → ready
-      const created = await signUp(email, password, name, mobile);
-      if (!created) {
-        setOnboarding(false);
-        return;
-      }
-      setStep('select');
+      // A new account always enters Traveler Home; role selection happens later,
+      // through the existing "Operate with American Rider" menu entry.
+      if (!(await stageTravelerInvitation())) return;
+      await signUp(email, password, name, mobile);
     } else {
       await signIn(email, password);
     }
-  };
-
-  const selectRole = async (role: 'traveler' | 'operator') => {
-    if (process.env.EXPO_PUBLIC_REFERRALS_ENABLED === '1' && invitationCode.trim()) {
-      // Recovery for codes shared verbally, or after store installation.
-      // This is local staging, NOT a confirmed credit or commission.
-      const saved = await savePendingInvite(invitationCode.trim().toUpperCase(), role);
-      if (!saved) {
-        setInvitationError(t('auth.invitationCodeInvalid'));
-        return;
-      }
-    }
-    setInvitationError('');
-    setOnboarding(false);
-    if (role === 'operator') router.navigate('/operator/qualify');
   };
 
   if (step === 'welcome') {
@@ -447,6 +479,7 @@ export function AuthScreen() {
                   label={t('auth.continueWithGoogle')}
                   onFailed={() => setSsoError(t('auth.googleUnavailable'))}
                   onStart={() => setSsoError('')}
+                  beforeSignIn={stageTravelerInvitation}
                 />
               ) : (
                 <SsoButton
@@ -457,6 +490,7 @@ export function AuthScreen() {
               )}
             </>
           )}
+          {invitationField()}
           {ssoError ? <Text style={s.ssoError}>{ssoError}</Text> : null}
 
           {/* The sentence is ONE key, not an English lead-in glued to translated link
@@ -501,66 +535,9 @@ export function AuthScreen() {
     );
   }
 
-  if (step === 'select') {
-    return (
-      <Screen scroll={false}>
-        <View style={{ flex: 1 }}>
-          <Text style={[s.title, s.selectTitle]}>{t('auth.selectAccount')}</Text>
-          <Text style={[s.sub, s.selectSub]}>{t('auth.chooseWhereToBegin')}</Text>
-
-          <Pressable
-            onPress={() => { void selectRole('traveler'); }}
-          >
-            <View style={s.roleCard}>
-              <View style={{ flex: 1 }}>
-                <Text style={s.roleTitle}>{t('auth.roleTraveler')}</Text>
-                <Text style={s.roleSub}>{t('auth.roleTravelerSub')}</Text>
-              </View>
-              <Text style={s.roleChevron}>›</Text>
-            </View>
-          </Pressable>
-
-          <Pressable
-            onPress={() => { void selectRole('operator'); }}
-          >
-            <View style={s.roleCard}>
-              <View style={{ flex: 1 }}>
-                <Text style={s.roleTitle}>{t('auth.roleOperator')}</Text>
-                <Text style={s.roleSub}>
-                  {t('auth.roleOperatorSub')}
-                </Text>
-              </View>
-              <Text style={s.roleChevron}>›</Text>
-            </View>
-          </Pressable>
-
-          {process.env.EXPO_PUBLIC_REFERRALS_ENABLED === '1' && (
-            <View style={{ marginTop: 20 }}>
-              <Text style={s.roleSub}>{t('auth.invitationCodeOptional')}</Text>
-              <TextInput
-                accessibilityLabel="Invitation code (optional)"
-                value={invitationCode}
-                onChangeText={v => { setInvitationCode(v); setInvitationError(''); }}
-                autoCapitalize="characters"
-                autoCorrect={false}
-                maxLength={32}
-                placeholder={t('auth.invitationCodePlaceholder')}
-                placeholderTextColor={colors.faint}
-                style={[s.field, { marginTop: 10, minHeight: 48 }]}
-              />
-              {!!invitationError && <Text accessibilityRole="alert" style={s.roleSub}>{invitationError}</Text>}
-              <Text style={s.roleSub}>{t('auth.invitationCodeVerifyNote')}</Text>
-            </View>
-          )}
-          <View style={{ flex: 1 }} />
-        </View>
-      </Screen>
-    );
-  }
-
   const isSignup = step === 'signup';
   return (
-    <Screen scroll={false}>
+    <Screen scroll={isSignup && invitationOpen}>
       <View style={{ flex: 1 }}>
         <Pressable onPress={() => changeCredentialStep('welcome')} hitSlop={10}>
           <Text style={s.back}>{t('auth.back')}</Text>
@@ -636,6 +613,7 @@ export function AuthScreen() {
         {/* WAS: "A verification code will be sent by text." It will not — see the confirm
             step. Your number is stored on your profile and used for travel, which is true. */}
         {isSignup && <Text style={[s.helper, s.signupHelper]}>{t('auth.usedToReach')}</Text>}
+        {isSignup ? invitationField() : null}
         {/* The demo's sign-in carries this link; here it really sends the reset email. */}
         {!isSignup && (
           <>
@@ -886,35 +864,8 @@ const s = StyleSheet.create({
   forgotAction: { alignSelf: 'flex-start', marginTop: 8, paddingVertical: 4 },
   forgot: { fontSize: 12.5, color: colors.muted },
   resetNotice: { fontSize: 12, color: colors.ink2, marginTop: 6, lineHeight: 17 },
-  selectTitle: {
-    fontSize: 22,
-    letterSpacing: -0.25,
-    marginTop: 14,
-  },
-  selectSub: { fontSize: 13.5, lineHeight: 19, maxWidth: 320 },
-  roleCard: {
-    marginTop: 12,
-    backgroundColor: colors.card,
-    borderWidth: 1,
-    borderColor: colors.hairline,
-    borderRadius: 14,
-    paddingHorizontal: 18,
-    paddingVertical: 17,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  roleTitle: { fontSize: 17, fontWeight: '600', letterSpacing: -0.15, color: colors.ink },
-  roleSub: { fontSize: 12.5, color: colors.muted, marginTop: 4, lineHeight: 18 },
-  roleChevron: { fontSize: 18, color: colors.faint },
-  checkCircle: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    borderWidth: 2,
-    borderColor: colors.green,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  checkMark: { fontSize: 26, fontWeight: '600', color: colors.green },
+  invitationToggle: { fontSize: 12.5, color: colors.ink2, textAlign: 'center', paddingVertical: 6 },
+  invitationInput: { marginTop: 7, borderWidth: 1, borderColor: colors.border, borderRadius: 12, backgroundColor: colors.card, minHeight: 46, paddingHorizontal: 14, fontSize: 15, color: colors.ink },
+  invitationError: { fontSize: 12, color: colors.red, marginTop: 5, textAlign: 'center' },
+  invitationNote: { fontSize: 11.5, lineHeight: 16, color: colors.muted, textAlign: 'center', marginTop: 6 },
 });
