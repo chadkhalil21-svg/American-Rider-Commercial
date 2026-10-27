@@ -48,8 +48,14 @@ def audit():
     identity = service.get("spec", {}).get("template", {}).get("spec", {}).get("serviceAccountName")
     if identity != RUNTIME:
         raise RuntimeError("Production service is running with a different identity; no IAM change allowed.")
+    # gcloud iam roles list intentionally emits abbreviated role metadata. On
+    # an existing custom role it may omit includedPermissions entirely, which
+    # caused the first --apply run to CREATE the exact role then falsely report
+    # a conflict on its post-create audit. Describe the role separately.
     roles = doc("iam", "roles", "list", "--project=" + PROJECT)
-    target = next((item for item in roles if item.get("name") == ROLE), None)
+    listed = any(item.get("name") == ROLE for item in roles)
+    target = (doc("iam", "roles", "describe", ROLE_ID,
+                  "--project=" + PROJECT) if listed else None)
     if target and (
         sorted(target.get("includedPermissions", [])) != PERMISSIONS
         or target.get("deleted", False)

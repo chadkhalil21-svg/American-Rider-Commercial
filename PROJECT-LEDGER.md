@@ -1,3 +1,13 @@
+## 26 October 2026 | ACCOUNT DELETION IAM POST-CREATE AUDIT CORRECTED
+
+**Founder Cloud Shell physical evidence, 9:23–9:25 PM Eastern:** The controlled account-deletion IAM script confirmed the exact `ar-production-live-runtime@american-rider-35688.iam.gserviceaccount.com` service identity; it reported no bound custom role, created custom project role `americanRiderAuthAccountDelete`, then stopped with an apparent role conflict. Founder independently ran `gcloud iam roles describe` and confirmed the role is GA with exactly one included permission, `firebaseauth.users.delete`. This distinguishes a successfully created role from the still unverified role binding.
+
+**Precise source defect:** `gcloud iam roles list` returns summary metadata that may omit `includedPermissions`. The original script compared the missing field to the required permission and falsely aborted after creating the correct role. The narrow fix calls `gcloud iam roles describe` for the existing role and tests the real summary-only response; it keeps exact-project, actual Cloud Run service-account, and least-privilege fail-closed checks. Script remains read-only by default, explicit `--apply` performs the one missing binding only, and no app build, paid transport, Stripe, scheduler or Firebase user data is changed.
+
+**Live remaining step:** Run the fixed, exact-commit IAM repair in authenticated Founder Cloud Shell. Do not claim deletion works until Cloud Shell confirms the bound role and a fresh disposable account can be removed in Build 56. If deletion still fails after binding, consult Cloud Run request logs before broadening any permissions.
+
+---
+
 ## 26 October 2026 | PHYSICAL IPHONE BUILD 56 ACCOUNT DELETION: PROBABLE IAM DEFECT, REPAIR NOT YET APPLIED
 
 **Device evidence:** Founder recorded a real iPhone Build 56 account-deletion failure after confirmation. A generic error conceals the actual provider response. The live Cloud Run error log and runtime effective permission remain unverified, so this is a diagnosed high-confidence source mismatch, NOT proof of a production repair.
