@@ -1,3 +1,11 @@
+## 26 October 2026 | PRODUCTION FIREBASE ACCOUNT-DELETION PERMISSION BOUND, DEVICE OUTCOME PENDING
+
+**Founder-confirmed Google Cloud Shell evidence, 9:46 PM Eastern:** The corrected, pinned IAM repair from merge PR #356 (`cd0e3149f64bece2f87d75cf3e4917bf24038922`) ran successfully against project `american-rider-35688`. Shell output explicitly verified the existing Cloud Run production runtime identity `ar-production-live-runtime@american-rider-35688.iam.gserviceaccount.com`, existing custom role `americanRiderAuthAccountDelete`, and `delete permission bound: True`. Final output: "Verified: the production runtime has the account-delete permission only." This corrects prior ledger language that said the IAM binding remained unverified. The change is only an IAM binding, not a Cloud Run service deployment, Stripe change or native app revision.
+
+**Acceptance boundary:** A successful IAM grant does NOT independently prove that Build 56's account deletion has completed. The Founder still needs one genuine test deletion using a disposable account and fresh password/identity reauthentication in Build 56. If deletion fails, inspect the private Cloud Run `POST /account/delete` request logs and server-specific response code before any new modification. No new TestFlight build is required *solely* for this IAM permission update; Apple Build 56 remains rejected pending review information. Retain the prelaunch distinction: no actual Operator/Traveler commercial Travel must be fabricated for App Review.
+
+---
+
 ## 26 October 2026 | ACCOUNT DELETION IAM POST-CREATE AUDIT CORRECTED
 
 **Founder Cloud Shell physical evidence, 9:23–9:25 PM Eastern:** The controlled account-deletion IAM script confirmed the exact `ar-production-live-runtime@american-rider-35688.iam.gserviceaccount.com` service identity; it reported no bound custom role, created custom project role `americanRiderAuthAccountDelete`, then stopped with an apparent role conflict. Founder independently ran `gcloud iam roles describe` and confirmed the role is GA with exactly one included permission, `firebaseauth.users.delete`. This distinguishes a successfully created role from the still unverified role binding.
