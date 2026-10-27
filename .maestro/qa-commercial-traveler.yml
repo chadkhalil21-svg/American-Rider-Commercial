@@ -69,14 +69,26 @@ appId: com.americanrider.app
     timeout: 15000
 - tapOn: "Search a place or address"
 - inputText: "Wynwood"
+# GitHub run 40601800241 proved a bare "Wynwood" selector was the
+# still-focused EDITABLE INPUT, not the destination suggestion. The iOS
+# accessibility hierarchy exposed the real result-row BUTTON as
+# "Wynwood, Estimated travel time · 11 minutes, ›".
+# Match the row's metadata so a similarly named TextInput is never clicked.
 - extendedWaitUntil:
-    visible: "Wynwood"
+    visible: ".*Wynwood, Estimated travel time.*"
     timeout: 40000
-- tapOn: "Wynwood"
+- tapOn: ".*Wynwood, Estimated travel time.*"
+# The title "Travel Confirmation" also appears while in edit/search mode.
+# Require the editing search field to disappear before accepting a quote.
 - extendedWaitUntil:
-    visible: "Travel Confirmation"
+    notVisible: "Search a place or address"
+    timeout: 20000
+- extendedWaitUntil:
+    visible: "Complete Travel Cost"
     timeout: 60000
-- assertVisible: "Complete Travel Cost"
+- assertVisible:
+    text: "Confirm Travel"
+    enabled: true
 - tapOn: "Confirm Travel"
 - extendedWaitUntil:
     visible: "Card number"
