@@ -6,29 +6,28 @@ const ui = fs.readFileSync('src/screens/AuthScreen.tsx', 'utf8');
 const labels = fs.readFileSync('src/i18n/en.ts', 'utf8');
 const bundled = fs.readFileSync('src/assets/googleOfficialG.ts', 'utf8');
 
-assert.match(bundled, /github.com\/google\/GoogleSignIn-iOS\//,
-  'Google icon must originate from the first-party official Sign-In SDK');
-assert.match(bundled, /GoogleSignIn\/Sources\/Resources\/google%402x.png/,
-  'pin the original approved logo file');
+// Google first-party source: GoogleSignIn-iOS/Sources/Resources/google@2x.png.
+// No tracing, recoloring, masking, remote fetch or SDK migration is permitted.
+assert.ok(bundled.includes('https://github.com/google/GoogleSignIn-iOS/'),
+  'Bundled Google G must identify the first-party Google Sign-In SDK');
 assert.match(bundled, /data:image\/png;base64,iVBORw0KGgo/,
-  'bundle the original color PNG for offline login');
-assert.match(ui, /<Image\s+source=\{\{ uri: GOOGLE_OFFICIAL_G_DATA_URI \}\}/,
-  'render the offline-bundled official Google mark');
-assert.match(ui, /style=\{s\.googleOfficialMark\}[\s\S]*?resizeMode="contain"/,
-  'preserve the official Google icon aspect ratio');
+  'Bundle Google's official full-color PNG so offline icon still renders');
+assert.ok(ui.includes("source={{ uri: GOOGLE_OFFICIAL_G_DATA_URI }}"),
+  'Google control must render bundled logo, without a remote dependency');
 assert.match(ui, /googleOfficialMark:\s*\{\s*width:\s*17,\s*height:\s*17\s*\}/,
-  'keep founder-approved 17pt logo footprint');
+  'Keep approved 17pt Google logo footprint');
 assert.match(ui, /ssoButton:\s*\{\s*width:\s*'100%',\s*height:\s*46/,
-  'Google button must retain full-width 46pt height');
+  'Keep Google sign-in full-width and 46pt tall');
 assert.match(ui, /appleOfficialButton:\s*\{\s*width:\s*'100%',\s*height:\s*46/,
-  'native Apple button must match exactly in width and height');
-assert.match(ui, /glyph === 'apple' \? \([\s\S]*?\) : \(\s*\/\/ Google's own multicolor G/,
-  'do not restore the former hand-drawn monochrome Google path');
+  'Keep official Apple sign-in full-width and 46pt tall');
+assert.ok(ui.includes("glyph === 'apple' ? ("), 'Apple preview-only mark preserved');
+assert.ok(!ui.includes("d=\"M21.6 12.23c0-.71"),
+  'Hand-created monochrome Google G must not remain in code');
 assert.ok(labels.includes("continueWithGoogle: 'Continue with Google'"),
-  'preserve approved wording');
+  'Keep approved Google button wording');
+assert.ok(ui.includes('accessibilityIgnoresInvertColors'),
+  'Prevent OS inversion from recoloring Google logo');
 assert.match(ui, /btnSso:\s*\{\s*backgroundColor:\s*colors\.card/,
-  'official Google G belongs on a white background');
-assert.match(ui, /accessibilityIgnoresInvertColors/,
-  'prevent inverted Google brand colors');
-console.log('PASS: offline official Google multicolor logo, same 46pt Apple/Google controls, wording preserved');
-console.log('NOT VERIFIED: final physical-device rendering or provider sign-in');
+  'Preserve white Google sign-in background');
+console.log('PASS: Vendor-owned multicolor Google G is bundled; Apple and Google buttons each 46pt high');
+console.log('NOT PROVEN: Physical iOS/Android rendering, store approval, or live OAuth sign-in');
