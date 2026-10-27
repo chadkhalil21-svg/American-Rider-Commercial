@@ -15,6 +15,11 @@ for (const role of ['traveler','operator']) {
     src.includes('enabled: true'),path+': verify the real Sign In button is enabled');
   assert.ok(src.includes('notVisible: "Welcome back"'),path+': require auth screen exit');
 }
+// Changing this cheap source-contract guard must not force rebuilding a
+// binary that uses exactly the same native app sources.
+const fingerprintScript=fs.readFileSync('scripts/native-build-fingerprint.cjs','utf8');
+assert.ok(fingerprintScript.includes("'scripts/verify-native-maestro-selectors.cjs'"),
+  'exclude non-runtime QA preflight edits from native build fingerprint');
 const auth=fs.readFileSync('src/screens/AuthScreen.tsx','utf8');
 assert.ok(auth.includes('testID="auth-primary-action"'),'Sign In target missing');
 assert.ok(auth.includes("t('traveler.yourPasswordPh')"),'password hint wiring missing');
