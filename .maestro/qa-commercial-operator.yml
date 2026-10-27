@@ -3,9 +3,22 @@ appId: com.americanrider.app
 ---
 - launchApp:
     clearState: true
+- assertVisible: "AMERICAN RIDER"
 - tapOn: "Email Address"
 - inputText: "native.qa.operator@example.test"
-- hideKeyboard
+# Android back dismisses the keyboard. iOS hideKeyboard uses a swipe and
+# previously FAILED before the account could proceed (run 40592170783).
+# Tap a visible, non-interactive native title instead on iOS.
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - hideKeyboard
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - tapOn: "AMERICAN RIDER"
 - tapOn: "Continue"
 - extendedWaitUntil:
     visible: "Welcome back"
