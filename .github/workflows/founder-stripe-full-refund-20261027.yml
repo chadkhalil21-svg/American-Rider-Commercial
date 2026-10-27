@@ -1,4 +1,5 @@
 name: Founder one-time REAL Stripe TEST refund and manual-capture acceptance
+# Rerun only against Stripe TEST to distinguish accepted refunds from confirmed settlement.
 on:
   push:
     branches: [release/current]
