@@ -1,0 +1,85 @@
+name: Android native installed APK and touch evidence
+
+on:
+  pull_request:
+    branches: [release/current]
+    paths:
+      - '.github/workflows/android-native-release-current-smoke.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  actual-android-emulator:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    env:
+      CI: '1'
+      NODE_ENV: production
+      EXPO_PUBLIC_API_URL: http://10.0.2.2:4242
+      EXPO_PUBLIC_REFERRALS_ENABLED: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: android-actions/setup-android@v4
+        with:
+          packages: 'platform-tools'
+      - name: Install Android SDK 36 and verify isolated QA endpoint
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$EXPO_PUBLIC_API_URL" = http://10.0.2.2:4242
+          test -z "$(printenv STRIPE_SECRET_KEY || true)"
+          sdkmanager --install 'platforms;android-36' 'build-tools;36.0.0'
+      - name: Configure emulator KVM
+        shell: bash
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Build installable RELEASE Android APK for exact PR candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm ci --ignore-scripts
+          npx expo prebuild --platform android --clean --non-interactive
+          cd android
+          chmod +x gradlew
+          ./gradlew --no-daemon --max-workers=2 --console=plain :app:assembleRelease
+          test -s app/build/outputs/apk/release/app-release.apk
+      - name: Run actual emulator touch and guarded route smoke
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          emulator-options: -no-window -no-audio -no-snapshot -no-boot-anim -gpu swiftshader_indirect
+          disable-animations: true
+          script: |
+            set -e
+            mkdir -p artifacts/android-native-interaction
+            adb wait-for-device
+            adb install -r android/app/build/outputs/apk/release/app-release.apk
+            python3 scripts/android-native-interaction-acceptance.py
+      - name: Save true rendered Android screenshots and native accessibility trees
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-release-native-interaction-evidence
+          path: artifacts/android-native-interaction/
+          if-no-files-found: warn
+          retention-days: 14
+      - name: Certification boundaries
+        if: always()
+        run: |
+          echo 'This is an installed RELEASE APK with Android emulator taps and guarded routes, not synthetic backend-only testing.' >> "$GITHUB_STEP_SUMMARY"
+          echo 'No live account, qualified Operator, Stripe charge or bank payout was used. Authenticated paid commercial acceptance requires separate evidence.' >> "$GITHUB_STEP_SUMMARY"
