@@ -21,6 +21,54 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # GitHub's concurrency only cancels NEW runs sharing a group. The 2026-10-27
+  # PR builds started before that group existed, so explicitly cancel their
+  # obsolete run IDs before acquiring costly mobile build runners.
+  retire-superseded-native-builds:
+    if: ${{ github.event_name == 'pull_request' && github.event.pull_request.number == 383 && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.head.ref == 'qa/full-commercial-mobile-journeys-20261027' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      actions: write
+      contents: read
+    steps:
+      - name: Cancel older running and queued QA builds for this exact PR
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const currentSha = context.payload.pull_request.head.sha;
+            const currentId = Number(context.runId);
+            const workflow_id = 'native-commercial-end-to-end.yml';
+            const obsolete = [];
+            for (let page = 1; page <= 3; page++) {
+              const { data } = await github.rest.actions.listWorkflowRuns({
+                owner, repo, workflow_id, branch: 'qa/full-commercial-mobile-journeys-20261027',
+                per_page: 100, page,
+              });
+              for (const run of data.workflow_runs) {
+                if (run.id === currentId || run.head_sha === currentSha) continue;
+                if (!['queued','in_progress','waiting','pending','requested'].includes(run.status)) continue;
+                if (run.head_branch !== 'qa/full-commercial-mobile-journeys-20261027') continue;
+                obsolete.push(run.id);
+              }
+              if (data.workflow_runs.length < 100) break;
+            }
+            core.info('Obsolete native runs to cancel: ' + JSON.stringify(obsolete));
+            for (const run_id of obsolete) {
+              try {
+                await github.rest.actions.cancelWorkflowRun({owner,repo,run_id});
+                core.info('Cancellation requested for run ' + run_id);
+              } catch(error) {
+                if (error.status !== 409 && error.status !== 422) throw error;
+                core.info('Run already finished: ' + run_id);
+              }
+            }
+            await core.summary.addHeading('Superseded native builds')
+              .addRaw('Cancelled or already completed older runs: ' + obsolete.length)
+              .write();
+
   isolated-commercial-safety:
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -33,6 +81,7 @@ jobs:
         run: node backend/native-qa-isolation.test.js
 
   paid-native-journey:
+    needs: [retire-superseded-native-builds]
     strategy:
       fail-fast: false
       matrix:
