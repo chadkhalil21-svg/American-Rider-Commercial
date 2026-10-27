@@ -14,6 +14,7 @@ on:
 
 permissions:
   contents: read
+  actions: read # only for fetching earlier, checksum-verified QA simulator artifact
 
 jobs:
   # GitHub's concurrency only cancels NEW runs sharing a group. The 2026-10-27
@@ -228,6 +229,19 @@ jobs:
         with:
           path: .qa-native-build-cache/${{ matrix.platform }}
           key: qa-native-release-v1-${{ runner.os }}-${{ matrix.platform }}-${{ steps.native-fingerprint.outputs.digest }}
+      - name: Recover exact unchanged iOS simulator app from prior QA artifact
+        # Cache reservation of the prior iOS binary lost a race, but the .app
+        # was uploaded as an immutable checksummed artifact. Restore that
+        # EXACT original build only when native source+QA env digest matches.
+        if: matrix.platform == 'ios' && steps.native-build-cache.outputs.cache-hit != 'true' && steps.native-fingerprint.outputs.digest == 'ee65f1bd8f98d7f888b3676f46e8651fd7256aa4f75d1e8dc7fe7b00189311fb'
+        id: recovered-ios-artifact
+        uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          artifact-ids: 12769200362
+          run-id: 40569443959
+          github-token: ${{ github.token }}
+          path: .qa-native-build-cache/ios
       - name: Compile Android only when no identical APK is cached
         if: matrix.platform == 'android' && steps.native-build-cache.outputs.cache-hit != 'true'
         shell: bash
@@ -303,7 +317,12 @@ jobs:
           xcrun simctl boot "$SIM" || true
           xcrun simctl bootstatus "$SIM" -b
           xcrun simctl location "$SIM" set 25.7617,-80.1918
-          if [[ "${{ steps.native-build-cache.outputs.cache-hit }}" != "true" ]]; then
+          # Check the restored iOS artifact *before* deciding to spend on Xcode.
+          # Fail closed if the archive exists but its own SHA is wrong.
+          if [[ -s .qa-native-build-cache/ios/AmericanRider.app.tgz ]]; then
+            (cd .qa-native-build-cache/ios && shasum -a 256 -c native.sha256)
+            echo 'Using proven iOS QA binary instead of recompiling unchanged source'
+          else
             NODE_ENV=production npx expo prebuild --clean --platform ios --non-interactive
             NODE_ENV=production xcodebuild -workspace ios/AmericanRider.xcworkspace -scheme AmericanRider -configuration Release -destination "id=$SIM" -derivedDataPath "$RUNNER_TEMP/QARelease" CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO build > artifacts/native-commercial-ios/xcode.log 2>&1 || { tail -120 artifacts/native-commercial-ios/xcode.log; exit 1; }
             APP="$RUNNER_TEMP/QARelease/Build/Products/Release-iphonesimulator/AmericanRider.app"
