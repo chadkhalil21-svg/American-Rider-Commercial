@@ -1,0 +1,188 @@
+name: Full native commercial journeys - isolated iPhone and Android
+
+on:
+  pull_request:
+    branches: [release/current]
+    paths:
+      - '.github/workflows/native-commercial-end-to-end.yml'
+      - '.maestro/qa-commercial-*.yml'
+      - 'backend/native-commercial-qa-*.cjs'
+      - 'backend/native-qa-isolation.js'
+      - 'scripts/native-commercial-env-preflight.cjs'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  paid-native-journey:
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: [ios, android]
+        include:
+          - platform: ios
+            os: macos-26-intel
+            local_url: http://127.0.0.1:4242
+          - platform: android
+            os: ubuntu-24.04
+            local_url: http://10.0.2.2:4242
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 105
+    env:
+      CI: '1'
+      NODE_ENV: test
+      AR_NATIVE_PLATFORM: ${{ matrix.platform }}
+      AR_NATIVE_QA_LOCAL: '1'
+      EXPO_PUBLIC_AR_NATIVE_QA: '1'
+      EXPO_PUBLIC_API_URL: ${{ matrix.local_url }}
+      EXPO_PUBLIC_REFERRALS_ENABLED: '1'
+      FIREBASE_PROJECT_ID: demo-american-rider-qa
+      GOOGLE_CLOUD_PROJECT: demo-american-rider-qa
+      FIRESTORE_EMULATOR_HOST: 127.0.0.1:8080
+      FIREBASE_AUTH_EMULATOR_HOST: 127.0.0.1:9099
+      STRIPE_SECRET_KEY: ${{ secrets.STRIPE_TEST_SECRET_KEY }}
+      STRIPE_PUBLISHABLE_KEY: ${{ secrets.STRIPE_TEST_PUBLISHABLE_KEY }}
+      PORT: '4242'
+      MARKET_STATUS: fl-miami-dade:active
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Enforce no production account, no provider live keys, and exact QA source
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$AR_NATIVE_QA_LOCAL" = 1
+          test "$GOOGLE_CLOUD_PROJECT" = demo-american-rider-qa
+          test -z "$(printenv STRIPE_LIVE_SECRET_KEY || true)"
+          test -z "$(printenv K_SERVICE || true)"
+          case "$STRIPE_SECRET_KEY" in sk_test_*) ;; *) echo "::error::Only STRIPE_TEST_SECRET_KEY permitted"; exit 1;; esac
+          case "$STRIPE_PUBLISHABLE_KEY" in pk_test_*) ;; *) echo "::error::Matching STRIPE_TEST_PUBLISHABLE_KEY is not configured"; exit 1;; esac
+          git rev-parse HEAD
+      - name: Install app/backend and Firebase emulator dependencies
+        run: |
+          npm ci --ignore-scripts
+          npm ci --prefix backend --omit=dev
+          npm ci --prefix infra/rules-emulator
+      - name: Start disposable Firebase Auth/Firestore emulators
+        shell: bash
+        run: |
+          set -euo pipefail
+          node - <<'NODE'
+          const fs=require('node:fs'),config=JSON.parse(fs.readFileSync('firebase.json','utf8'));
+          config.emulators={...(config.emulators||{}),
+            auth:{host:'127.0.0.1',port:9099},firestore:{host:'127.0.0.1',port:8080}};
+          fs.writeFileSync('firebase-qa-only.generated.json',JSON.stringify(config));
+          NODE
+          ./infra/rules-emulator/node_modules/.bin/firebase emulators:start --only auth,firestore --project demo-american-rider-qa --config firebase-qa-only.generated.json > "$RUNNER_TEMP/firebase-qa.log" 2>&1 &
+          for i in $(seq 1 100); do
+            if curl --fail --silent http://127.0.0.1:9099/emulator/v1/projects/demo-american-rider-qa/config >/dev/null; then break; fi
+            sleep 2
+          done
+          curl --fail --silent http://127.0.0.1:9099/emulator/v1/projects/demo-american-rider-qa/config >/dev/null
+      - name: Provision disposable Traveler and eligible-test Operator in LOCAL Firebase and Stripe TEST
+        shell: bash
+        run: |
+          set -euo pipefail
+          node backend/native-commercial-qa-fixture.cjs | tee "$RUNNER_TEMP/fixture-result.txt"
+          grep -q 'QA_NATIVE_FIXTURES_READY=1' "$RUNNER_TEMP/fixture-result.txt" || exit 1
+      - name: Start actual local American Rider API and prove Stripe TEST readiness
+        shell: bash
+        run: |
+          set -euo pipefail
+          node backend/server.js > "$RUNNER_TEMP/local-commercial-api.log" 2>&1 &
+          for i in $(seq 1 60); do
+            if curl --fail --silent http://127.0.0.1:4242/health >/dev/null; then break; fi
+            sleep 2
+          done
+          curl --fail --silent http://127.0.0.1:4242/health >/dev/null || { tail -50 "$RUNNER_TEMP/local-commercial-api.log"; exit 1; }
+          node scripts/native-commercial-env-preflight.cjs
+      - name: Install Maestro real-screen interaction runner
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fsSL 'https://get.maestro.mobile.dev' | bash
+          echo "$HOME/.maestro/bin" >> "$GITHUB_PATH"
+      - name: Set up Android SDK and native release APK
+        if: matrix.platform == 'android'
+        shell: bash
+        run: |
+          set -euo pipefail
+          sdkmanager --install 'platforms;android-36' 'build-tools;36.0.0' || true
+          NODE_ENV=production npx expo prebuild --platform android --clean --non-interactive
+          cd android
+          chmod +x gradlew
+          NODE_ENV=production ./gradlew --no-daemon --max-workers=2 --console=plain :app:assembleRelease
+          test -s app/build/outputs/apk/release/app-release.apk
+      - name: Enable KVM for actual Android
+        if: matrix.platform == 'android'
+        shell: bash
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Execute native Android Traveler and Operator paid journeys
+        if: matrix.platform == 'android'
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          emulator-options: -no-window -no-audio -no-snapshot -no-boot-anim -gpu swiftshader_indirect
+          disable-animations: true
+          script: |
+            set -e
+            export PATH="$HOME/.maestro/bin:$PATH"
+            mkdir -p artifacts/native-commercial-android
+            adb install -r android/app/build/outputs/apk/release/app-release.apk
+            adb shell pm grant com.americanrider.app android.permission.ACCESS_FINE_LOCATION
+            adb shell pm grant com.americanrider.app android.permission.ACCESS_COARSE_LOCATION
+            maestro test .maestro/qa-commercial-traveler.yml > artifacts/native-commercial-android/traveler.log 2>&1 || { tail -75 artifacts/native-commercial-android/traveler.log; exit 1; }
+            maestro test .maestro/qa-commercial-operator.yml > artifacts/native-commercial-android/operator.log 2>&1 || { tail -75 artifacts/native-commercial-android/operator.log; exit 1; }
+            node backend/native-commercial-qa-reconcile.cjs
+      - name: Build unsigned iOS native Release app and boot iPhone Simulator
+        if: matrix.platform == 'ios'
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/native-commercial-ios
+          NODE_ENV=production npx expo prebuild --clean --platform ios --non-interactive
+          SIM="$(xcrun simctl list -j devices available | python3 -c 'import json,sys;d=json.load(sys.stdin)["devices"];print(next(z["udid"] for a in d.values() for z in a if z.get("isAvailable") and "iPhone" in z["name"]))')"
+          echo "SIM_DEVICE=$SIM" >> "$GITHUB_ENV"
+          xcrun simctl boot "$SIM" || true
+          xcrun simctl bootstatus "$SIM" -b
+          NODE_ENV=production xcodebuild -workspace ios/AmericanRider.xcworkspace -scheme AmericanRider -configuration Release -destination "id=$SIM" -derivedDataPath "$RUNNER_TEMP/QARelease" CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO build > artifacts/native-commercial-ios/xcode.log 2>&1 || { tail -120 artifacts/native-commercial-ios/xcode.log; exit 1; }
+          APP="$RUNNER_TEMP/QARelease/Build/Products/Release-iphonesimulator/AmericanRider.app"
+          test -d "$APP"
+          xcrun simctl install "$SIM" "$APP"
+      - name: Execute native iPhone Traveler and Operator paid journeys
+        if: matrix.platform == 'ios'
+        shell: bash
+        run: |
+          set -euo pipefail
+          export PATH="$HOME/.maestro/bin:$PATH"
+          maestro test .maestro/qa-commercial-traveler.yml > artifacts/native-commercial-ios/traveler.log 2>&1 || { tail -75 artifacts/native-commercial-ios/traveler.log; exit 1; }
+          maestro test .maestro/qa-commercial-operator.yml > artifacts/native-commercial-ios/operator.log 2>&1 || { tail -75 artifacts/native-commercial-ios/operator.log; exit 1; }
+          node backend/native-commercial-qa-reconcile.cjs
+      - name: Preserve platform evidence even when full journey fails
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: native-commercial-${{ matrix.platform }}-evidence
+          path: |
+            artifacts/native-commercial-*/
+          if-no-files-found: warn
+          retention-days: 14
+      - name: Explain non-certification boundary
+        if: always()
+        run: |
+          echo 'Native end-to-end passes ONLY if Traveler+Operator on-device workflows AND the same local Firestore Travel/actual Stripe TEST transfer reconciliation all succeed.' >> "$GITHUB_STEP_SUMMARY"
+          echo 'No fake live Operator, legal commercial insurance, real payout bank arrival, App Store review, signed device entitlement, or Recruiter bank funding is asserted.' >> "$GITHUB_STEP_SUMMARY"
