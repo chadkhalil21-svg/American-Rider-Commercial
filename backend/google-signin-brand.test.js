@@ -13,14 +13,14 @@ const source = 'https://github.com/google/GoogleSignIn-iOS/blob/main/GoogleSignI
 assert.ok(icon.includes(source), 'Google G must come from the official Google Sign-In iOS SDK');
 assert.match(ui, /<Image\s+source=\{GOOGLE_OFFICIAL_G_SOURCE\}/);
 assert.match(icon, /data:image\/png;base64,iVBORw0KGgo/, 'Google official PNG must be embedded for offline use');
-const encoded = icon.match(/data:image\\/png;base64,([A-Za-z0-9+/=]+)/)?.[1];
+const encoded = icon.match(/data:image\/png;base64,([A-Za-z0-9+/=]+)/)?.[1];
 assert.ok(encoded, 'offline-capable original Google PNG must be included');
 const png = Buffer.from(encoded, 'base64');
 assert.equal(png.subarray(0,8).toString('hex'), '89504e470d0a1a0a', 'must be a genuine PNG');
 assert.equal(png.readUInt32BE(16), 36, 'official Google PNG must retain original width');
 assert.equal(png.readUInt32BE(20), 36, 'official Google PNG must retain original height');
 const gitBlob = crypto.createHash('sha1')
-  .update(Buffer.concat([Buffer.from('blob ' + png.length + '\\0'), png])).digest('hex');
+  .update(Buffer.concat([Buffer.from('blob ' + png.length + String.fromCharCode(0)), png])).digest('hex');
 assert.equal(gitBlob, 'cee58e844e97d849f9fbd32b1de28a5f0ed870c1',
   'the binary must match the exact Google-maintained official SDK image');
 assert.match(ui, /style=\{s\.googleOfficialMark\}[\s\S]*?resizeMode="contain"/,
