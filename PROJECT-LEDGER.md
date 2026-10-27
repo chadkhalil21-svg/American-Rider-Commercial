@@ -1,3 +1,15 @@
+## 26 October 2026 | PHYSICAL IPHONE BUILD 56 ACCOUNT DELETION: PROBABLE IAM DEFECT, REPAIR NOT YET APPLIED
+
+**Device evidence:** Founder recorded a real iPhone Build 56 account-deletion failure after confirmation. A generic error conceals the actual provider response. The live Cloud Run error log and runtime effective permission remain unverified, so this is a diagnosed high-confidence source mismatch, NOT proof of a production repair.
+
+**Verified source cause to investigate first:** `backend/accountdeletion.js` calls Firebase Admin `auth.deleteUser(uid)` after verifying the caller and fencing transport work. The commissioning script `infra/cloud-run/commission-real-production-private.py` assigns `ar-production-live-runtime@american-rider-35688.iam.gserviceaccount.com` ONLY `roles/datastore.user` and `roles/firebaseauth.viewer`. Google's IAM documentation confirms Viewer cannot perform `firebaseauth.users.delete`, but the required permission is supported in a custom role. A runtime principal without an additional grant cannot execute this route successfully. If a preexisting broader grant exists, investigate Cloud Run logs instead of broadening permissions.
+
+**Targeted remediation prepared, NOT APPLIED:** `infra/cloud-run/repair-account-deletion-iam.py` defaults to read-only and requires `--apply` to create an idempotent custom Firebase-auth-delete-only role for the verified existing production service account and bind it; does not touch apps, Stripe, secret keys, scheduled work, account records, Cloud Run revision or live transport. The companion offline tests assert identity matching, least privilege, and fail-closed operation. Execution requires a project IAM administrator in the Founder-controlled Google Cloud Shell. Do not claim permission restored until the binding and one disposable physical-device deletion are independently verified. No Build 57 is indicated by this IAM-only change.
+
+**Apple review:** Build 56 is in App Review rejection/info-needed state; respond with Apple's specifically requested physical-device capture and review notes after a successful deletion demonstration. No requirement to simulate completed prelaunch commercial Travels or fabricate qualified Operator credentials.
+
+---
+
 ## 26 October 2026 | FOUNDER AUTH RECONCILIATION: PRESERVE PROVEN GOOGLE POPUP
 
 **Evidence from Founder iPad screenshot captured 25 October:** Google/Firebase sign-in had actually succeeded at `americanrider.tech/founder/`. The page explicitly said production Founder authorization was not configured and displayed a signed-in Firebase account reference. That is proof of **authentication only**, not proof of `AR_FOUNDER_FIREBASE_UIDS` allowlisting or live private counts. Do not ask the Founder to repeat successful authentication just to investigate the initial authorization defect.
