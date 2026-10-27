@@ -65,7 +65,7 @@ jobs:
                 owner, repo, run_id, per_page: 100
               });
               const unfinishedIos = jobs.some(j =>
-                j.name === 'paid-native-journey (ios)' &&
+                j.name.startsWith('paid-native-journey (ios,') &&
                 ['queued','in_progress','waiting','pending','requested'].includes(j.status)
               );
               if (unfinishedIos) {
@@ -105,7 +105,7 @@ jobs:
         run: node backend/native-qa-isolation.test.js
       - name: Validate native Android runner syntax before expensive builds
         run: bash -n scripts/native-commercial-android-runner.sh
-      - name: Verify native Maestro password selectors before expensive builds
+      - name: Verify every native journey target and platform-specific keyboard gesture before expensive builds
         run: node scripts/verify-native-maestro-selectors.cjs
       - name: Validate scoped Android emulator HTTP exception before expensive builds
         run: node scripts/native-qa-android-network.test.cjs
@@ -242,6 +242,17 @@ jobs:
           run-id: 40569443959
           github-token: ${{ github.token }}
           path: .qa-native-build-cache/ios
+      - name: Recover verified iOS app if cache evicted after latest successful compilation
+        # SHA-256 checksum is reverified by the install step. This backup is
+        # valid ONLY for the exact native-source+QA-environment fingerprint.
+        if: matrix.platform == 'ios' && steps.native-build-cache.outputs.cache-hit != 'true' && steps.native-fingerprint.outputs.digest == '33433a15789d4837c522dcef682584ee55e395d759893dc9b20c1ae265b9df15'
+        uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          artifact-ids: 12779016091
+          run-id: 40592170783
+          github-token: ${{ github.token }}
+          path: .qa-native-build-cache/ios
       - name: Compile Android only when no identical APK is cached
         if: matrix.platform == 'android' && steps.native-build-cache.outputs.cache-hit != 'true'
         shell: bash
@@ -296,7 +307,7 @@ jobs:
           test -x "$AAPT"
           # Official Android AAPT2 requires --file for xmltree. Do not
           # interpret Gradle success as a passed postbuild manifest check.
-          "$AAPT" dump xmltree --file AndroidManifest.xml "$APK" > "$RUNNER_TEMP/qa-compiled-manifest.txt"
+          "$AAPT" dump xmltree "$APK" --file AndroidManifest.xml > "$RUNNER_TEMP/qa-compiled-manifest.txt"
           "$AAPT" dump resources "$APK" > "$RUNNER_TEMP/qa-compiled-resources.txt"
           grep -F 'networkSecurityConfig' "$RUNNER_TEMP/qa-compiled-manifest.txt" >/dev/null
           grep -F 'american_rider_qa_network_security_config' "$RUNNER_TEMP/qa-compiled-resources.txt" >/dev/null
