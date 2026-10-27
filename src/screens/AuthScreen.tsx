@@ -32,6 +32,7 @@ import { useAuth } from '../state/AuthContext';
 import { savePendingInvite } from '../backend/referralPending';
 import { useLanguage } from '../state/LanguageContext';
 import { colors } from '../theme';
+import { GOOGLE_OFFICIAL_G_SOURCE } from '../brand/googleOfficialG';
 
 const emailOk = (e: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e.trim());
 
@@ -64,7 +65,8 @@ function InkButton({
   );
 }
 
-// A single-sign-on control: bordered, monochrome, the provider's mark drawn in ink.
+// A single-sign-on control with an official Google gradient G and the app's
+// existing bordered 46pt layout. The Apple fallback below is preview-only.
 // Chad's instruction (13 Sept 2026) was explicit — no consumer brand colours on this screen.
 // GOOGLE'S HOOK THROWS DURING RENDER WHEN NO CLIENT ID IS CONFIGURED — "Client Id property
 // `iosClientId` must be defined" — and it took the whole app down on launch, because a hook
@@ -117,24 +119,15 @@ function SsoButton({
             />
           </Svg>
         ) : (
-          <Svg width={17} height={17} viewBox="0 0 24 24">
-            <Path
-              d="M21.6 12.23c0-.71-.06-1.4-.18-2.05H12v3.88h5.38a4.6 4.6 0 0 1-2 3.02v2.5h3.23c1.89-1.74 2.99-4.3 2.99-7.35z"
-              fill={colors.ink}
-            />
-            <Path
-              d="M12 22c2.7 0 4.96-.9 6.61-2.42l-3.23-2.5c-.9.6-2.05.96-3.38.96-2.6 0-4.8-1.76-5.59-4.12H3.07v2.59A10 10 0 0 0 12 22z"
-              fill={colors.ink2}
-            />
-            <Path
-              d="M6.41 13.92a6 6 0 0 1 0-3.84V7.49H3.07a10 10 0 0 0 0 9.02l3.34-2.59z"
-              fill={colors.muted}
-            />
-            <Path
-              d="M12 5.98c1.47 0 2.79.51 3.83 1.5l2.86-2.86C16.95 2.99 14.7 2 12 2a10 10 0 0 0-8.93 5.49l3.34 2.59C7.2 7.72 9.4 5.98 12 5.98z"
-              fill={colors.ink}
-            />
-          </Svg>
+          // Google-owned iOS SDK multicolor G is bundled without modification,
+          // so it still appears offline. Preserve the 17pt icon footprint
+          // and the 46pt founder-approved equal sign-in button heights.
+          <Image
+            source={GOOGLE_OFFICIAL_G_SOURCE}
+            style={s.googleOfficialMark}
+            resizeMode="contain"
+            accessibilityIgnoresInvertColors
+          />
         )}
         <Text style={[s.btnText, primary ? s.btnTextInk : s.btnTextSso]}>{label}</Text>
       </View>
@@ -748,6 +741,7 @@ const s = StyleSheet.create({
 // remains the approved 15pt. Signed iOS builds never render the preview Apple SVG.
   appleOfficialButton: { width: '100%', height: 46 },
   ssoButton: { width: '100%', height: 46, paddingVertical: 0, justifyContent: 'center' },
+  googleOfficialMark: { width: 17, height: 17 },
   btn: { borderRadius: 12, paddingVertical: 14, alignItems: 'center' },
   btnRow: { flexDirection: 'row', justifyContent: 'center', gap: 10 },
   btnInk: { backgroundColor: colors.ink },
