@@ -87,6 +87,14 @@ def first_edit(label):
     x,y=center(edits[0])
     adb("shell","input","tap",str(x),str(y))
 
+def prepare_clean_fixture():
+    # ADB pm clear revokes Android runtime permissions on API 35.
+    # Re-grant ONLY in disposable emulator before launching the app, otherwise
+    # the system location dialog covers the sign-in control during the test.
+    adb("shell","pm","clear",PACKAGE)
+    for permission in ("ACCESS_COARSE_LOCATION","ACCESS_FINE_LOCATION","ACCESS_BACKGROUND_LOCATION"):
+        adb("shell","pm","grant",PACKAGE,"android.permission."+permission)
+
 def go_home():
     adb("shell","am","force-stop",PACKAGE)
     adb("shell","am","start","-W","-n",PACKAGE+"/.MainActivity")
@@ -107,7 +115,7 @@ def native_link(uri,label):
 def run():
     print("NATIVE_INTERACTION_MODE=anonymous_only")
     # Erase test emulator data ONLY, never a real identity or production Firestore.
-    adb("shell","pm","clear",PACKAGE)
+    prepare_clean_fixture()
     go_home()
     # Real touchscreen and hardware keyboard controls, not source-only UI checks.
     first_edit("email-invalid")
@@ -116,7 +124,7 @@ def run():
     touch(["Continue"],"continue-invalid-email")
     wait_visible("Enter a valid email address",label="invalid-email-alert")
     print("PASS client-side invalid-email validation; no server account lookup")
-    adb("shell","pm","clear",PACKAGE)
+    prepare_clean_fixture()
     go_home()
     first_edit("email-valid")
     adb("shell","input","text","qa@example.com")
