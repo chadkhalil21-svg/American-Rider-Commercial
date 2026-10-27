@@ -5,7 +5,8 @@ function isolatedNativeQa() {
   const e=process.env;
   return e.NODE_ENV==='test'&&
     e.EXPO_PUBLIC_AR_NATIVE_QA==='1'&&
-    e.EXPO_PUBLIC_API_URL==='http://10.0.2.2:4242'&&
+    (e.EXPO_PUBLIC_API_URL==='http://10.0.2.2:4242'||
+     e.EXPO_PUBLIC_API_URL==='http://127.0.0.1:4242')&&
     e.FIREBASE_PROJECT_ID==='demo-american-rider-qa'&&
     e.GOOGLE_CLOUD_PROJECT==='demo-american-rider-qa'&&
     e.FIRESTORE_EMULATOR_HOST==='127.0.0.1:8080'&&
