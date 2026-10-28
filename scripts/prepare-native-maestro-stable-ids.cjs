@@ -16,6 +16,22 @@ function generate(role){
   const file=path.join(root,'.maestro','qa-commercial-'+role+'.yml');
   const original=fs.readFileSync(file,'utf8');
   let result=original;
+  // Run 40716321434 screenshot showed the welcome form and its actual
+  // native auth-email-entry ID while text assertion AMERICAN RIDER failed.
+  // Wait for the unique editable control, not a duplicated title rendered
+  // in both the underlying screen and the foreground authentication layer.
+  // This adjusts QA test startup only; no application runtime is changed.
+  result=edit(result,
+    '- assertVisible: "AMERICAN RIDER"',
+    '- extendedWaitUntil:\n    visible:\n      id: "auth-email-entry"\n    timeout: 60000\n- assertVisible:\n    id: "auth-email-entry"',
+    'stable iOS native login readiness');
+  // The same screenshot also displayed "American Rider Network — Unreachable".
+  // Reject a disconnected app before attempting a synthetic credential or
+  // claiming a valid booking. The isolated QA API must become reachable.
+  result=edit(result,
+    '- assertVisible:\n    id: "auth-email-entry"\n- tapOn:',
+    '- assertVisible:\n    id: "auth-email-entry"\n- extendedWaitUntil:\n    notVisible: "American Rider Network — Unreachable"\n    timeout: 60000\n- tapOn:',
+    'isolated network readiness before native login');
   if(role==='traveler'){
     const pairs=[
       ['- tapOn: "Select your destination"','- tapOn:\n    id: "traveler-open-destination"'],
