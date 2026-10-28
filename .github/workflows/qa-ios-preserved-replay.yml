@@ -357,6 +357,10 @@ jobs:
           tar -xzf AmericanRider.app.tgz -C "$RUNNER_TEMP/qa-cached-ios"
           test -d "$RUNNER_TEMP/qa-cached-ios/AmericanRider.app"
           xcrun simctl install "$SIM" "$RUNNER_TEMP/qa-cached-ios/AmericanRider.app"
+          # The archive check above changes directories to the binary cache.
+          # Restore the repository root before the Maestro smoke/log paths.
+          cd "$GITHUB_WORKSPACE"
+          mkdir -p artifacts/native-commercial-ios
           # Prove the XCUITest driver can connect and control the REAL native app
           # on ONE simulator before booting a second expensive iOS 26 runtime.
           # No sign-in, booking, payment, or backend mutation occurs in this probe.
