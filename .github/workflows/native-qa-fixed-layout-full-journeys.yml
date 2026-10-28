@@ -256,8 +256,14 @@ jobs:
           const d=JSON.parse(fs.readFileSync(process.argv[2],'utf8'));
           assert.equal(d.status,'ahead','Require a direct descendant of the previously built APK source');
           assert.ok(d.ahead_by>=1 && d.ahead_by<=10,'Unexpected intervening commits; refuse binary reuse');
+          // These are QA orchestration files only; none is part of the APK.
+          // Reject every other change so an outdated binary can never validate
+          // modified application, native manifest, or backend business code.
           const allowed=new Set([
             'scripts/native-qa-operator-accept-watcher.py',
+            'scripts/native-qa-operator-destination.cjs',
+            'scripts/native-commercial-android-runner.sh',
+            'scripts/prepare-native-maestro-parallel-roles.cjs',
             '.github/workflows/native-qa-fixed-layout-full-journeys.yml',
           ]);
           const changed=(d.files||[]).map(x=>x.filename);
@@ -265,7 +271,7 @@ jobs:
             'Unexpected comparison: intended QA watcher change absent');
           assert.ok(changed.every(x=>allowed.has(x)),
             'Refuse reused APK: non-QA application source changed: '+changed.join(', '));
-          console.log('PASS: exact GitHub source comparison confirms only QA watcher/workflow changes');
+          console.log('PASS: exact GitHub source comparison confirms QA-only test orchestration changes');
           NODE
           mkdir -p .qa-native-build-cache/android
           gh run download 40750690745 -R "$GITHUB_REPOSITORY" -n commercial-qa-android-app -D .qa-native-build-cache/android
