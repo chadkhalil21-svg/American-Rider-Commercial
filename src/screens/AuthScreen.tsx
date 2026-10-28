@@ -226,7 +226,11 @@ export function AuthScreen() {
     let live = true;
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), 8000);
-    fetch(`${PAYMENT_SERVER_URL}/health`, { signal: ctrl.signal })
+    // This indicator describes NETWORK reachability only, not fleet or payment
+    // readiness. /health waits for operational dependencies and may exceed the
+    // eight-second startup check even while the API is reachable. /live is an
+    // I/O-free liveness probe; real operations retain their own backend gates.
+    fetch(`${PAYMENT_SERVER_URL}/live`, { signal: ctrl.signal })
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => {
         if (live) setNetUp(d?.ok === true);
