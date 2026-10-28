@@ -22,7 +22,10 @@ cleanup(){
  if [ -n "$OFFER_PID" ]; then kill "$OFFER_PID" 2>/dev/null || true; fi
 }
 trap cleanup EXIT
-# Time-box each actual native flow; never retry a booking, payment, or offer.
+# First Maestro invocation must INSTALL and START Apple's XCUITest driver.
+# It is not a sign-in failure if Xcode's initial runner start exceeds the
+# business-step budget. Later flows must never retry a booking, charge or offer.
+# Maestro's own startup timeout remains independent of each flow's cap.
 run_maestro(){
   local label="$1" device="$2" flow="$3" limit="$4"
   python3 - "$label" "$device" "$flow" "$limit" <<'PY'
@@ -38,6 +41,23 @@ with out.open('w') as f:
         try: p.wait(timeout=8)
         except subprocess.TimeoutExpired: os.killpg(p.pid,signal.SIGKILL)
         print('QA_IOS_STAGE_TIMEOUT',label,limit,'seconds',flush=True)
+        # Inspect XCUITest driver on a cold host before diagnosing app login.
+        # Keep the OS/driver logs even when the UI was never reached.
+        import glob,shutil
+        dest=pathlib.Path('artifacts/native-commercial-ios/driver-evidence-'+label)
+        dest.mkdir(parents=True,exist_ok=True)
+        roots=glob.glob(os.path.expanduser('~/.maestro/tests/*/'))
+        if roots:
+            latest=max(roots,key=os.path.getmtime)
+            for src in glob.glob(os.path.join(latest,'maestro.log'))+glob.glob(os.path.join(latest,'xctest_runner_*.log')):
+                shutil.copy2(src,dest/pathlib.Path(src).name)
+            marker=dest/'driver-diagnostic.txt'
+            log=(dest/'maestro.log').read_text(errors='replace') if (dest/'maestro.log').exists() else ''
+            xctest=' '.join(p.read_text(errors='replace')[-1200:] for p in dest.glob('xctest_runner_*.log'))
+            marker.write_text('driver_port_unreachable='+str('Failed to connect to /127.0.0.1:' in log)
+                +'\nxcodebuild_interrupted='+str('BUILD INTERRUPTED' in xctest)
+                +'\nflow='+label+'\n')
+            print('QA_IOS_DRIVER_DIAGNOSIS',marker.read_text().replace('\n',';'),flush=True)
         return_code=124
 if return_code:
     print('QA_IOS_STAGE_FAILED',label,'exit',return_code,flush=True)
@@ -47,7 +67,9 @@ print('PASS: native iPhone stage',label,flush=True)
 PY
 }
 echo 'QA_IOS_STAGE=operator_login_and_on_duty'
-run_maestro operator-start "$SIM_OPERATOR" .maestro/generated/qa-commercial-ios-operator-start.yml 240
+# The first native stage initializes XCTest from a cold macOS/Xcode runner.
+# Allow the full driver budget plus actual UI time; not a blank 4-minute kill.
+run_maestro operator-start "$SIM_OPERATOR" .maestro/generated/qa-commercial-ios-operator-start.yml 660
 echo 'QA_IOS_STAGE=two_device_offer_and_traveler_payment'
 run_maestro operator-offer "$SIM_OPERATOR" .maestro/generated/qa-commercial-ios-operator-offer.yml 650 &
 OFFER_PID=$!
