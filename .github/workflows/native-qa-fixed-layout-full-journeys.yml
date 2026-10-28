@@ -380,6 +380,12 @@ jobs:
           maestro test .maestro/generated/qa-commercial-traveler.yml > artifacts/native-commercial-ios/traveler.log 2>&1 || { tail -75 artifacts/native-commercial-ios/traveler.log; mkdir -p artifacts/native-commercial-ios/maestro-debug; cp -R "$HOME/.maestro/tests/." artifacts/native-commercial-ios/maestro-debug/ 2>/dev/null || true; xcrun simctl io "$SIM_DEVICE" screenshot artifacts/native-commercial-ios/failure-screen.png || true; exit 1; }
           maestro test .maestro/generated/qa-commercial-operator.yml > artifacts/native-commercial-ios/operator.log 2>&1 || { tail -75 artifacts/native-commercial-ios/operator.log; mkdir -p artifacts/native-commercial-ios/maestro-debug; cp -R "$HOME/.maestro/tests/." artifacts/native-commercial-ios/maestro-debug/ 2>/dev/null || true; xcrun simctl io "$SIM_DEVICE" screenshot artifacts/native-commercial-ios/failure-screen.png || true; exit 1; }
           node backend/native-commercial-qa-reconcile.cjs
+      - name: Record independently confirmed native journey milestones on every outcome
+        if: always()
+        run: |
+          for dir in artifacts/native-commercial-android artifacts/native-commercial-ios; do
+            if [ -d "$dir" ]; then node scripts/native-qa-stage-report.cjs "$dir"; fi
+          done
       - name: Preserve platform evidence even when full journey fails
         if: always()
         uses: actions/upload-artifact@v4
