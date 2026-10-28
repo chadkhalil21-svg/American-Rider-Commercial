@@ -1,6 +1,7 @@
 'use strict';
 // Fail-closed PRECONDITION for native Traveler -> Operator -> Stripe TEST commercial journeys.
-// Zero provider writes. Never mistake app launch, source tests, or synthetic charges for a full mobile pass.
+// Only a disposable, unconfirmed Stripe TEST PaymentIntent is created and cancelled for key-pair verification.
+// Never mistake app launch, source tests, or synthetic credentials for a full mobile pass.
 const assert = require('node:assert/strict');
 const os = require('node:os');
 const url = require('node:url');
@@ -35,6 +36,37 @@ async function main() {
   assert.equal(config.canTakePayment,true,
     'QA cannot create a paid Travel yet: check isolated active market, Operator coverage/availability, and Stripe TEST readiness');
   assert.equal(config.operationalReady,true,'Local backend is not commissioned for a paid Travel');
+
+  // The secret-key balance check does not prove that the publishable key belongs
+  // to the SAME Stripe TEST account. Stripe officially supports client-side
+  // PaymentIntent retrieval with a publishable key plus its client_secret.
+  // Probe this before booting an emulator: no card, authorization or capture.
+  const Stripe=require('../backend/node_modules/stripe');
+  const stripe=new Stripe(e.STRIPE_SECRET_KEY);
+  assert.equal((await stripe.balance.retrieve()).livemode,false,'Stripe secret must be TEST');
+  const probe=await stripe.paymentIntents.create({
+    amount:100,currency:'usd',capture_method:'manual',
+    payment_method_types:['card'],
+    metadata:{qa_only:'true',purpose:'native_keypair_probe',ci_run:String(e.GITHUB_RUN_ID||'manual')},
+  });
+  try {
+    assert.equal(probe.livemode,false,'Never probe a LIVE PaymentIntent');
+    assert.equal(probe.status,'requires_payment_method','Probe must not authorize payment');
+    const query=new URLSearchParams({client_secret:probe.client_secret});
+    const pkResponse=await fetch('https://api.stripe.com/v1/payment_intents/'+probe.id+'?'+query,{
+      headers:{Authorization:'Bearer '+e.STRIPE_PUBLISHABLE_KEY},
+      signal:AbortSignal.timeout(10000),
+    });
+    const pkBody=await pkResponse.json().catch(()=>({}));
+    assert.equal(pkResponse.status,200,'Stripe TEST key pair does not retrieve same intent: HTTP '+
+      pkResponse.status+' code '+String(pkBody?.error?.code||'unknown'));
+    assert.equal(pkBody.id,probe.id,'Publishable key cannot retrieve secret-key TEST intent');
+    assert.equal(pkBody.livemode,false,'Client retrieved a LIVE Stripe intent');
+    console.log('PASS: exact Stripe TEST publishable/secret key pair retrieves same uncharged PaymentIntent');
+  } finally {
+    await stripe.paymentIntents.cancel(probe.id);
+  }
+
   // The home-screen destination entry exists ONLY when the iPhone or Android
   // sees an active market at its actual test pickup. Previous CI asserted
   // /config but never checked /markets/at, so the native journey reached
