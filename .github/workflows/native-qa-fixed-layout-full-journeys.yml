@@ -38,6 +38,8 @@ jobs:
           node-version: '22'
       - name: Install JS parser locally for cheap syntax validation
         run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Verify local QA Operator is indexed and presence is refreshed safely
+        run: node backend/native-qa-dispatch-fixture.test.cjs
       - name: Parse ALL native application TS/TSX/JSX before any device build
         run: node scripts/verify-native-source-syntax.cjs
       - name: Validate real Maestro selectors can be converted to native IDs
@@ -320,6 +322,8 @@ jobs:
         run: |
           set -euo pipefail
           export PATH="$HOME/.maestro/bin:$PATH"
+          # Restore local, disposable Operator presence AFTER costly Xcode build.
+          node backend/native-commercial-qa-refresh-presence.cjs
           maestro test .maestro/generated/qa-commercial-traveler.yml > artifacts/native-commercial-ios/traveler.log 2>&1 || { tail -75 artifacts/native-commercial-ios/traveler.log; mkdir -p artifacts/native-commercial-ios/maestro-debug; cp -R "$HOME/.maestro/tests/." artifacts/native-commercial-ios/maestro-debug/ 2>/dev/null || true; xcrun simctl io "$SIM_DEVICE" screenshot artifacts/native-commercial-ios/failure-screen.png || true; exit 1; }
           maestro test .maestro/generated/qa-commercial-operator.yml > artifacts/native-commercial-ios/operator.log 2>&1 || { tail -75 artifacts/native-commercial-ios/operator.log; mkdir -p artifacts/native-commercial-ios/maestro-debug; cp -R "$HOME/.maestro/tests/." artifacts/native-commercial-ios/maestro-debug/ 2>/dev/null || true; xcrun simctl io "$SIM_DEVICE" screenshot artifacts/native-commercial-ios/failure-screen.png || true; exit 1; }
           node backend/native-commercial-qa-reconcile.cjs
