@@ -231,7 +231,7 @@ jobs:
       # compiling unchanged native source for another 15 minutes. Refuse any
       # mismatch in exact native source fingerprint before downloading.
       - name: Reuse exact prior Android binary across PR-scoped caches
-        if: matrix.platform == 'android' && steps.native-build-cache.outputs.cache-hit != 'true'
+        if: matrix.platform == 'android' && steps.native-build-cache.outputs.cache-hit != 'true' && steps.native-fingerprint.outputs.digest == '2ce8aef44249dff8bff9860b2b83190be2df511dccf06def40d7a937910ea40b'
         id: prior-android-artifact
         shell: bash
         env:
