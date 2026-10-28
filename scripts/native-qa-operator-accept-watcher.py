@@ -85,7 +85,11 @@ def self_test():
     assert parse_button(sample.replace('enabled="true"', 'enabled="false"')) is None
     assert parse_button(sample.replace('operator-accept-traveler', 'other-button')) is None
     assert parse_button(sample.replace('[556,2094][972,2250]', '[0,0][9999,9999]')) is None
-    print("PASS QA Operator response watcher: enabled exact native button only")
+    # Guard against the 45 silent 33-byte scans observed in run 40759429801:
+    # a successful ADB command that prints a dump status is NOT UI hierarchy.
+    assert parse_button(b"UI hierchary dumped to: /dev/tty\\n") is None
+    assert parse_button(sample.encode()) == b
+    print("PASS QA Operator response watcher: exact enabled native button and real XML only")
 
 
 def main():
@@ -103,11 +107,21 @@ def main():
     OUT.mkdir(parents=True, exist_ok=True)
     until = time.monotonic() + args.timeout
     polls = 0
+    invalid_xml_count = 0
     while time.monotonic() < until:
         polls += 1
         started = time.monotonic()
         try:
-            scan = adb(args.device, "exec-out", "uiautomator", "dump", "/dev/tty", deadline=15)
+            # uiautomator writes XML to a DEVICE FILE. Its stdout is merely
+            # "UI hierchary dumped to: /dev/tty" (33 bytes), not a UI tree.
+            # Read the actual device file back on stdout in one ADB invocation.
+            # --compressed still exposes native resource IDs and bounds.
+            scan = adb(
+                args.device, "exec-out", "sh", "-c",
+                "uiautomator dump --compressed /sdcard/qa-operator-offer.xml "
+                ">/dev/null 2>&1 && cat /sdcard/qa-operator-offer.xml",
+                deadline=20,
+            )
         except subprocess.TimeoutExpired:
             with (OUT/"operator-accept-scan-trace.ndjson").open("a") as trace:
                 trace.write(json.dumps({"poll":polls,"outcome":"scan_timeout"})+"\n")
@@ -120,20 +134,29 @@ def main():
         # button during two-emulator CPU contention. Never skip valid evidence
         # just because the ADB extraction was slow; the real backend still
         # enforces offer expiry when the actual on-screen touch arrives.
-        if polls == 1 or polls % 5 == 0 or elapsed > 7 or BUTTON.encode() in data:
+        xml_ok = scan.returncode == 0 and b"<hierarchy" in data and b"</hierarchy>" in data
+        if polls == 1 or polls % 5 == 0 or elapsed > 7 or BUTTON.encode() in data or not xml_ok:
             with (OUT/"operator-accept-scan-trace.ndjson").open("a") as trace:
                 trace.write(json.dumps({
                     "poll":polls,
                     "snapshotSeconds":round(elapsed,3),
                     "returnCode":scan.returncode,
                     "snapshotBytes":len(data),
+                    "xmlValid":xml_ok,
+                    "nonXmlPreview":data[:120].decode("utf-8",errors="replace") if not xml_ok else None,
+                    "stderrPreview":scan.stderr[:120].decode("utf-8",errors="replace") if not xml_ok else None,
                     "acceptIdPresent":BUTTON.encode() in data,
                     "offerLabelPresent":b"Accept Traveler" in data,
                     "inServiceLabelPresent":b"In Service" in data,
                 })+"\n")
-        if scan.returncode != 0:
+        if not xml_ok:
+            invalid_xml_count += 1
+            if invalid_xml_count >= 3:
+                raise RuntimeError("Android UIAutomator failed to return valid XML in three scans; "
+                                   "not evidence of missing Operator offer; see scan trace")
             time.sleep(0.5)
             continue
+        invalid_xml_count = 0
         button = parse_button(data)
         if button:
             # Save observed tree prior to tapping, never fake API events.
