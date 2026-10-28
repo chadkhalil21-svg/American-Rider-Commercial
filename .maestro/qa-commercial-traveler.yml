@@ -6,7 +6,7 @@ appId: com.americanrider.app
     clearState: true
 - assertVisible: "AMERICAN RIDER"
 - tapOn: "Email Address"
-- inputText: "native.qa.traveler@example.test"
+- setClipboard: "native.qa.traveler@example.test"
 - assertVisible:
     id: "auth-primary-action"
     enabled: true
