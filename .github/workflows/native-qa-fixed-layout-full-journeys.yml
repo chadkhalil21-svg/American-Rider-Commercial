@@ -132,7 +132,7 @@ jobs:
         run: |
           xcodebuild -version
           swift --version
-          swift --version | grep -Eq 'Apple Swift version (6\\.[2-9]|[7-9]\\.)' || { echo '::error::Expo SDK 57 requires Swift tools >= 6.2'; exit 1; }
+          swift --version | grep -Eq 'Apple Swift version (6\.[2-9]|[7-9]\.)' || { echo '::error::Expo SDK 57 requires Swift tools >= 6.2'; exit 1; }
       - name: Install app/backend and Firebase emulator dependencies
         run: |
           npm ci --ignore-scripts
