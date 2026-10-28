@@ -7,6 +7,9 @@ appId: com.americanrider.app
 - assertVisible: "AMERICAN RIDER"
 - tapOn: "Email Address"
 - inputText: "native.qa.traveler@example.test"
+- assertVisible:
+    id: "auth-primary-action"
+    enabled: true
 # Android back dismisses the keyboard. iOS hideKeyboard uses a swipe and
 # previously FAILED before the account could proceed (run 40592170783).
 # Tap a visible, non-interactive native title instead on iOS.
