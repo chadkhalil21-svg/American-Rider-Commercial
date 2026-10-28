@@ -44,6 +44,8 @@ jobs:
         run: node scripts/verify-native-source-syntax.cjs
       - name: Validate real Maestro selectors can be converted to native IDs
         run: node scripts/prepare-native-maestro-stable-ids.cjs
+      - name: Verify two-device Operator flow split before booting native emulators
+        run: node scripts/prepare-native-maestro-parallel-roles.cjs
       - name: Refuse all live Stripe and production Firebase contexts, keep old sign-in QA safe
         run: node backend/native-qa-isolation.test.js
       - name: Verify synthetic local toll fixture never leaks to production
