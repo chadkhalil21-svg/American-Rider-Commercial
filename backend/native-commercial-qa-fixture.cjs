@@ -7,6 +7,7 @@ const {adminDb}=require('./firebase-admin');
 const {getAuth}=require('firebase-admin/auth');
 const Stripe=require('stripe');
 const {DISCLOSURE_VERSION}=require('./disclosure');
+const {encodeGeohash}=require('./geooperators');
 const {initialMonitoringFromDocument,applyIndependentConfirmation}=require('./insurance-monitoring');
 async function main(){
   assert.equal(isolatedNativeQa(),true,'Refusing QA fixtures outside isolated local backend');
@@ -66,7 +67,8 @@ async function main(){
   await db.collection('operators').doc(ids.operator).set({
     uid:ids.operator,available:true,onlineAt:now,commissioned:true,
     disclosureVersion:DISCLOSURE_VERSION,
-    insuranceExpiry:'2099-01-01',lat:25.7617,lng:-80.1918,plate:'QATEST1',vehicleClass:'Standard',
+    insuranceExpiry:'2099-01-01',lat:25.7617,lng:-80.1918,
+    geohash:encodeGeohash(25.7617,-80.1918,7),plate:'QATEST1',vehicleClass:'Standard',
     stripeAccountId:acct.id,qaOnly:true,
   });
   console.log('PASS: two LOCAL emulator identities, synthetic insured Operator, and Stripe TEST Connect fixture created');

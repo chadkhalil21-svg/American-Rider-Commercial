@@ -9,6 +9,10 @@ adb install -r .qa-native-build-cache/android/app-release.apk
 adb emu geo fix -80.1918 25.7617
 adb shell pm grant com.americanrider.app android.permission.ACCESS_FINE_LOCATION
 adb shell pm grant com.americanrider.app android.permission.ACCESS_COARSE_LOCATION
+# The disposable Operator was created before Android emulator startup. Its
+# 5-minute presence expires during SDK boot unless refreshed immediately
+# before the real Traveler booking. This ONLY writes the local QA emulator.
+node backend/native-commercial-qa-refresh-presence.cjs
 # Maestro's adb transport may falsely report an otherwise healthy
 # Android emulator offline on launch (see Maestro issue #3451).
 # Retry ONCE for that exact infrastructure error; never retry a
