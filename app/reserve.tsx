@@ -988,7 +988,7 @@ export default function TravelConfirmation() {
             )}
             <PrimaryButton
               testID="traveler-confirm-travel"
-              label={busy ? t('traveler.busyChecking')}
+              label={busy ? t('traveler.busyChecking')
                 : t(selectingScheduledTravel ? 'traveler.schedContinueScheduling' : 'traveler.confirmTravel')}
               disabled={selectingScheduledTravel ? !canContinueScheduling : !canReserve}
               onPress={selectingScheduledTravel
