@@ -201,8 +201,52 @@ if [ "$accepted" -ne 1 ]; then
   exit 1
 fi
 # Continue only AFTER the server has accepted this exact Travel.
-if ! maestro --device "$OP" test --test-output-dir=artifacts/native-commercial-android/maestro-operator-fulfill .maestro/generated/qa-commercial-operator-fulfill.yml > artifacts/native-commercial-android/operator.log 2>&1; then
+# Break up the expensive sequence at a real backend-verified lifecycle gate.
+if ! maestro --device "$OP" test --test-output-dir=artifacts/native-commercial-android/maestro-operator-board .maestro/generated/qa-commercial-operator-arrive-board.yml > artifacts/native-commercial-android/operator-board.log 2>&1; then
+  tail -90 artifacts/native-commercial-android/operator-board.log
+  exit 1
+fi
+# Completion is NOT valid at the pickup. Simulate actual movement through the
+# emulator's native GPS, never by writing a fake server position or completion.
+# The authenticated Operator app must independently renew its own fresh server
+# location near the destination before the actual "Complete Operation" tap.
+DESTINATION=''
+for attempt in $(seq 1 12); do
+  if DESTINATION="$(node scripts/native-qa-operator-destination.cjs coordinates 2> artifacts/native-commercial-android/destination-preflight.log)"; then
+    break
+  fi
+  sleep 2
+done
+if [ -z "$DESTINATION" ]; then
+  echo 'QA_NATIVE_DESTINATION_UNAVAILABLE: actual Travel never reached onboard'
+  tail -25 artifacts/native-commercial-android/destination-preflight.log
+  exit 1
+fi
+read -r DEST_LNG DEST_LAT <<< "$DESTINATION"
+case "$DEST_LNG $DEST_LAT" in
+  *[!0-9.\ -]*|' '|'') echo 'QA_INVALID_DESTINATION_COORDINATES'; exit 1 ;;
+esac
+adb -s "$OP" emu geo fix "$DEST_LNG" "$DEST_LAT"
+echo 'QA native Operator location advanced by device GPS; waiting for app-authenticated presence, not editing Firestore'
+destination_ready=0
+for attempt in $(seq 1 45); do
+  if node scripts/native-qa-operator-destination.cjs verify > artifacts/native-commercial-android/destination-position.log 2>&1; then
+    destination_ready=1
+    break
+  fi
+  sleep 4
+done
+if [ "$destination_ready" -ne 1 ]; then
+  echo 'QA_NATIVE_POSITION_NOT_RENEWED: device reported destination but backend has no fresh destination position'
+  tail -25 artifacts/native-commercial-android/destination-position.log
+  node backend/native-commercial-qa-readonly-snapshot.cjs > artifacts/native-commercial-android/pre-completion-position-snapshot.json 2>&1 || true
+  exit 1
+fi
+cat artifacts/native-commercial-android/destination-position.log
+# A valid device location does not waive any server security, payment or lifecycle gate.
+if ! maestro --device "$OP" test --test-output-dir=artifacts/native-commercial-android/maestro-operator-complete .maestro/generated/qa-commercial-operator-complete.yml > artifacts/native-commercial-android/operator.log 2>&1; then
   tail -90 artifacts/native-commercial-android/operator.log
+  node backend/native-commercial-qa-readonly-snapshot.cjs > artifacts/native-commercial-android/completion-refusal-snapshot.json 2>&1 || true
   exit 1
 fi
 node backend/native-commercial-qa-reconcile.cjs | tee artifacts/native-commercial-android/reconciliation.log
