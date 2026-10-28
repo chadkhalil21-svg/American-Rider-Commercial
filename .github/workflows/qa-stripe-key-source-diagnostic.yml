@@ -1,0 +1,74 @@
+name: QA Stripe TEST key-source diagnostic (no device build)
+on:
+  pull_request:
+    branches: [qa/ios-choose-actual-wynwood-result-20261027]
+    paths: ['.github/workflows/qa-stripe-key-source-diagnostic.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  identify-existing-qa-key-source:
+    if: ${{ github.event_name == 'pull_request' && github.event.pull_request.number == 393 }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      STRIPE_TEST_SECRET_KEY: ${{ secrets.STRIPE_TEST_SECRET_KEY }}
+      QA_PK_SECRET: ${{ secrets.STRIPE_TEST_PUBLISHABLE_KEY }}
+      QA_PK_TEST_VARIABLE: ${{ vars.STRIPE_TEST_PUBLISHABLE_KEY }}
+      QA_PK_LEGACY_VARIABLE: ${{ vars.STRIPE_PUBLISHABLE_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install pinned Stripe SDK only
+        run: npm ci --prefix backend --omit=dev --no-audit --no-fund
+      - name: Compare existing key sources against ONE disposable Stripe TEST intent without a card
+        shell: bash
+        run: |
+          set -euo pipefail
+          node - <<'NODE'
+          'use strict';
+          const assert=require('node:assert/strict');
+          const Stripe=require('./backend/node_modules/stripe');
+          const e=process.env;
+          assert.match(e.STRIPE_TEST_SECRET_KEY||'',/^sk_test_/,'Configured TEST secret missing');
+          const candidates=[
+            ['repo-secret-STRIPE_TEST_PUBLISHABLE_KEY',e.QA_PK_SECRET],
+            ['repo-variable-STRIPE_TEST_PUBLISHABLE_KEY',e.QA_PK_TEST_VARIABLE],
+            ['legacy-variable-STRIPE_PUBLISHABLE_KEY',e.QA_PK_LEGACY_VARIABLE],
+          ];
+          const stripe=new Stripe(e.STRIPE_TEST_SECRET_KEY);
+          (async()=>{
+            assert.equal((await stripe.balance.retrieve()).livemode,false,'No LIVE Stripe operation permitted');
+            const intent=await stripe.paymentIntents.create({
+              amount:100,currency:'usd',payment_method_types:['card'],
+              metadata:{qa_only:'true',purpose:'identify_existing_test_key_source'},
+            });
+            try {
+              assert.equal(intent.livemode,false);
+              assert.equal(intent.status,'requires_payment_method');
+              const matching=[];
+              for(const [label,key] of candidates){
+                if(!key){console.log(label+': absent');continue;}
+                if(!key.startsWith('pk_test_')){console.log(label+': not-test; refused');continue;}
+                try{
+                  const url='https://api.stripe.com/v1/payment_intents/'+encodeURIComponent(intent.id)+
+                    '?client_secret='+encodeURIComponent(intent.client_secret);
+                  const res=await fetch(url,{headers:{Authorization:'Bearer '+key},signal:AbortSignal.timeout(15000)});
+                  const data=await res.json().catch(()=>({}));
+                  const good=res.status===200 && data.id===intent.id && data.livemode===false;
+                  console.log(label+': '+(good?'MATCH':'NO MATCH ('+res.status+' / '+String(data?.error?.code||'unknown')+')'));
+                  if(good)matching.push(label);
+                }catch{console.log(label+': lookup failed; not certified');}
+              }
+              const unique=[...new Set(matching)];
+              console.log('Existing verified matches: '+unique.length);
+              if(unique.length)console.log('MATCHING_SOURCE_LABELS='+unique.join(','));
+              assert.ok(unique.length,'No existing publishable source matches the configured secret. Check Stripe TEST sandbox/account identity, not key existence.');
+            }finally{
+              await stripe.paymentIntents.cancel(intent.id);
+              console.log('Disposed of diagnostic PaymentIntent without confirming or capturing payment');
+            }
+          })().catch(err=>{console.error('QA KEY-SOURCE CHECK FAILED: '+err.message);process.exitCode=1;});
+          NODE
