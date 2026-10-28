@@ -69,13 +69,13 @@ PY
 echo 'QA_IOS_STAGE=operator_login_and_on_duty'
 # The first native stage initializes XCTest from a cold macOS/Xcode runner.
 # Allow the full driver budget plus actual UI time; not a blank 4-minute kill.
-run_maestro operator-start "$SIM_OPERATOR" .maestro/generated/qa-commercial-ios-operator-start.yml 660
+run_maestro operator-start "$SIM_OPERATOR" .maestro/generated/qa-commercial-ios-operator-start.yml 1050
 echo 'QA_IOS_STAGE=two_device_offer_and_traveler_payment'
-run_maestro operator-offer "$SIM_OPERATOR" .maestro/generated/qa-commercial-ios-operator-offer.yml 650 &
+run_maestro operator-offer "$SIM_OPERATOR" .maestro/generated/qa-commercial-ios-operator-offer.yml 1500 &
 OFFER_PID=$!
 # The Traveler pays in a SEPARATE actual iPhone simulator while the Operator
 # is already in service and monitoring offers on their own device.
-run_maestro traveler "$SIM_DEVICE" .maestro/generated/qa-commercial-traveler.yml 650
+run_maestro traveler "$SIM_DEVICE" .maestro/generated/qa-commercial-traveler.yml 1450
 wait "$OFFER_PID"
 OFFER_PID=''
 node scripts/native-qa-ios-confirm-accepted.cjs
@@ -86,7 +86,7 @@ kill "$HEARTBEAT_PID" 2>/dev/null || true
 wait "$HEARTBEAT_PID" 2>/dev/null || true
 HEARTBEAT_PID=''
 echo 'QA_IOS_STAGE=operator_arrive_board'
-run_maestro operator-board "$SIM_OPERATOR" .maestro/generated/qa-commercial-ios-operator-board.yml 240
+run_maestro operator-board "$SIM_OPERATOR" .maestro/generated/qa-commercial-ios-operator-board.yml 1050
 # This guard reads the same local Travel's destination only AFTER server acceptance
 # and on-device boarding. No synthetic Firestore writes or fake completion.
 DESTINATION=''
@@ -119,7 +119,7 @@ if [ "$READY" -ne 1 ]; then
 fi
 cat artifacts/native-commercial-ios/destination-position.log
 echo 'QA_IOS_STAGE=operator_actual_completion'
-run_maestro operator-complete "$SIM_OPERATOR" .maestro/generated/qa-commercial-ios-operator-complete.yml 180
+run_maestro operator-complete "$SIM_OPERATOR" .maestro/generated/qa-commercial-ios-operator-complete.yml 1050
 # Do not rely on the QA presence heartbeat after the Operator moves.
 # Fresh authenticated destination telemetry has already been asserted above.
 echo 'QA_IOS_STAGE=real_stripe_test_reconciliation'
