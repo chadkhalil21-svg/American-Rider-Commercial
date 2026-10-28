@@ -32,7 +32,7 @@ fs.writeFileSync(path.join(dir,'qa-commercial-operator-fulfill.yml'),after);
 // The server requires independently fresh location near the destination for
 // completion. Split the actual device flow without faking a server transition:
 // arrival + boarding on device, emulator GPS movement, then completion on device.
-const finishMarker='- extendedWaitUntil:\\n    visible:\\n      id: "operator-complete-operation"';
+const finishMarker=['- extendedWaitUntil:', '    visible:', '      id: "operator-complete-operation"'].join(String.fromCharCode(10));
 const finishOffset=after.indexOf(finishMarker);
 assert.ok(finishOffset>120 && after.indexOf(finishMarker,finishOffset+1)===-1,
   'Refuse ambiguous Operator completion split');
