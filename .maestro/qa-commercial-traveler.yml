@@ -90,13 +90,19 @@ appId: com.americanrider.app
     text: "Confirm Travel"
     enabled: true
 - tapOn: "Confirm Travel"
-- extendedWaitUntil:
-    visible: "New card"
-    timeout: 45000
-# Real Android/iOS Stripe PaymentSheet evidence in runs 40625765922 and
-# 40625766005 shows a payment-method picker (Card, Link, etc.) first.
-# Card number is not visible until the Traveler explicitly chooses Card.
-- tapOn: "New card"
+- runFlow:
+    when:
+      visible: "New card"
+    commands:
+      - tapOn: "New card"
+      - extendedWaitUntil:
+          visible: "Card number"
+          timeout: 45000
+- runFlow:
+    when:
+      notVisible: "Card number"
+    commands:
+      - tapOn: "Card"
 - extendedWaitUntil:
     visible: "Card number"
     timeout: 45000
