@@ -589,7 +589,7 @@ export default function OperatorHome() {
                     try {
                       if (await op.acceptRequest(request)) {
                         dismissAccepted();
-                        router.navigate('/operator/pickup');
+                        router.replace('/operator/pickup');
                       } else {
                         setAcceptError(t('traveler.couldNotSaveConn'));
                         openRequest(request);
