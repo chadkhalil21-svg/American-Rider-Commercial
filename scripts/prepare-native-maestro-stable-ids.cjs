@@ -25,6 +25,14 @@ function generate(role){
     '- extendedWaitUntil:\n    visible:\n      id: "auth-email-entry"\n    timeout: 60000\n- assertVisible:\n    id: "auth-email-entry"\n- extendedWaitUntil:\n    notVisible: "American Rider Network — Unreachable"\n    timeout: 60000',
     'native login and isolated network readiness');
   if(role==='traveler'){
+    // Run 40735430356: real iPhone failure screenshot displayed the
+    // complete Arrange Your Travel page, but a deep Maestro hierarchy caused
+    // the title-text wait to time out. Confirm the real interactive destination
+    // button instead; auth overlay must disappear first as before.
+    result=edit(result,
+      '- extendedWaitUntil:\n    visible: "Arrange Your Travel"\n    timeout: 60000',
+      '- extendedWaitUntil:\n    visible:\n      id: "traveler-open-destination"\n    timeout: 60000',
+      'iOS post-auth real home destination control');
     const pairs=[
       ['- tapOn: "Select your destination"','- tapOn:\n    id: "traveler-open-destination"'],
       ['- tapOn: "Search a place or address"','- tapOn:\n    id: "destination-search-input"'],
