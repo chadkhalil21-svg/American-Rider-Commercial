@@ -29,6 +29,23 @@ assert.ok(!after.includes('launchApp:'));
 
 fs.writeFileSync(path.join(dir,'qa-commercial-operator-start.yml'),before);
 fs.writeFileSync(path.join(dir,'qa-commercial-operator-fulfill.yml'),after);
+// The server requires independently fresh location near the destination for
+// completion. Split the actual device flow without faking a server transition:
+// arrival + boarding on device, emulator GPS movement, then completion on device.
+const finishMarker='- extendedWaitUntil:\\n    visible:\\n      id: "operator-complete-operation"';
+const finishOffset=after.indexOf(finishMarker);
+assert.ok(finishOffset>120 && after.indexOf(finishMarker,finishOffset+1)===-1,
+  'Refuse ambiguous Operator completion split');
+const onboard=after.slice(0,finishOffset);
+const finish=header+after.slice(finishOffset);
+assert.ok(onboard.includes('operator-commence-travel') &&
+  onboard.includes('operator-confirm-arrival') &&
+  !onboard.includes('operator-complete-operation'), 'Arrival/boarding must precede movement');
+assert.ok(finish.includes('operator-complete-operation') &&
+  finish.includes('Operation Complete') && !finish.includes('launchApp:'),
+  'Completion remains a real same-session native interaction');
+fs.writeFileSync(path.join(dir,'qa-commercial-operator-arrive-board.yml'),onboard);
+fs.writeFileSync(path.join(dir,'qa-commercial-operator-complete.yml'),finish);
 // Android isolated QA boots a fresh, -wipe-data Traveler AVD and installs the
 // test APK. Repeating Maestro's pm clear after Operator is online caused ADB
 // transport loss twice in run 40731968081, with zero booked Travels.
