@@ -60,9 +60,13 @@ jobs:
     # Still fail closed unless the safety preflight actually passed.
     if: ${{ github.event.pull_request.number == 390 && needs.isolated-commercial-safety.result == 'success' }}
     # Never hold the cleanup job itself behind a pre-concurrency build.
+    # New, syntax-validated source supersedes previously started QA binaries.
+    # Cancel only the SAME platform's obsolete run, not the other platform.
+    # This avoids wasted compilation and stale binaries without serializing
+    # iOS behind Android or vice versa.
     concurrency:
       group: corrected-fare-footer-390-${{ matrix.platform }}
-      cancel-in-progress: false
+      cancel-in-progress: true
     strategy:
       fail-fast: false
       matrix:
