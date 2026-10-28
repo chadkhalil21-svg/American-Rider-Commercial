@@ -1,3 +1,31 @@
+## 28 October 2026 | FOUNDER-DIRECTED NEXT NATIVE QA PHASE: REAL SIGNUP AND COMPLETE ONBOARDING
+
+**Founder instruction and sequencing (28 October):** Once the CURRENT isolated iOS and Android native Traveler→Operator paid-Travel emulations/simulations finish and their evidence is inspected, perform a SECOND, full-lifecycle native QA campaign covering first-install sign-up and onboarding. Do not confuse existing precreated Firebase fixture accounts or seeded synthetic insurance/screening records with actual sign-up or new-Operator onboarding. Do not interrupt, cancel or unnecessarily rebuild the two in-flight paid-Travel QA runs for this follow-on requirement. This is an explicit future QA work item, not a claim of implementation or successful tests.
+
+**Required iOS + Android lifecycle acceptance (distinct positive/negative paths):**
+1. **New Traveler:** first install, email/password registration and verification, Apple/Google sign-in as applicable on signed devices, account/profile setup, terms/permissions, returning sign-in, logout/recovery, invitation/referral-code entry and recovery after website→app/store install. Verify direct signup succeeds with **no Recruiter or referral at all**.
+2. **New Operator:** start registration in an actually open market; identity and vehicle/document submission, insurance disclosure, insurer status confirmation and expiration/renewal/24-hour lockout, provider-neutral background screening/consent/recheck, real server qualification, Stripe Connect onboarding and account readiness, duty eligibility, active presence/location permissions and honest blocked/pending states. Test invalid, missing, expired, rejected, closed-market and service-recovery paths; never bypass real coverage, screening, vehicle or Stripe gates. External insurer, CRA and bank results require actual independent provider evidence, not test approvals.
+3. **Complete joined commercial journey:** newly eligible Operator and registered Traveler each progress through authentic two-device dispatch, fare quote, Stripe TEST authorization, acceptance/pickup/Teen PIN when relevant, completion, capture, Operator Connect transfer, receipt, cancellations/no-show, retry/duplicate/webhook/refund recovery. Reconcile the SAME Firestore Travel and TEST provider IDs and amounts. Negative/adversarial role/auth/referral, expired offer, disconnected background app and link restoration remain separate checks.
+4. **Optional invitations and Recruiter:** existing Traveler/Operator invitation links/codes, introduction attribution, app-install/web fallback, privacy and duplicate/self-referral defenses; separately verify approved independent Recruiter signup, agreement, Stripe/tax/bank setup, eligible commission accrual, reversal and actual payout only once independently commissioned. Recruitment must NEVER gate ordinary Traveler/Operator registration, bookings, settlement or Operator pay; do not create an Operator-specific second Recruiter dashboard or Connect account.
+5. **Release/real-world boundary:** use synthetic isolated QA first and preserve checksum-matched binaries, then independently test signed TestFlight/Play/internal builds on physical iPhone and Android for native Apple/Google OAuth, permissions, background location, push, payment wallet capability, universal/deferred links and account recovery. Never describe green emulator code as live insurance/CRA clearance, licensed geographic authority, actual bank payout, store approval or commercial launch.
+
+**Current paid-Travel run snapshot when this follow-on requirement was recorded:** iOS [40702841352](https://github.com/chadkhalil21-svg/American-Rider-Commercial/actions/runs/40702841352) and Android concurrent-two-emulator [40703430303](https://github.com/chadkhalil21-svg/American-Rider-Commercial/actions/runs/40703430303) had passed isolated preflight and were both executing their native journeys; neither was independently certified complete at that checkpoint. Previous actual iOS PaymentSheet presented saved Visa/New card instead of generic Card; corrected only on a QA branch. Prior Android single-device sequential session lost the real assigned offer; parallel two-device QA branch is testing without widening the 45-second offer window. Both are **QA branches, not released product code**. Build 57 not submitted by this entry.
+
+**Current status table for follow-on campaign (not yet executed):**
+
+| Required phase | Status 28 October | Next evidence |
+| --- | --- | --- |
+| Current iOS native paid Travel | Running, full reconciliation unverified | Actual run outcome + same-Travel TEST capture/Connect transfer |
+| Current Android two-device paid Travel | Running, full reconciliation unverified | Actual run outcome + same-Travel TEST capture/Connect transfer |
+| New Traveler signup/Apple/Google/recovery | NOT covered by current preseeded-account QA | First-install native identity and direct-signup traces on both OS |
+| New Operator registration/insurance/screening/Stripe Connect | NOT covered by current preseeded-account QA | End-to-end new-Operator workflow and independent provider checks |
+| Invitation/referral/install recovery and optional Recruiter | NOT covered by current core QA | Separate attribution and legally commissioned payout traces; never block core |
+| Signed devices + Store Build 57 | NOT certified/submitted by simulator testing | Exact-SHA signed-device results and verified external Store/provider acceptance |
+
+**Scope:** Ledger-only founder instruction and acceptance order. No QA workflow, production app, eligibility rule, provider keys, live market, running tests or signed Store build is changed by this entry.
+
+---
+
 ## 27 October 2026 | EVIDENCE-CORRECTED NATIVE QA, STRIPE KEY PROVENANCE, ADVERSARIAL LIMITS
 
 **Founder instruction:** Stop reopening previously completed credential setup or rebuilding unchanged native QA apps. Reconcile actual workflow, Stripe TEST account identity, fixture source, compiled binary and signed-device provenance BEFORE asserting a new blocker. This entry supersedes older in-progress snapshots in this ledger; older entries remain historical.
