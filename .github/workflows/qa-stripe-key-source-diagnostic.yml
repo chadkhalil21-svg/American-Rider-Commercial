@@ -41,6 +41,16 @@ jobs:
           const stripe=new Stripe(e.STRIPE_TEST_SECRET_KEY);
           (async()=>{
             assert.equal((await stripe.balance.retrieve()).livemode,false,'No LIVE Stripe operation permitted');
+            // Read-only account identity: identify WHICH Stripe sandbox currently owns the
+            // configured, functioning TEST secret. Do not expose either credential.
+            const accountResp=await fetch('https://api.stripe.com/v1/account',{
+              headers:{Authorization:'Bearer '+e.STRIPE_TEST_SECRET_KEY},
+              signal:AbortSignal.timeout(10000),
+            });
+            assert.equal(accountResp.status,200,'Cannot retrieve the TEST secret account identity');
+            const account=await accountResp.json();
+            assert.match(account.id||'',/^acct_[A-Za-z0-9]+$/,'TEST account ID unavailable');
+            console.log('CONFIGURED_TEST_SECRET_ACCOUNT_ID='+account.id);
             const intent=await stripe.paymentIntents.create({
               amount:100,currency:'usd',payment_method_types:['card'],
               metadata:{qa_only:'true',purpose:'identify_existing_test_key_source'},
