@@ -109,13 +109,31 @@ def main():
         try:
             scan = adb(args.device, "exec-out", "uiautomator", "dump", "/dev/tty", deadline=15)
         except subprocess.TimeoutExpired:
+            with (OUT/"operator-accept-scan-trace.ndjson").open("a") as trace:
+                trace.write(json.dumps({"poll":polls,"outcome":"scan_timeout"})+"\n")
             time.sleep(0.5)
             continue
         elapsed = time.monotonic()-started
-        if scan.returncode != 0 or elapsed > 7:
+        data = scan.stdout
+        # A snapshot that took 8-14 seconds may still show a live 15-second
+        # offer. The former 7-second cutoff silently discarded even a valid
+        # button during two-emulator CPU contention. Never skip valid evidence
+        # just because the ADB extraction was slow; the real backend still
+        # enforces offer expiry when the actual on-screen touch arrives.
+        if polls == 1 or polls % 5 == 0 or elapsed > 7 or BUTTON.encode() in data:
+            with (OUT/"operator-accept-scan-trace.ndjson").open("a") as trace:
+                trace.write(json.dumps({
+                    "poll":polls,
+                    "snapshotSeconds":round(elapsed,3),
+                    "returnCode":scan.returncode,
+                    "snapshotBytes":len(data),
+                    "acceptIdPresent":BUTTON.encode() in data,
+                    "offerLabelPresent":b"Accept Traveler" in data,
+                    "inServiceLabelPresent":b"In Service" in data,
+                })+"\n")
+        if scan.returncode != 0:
             time.sleep(0.5)
             continue
-        data = scan.stdout
         button = parse_button(data)
         if button:
             # Save observed tree prior to tapping, never fake API events.
