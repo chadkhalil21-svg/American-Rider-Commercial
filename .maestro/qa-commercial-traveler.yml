@@ -105,7 +105,18 @@ appId: com.americanrider.app
 # PaymentSheet does not appear or the eligible Operator is not available.
 - tapOn: "Card number"
 - inputText: "4242424242424242"
-- tapOn: "MM / YY"
+# Android Stripe labels the expiry control by accessible purpose, not the
+# visual MM / YY placeholder. Captured in run 40627439913 screenshot/UI tree.
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - tapOn: ".*Expiration date.*"
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - tapOn: "MM / YY"
 - inputText: "1230"
 - tapOn: "CVC"
 - inputText: "123"
