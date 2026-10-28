@@ -247,9 +247,10 @@ export default function OperatorPickup() {
       </Pressable>
 
       {!arrived ? (
-        <PrimaryButton label={transitioning ? t('traveler.pleaseWait') : t('operator.confirmArrival')} disabled={transitioning} onPress={async () => { setTransitioning(true); setTransitionError(null); const ok = await op.confirmArrival(); setTransitioning(false); if (!ok) setTransitionError(t('traveler.errGeneric')); }} style={{ marginTop: 24 }} />
+        <PrimaryButton testID="operator-confirm-arrival" label={transitioning ? t('traveler.pleaseWait') : t('operator.confirmArrival')} disabled={transitioning} onPress={async () => { setTransitioning(true); setTransitionError(null); const ok = await op.confirmArrival(); setTransitioning(false); if (!ok) setTransitionError(t('traveler.errGeneric')); }} style={{ marginTop: 24 }} />
       ) : (
         <PrimaryButton
+          testID="operator-commence-travel"
           label={t('operator.commenceTravel')}
           color={colors.green}
           disabled={transitioning}
