@@ -98,6 +98,7 @@ export default function OperatorComplete() {
 
       <View style={{ flex: 1 }} />
       <PrimaryButton
+        testID="operator-return-to-operations"
         label={t('operator.returnToOperations')}
         color={colors.green}
         onPress={() => router.dismissTo('/operator')}
