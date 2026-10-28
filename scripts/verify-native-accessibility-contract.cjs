@@ -14,6 +14,20 @@ assert.match(primary, /<Pressable\s+testID=\{testID\}/, 'PrimaryButton must forw
 assert.match(primary, /accessibilityRole="button"/, 'PrimaryButton must expose an actual button role');
 assert.match(primary, /disabled=\{disabled\}/, 'PrimaryButton must expose real enabled/disabled state');
 
+// The actual screenshot evidence on BOTH platforms showed a long confirmation
+// body with no visible price. Screen(scroll=false) wraps children inside an
+// outer ScrollView. Reserve ALSO owns an inner ScrollView and a footer, so the
+// nested wrapper pushes the footer below the viewport. Never regress this.
+assert.match(primary, /contentOwnsScrolling\?: boolean/,
+  'Screen must support an explicit child-owned scroll mode');
+assert.match(primary, /if \(contentOwnsScrolling\) \{[\s\S]*?<View style=\{\[styles\.screen, pad\]\}>/,
+  'The child-owned scroll mode must NOT wrap children in a second ScrollView');
+const reserveLayout = load('app/reserve.tsx');
+assert.match(reserveLayout, /<Screen scroll=\{false\} contentOwnsScrolling>/,
+  'Reserve must opt out of outer Screen ScrollView so the price footer remains visible');
+assert.match(reserveLayout, /<ScrollView[\s\S]*?<\/ScrollView>[\s\S]*?\{!editing && \([\s\S]*?styles\.footer/,
+  'Reserve should own one scrollable body, with footer OUTSIDE the body scroll');
+
 const home = load('app/index.tsx');
 assert.match(home, /testID="traveler-open-destination"[\s\S]*?ride\.startBooking\(\)/,
   'Home destination entry must identify a real booking action');
