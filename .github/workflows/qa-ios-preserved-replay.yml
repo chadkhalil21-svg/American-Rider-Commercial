@@ -80,7 +80,7 @@ jobs:
       DEVELOPER_DIR: ${{ matrix.platform == 'ios' && '/Applications/Xcode_26.6.app/Contents/Developer' || '' }}
       # On a fresh macOS 26/Xcode 26.6 runner, XCTest bootstrap is separate
       # from Operator authentication. Maestro's documented knob is in ms.
-      MAESTRO_DRIVER_STARTUP_TIMEOUT: '360000'
+      MAESTRO_DRIVER_STARTUP_TIMEOUT: '720000'
       MAESTRO_CLI_NO_ANALYTICS: '1'
       NODE_ENV: test
       AR_NATIVE_PLATFORM: ${{ matrix.platform }}
@@ -333,7 +333,7 @@ jobs:
           set -euo pipefail
           mkdir -p artifacts/native-commercial-ios .qa-native-build-cache/ios
           SIM="$(xcrun simctl list -j devices available | python3 -c 'import json,sys;d=json.load(sys.stdin)["devices"];print(next(z["udid"] for a in d.values() for z in a if z.get("isAvailable") and "iPhone" in z["name"]))')"
-          echo "SIM_DEVICE=$SIM" >> "$GITHUB_ENV"
+          echo "SIM_OPERATOR=$SIM" >> "$GITHUB_ENV"
           xcrun simctl boot "$SIM" || true
           xcrun simctl bootstatus "$SIM" -b
           xcrun simctl location "$SIM" set 25.7617,-80.1918
@@ -357,16 +357,46 @@ jobs:
           tar -xzf AmericanRider.app.tgz -C "$RUNNER_TEMP/qa-cached-ios"
           test -d "$RUNNER_TEMP/qa-cached-ios/AmericanRider.app"
           xcrun simctl install "$SIM" "$RUNNER_TEMP/qa-cached-ios/AmericanRider.app"
-          # Independent signed-in Operator device. Select a second iPhone using
-          # the SAME installed simulator runtime, never share a login/session.
-          SIM_OPERATOR="$(xcrun simctl list -j devices available | python3 -c 'import json,sys;d=json.load(sys.stdin)["devices"];a=next(v for v in d.values() if any(x["udid"]==sys.argv[1] for x in v));print(next(x["udid"] for x in a if x["udid"]!=sys.argv[1] and x.get("isAvailable") and "iPhone" in x["name"]))' "$SIM")"
-          test -n "$SIM_OPERATOR" && test "$SIM_OPERATOR" != "$SIM"
-          echo "SIM_OPERATOR=$SIM_OPERATOR" >> "$GITHUB_ENV"
-          xcrun simctl boot "$SIM_OPERATOR"
-          xcrun simctl bootstatus "$SIM_OPERATOR" -b
-          xcrun simctl location "$SIM_OPERATOR" set 25.7617,-80.1918
-          xcrun simctl install "$SIM_OPERATOR" "$RUNNER_TEMP/qa-cached-ios/AmericanRider.app"
-          echo 'PASS: two distinct iPhone simulators installed with the identical checksum-verified QA app'
+          # Prove the XCUITest driver can connect and control the REAL native app
+          # on ONE simulator before booting a second expensive iOS 26 runtime.
+          # No sign-in, booking, payment, or backend mutation occurs in this probe.
+          # This also produces separate infrastructure evidence if XCTest fails.
+          cat > "$RUNNER_TEMP/qa-xctest-smoke.yaml" <<'YAML'
+          appId: com.americanrider.app
+          ---
+          - launchApp
+          - assertVisible: "AMERICAN RIDER"
+          YAML
+          echo 'QA_IOS_DRIVER_SMOKE_START single-simulator'
+          python3 - "$SIM" "$RUNNER_TEMP/qa-xctest-smoke.yaml" <<'PY'
+          import os,sys,pathlib,subprocess,signal
+          sim,flow=sys.argv[1:]
+          out=pathlib.Path('artifacts/native-commercial-ios/xctest-driver-smoke.log')
+          with out.open('w') as f:
+              proc=subprocess.Popen(['maestro','--device',sim,'test',flow],
+                                    stdout=f,stderr=subprocess.STDOUT,start_new_session=True)
+              try: rc=proc.wait(timeout=900)
+              except subprocess.TimeoutExpired:
+                  os.killpg(proc.pid,signal.SIGTERM)
+                  try: proc.wait(timeout=8)
+                  except subprocess.TimeoutExpired: os.killpg(proc.pid,signal.SIGKILL)
+                  rc=124
+          if rc:
+              print('QA_IOS_DRIVER_SMOKE_FAILED',rc,flush=True)
+              print('\n'.join(out.read_text(errors='replace').splitlines()[-65:]),flush=True)
+              sys.exit(rc)
+          print('PASS: actual XCUITest driver controlled native American Rider sign-in screen on one iPhone',flush=True)
+          PY
+          # Only AFTER XCTest is independently verified do we allocate the
+          # Traveler simulator. Both receive the same checksum-verified .app.
+          SIM_TRAVELER="$(xcrun simctl list -j devices available | python3 -c 'import json,sys;d=json.load(sys.stdin)["devices"];a=next(v for v in d.values() if any(x["udid"]==sys.argv[1] for x in v));print(next(x["udid"] for x in a if x["udid"]!=sys.argv[1] and x.get("isAvailable") and "iPhone" in x["name"]))' "$SIM")"
+          test -n "$SIM_TRAVELER" && test "$SIM_TRAVELER" != "$SIM"
+          echo "SIM_DEVICE=$SIM_TRAVELER" >> "$GITHUB_ENV"
+          xcrun simctl boot "$SIM_TRAVELER"
+          xcrun simctl bootstatus "$SIM_TRAVELER" -b
+          xcrun simctl location "$SIM_TRAVELER" set 25.7617,-80.1918
+          xcrun simctl install "$SIM_TRAVELER" "$RUNNER_TEMP/qa-cached-ios/AmericanRider.app"
+          echo 'PASS: one-device XCTest smoke succeeded, two independent iPhone simulators installed with identical SHA-verified app'
       - name: Save iOS simulator app across QA-only test revisions
         if: matrix.platform == 'ios' && steps.native-build-cache.outputs.cache-hit != 'true'
         uses: actions/cache/save@v4
