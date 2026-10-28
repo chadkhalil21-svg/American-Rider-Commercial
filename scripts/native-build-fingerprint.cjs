@@ -17,6 +17,13 @@ const ignored = (p) => p.startsWith('.github/') || p.startsWith('.maestro/') ||
   'scripts/native-commercial-env-preflight.cjs',
   // Only talks to Stripe from the CI runner; never bundled into the native app.
   'scripts/native-qa-stripe-pair-fastcheck.cjs',
+  // QA-only orchestrators are executed by CI, never imported or bundled by
+  // the native application; retaining them in the digest needlessly compiles
+  // an unchanged iPhone app for every Maestro test correction.
+  'scripts/native-commercial-ios-dual-runner.sh',
+  'scripts/native-qa-ios-confirm-accepted.cjs',
+  'scripts/native-qa-ios-prepare-role-flows.cjs',
+  'scripts/native-qa-operator-destination.cjs',
   'scripts/prepare-native-maestro-stable-ids.cjs',
   'scripts/verify-native-accessibility-contract.cjs'].includes(p);
 const h = crypto.createHash('sha256');
