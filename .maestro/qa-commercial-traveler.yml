@@ -5,7 +5,8 @@ appId: com.americanrider.app
 - launchApp:
     clearState: true
 - assertVisible: "AMERICAN RIDER"
-- tapOn: "Email Address"
+- tapOn:
+    id: "auth-email-entry"
 - setClipboard: "native.qa.traveler@example.test"
 - pasteText
 - assertVisible:
