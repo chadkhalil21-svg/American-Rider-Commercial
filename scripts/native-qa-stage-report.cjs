@@ -69,8 +69,9 @@ stage('operator_completion_server',
   !!ride&&ride.status==='completed'&&!!ride.acceptedAt,
   snapshotFile||'missing local Firestore snapshot','backend');
 stage('stripe_test_captured_and_transferred',
+  !!ride&&ride.status==='completed'&&!!ride.acceptedAt&&
   observed(reconciliation,/^PASS: one mobile-booked, native-Operator-completed, Stripe TEST captured and transferred Travel/m),
-  'reconciliation.log (Stripe TEST independent fetch)','provider');
+  'reconciliation.log + matching completed local Firestore Travel','provider');
 const logs=[operatorStart,traveler,operator,read('traveler-emulator.log')].join('\n');
 const indicators=logs.match(/(?:Assert that|Tap on|Launch app|QA_INFRA_[A-Z_]+|Assertion is false|Element not found)[^\r\n]*(?:FAILED|offline|responding|not found)?/g)||[];
 const classification=/QA_INFRA_|Pixel Launcher isn.t responding|device offline/.test(logs)
