@@ -10,6 +10,10 @@ on:
       - 'app/operator/**'
       - 'src/components/UI.tsx'
       - 'scripts/verify-native-accessibility-contract.cjs'
+      - 'scripts/native-commercial-env-preflight.cjs'
+      - 'backend/tolls.js'
+      - 'backend/native-qa-toll-fixture.js'
+      - 'backend/native-qa-toll-fixture.test.js'
       - '.maestro/qa-commercial-*.yml'
       - 'backend/native-commercial-qa-*.cjs'
       - 'backend/native-qa-isolation.js'
@@ -31,6 +35,10 @@ jobs:
           node-version: '22'
       - name: Refuse all live Stripe and production Firebase contexts, keep old sign-in QA safe
         run: node backend/native-qa-isolation.test.js
+      - name: Verify synthetic local toll fixture never leaks to production
+        run: |
+          node backend/native-qa-toll-fixture.test.js
+          node backend/tolls.test.js
       - name: Validate native Android runner syntax before expensive builds
         run: bash -n scripts/native-commercial-android-runner.sh
       - name: Verify every native journey target and platform-specific keyboard gesture before expensive builds
