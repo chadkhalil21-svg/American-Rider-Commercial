@@ -11,6 +11,8 @@ on:
       - 'src/components/UI.tsx'
       - 'scripts/verify-native-accessibility-contract.cjs'
       - 'scripts/verify-native-source-syntax.cjs'
+      - 'scripts/prepare-native-maestro-stable-ids.cjs'
+      - 'scripts/native-commercial-android-runner.sh'
       - 'scripts/native-commercial-env-preflight.cjs'
       - 'backend/tolls.js'
       - 'backend/native-qa-toll-fixture.js'
@@ -38,6 +40,8 @@ jobs:
         run: npm ci --ignore-scripts --no-audit --no-fund
       - name: Parse ALL native application TS/TSX/JSX before any device build
         run: node scripts/verify-native-source-syntax.cjs
+      - name: Validate real Maestro selectors can be converted to native IDs
+        run: node scripts/prepare-native-maestro-stable-ids.cjs
       - name: Refuse all live Stripe and production Firebase contexts, keep old sign-in QA safe
         run: node backend/native-qa-isolation.test.js
       - name: Verify synthetic local toll fixture never leaks to production
@@ -70,8 +74,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # Preserve an older unfinished iOS build while immediately rebuilding
-        # only the Android QA APK with its scoped Firebase emulator network XML.
+        # Both OS jobs run independently; a newer run supersedes only its own
+        # older same-platform job. Identical compiled QA binaries are cached.
         platform: [ios, android]
         include:
           - platform: ios
@@ -84,7 +88,7 @@ jobs:
     timeout-minutes: 155
     env:
       CI: '1'
-      DEVELOPER_DIR: ${{ matrix.platform == 'ios' && '/Applications/Xcode_16.4.app/Contents/Developer' || '' }}
+      DEVELOPER_DIR: ${{ matrix.platform == 'ios' && '/Applications/Xcode_26.3.app/Contents/Developer' || '' }}
       MAESTRO_DRIVER_STARTUP_TIMEOUT: '180000'
       NODE_ENV: test
       AR_NATIVE_PLATFORM: ${{ matrix.platform }}
@@ -122,11 +126,20 @@ jobs:
           case "$STRIPE_SECRET_KEY" in sk_test_*) ;; *) echo "::error::Only STRIPE_TEST_SECRET_KEY permitted"; exit 1;; esac
           case "$STRIPE_PUBLISHABLE_KEY" in pk_test_*) ;; *) echo "::error::Matching STRIPE_TEST_PUBLISHABLE_KEY is not configured"; exit 1;; esac
           git rev-parse HEAD
+      - name: Refuse incompatible Apple Swift toolchain before iOS compilation
+        if: matrix.platform == 'ios'
+        shell: bash
+        run: |
+          xcodebuild -version
+          swift --version
+          swift --version | grep -Eq 'Apple Swift version (6\\.[2-9]|[7-9]\\.)' || { echo '::error::Expo SDK 57 requires Swift tools >= 6.2'; exit 1; }
       - name: Install app/backend and Firebase emulator dependencies
         run: |
           npm ci --ignore-scripts
           npm ci --prefix backend --omit=dev
           npm ci --prefix infra/rules-emulator
+      - name: Generate stable native ID Maestro flows before device tests
+        run: node scripts/prepare-native-maestro-stable-ids.cjs
       - name: Start disposable Firebase Auth/Firestore emulators
         shell: bash
         run: |
@@ -305,8 +318,8 @@ jobs:
         run: |
           set -euo pipefail
           export PATH="$HOME/.maestro/bin:$PATH"
-          maestro test .maestro/qa-commercial-traveler.yml > artifacts/native-commercial-ios/traveler.log 2>&1 || { tail -75 artifacts/native-commercial-ios/traveler.log; mkdir -p artifacts/native-commercial-ios/maestro-debug; cp -R "$HOME/.maestro/tests/." artifacts/native-commercial-ios/maestro-debug/ 2>/dev/null || true; xcrun simctl io "$SIM_DEVICE" screenshot artifacts/native-commercial-ios/failure-screen.png || true; exit 1; }
-          maestro test .maestro/qa-commercial-operator.yml > artifacts/native-commercial-ios/operator.log 2>&1 || { tail -75 artifacts/native-commercial-ios/operator.log; mkdir -p artifacts/native-commercial-ios/maestro-debug; cp -R "$HOME/.maestro/tests/." artifacts/native-commercial-ios/maestro-debug/ 2>/dev/null || true; xcrun simctl io "$SIM_DEVICE" screenshot artifacts/native-commercial-ios/failure-screen.png || true; exit 1; }
+          maestro test .maestro/generated/qa-commercial-traveler.yml > artifacts/native-commercial-ios/traveler.log 2>&1 || { tail -75 artifacts/native-commercial-ios/traveler.log; mkdir -p artifacts/native-commercial-ios/maestro-debug; cp -R "$HOME/.maestro/tests/." artifacts/native-commercial-ios/maestro-debug/ 2>/dev/null || true; xcrun simctl io "$SIM_DEVICE" screenshot artifacts/native-commercial-ios/failure-screen.png || true; exit 1; }
+          maestro test .maestro/generated/qa-commercial-operator.yml > artifacts/native-commercial-ios/operator.log 2>&1 || { tail -75 artifacts/native-commercial-ios/operator.log; mkdir -p artifacts/native-commercial-ios/maestro-debug; cp -R "$HOME/.maestro/tests/." artifacts/native-commercial-ios/maestro-debug/ 2>/dev/null || true; xcrun simctl io "$SIM_DEVICE" screenshot artifacts/native-commercial-ios/failure-screen.png || true; exit 1; }
           node backend/native-commercial-qa-reconcile.cjs
       - name: Preserve platform evidence even when full journey fails
         if: always()
