@@ -99,6 +99,11 @@ export default function TravelConfirmation() {
   const cabin = useCabinPrefs();
   const params = useLocalSearchParams<{ search?: string; q?: string; scheduling?: string; pickup?: string }>();
 
+  // Stable native accessibility selectors: test IDs identify intent, not
+  // localized text, keyboard contents, result ordering, or travel-time guesses.
+  // These are inert UI metadata, never eligibility or payment bypasses.
+  const destinationTestID = (name: string) =>
+    'destination-option-' + name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
   const [searching, setSearching] = useState(params.search === '1' && params.pickup !== '1');
   const [searchingDep, setSearchingDep] = useState(params.pickup === '1');
   const [query, setQuery] = useState('');
@@ -490,7 +495,7 @@ export default function TravelConfirmation() {
   ].filter((r): r is string => !!r);
 
   return (
-    <Screen scroll={false}>
+    <Screen scroll={false} contentOwnsScrolling>
       <LetterheadBar onBack={goBack} />
       <KeyboardAvoidingView
         style={{ flex: 1 }}
@@ -577,6 +582,7 @@ export default function TravelConfirmation() {
               <View style={[styles.slot, styles.searchSlot]}>
                 <Magnifier />
                 <TextInput
+                  testID="destination-search-input"
                   autoFocus
                   value={query}
                   onChangeText={setQuery}
@@ -588,6 +594,7 @@ export default function TravelConfirmation() {
               </View>
             ) : (
               <Pressable
+                testID="destination-open-search"
                 accessibilityRole="button"
                 disabled={smartLeg}
                 onPress={() => {
@@ -625,7 +632,7 @@ export default function TravelConfirmation() {
           {searching && (liveMatched.length > 0 || matched.length > 0 || typedPlace) && (
             <Card style={styles.resultsCard}>
               {liveMatched.map((p, i) => (
-                <Pressable key={p.id} accessibilityRole="button" onPress={() => chooseDestination({ name: p.title, short: p.title, cost: 0, meta: '', lat: p.lat, lng: p.lng })}>
+                <Pressable key={p.id} testID={destinationTestID(p.title)} accessibilityRole="button" onPress={() => chooseDestination({ name: p.title, short: p.title, cost: 0, meta: '', lat: p.lat, lng: p.lng })}>
                   <View style={[styles.resultRow, i > 0 && styles.hair]}>
                     <View style={[styles.pin, { backgroundColor: colors.ink }]} />
                     <View style={{ flex: 1 }}>
@@ -639,6 +646,7 @@ export default function TravelConfirmation() {
               {matched.filter((p) => !liveMatched.some((s) => Math.abs(s.lat-p.lat) < 0.00001 && Math.abs(s.lng-p.lng) < 0.00001)).map((p, i) => (
                 <Pressable
                   key={p.name}
+                  testID={destinationTestID(p.name)}
                   accessibilityRole="button"
                   // A server destination carries no price and no baked-in time — both belong
                   // to the chosen route, and the sheet quotes it the moment this is tapped.
@@ -664,7 +672,7 @@ export default function TravelConfirmation() {
                 </Pressable>
               ))}
               {typedPlace && (
-                <Pressable accessibilityRole="button" onPress={() => chooseDestination(typedPlace)}>
+                <Pressable testID="destination-option-custom" accessibilityRole="button" onPress={() => chooseDestination(typedPlace)}>
                   <View style={styles.resultRow}>
                     <View style={[styles.pin, { backgroundColor: colors.ink }]} />
                     <View style={{ flex: 1 }}>
@@ -922,9 +930,11 @@ export default function TravelConfirmation() {
               ) : !authoritativePriceReady ? (
                 <Text style={styles.totalState}>{t('traveler.calculating')}</Text>
               ) : (
-                <Num size={20} weight="600">
-                  {fmt(ride.travelerTotal)}
-                </Num>
+                <View testID="traveler-quote-ready" accessible accessibilityLabel={`Complete Travel Cost ${fmt(ride.travelerTotal)}`}>
+                  <Num size={20} weight="600">
+                    {fmt(ride.travelerTotal)}
+                  </Num>
+                </View>
               )}
             </Card>
             {unavailable && !pricing && <Text style={styles.stateNote}>{unavailable}</Text>}
@@ -977,6 +987,7 @@ export default function TravelConfirmation() {
               </Text>
             )}
             <PrimaryButton
+              testID="traveler-confirm-travel"
               label={busy ? t('traveler.busyChecking')
                 : t(selectingScheduledTravel ? 'traveler.schedContinueScheduling' : 'traveler.confirmTravel')}
               disabled={selectingScheduledTravel ? !canContinueScheduling : !canReserve}

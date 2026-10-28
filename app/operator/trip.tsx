@@ -143,6 +143,7 @@ export default function OperatorTrip() {
       <View style={{ flex: 1 }} />
       {completionError ? <Text style={styles.error}>{completionError}</Text> : null}
       <PrimaryButton
+        testID="operator-complete-operation"
         label={completing ? t('traveler.pleaseWait') : t('operator.completeOperation')}
         disabled={completing}
         onPress={async () => {
