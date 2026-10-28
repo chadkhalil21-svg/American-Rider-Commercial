@@ -178,5 +178,25 @@ if ! wait "$OP_FLOW_PID"; then
   exit 1
 fi
 OP_FLOW_PID=''
+# A native touchscreen tap is not proof of server acceptance.
+accepted=0
+for attempt in $(seq 1 12); do
+  node backend/native-commercial-qa-readonly-snapshot.cjs > artifacts/native-commercial-android/acceptance-after-watcher.json 2>&1 || true
+  if node scripts/native-qa-assert-operator-accepted.cjs artifacts/native-commercial-android/acceptance-after-watcher.json > artifacts/native-commercial-android/acceptance-check.log 2>&1; then
+    accepted=1
+    break
+  fi
+  sleep 2
+done
+if [ "$accepted" -ne 1 ]; then
+  echo 'FAIL: native Operator touch did not create server-confirmed acceptance'
+  tail -35 artifacts/native-commercial-android/acceptance-check.log
+  exit 1
+fi
+# Continue only AFTER the server has accepted this exact Travel.
+if ! maestro --device "$OP" test --test-output-dir=artifacts/native-commercial-android/maestro-operator-fulfill .maestro/generated/qa-commercial-operator-fulfill.yml > artifacts/native-commercial-android/operator.log 2>&1; then
+  tail -90 artifacts/native-commercial-android/operator.log
+  exit 1
+fi
 node backend/native-commercial-qa-reconcile.cjs | tee artifacts/native-commercial-android/reconciliation.log
 node backend/native-commercial-qa-readonly-snapshot.cjs > artifacts/native-commercial-android/success-local-dispatch.json 2>&1 || true
