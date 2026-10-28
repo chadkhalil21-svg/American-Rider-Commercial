@@ -133,7 +133,7 @@ fi
 node backend/native-commercial-qa-refresh-presence.cjs
 # Wait on the actual, same local Firestore Travel from the Operator device
 # while the Traveler enters Stripe TEST payment on the second device.
-maestro --device "$OP" test --test-output-dir=artifacts/native-commercial-android/maestro-operator-fulfill .maestro/generated/qa-commercial-operator-fulfill.yml > artifacts/native-commercial-android/operator.log 2>&1 &
+python3 scripts/native-qa-operator-accept-watcher.py --device "$OP" --timeout 540 > artifacts/native-commercial-android/operator-accept-watcher.log 2>&1 &
 OP_FLOW_PID=$!
 # The 28 October dual-device run 40710541111 lost ADB transport while
 # launching the second emulator, BEFORE any Traveler UI assertion or payment.
