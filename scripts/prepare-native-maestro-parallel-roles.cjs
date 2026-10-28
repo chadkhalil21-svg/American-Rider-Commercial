@@ -29,4 +29,18 @@ assert.ok(!after.includes('launchApp:'));
 
 fs.writeFileSync(path.join(dir,'qa-commercial-operator-start.yml'),before);
 fs.writeFileSync(path.join(dir,'qa-commercial-operator-fulfill.yml'),after);
+// Android isolated QA boots a fresh, -wipe-data Traveler AVD and installs the
+// test APK. Repeating Maestro's pm clear after Operator is online caused ADB
+// transport loss twice in run 40731968081, with zero booked Travels.
+// Keep original auditable source fixture unchanged; only this QA copy differs.
+const travelerFile=path.join(dir,'qa-commercial-traveler.yml');
+const traveler=fs.readFileSync(travelerFile,'utf8');
+const oldLaunch='- launchApp:\n    clearState: true';
+assert.equal(traveler.split(oldLaunch).length-1,1,
+  'Exactly one fresh Traveler startup must be selected');
+const prepared=traveler.replace(oldLaunch,
+  '- launchApp:\n    clearState: false\n    stopApp: false');
+assert.ok(prepared.includes('id: "auth-email-entry"'),
+  'Traveler must still log in with its real native screen');
+fs.writeFileSync(travelerFile,prepared);
 console.log('PASS: isolated Operator setup and same-device session fulfillment flows prepared');

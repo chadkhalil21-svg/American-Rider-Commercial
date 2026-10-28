@@ -54,7 +54,17 @@ try{
   assert.equal(stage(r,'operator_completion_server'),false);
   assert.equal(r.providerCertified,false,
     'inconsistent provider text and local ride must never certify the run');
-  console.log('PASS: stage reporting rejects false UI-acceptance, partial settlement, and inconsistent backend evidence');
+  // Driver deaths are preserved in nested Maestro logs, not its short console.
+  const debugDir=path.join(dir,'maestro-traveler-retry','attempt','qa-commercial-traveler','logs');
+  fs.mkdirSync(debugDir,{recursive:true});
+  fs.writeFileSync(path.join(debugDir,'maestro.log'),
+    'Command failed (host:transport:emulator-5556): device offline\nDeviceServerDiedException\n');
+  r=run();
+  assert.equal(r.classification,'emulator_infrastructure',
+    'ADB transport failures must not be mislabeled app defects');
+  assert.ok(r.lastObservedError?.includes('device offline'),
+    'Evidence summary must retain the concrete transport failure');
+  console.log('PASS: native QA stage reporter rejects false acceptance/payout and detects actual Maestro driver loss');
 }finally{
   fs.rmSync(path.dirname(dir),{recursive:true,force:true});
 }

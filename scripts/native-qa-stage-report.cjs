@@ -72,8 +72,31 @@ stage('stripe_test_captured_and_transferred',
   !!ride&&ride.status==='completed'&&!!ride.acceptedAt&&
   observed(reconciliation,/^PASS: one mobile-booked, native-Operator-completed, Stripe TEST captured and transferred Travel/m),
   'reconciliation.log + matching completed local Firestore Travel','provider');
-const logs=[operatorStart,traveler,operator,read('traveler-emulator.log')].join('\n');
-const indicators=logs.match(/(?:Assert that|Tap on|Launch app|QA_INFRA_[A-Z_]+|Assertion is false|Element not found)[^\r\n]*(?:FAILED|offline|responding|not found)?/g)||[];
+// The CI console omits Maestro's device-transport failure stack. Include the
+// bounded nested driver logs so QA stage evidence identifies lost ADB, rather
+// than silently labeling that failure "not_classified".
+function readDeviceDebug(name){
+  const collected=[];
+  function walk(folder,depth){
+    if(depth>5||collected.length>=5)return;
+    let entries=[];
+    try{entries=fs.readdirSync(folder,{withFileTypes:true});}catch{return;}
+    for(const ent of entries){
+      const full=path.join(folder,ent.name);
+      if(ent.isDirectory())walk(full,depth+1);
+      else if(ent.isFile()&&ent.name==='maestro.log'){
+        try{collected.push(fs.readFileSync(full,'utf8').slice(-80000));}catch{}
+      }
+    }
+  }
+  walk(path.join(dir,name),0);
+  return collected.join('\n');
+}
+const logs=[operatorStart,traveler,read('traveler-retry.log'),operator,
+  read('traveler-emulator.log'),read('operator-accept-watcher.log'),
+  readDeviceDebug('maestro-traveler'),
+  readDeviceDebug('maestro-traveler-retry')].join('\n');
+const indicators=logs.match(/(?:Assert that|Tap on|Launch app|QA_INFRA_[A-Z_]+|Assertion is false|Element not found|Command failed|DeviceServerDiedException)[^\r\n]*(?:FAILED|offline|responding|not found)?/g)||[];
 const classification=/QA_INFRA_|Pixel Launcher isn.t responding|device offline/.test(logs)
   ?'emulator_infrastructure'
   :/Assertion is false|Element not found|\.{3} FAILED/.test(logs)

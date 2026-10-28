@@ -48,7 +48,7 @@ trap finish EXIT
 AVDMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/avdmanager"
 test -x "$AVDMANAGER"
 printf 'no\n' | "$AVDMANAGER" create avd --force --name qa-native-traveler --package 'system-images;android-35;google_apis;x86_64' --device 'pixel_6'
-"$ANDROID_HOME/emulator/emulator" -avd qa-native-traveler -port 5556 -no-window -no-audio -no-snapshot -no-boot-anim -gpu swiftshader_indirect -memory 2048 > artifacts/native-commercial-android/traveler-emulator.log 2>&1 &
+"$ANDROID_HOME/emulator/emulator" -avd qa-native-traveler -port 5556 -no-window -no-audio -no-snapshot -no-boot-anim -gpu swiftshader_indirect -memory 2048 -wipe-data > artifacts/native-commercial-android/traveler-emulator.log 2>&1 &
 SECONDARY_PID=$!
 for attempt in $(seq 1 180); do
   state="$(adb -s "$TR" shell getprop sys.boot_completed 2>/dev/null | tr -d '\r' || true)"
@@ -131,6 +131,13 @@ if ! maestro --device "$OP" test --test-output-dir=artifacts/native-commercial-a
   exit 1
 fi
 node backend/native-commercial-qa-refresh-presence.cjs
+# An Android device may become unreachable AFTER the initial health check
+# (run 40731968081). Probe again before Traveler booking or authorization.
+if ! timeout 15s adb -s "$TR" shell getprop sys.boot_completed 2>/dev/null | tr -d '\r' | grep -qx '1'; then
+  echo 'QA_INFRA_TRAVELER_ADB_NOT_READY: no Travel booked; do not charge or retry'
+  exit 1
+fi
+echo 'PASS: Traveler ADB transport alive after Operator setup'
 # Wait on the actual, same local Firestore Travel from the Operator device
 # while the Traveler enters Stripe TEST payment on the second device.
 python3 scripts/native-qa-operator-accept-watcher.py --device "$OP" --timeout 540 > artifacts/native-commercial-android/operator-accept-watcher.log 2>&1 &
@@ -140,7 +147,7 @@ OP_FLOW_PID=$!
 # Permit ONE bounded recovery exclusively for that proven infrastructure error.
 # Never retry a partially booked/charged Travel, or conceal a real app failure.
 if ! maestro --device "$TR" test --test-output-dir=artifacts/native-commercial-android/maestro-traveler .maestro/generated/qa-commercial-traveler.yml > artifacts/native-commercial-android/traveler.log 2>&1; then
-  if grep -q 'Launch app "com.americanrider.app" with clear state' artifacts/native-commercial-android/traveler.log \
+  if grep -q 'Launch app "com.americanrider.app"' artifacts/native-commercial-android/traveler.log \
     && ! grep -Eq 'Assert that|Tap on|Input text|COMPLETED' artifacts/native-commercial-android/traveler.log \
     && grep -Rq 'device offline' artifacts/native-commercial-android/maestro-traveler/ 2>/dev/null; then
     echo 'QA infrastructure: Traveler device went offline during app launch; probing bounded ADB recovery.'
