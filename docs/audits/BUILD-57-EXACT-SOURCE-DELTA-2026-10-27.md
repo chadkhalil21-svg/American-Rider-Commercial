@@ -1,0 +1,50 @@
+# American Rider | Build 57 exact-source and release evidence register
+
+**Audit date:** 2026-10-27 (America/New_York). **Status:** candidate source, NOT a signed Build 57, App Store submission, approved public release or paid-travel certification.
+
+## Authoritative Build 56 baseline
+
+- Actual successful Build 56 signing/upload: **legacy GitHub Actions run [40236986118](https://github.com/chadkhalil21-svg/American-Rider/actions/runs/40236986118)**, `build-submit-certified-ios`, 2026-10-25. Runner independently checked out Commercial source **`1231f67fa1d6170f57aafd2553c9058fbd441226`**, selected Apple's next unused build **56**, verified native Universal Links in the signed IPA, and reported successful App Store Connect binary upload.
+- Build 56 is an uploaded signed binary, not equivalent to an arbitrary checkout of the legacy repository. Local TestFlight observations are valid for that binary but do not prove complete production booking/payment settlement.
+- Compare **`1231f67fa1d6170f57aafd2553c9058fbd441226` → `a0ef04583a1366d0cc206defe6c4c638f40e5b9e`**: exactly **20 additional release commits**, **35 changed files** at audit time. Recalculate against final frozen release HEAD before signing Build 57; this document is a historical baseline, not a floating source attestation.
+
+## Already included in Build 56: do NOT mislabel as Build 57 features
+
+- Referral foundation and role-specific personal invitation links, codes, `/join/` recovery, direct Traveler/Operator flows, Operator's two invitation actions, and unchanged Traveler `Invite a Traveler` UI. `app/invite.tsx`, `app/operator/invite.tsx`, `app/join.tsx`, and `backend/referral-service.js` have **identical blob SHAs** in signed Build 56 source and current `release/current`.
+- Optional independent Recruiter website portal, Founder invitation/review, attribution foundation, $0.15-per-qualifying-role-Travel guarded accrual/Connect accounting, and existing-Operator single-Connect routing were merged **before** Build 56. `backend/recruiter-approval.js`, `backend/recruiter-portal.js`, `backend/referral-accrual.js`, and `backend/recruiter-operator-transfers.js` are byte-identical between baseline and current release. **Code presence is not evidence that paid recruiting, tax/bank verification, provider payout or production activation succeeded.**
+- Both sign-in buttons already had the approved compact **46-point** geometry and retained original `Continue with Apple` / `Continue with Google` intent in #346. Build 56's **Apple artwork was still custom** and its Google G remained hand-drawn; dimensional parity must not be confused with vendor artwork compliance.
+- Build 56 already declared `applinks:americanrider.tech` Associated Domains and Android `/join` App Links. The signed Build 56 workflow explicitly verified the **iOS Universal Links entitlement**; separately validate actual physical-device link association and referral attribution. The `americanrider://` URL scheme was not yet in Build 56's `CFBundleURLTypes`.
+
+## Genuinely newer native changes on current commercial release
+
+| Source/change | Disposition |
+| --- | --- |
+| #364, `src/screens/AuthScreen.tsx` | **Official iOS system-rendered Apple Continue button**, black, full width, 46 pt, rather than custom traced Apple logo. Apple controls typography. |
+| #376, `src/brand/googleOfficialG.ts` and `src/screens/AuthScreen.tsx` | **Original vendor-supplied multicolor Google G** bundled as offline PNG data URI, integrity checked against vendor git blob, 17 pt artwork in 46 pt Google button. Previous #371/#373 were superseded/unmerged; cite **#376**, not those PRs. |
+| #364, `src/state/appleSignIn.ts`, `app/delete-account.tsx`, `src/i18n/{en,es,fr,it,de}.ts` | Conditional Apple OAuth **access-token** revocation at account deletion when genuinely available; official manual Apple disconnect instructions otherwise. Generic Build 56 account deletion was already founder-confirmed working after Cloud Run IAM change. Do not claim complete Apple-server token revocation. |
+| #355, `app.json` | Explicit `americanrider` URL scheme **alongside** existing Google callback scheme. Confirm signed Info.plist, app launch from links and Google OAuth return. |
+| #349, `app.config.js`, `plugins/with-android-photo-permission-default.js` | Scoped Android native permission/prebuild compatibility. Needs Android native release verification. |
+| Other additions (`react-native.config.js`, `backend/native-voice-release-autolink.test.js`, native automation scripts) | Native autolinking/QA controls and regressions; **not** evidence that a new customer-facing calling feature is commissioned. |
+| Website/Founder/Stripe TEST/IAM/security/docs commits | Many are backend, website, operational or test-only, and **do not alone justify an iOS binary**. Any changed deployed backend must be independently reconciled. |
+
+## Draft QA must NOT slip silently into signed Build 57
+
+[PR #390](https://github.com/chadkhalil21-svg/American-Rider-Commercial/pull/390) is **draft**, based on a QA-only stack, and changes the Travel Confirmation scroll/footer and stable accessibility IDs; it also supplies an **isolated synthetic toll fixture** for the exact Brickell/Wynwood QA route. Do not assume these changes are in production, legal toll pricing, signed Build 56 or final Build 57. Reproduce genuine UI behavior before accepting the app portion. Never merge the synthetic toll as a substitute for official/live route verification.
+
+## Nonnegotiable qualification before any new signed upload
+
+1. **Freeze one exact `release/current` SHA** after green Release Gate, dependency audit and cost-conscious app/source tests. No further UI edits after native build without source fingerprint changes. Keep Build 56 available until replacement is verified.
+2. **Inspect signed device identity:** iPhone official Apple button and offline Google G at matching 46 pt; actual Google/Apple login, OAuth callback, password recovery, provider-specific reauth/deletion, accessibility and smaller screens. Native Info.plist must contain Google callback + `americanrider` URL schemes, Associated Domains entitlement; proper Apple App ID capability and provisioning profile, website association, installed-app and browser fallback. Android verifies corresponding App Links.
+3. **Complete two-role commercial QA without fabricated production eligibility:** real screen-driven Traveler signup/destination/authoritative fare/card authorization → eligible simulated Operator offer/arrival/pickup/completion → same-Travel Stripe TEST capture, Connect transfer, actual transaction-ID reconciliation, cancellation/refund/retry. Verify Family/Teen, scheduled Travel, Courier, notifications, background duty, emergency and message paths separately, including restricted/offline failures. Differentiate QA scripts, fake fixtures, production providers and app defects.
+4. **Recruitment as an independent optional journey:** direct signup and booking work with the recruiter program OFF. For ON path, verify recruiter invitation/approval, existing roles and invite UI, signed role attribution, 200-event limits, double-sided $0.30 cap, funded $0.15 per qualifying role-Travel, consent, held→available→paid/reversed accounting, actual Stripe recipient, webhook, transfer, payout failure/recovery. Do not claim real banking activation from mocks or code. Operator share stays 99% of Fare.
+5. **External launch gates:** Apple Guideline 2.1 review recording/reply, honest reviewer-role access, App Privacy/Google Data Safety, Apple submitting organization identity if required, Google Play background-location disclosure/approval, Florida TNC/operator insurance legal and provider evidence, actual market/operator eligibility, production toll-provider and Cloud Run source/service parity. Never bypass them to produce a green test.
+6. **Security Release Gate:** `npm audit --omit=dev --prefix backend` failed 2026-10-27 on locked `qs@6.16.0`, GHSA-6pq8-jhm2-2vcw. Proposed separate review-branch fix locks patched **6.16.1** with published SHA-512 and override; CI must establish actual `npm ci`, audit and backend regressions before merge. Security-only backend patch does not require TestFlight packaging.
+7. **Signing/upload is a separate protected operation:** existing owner-controlled legacy-repository signing credentials were proven in Build 56 run 40236986118. Reuse the protected workflow after updating its exact certified release SHA, App Store Connect next-unused build selection and signing/provisioning; do **not** copy credentials or re-run the old Build 56 pinned workflow. Confirm actual uploaded number (anticipated 57, not assumed), signed binary SHA, availability in TestFlight, physical device pass, and selection in rejected iOS 1.0.0 review item. No ChatGPT GitHub connector operation here is a substitute for the protected workflow dispatch or App Store review response.
+
+## Current explicit blockers, not concealed
+
+- Current native QA branch has incomplete signed-equivalent UI acceptance: **iOS Xcode failed at `ExpoModulesJSI` xcframework build**, Android progressed into device tests but needs its final screenshot/log/provider trace. This is test-runner evidence, not proof Build 56 is defective.
+- Production `release/current` dependency audit has failed on the pinned `qs` advisory; targeted PR is under review until full CI green.
+- Actual signed Build 57 **has not been uploaded**. No owner-authenticated App Store Connect reviewer response, production paid Recruiter Stripe/bank payout, complete real operator insurance proof or public iOS/Android approval is certified by this manifest.
+
+**Sources:** canonical `PROJECT-LEDGER.md` (source status can be stale; re-verify); Build 56 signed job 121300542263; #346, #355, #364, #376, #390; git exact refs above; [Apple HIG](https://developer.apple.com/design/human-interface-guidelines/sign-in-with-apple/); [Google sign-in branding](https://developers.google.com/identity/branding-guidelines); [qs security advisory](https://github.com/ljharb/qs/security/advisories/GHSA-6pq8-jhm2-2vcw).
