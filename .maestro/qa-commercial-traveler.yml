@@ -20,8 +20,14 @@ appId: com.americanrider.app
       platform: iOS
     commands:
       - tapOn: "AMERICAN RIDER"
-- tapOn: "Continue"
-- assertVisible: "Welcome back"
+- assertVisible:
+    id: "auth-primary-action"
+    enabled: true
+- tapOn:
+    id: "auth-primary-action"
+- extendedWaitUntil:
+    visible: "Welcome back"
+    timeout: 45000
 # iOS evidence from run 40569443959 showed CREATE ACCOUNT in front
 # although a text-only "Welcome back" assertion passed. Require the
 # Sign In page to be foreground; never enter a password on signup.
