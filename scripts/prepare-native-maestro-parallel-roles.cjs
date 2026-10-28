@@ -40,7 +40,8 @@ assert.equal(traveler.split(oldLaunch).length-1,1,
   'Exactly one fresh Traveler startup must be selected');
 const prepared=traveler.replace(oldLaunch,
   '- launchApp:\n    clearState: false\n    stopApp: false');
-assert.ok(prepared.includes('id: "auth-email-entry"'),
-  'Traveler must still log in with its real native screen');
+assert.ok(prepared.includes('- tapOn: "Email Address"') &&
+  prepared.includes('assertVisible: "Welcome back"'),
+  'Traveler must retain real Android email and sign-in controls');
 fs.writeFileSync(travelerFile,prepared);
 console.log('PASS: isolated Operator setup and same-device session fulfillment flows prepared');
