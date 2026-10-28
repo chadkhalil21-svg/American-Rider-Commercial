@@ -322,6 +322,7 @@ export function PrimaryButton({
   textColor = '#fff',
   disabled = false,
   style,
+  testID,
 }: {
   label: string;
   onPress: () => void;
@@ -329,9 +330,13 @@ export function PrimaryButton({
   textColor?: string;
   disabled?: boolean;
   style?: StyleProp<ViewStyle>;
+  testID?: string;
 }) {
   return (
     <Pressable
+      testID={testID}
+      accessibilityRole="button"
+      disabled={disabled}
       onPress={disabled ? undefined : onPress}
       style={({ pressed }) => [
         styles.primaryBtn,
