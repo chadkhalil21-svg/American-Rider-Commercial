@@ -35,6 +35,33 @@ async function main() {
   assert.equal(config.canTakePayment,true,
     'QA cannot create a paid Travel yet: check isolated active market, Operator coverage/availability, and Stripe TEST readiness');
   assert.equal(config.operationalReady,true,'Local backend is not commissioned for a paid Travel');
+  // The home-screen destination entry exists ONLY when the iPhone or Android
+  // sees an active market at its actual test pickup. Previous CI asserted
+  // /config but never checked /markets/at, so the native journey reached
+  // the home screen only to show "Service status cannot be confirmed".
+  // This is a read-only backend probe, NOT a market activation or a bypass.
+  const pickup={lat:25.7617,lng:-80.1918};
+  const marketSignal=new AbortController();
+  const marketTimer=setTimeout(()=>marketSignal.abort(),4000);
+  let marketResponse;
+  try {
+    marketResponse=await fetch('http://127.0.0.1:4242/markets/at',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify(pickup),
+      signal:marketSignal.signal,
+    });
+  } finally { clearTimeout(marketTimer); }
+  assert.equal(marketResponse.status,200,
+    'LOCAL /markets/at failed: native Traveler home suppresses destination entry');
+  const marketBody=await marketResponse.json();
+  assert.ok(Array.isArray(marketBody.active) &&
+    marketBody.here?.id==='fl-miami-dade' &&
+    marketBody.here?.status==='active' &&
+    marketBody.active.some(m=>m.id===marketBody.here.id&&m.status==='active'),
+    'Local Miami pickup is not publicly active: native booking remains blocked; check real QA market response');
+  console.log('PASS: local /markets/at returns active Miami-Dade pickup independently of /config');
+
   // This preflight NEVER certifies an Operator or a payment; it merely permits actual UI automation to start.
   console.log('PASS PRECONDITIONS: isolated '+platform+' client can attempt Stripe TEST paid Traveler/Operator journey.');
   console.log('Full journey still requires native UI artifacts tied to a single Travel ID plus independent TEST Stripe provider retrieval.');
