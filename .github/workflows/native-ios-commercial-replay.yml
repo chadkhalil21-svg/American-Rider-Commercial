@@ -13,12 +13,19 @@ permissions:
 jobs:
   ios-commercial-replay:
     if: ${{ github.event.pull_request.number == 389 }}
-    runs-on: macos-26
+    # GitHub macOS 26 / Xcode 26.4 simulator accepted the app but the
+    # Maestro XCTest driver never opened its local port (run 40605568363).
+    # Use supported Xcode 16.4 / iOS 18.5 simulator for a separate
+    # compatibility lane, retaining the exact archived QA app bytes.
+    runs-on: macos-15
     timeout-minutes: 110
     concurrency:
       group: ios-independent-389
       cancel-in-progress: false
     env:
+      DEVELOPER_DIR: /Applications/Xcode_16.4.app/Contents/Developer
+      MAESTRO_DRIVER_STARTUP_TIMEOUT: '180000'
+      MAESTRO_CLI_NO_ANALYTICS: '1'
       CI: '1'
       NODE_ENV: test
       AR_NATIVE_PLATFORM: ios
@@ -120,6 +127,13 @@ jobs:
           run-id: 40601800241
           github-token: ${{ github.token }}
           path: .qa-native-build-cache/ios
+      - name: Verify pinned iOS testing environment before starting the driver
+        shell: bash
+        run: |
+          set -euo pipefail
+          xcodebuild -version
+          xcrun simctl list devices available
+          test -d "$DEVELOPER_DIR"
       - name: Verify SHA and install preserved app on iPhone simulator
         shell: bash
         run: |
