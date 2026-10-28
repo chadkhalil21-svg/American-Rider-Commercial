@@ -54,6 +54,8 @@ jobs:
           node backend/tolls.test.js
       - name: Validate native Android runner syntax before expensive builds
         run: bash -n scripts/native-commercial-android-runner.sh
+      - name: Verify QA milestone reporting never treats a tap as server acceptance
+        run: node scripts/native-qa-stage-report.test.cjs
       - name: Verify every native journey target and platform-specific keyboard gesture before expensive builds
         run: node scripts/verify-native-maestro-selectors.cjs
       - name: Validate scoped Android emulator HTTP exception before expensive builds
