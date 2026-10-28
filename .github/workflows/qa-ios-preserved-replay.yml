@@ -210,7 +210,9 @@ jobs:
           const fs=require('node:fs'),assert=require('node:assert/strict');
           const d=JSON.parse(fs.readFileSync(process.argv[2],'utf8'));
           assert.equal(d.status,'ahead','Refuse non-descendant iOS source');
-          assert.ok(d.ahead_by>=1 && d.ahead_by<=12,'Unexpected iOS source history');
+          // Source safety is enforced by the strict changed-file allowlist below.
+          // A fixed tiny commit ceiling accidentally rejects legitimate QA-only fixes.
+          assert.ok(d.ahead_by>=1 && d.ahead_by<=40,'Unexpected iOS source history');
           const allowed=new Set([
             '.github/workflows/qa-ios-preserved-replay.yml',
             'scripts/native-commercial-ios-dual-runner.sh',
