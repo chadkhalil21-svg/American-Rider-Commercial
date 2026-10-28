@@ -202,7 +202,7 @@ jobs:
               console.log('QA operator auth read '+path,JSON.stringify({http:response.status,status:data.status,qualified:data.qualified,ok:data.ok,policyExpiry:data.policyExpiry,blockers}));
               if(!response.ok)throw Error(path+' unavailable for authenticated QA Operator');
               if(path.endsWith('qualification')&&data.status!=='qualified')throw Error('QA Operator fails real server qualification');
-              if(path.endsWith('status')&&(data.ok!==true||!/^\\d{4}-\\d{2}-\\d{2}$/.test(data.policyExpiry||'')))throw Error('QA Operator fails real server insurance validation');
+              if(path.endsWith('status')&&(data.ok!==true||!(typeof data.policyExpiry==='string' && data.policyExpiry.length===10 && Number.isFinite(Date.parse(data.policyExpiry)))))throw Error('QA Operator fails real server insurance validation');
             }
             console.log('PASS: actual local authenticated QA Operator is qualified and insured before emulator');
           })().catch(e=>{console.error('QA_OPERATOR_PREFLIGHT:',e.message);process.exitCode=1})
