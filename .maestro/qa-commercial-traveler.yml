@@ -90,6 +90,19 @@ appId: com.americanrider.app
     text: "Confirm Travel"
     enabled: true
 - tapOn: "Confirm Travel"
+- runFlow:
+    when:
+      visible: "New card"
+    commands:
+      - tapOn: "New card"
+      - extendedWaitUntil:
+          visible: "Card number"
+          timeout: 45000
+- runFlow:
+    when:
+      notVisible: "Card number"
+    commands:
+      - tapOn: "Card"
 - extendedWaitUntil:
     visible: "Card number"
     timeout: 45000
@@ -98,13 +111,35 @@ appId: com.americanrider.app
 # PaymentSheet does not appear or the eligible Operator is not available.
 - tapOn: "Card number"
 - inputText: "4242424242424242"
-- tapOn: "MM / YY"
+# Android Stripe labels the expiry control by accessible purpose, not the
+# visual MM / YY placeholder. Captured in run 40627439913 screenshot/UI tree.
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - tapOn: ".*Expiration date.*"
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - tapOn: "MM / YY"
 - inputText: "1230"
 - tapOn: "CVC"
 - inputText: "123"
-# Do not use an unreliable blind iOS swipe in native Stripe PaymentSheet.
-# Tap the actual primary Pay action; a failed tap remains a test failure.
-- tapOn: "Pay"
+# Stripe TEST PaymentSheet on Android requires billing ZIP before Pay unlocks.
+# Screenshot and real hierarchy: run 40628842991, evidence 12791295242.
+- tapOn: "ZIP Code"
+- inputText: "33130"
+# The native button includes a server-owned amount (Pay $10.57 in this fixture).
+# Require enabled=true. Do not tap or claim payment while it is disabled.
+- extendedWaitUntil:
+    visible:
+      id: "com.americanrider.app:id/primary_button"
+      enabled: true
+    timeout: 20000
+- tapOn:
+    id: "com.americanrider.app:id/primary_button"
+    enabled: true
 - extendedWaitUntil:
     visible: "Awaiting Operator confirmation"
     timeout: 60000

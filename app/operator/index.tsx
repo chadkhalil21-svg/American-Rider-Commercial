@@ -4,13 +4,14 @@
 // a server-assigned Travel.
 import { useFocusEffect, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Animated, AppState, Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Animated, AppState, Modal, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { Text } from '../../src/components/AppText';
 import Svg, { Path, Rect } from 'react-native-svg';
 import { useNative } from '../../src/components/anim';
 import { OperatorBar, OperatorDrawer, OperatorScreen } from '../../src/components/operator';
 import { Avatar, Card, Num, OutlineButton, PrimaryButton, useNote } from '../../src/components/UI';
 import { SimRequest, useOperator } from '../../src/state/OperatorContext';
+import { useAuth } from '../../src/state/AuthContext';
 import { useLanguage } from '../../src/state/LanguageContext';
 import { colors, fmt, radii } from '../../src/theme';
 import { coordinationFee, platformFee } from '../../src/data';
@@ -86,6 +87,7 @@ function WalletCard({ todayOps, onPress }: { todayOps: number; onPress: () => vo
 export default function OperatorHome() {
   const router = useRouter();
   const op = useOperator();
+  const { user } = useAuth();
   const { t } = useLanguage();
   const { note, showNote } = useNote();
   const [menuOpen, setMenuOpen] = useState(false);
@@ -105,11 +107,24 @@ export default function OperatorHome() {
 
   // Show the fare-share math before asking a new Operator to buy coverage.
   // This is orientation, never a shortcut around server qualification.
+  // The single disposable native QA Operator becomes commissioned only AFTER
+  // authenticated server qualification/insurance reads finish. On a fresh app,
+  // AsyncStorage can become ready first: redirecting to Economics before the
+  // server response leaves even a qualified test Operator stranded off-route.
+  // Hold on the existing read-only "Checking" view during that QA-only window.
+  // No duty controls are rendered until verification === 'commissioned'.
+  // This has no effect in a signed production build or for any real account.
+  const awaitingLocalQaQualification = Platform.OS !== 'web' &&
+    process.env.EXPO_PUBLIC_AR_NATIVE_QA === '1' &&
+    (process.env.EXPO_PUBLIC_API_URL === 'http://10.0.2.2:4242' ||
+     process.env.EXPO_PUBLIC_API_URL === 'http://127.0.0.1:4242') &&
+    user?.uid === 'native-qa-operator' &&
+    op.verification === 'none';
   useEffect(() => {
-    if (op.ready && op.verification !== 'commissioned') {
+    if (op.ready && op.verification !== 'commissioned' && !awaitingLocalQaQualification) {
       router.replace(op.verification === 'pending' ? '/operator/review' : '/operator/economics' as never);
     }
-  }, [op.ready, op.verification, router]);
+  }, [op.ready, op.verification, awaitingLocalQaQualification, router]);
 
   const clearTimers = useCallback(() => {
     if (armTimer.current) clearTimeout(armTimer.current);
@@ -375,6 +390,7 @@ export default function OperatorHome() {
               </Pressable>
             )}
             <PrimaryButton
+              testID="operator-commence-operations"
               // COMMENCE OPERATIONS, PLURAL, AND THE PLURAL IS THE POINT (Chad, 4 Sept 2026).
               // This control opens the operator for business generally — it does not begin any
               // one journey. "Operations" is the whole undertaking; the singular belongs to a
@@ -547,6 +563,7 @@ export default function OperatorHome() {
                   style={{ flex: 1, opacity: accepting || declining ? 0.5 : 1 }}
                 />
                 <PrimaryButton
+                  testID="operator-accept-traveler"
                   // ACCEPT TRAVELER, not Accept Travel (Chad, 4 Sept 2026, overruling me).
                   //
                   // I argued for "Travel" on consistency: it is the platform's noun for a
@@ -572,7 +589,7 @@ export default function OperatorHome() {
                     try {
                       if (await op.acceptRequest(request)) {
                         dismissAccepted();
-                        router.navigate('/operator/pickup');
+                        router.replace('/operator/pickup');
                       } else {
                         setAcceptError(t('traveler.couldNotSaveConn'));
                         openRequest(request);

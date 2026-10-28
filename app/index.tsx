@@ -651,6 +651,8 @@ export default function Home() {
       )}
 
       {canOfferNewTravel && <Pressable
+        testID="traveler-open-destination"
+        accessibilityRole="button"
         onPress={() => {
           ride.startBooking();
           router.navigate({ pathname: '/reserve', params: { search: '1' } });
