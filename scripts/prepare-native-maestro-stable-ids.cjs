@@ -27,6 +27,20 @@ function generate(role){
       ['- tapOn: "Confirm Travel"','- tapOn:\n    id: "traveler-confirm-travel"'],
     ];
     for(const [a,b] of pairs) result=edit(result,a,b,'traveler');
+    // Native iOS Stripe TEST may show a saved Visa and "New card", instead
+    // of a plain "Card" choice. The captured iPhone accessibility tree from
+    // run 40690747638 proves the PaymentSheet was open when the old test failed.
+    // Do not count an accessible but differently-labeled Stripe option as failure.
+    if (result.includes('visible: "Card"')) {
+      result=edit(result,
+        '- extendedWaitUntil:\\n    visible: "Card"\\n    timeout: 45000',
+        '- runFlow:\\n    when:\\n      visible: "New card"\\n    commands:\\n      - tapOn: "New card"\\n      - extendedWaitUntil:\\n          visible: "Card number"\\n          timeout: 45000',
+        'traveler Stripe saved-card picker');
+      result=edit(result,
+        '- tapOn: "Card"\\n- extendedWaitUntil:\\n    visible: "Card number"',
+        '- runFlow:\\n    when:\\n      notVisible: "Card number"\\n    commands:\\n      - tapOn: "Card"\\n- extendedWaitUntil:\\n    visible: "Card number"',
+        'traveler fallback Stripe card picker');
+    }
   } else if(role==='operator'){
     const ids=[
       ['Commence Operations','operator-commence-operations'],
