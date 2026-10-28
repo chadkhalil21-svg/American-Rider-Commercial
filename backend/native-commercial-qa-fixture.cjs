@@ -7,6 +7,7 @@ const {adminDb}=require('./firebase-admin');
 const {getAuth}=require('firebase-admin/auth');
 const Stripe=require('stripe');
 const {DISCLOSURE_VERSION}=require('./disclosure');
+const {screeningCurrent}=require('./screening');
 const {encodeGeohash}=require('./geooperators');
 const {initialMonitoringFromDocument,applyIndependentConfirmation}=require('./insurance-monitoring');
 async function main(){
@@ -42,6 +43,12 @@ async function main(){
   }
   await provision(ids.traveler,traveler);await provision(ids.operator,operator);
   const now=Date.now();
+  // Synthetic QA pass safely beyond the production 24-hour pre-renewal lockout.
+  // This is neither a provider clearance nor an extension for any real Operator.
+  const screening={decision:'pass',recheckDue:now+45*24*60*60*1000};
+  assert.equal(screeningCurrent(screening,now),true,'QA Operator must have current synthetic screening');
+  assert.equal(screeningCurrent({decision:'pass',recheckDue:now+24*60*60*1000},now),false,
+    'Production 24-hour lockout must remain enforced');
   const doc=(extras={})=>({verdict:'accept',expiry:'2099-01-01',evidence:{isTheRequestedDocument:true,legible:true,fields:{expiry:'2099-01-01',...extras}}});
   const insurance=doc({commercialUse:'yes',limits:'$1,000,000 CSL'});
   insurance.evidence.insurance={
@@ -62,7 +69,7 @@ async function main(){
     insuranceMonitoring:applyIndependentConfirmation(initialMonitoringFromDocument(insurance,now),{
       status:'verified_active',source:'local_qa_fixture',now,
     }),
-    screening:{decision:'pass',recheckDue:now+86400000},
+    screening,
   });
   await db.collection('operators').doc(ids.operator).set({
     uid:ids.operator,available:true,onlineAt:now,commissioned:true,
