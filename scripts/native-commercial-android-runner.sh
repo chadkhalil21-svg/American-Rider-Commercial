@@ -174,7 +174,7 @@ fi
 node backend/native-commercial-qa-readonly-snapshot.cjs > artifacts/native-commercial-android/dispatch-after-traveler.json 2>&1 || true
 if ! wait "$OP_FLOW_PID"; then
   OP_FLOW_PID=''
-  tail -90 artifacts/native-commercial-android/operator.log
+  tail -90 artifacts/native-commercial-android/operator-accept-watcher.log
   exit 1
 fi
 OP_FLOW_PID=''
