@@ -79,7 +79,7 @@ jobs:
         platform: [ios, android]
         include:
           - platform: ios
-            os: macos-15
+            os: macos-26
             local_url: http://127.0.0.1:4242
           - platform: android
             os: ubuntu-24.04
@@ -88,7 +88,7 @@ jobs:
     timeout-minutes: 155
     env:
       CI: '1'
-      DEVELOPER_DIR: ${{ matrix.platform == 'ios' && '/Applications/Xcode_26.3.app/Contents/Developer' || '' }}
+      DEVELOPER_DIR: ${{ matrix.platform == 'ios' && '/Applications/Xcode_26.6.app/Contents/Developer' || '' }}
       MAESTRO_DRIVER_STARTUP_TIMEOUT: '180000'
       NODE_ENV: test
       AR_NATIVE_PLATFORM: ${{ matrix.platform }}
@@ -130,7 +130,9 @@ jobs:
         if: matrix.platform == 'ios'
         shell: bash
         run: |
-          xcodebuild -version
+          test -x /Applications/Xcode_26.6.app/Contents/Developer/usr/bin/xcodebuild
+          xcodebuild -version | tee /tmp/qa-xcode-version.txt
+          grep -Fx 'Xcode 26.6' /tmp/qa-xcode-version.txt
           swift --version
           swift --version | grep -Eq 'Apple Swift version (6\.[2-9]|[7-9]\.)' || { echo '::error::Expo SDK 57 requires Swift tools >= 6.2'; exit 1; }
       - name: Install app/backend and Firebase emulator dependencies
