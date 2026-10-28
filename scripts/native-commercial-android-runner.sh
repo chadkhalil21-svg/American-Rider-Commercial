@@ -15,7 +15,29 @@ cleanup() {
     kill "$SECONDARY_PID" 2>/dev/null || true
   fi
 }
-trap cleanup EXIT
+# Do not diagnose from a single missing button. Keep BOTH device screens,
+# native logs, Maestro command hierarchies, and read-only LOCAL ride state.
+collect_failure() {
+  node backend/native-commercial-qa-readonly-snapshot.cjs > artifacts/native-commercial-android/failure-local-dispatch.json 2>&1 || true
+  for device in "$OP" "$TR"; do
+    adb -s "$device" exec-out screencap -p > "artifacts/native-commercial-android/failure-${device}.png" 2>/dev/null || true
+    adb -s "$device" logcat -d -t 2000 > "artifacts/native-commercial-android/failure-${device}.logcat" 2>/dev/null || true
+  done
+  mkdir -p artifacts/native-commercial-android/maestro-debug
+  if [ -d "$HOME/.maestro/tests" ]; then
+    for folder in $(ls -1dt "$HOME"/.maestro/tests/* 2>/dev/null | head -2); do
+      cp -R "$folder" artifacts/native-commercial-android/maestro-debug/ 2>/dev/null || true
+    done
+  fi
+}
+finish() {
+  local exit_code=$?
+  trap - EXIT
+  if [ "$exit_code" -ne 0 ]; then collect_failure; fi
+  cleanup
+  exit "$exit_code"
+}
+trap finish EXIT
 # A server-assigned offer cannot be accepted after its response window expires.
 # The former sequential, same-emulator role swap cleared the active session
 # and spent the offer window signing the Operator in AFTER Traveler booking.
@@ -45,19 +67,21 @@ done
 node scripts/prepare-native-maestro-parallel-roles.cjs
 # Operator signs in and enters service BEFORE a Traveler books on the
 # other emulator. Keep both sessions independently running.
-if ! maestro --device "$OP" test .maestro/generated/qa-commercial-operator-start.yml > artifacts/native-commercial-android/operator-start.log 2>&1; then
+if ! maestro --device "$OP" test --test-output-dir=artifacts/native-commercial-android/maestro-operator-start .maestro/generated/qa-commercial-operator-start.yml > artifacts/native-commercial-android/operator-start.log 2>&1; then
   tail -90 artifacts/native-commercial-android/operator-start.log
   exit 1
 fi
 node backend/native-commercial-qa-refresh-presence.cjs
 # Wait on the actual, same local Firestore Travel from the Operator device
 # while the Traveler enters Stripe TEST payment on the second device.
-maestro --device "$OP" test .maestro/generated/qa-commercial-operator-fulfill.yml > artifacts/native-commercial-android/operator.log 2>&1 &
+maestro --device "$OP" test --test-output-dir=artifacts/native-commercial-android/maestro-operator-fulfill .maestro/generated/qa-commercial-operator-fulfill.yml > artifacts/native-commercial-android/operator.log 2>&1 &
 OP_FLOW_PID=$!
-if ! maestro --device "$TR" test .maestro/generated/qa-commercial-traveler.yml > artifacts/native-commercial-android/traveler.log 2>&1; then
+if ! maestro --device "$TR" test --test-output-dir=artifacts/native-commercial-android/maestro-traveler .maestro/generated/qa-commercial-traveler.yml > artifacts/native-commercial-android/traveler.log 2>&1; then
   tail -90 artifacts/native-commercial-android/traveler.log
   exit 1
 fi
+# Record actual matching/assignment state independent of the onscreen button.
+node backend/native-commercial-qa-readonly-snapshot.cjs > artifacts/native-commercial-android/dispatch-after-traveler.json 2>&1 || true
 if ! wait "$OP_FLOW_PID"; then
   OP_FLOW_PID=''
   tail -90 artifacts/native-commercial-android/operator.log
