@@ -1,0 +1,30 @@
+name: Native QA zero-build accessibility contract
+on:
+  pull_request:
+    branches:
+      - qa/ios-choose-actual-wynwood-result-20261027
+      - release/current
+    paths:
+      - '.github/workflows/native-qa-accessibility-gate.yml'
+      - 'scripts/verify-native-accessibility-contract.cjs'
+      - 'src/components/UI.tsx'
+      - 'app/index.tsx'
+      - 'app/reserve.tsx'
+      - 'app/operator/**'
+permissions:
+  contents: read
+jobs:
+  static-accessibility-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify intended UI actions and stable IDs before any native compile
+        run: node scripts/verify-native-accessibility-contract.cjs
+      - name: Record limited scope
+        run: |
+          echo 'PASS here proves only source-level selector/disabled-state invariants.' >> "$GITHUB_STEP_SUMMARY"
+          echo 'It is not proof of actual iPhone, Android, Stripe, or Firestore commercial journeys.' >> "$GITHUB_STEP_SUMMARY"
