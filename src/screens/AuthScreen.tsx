@@ -405,6 +405,8 @@ export function AuthScreen() {
               not an authentication factor, so the front door must not imply phone sign-in. */}
           <View style={s.entryRow}>
             <TextInput
+              testID="auth-email-entry"
+              accessibilityLabel={t('auth.emailOrMobileField')}
               value={entry}
               onChangeText={setEntry}
               placeholder={t('auth.emailOrMobileField')}
