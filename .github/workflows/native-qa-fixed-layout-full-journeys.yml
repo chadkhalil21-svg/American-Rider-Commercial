@@ -78,11 +78,10 @@ jobs:
       matrix:
         # Both OS jobs run independently; a newer run supersedes only its own
         # older same-platform job. Identical compiled QA binaries are cached.
-        platform: [ios, android]
+        # Parallel one-time Android QA replay; the original iOS Xcode build is
+        # still running on its separate branch and must not be interrupted.
+        platform: [android]
         include:
-          - platform: ios
-            os: macos-26
-            local_url: http://127.0.0.1:4242
           - platform: android
             os: ubuntu-24.04
             local_url: http://10.0.2.2:4242
