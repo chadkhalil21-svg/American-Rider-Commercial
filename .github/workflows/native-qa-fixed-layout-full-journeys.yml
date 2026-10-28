@@ -127,6 +127,9 @@ jobs:
           case "$STRIPE_SECRET_KEY" in sk_test_*) ;; *) echo "::error::Only STRIPE_TEST_SECRET_KEY permitted"; exit 1;; esac
           case "$STRIPE_PUBLISHABLE_KEY" in pk_test_*) ;; *) echo "::error::Matching STRIPE_TEST_PUBLISHABLE_KEY is not configured"; exit 1;; esac
           git rev-parse HEAD
+      - name: Verify existing Stripe TEST key pair before installing dependencies or booting devices
+        shell: bash
+        run: node scripts/native-qa-stripe-pair-fastcheck.cjs
       - name: Refuse incompatible Apple Swift toolchain before iOS compilation
         if: matrix.platform == 'ios'
         shell: bash
