@@ -15,6 +15,8 @@ const ignored = (p) => p.startsWith('.github/') || p.startsWith('.maestro/') ||
   'scripts/native-qa-android-network.test.cjs',
   'scripts/native-commercial-android-runner.sh',
   'scripts/native-commercial-env-preflight.cjs',
+  // Only talks to Stripe from the CI runner; never bundled into the native app.
+  'scripts/native-qa-stripe-pair-fastcheck.cjs',
   'scripts/prepare-native-maestro-stable-ids.cjs',
   'scripts/verify-native-accessibility-contract.cjs'].includes(p);
 const h = crypto.createHash('sha256');
