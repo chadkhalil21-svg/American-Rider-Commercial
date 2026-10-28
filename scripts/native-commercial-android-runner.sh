@@ -34,6 +34,9 @@ finish() {
   local exit_code=$?
   trap - EXIT
   if [ "$exit_code" -ne 0 ]; then collect_failure; fi
+  # On both PASS and FAIL, persist objective milestones independent of the
+  # final Maestro outcome; never let diagnostic reporting override the gate.
+  node scripts/native-qa-stage-report.cjs artifacts/native-commercial-android || true
   cleanup
   exit "$exit_code"
 }
@@ -175,4 +178,5 @@ if ! wait "$OP_FLOW_PID"; then
   exit 1
 fi
 OP_FLOW_PID=''
-node backend/native-commercial-qa-reconcile.cjs
+node backend/native-commercial-qa-reconcile.cjs | tee artifacts/native-commercial-android/reconciliation.log
+node backend/native-commercial-qa-readonly-snapshot.cjs > artifacts/native-commercial-android/success-local-dispatch.json 2>&1 || true
