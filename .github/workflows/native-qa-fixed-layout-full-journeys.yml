@@ -179,6 +179,34 @@ jobs:
           done
           curl --fail --silent http://127.0.0.1:4242/health >/dev/null || { tail -50 "$RUNNER_TEMP/local-commercial-api.log"; exit 1; }
           node scripts/native-commercial-env-preflight.cjs
+      - name: Verify actual authenticated local QA Operator qualification BEFORE launching emulator
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GOOGLE_CLOUD_PROJECT" = demo-american-rider-qa
+          test "$FIRESTORE_EMULATOR_HOST" = 127.0.0.1:8080
+          test "$FIREBASE_AUTH_EMULATOR_HOST" = 127.0.0.1:9099
+          node - <<'NODE'
+          (async()=>{
+            const auth=await fetch('http://127.0.0.1:9099/identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=local-qa',{
+              method:'POST',headers:{'Content-Type':'application/json'},
+              body:JSON.stringify({email:'native.qa.operator@example.test',password:'Native-QA-Only-7819-Strong',returnSecureToken:true})
+            });
+            const login=await auth.json();
+            if(!auth.ok||!login.idToken)throw Error('QA operator Firebase emulator login failed: '+auth.status);
+            const headers={Authorization:'Bearer '+login.idToken};
+            for(const path of ['/operator/qualification','/operator/insurance/status']){
+              const response=await fetch('http://127.0.0.1:4242'+path,{headers});
+              const data=await response.json();
+              const blockers=Array.isArray(data.blockers)?data.blockers.map(x=>({code:x.code,kind:x.kind})):undefined;
+              console.log('QA operator auth read '+path,JSON.stringify({http:response.status,status:data.status,qualified:data.qualified,ok:data.ok,policyExpiry:data.policyExpiry,blockers}));
+              if(!response.ok)throw Error(path+' unavailable for authenticated QA Operator');
+              if(path.endsWith('qualification')&&data.status!=='qualified')throw Error('QA Operator fails real server qualification');
+              if(path.endsWith('status')&&(data.ok!==true||!/^\\d{4}-\\d{2}-\\d{2}$/.test(data.policyExpiry||'')))throw Error('QA Operator fails real server insurance validation');
+            }
+            console.log('PASS: actual local authenticated QA Operator is qualified and insured before emulator');
+          })().catch(e=>{console.error('QA_OPERATOR_PREFLIGHT:',e.message);process.exitCode=1})
+          NODE
       - name: Install Maestro real-screen interaction runner
         shell: bash
         run: |
