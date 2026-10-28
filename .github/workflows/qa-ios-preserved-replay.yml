@@ -179,8 +179,10 @@ jobs:
         with:
           path: .qa-native-build-cache/${{ matrix.platform }}
           key: qa-native-release-v1-${{ runner.os }}-${{ matrix.platform }}-${{ steps.native-fingerprint.outputs.digest }}
-      - name: Reuse original checksummed iOS simulator binary, never recompile unchanged source
-        if: matrix.platform == 'ios' && steps.native-build-cache.outputs.cache-hit != 'true'
+      - name: Reuse original checksum-verified iOS binary only for identical native source
+        # A new app testID changes the embedded JS bundle. Never reuse the old .app
+        # for a changed fingerprint; let the existing Xcode fallback compile it.
+        if: matrix.platform == 'ios' && steps.native-build-cache.outputs.cache-hit != 'true' && steps.native-fingerprint.outputs.digest == 'd9c359dc51f2b4c62cbb7abf23bbd41a5e6fe99efb6ded35cdc5f19f78699139'
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
