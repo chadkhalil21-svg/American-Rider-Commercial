@@ -375,6 +375,7 @@ export default function OperatorHome() {
               </Pressable>
             )}
             <PrimaryButton
+              testID="operator-commence-operations"
               // COMMENCE OPERATIONS, PLURAL, AND THE PLURAL IS THE POINT (Chad, 4 Sept 2026).
               // This control opens the operator for business generally — it does not begin any
               // one journey. "Operations" is the whole undertaking; the singular belongs to a
@@ -547,6 +548,7 @@ export default function OperatorHome() {
                   style={{ flex: 1, opacity: accepting || declining ? 0.5 : 1 }}
                 />
                 <PrimaryButton
+                  testID="operator-accept-traveler"
                   // ACCEPT TRAVELER, not Accept Travel (Chad, 4 Sept 2026, overruling me).
                   //
                   // I argued for "Travel" on consistency: it is the platform's noun for a
