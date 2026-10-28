@@ -10,6 +10,7 @@ on:
       - 'app/operator/**'
       - 'src/components/UI.tsx'
       - 'scripts/verify-native-accessibility-contract.cjs'
+      - 'scripts/verify-native-source-syntax.cjs'
       - 'scripts/native-commercial-env-preflight.cjs'
       - 'backend/tolls.js'
       - 'backend/native-qa-toll-fixture.js'
@@ -33,6 +34,10 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+      - name: Install JS parser locally for cheap syntax validation
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Parse ALL native application TS/TSX/JSX before any device build
+        run: node scripts/verify-native-source-syntax.cjs
       - name: Refuse all live Stripe and production Firebase contexts, keep old sign-in QA safe
         run: node backend/native-qa-isolation.test.js
       - name: Verify synthetic local toll fixture never leaks to production
