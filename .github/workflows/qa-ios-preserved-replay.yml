@@ -47,7 +47,7 @@ jobs:
     # A manual dispatch SKIPS the PR-specific cancellation job. GitHub's
     # default needs behavior would then skip BOTH device jobs forever.
     # Still fail closed unless the safety preflight actually passed.
-    if: ${{ github.event.pull_request.number == 393 && needs.isolated-commercial-safety.result == 'success' }}
+    if: ${{ github.event.pull_request.head.ref == 'qa/ios-presence-heartbeat-20261027' && needs.isolated-commercial-safety.result == 'success' }}
     # Never hold the cleanup job itself behind a pre-concurrency build.
     # New, syntax-validated source supersedes previously started QA binaries.
     # Cancel only the SAME platform's obsolete run, not the other platform.
@@ -340,10 +340,23 @@ jobs:
         run: |
           set -euo pipefail
           export PATH="$HOME/.maestro/bin:$PATH"
-          # Restore local, disposable Operator presence AFTER costly Xcode build.
+          # Local synthetic Operator must obey the real 5-minute presence TTL.
+          # Maestro iPhone startup consumed over six minutes in run 40627439871
+          # after a one-time local refresh at 03:41:39Z, leaving no eligible Operator.
+          # Renew ONLY the marked disposable emulator Operator throughout the flow.
+          # Do not change the production presence timeout or screening eligibility.
           node backend/native-commercial-qa-refresh-presence.cjs
+          (
+            while true; do
+              sleep 45
+              node backend/native-commercial-qa-refresh-presence.cjs || exit 1
+            done
+          ) > "$RUNNER_TEMP/ios-qa-presence-heartbeat.log" 2>&1 &
+          QA_HEARTBEAT_PID=$!
+          trap 'kill "$QA_HEARTBEAT_PID" 2>/dev/null || true' EXIT
           maestro test .maestro/generated/qa-commercial-traveler.yml > artifacts/native-commercial-ios/traveler.log 2>&1 || { tail -75 artifacts/native-commercial-ios/traveler.log; mkdir -p artifacts/native-commercial-ios/maestro-debug; cp -R "$HOME/.maestro/tests/." artifacts/native-commercial-ios/maestro-debug/ 2>/dev/null || true; xcrun simctl io "$SIM_DEVICE" screenshot artifacts/native-commercial-ios/failure-screen.png || true; exit 1; }
           maestro test .maestro/generated/qa-commercial-operator.yml > artifacts/native-commercial-ios/operator.log 2>&1 || { tail -75 artifacts/native-commercial-ios/operator.log; mkdir -p artifacts/native-commercial-ios/maestro-debug; cp -R "$HOME/.maestro/tests/." artifacts/native-commercial-ios/maestro-debug/ 2>/dev/null || true; xcrun simctl io "$SIM_DEVICE" screenshot artifacts/native-commercial-ios/failure-screen.png || true; exit 1; }
+          kill -0 "$QA_HEARTBEAT_PID" || { echo '::error::Local QA presence heartbeat stopped'; tail -30 "$RUNNER_TEMP/ios-qa-presence-heartbeat.log"; exit 1; }
           node backend/native-commercial-qa-reconcile.cjs
       - name: Preserve platform evidence even when full journey fails
         if: always()
