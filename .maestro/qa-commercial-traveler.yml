@@ -105,13 +105,24 @@ appId: com.americanrider.app
 # PaymentSheet does not appear or the eligible Operator is not available.
 - tapOn: "Card number"
 - inputText: "4242424242424242"
-- tapOn: "MM / YY"
+# Real iPhone PaymentSheet hierarchy from run 40629150857 names the
+# expiry field "expiration date", not the visible placeholder MM / YY.
+- tapOn: "expiration date"
 - inputText: "1230"
 - tapOn: "CVC"
 - inputText: "123"
-# Do not use an unreliable blind iOS swipe in native Stripe PaymentSheet.
-# Tap the actual primary Pay action; a failed tap remains a test failure.
-- tapOn: "Pay"
+# The US billing ZIP is mandatory before Stripe enables its Pay action.
+- tapOn: "ZIP"
+- inputText: "33130"
+# Preserve the server-owned amount in the accessibility text.
+- extendedWaitUntil:
+    visible:
+      text: "^Pay .*"
+      enabled: true
+    timeout: 20000
+- tapOn:
+    text: "^Pay .*"
+    enabled: true
 - extendedWaitUntil:
     visible: "Awaiting Operator confirmation"
     timeout: 60000
