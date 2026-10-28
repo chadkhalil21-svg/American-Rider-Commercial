@@ -18,6 +18,7 @@ const ignored = (p) => p.startsWith('.github/') || p.startsWith('.maestro/') ||
   // Only talks to Stripe from the CI runner; never bundled into the native app.
   'scripts/native-qa-stripe-pair-fastcheck.cjs',
   'scripts/prepare-native-maestro-stable-ids.cjs',
+  'scripts/prepare-native-maestro-parallel-roles.cjs',
   'scripts/verify-native-accessibility-contract.cjs'].includes(p);
 const h = crypto.createHash('sha256');
 h.update('american-rider-native-release-qa-v1\0');
