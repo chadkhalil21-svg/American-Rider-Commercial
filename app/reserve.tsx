@@ -495,7 +495,7 @@ export default function TravelConfirmation() {
   ].filter((r): r is string => !!r);
 
   return (
-    <Screen scroll={false}>
+    <Screen scroll={false} contentOwnsScrolling>
       <LetterheadBar onBack={goBack} />
       <KeyboardAvoidingView
         style={{ flex: 1 }}
