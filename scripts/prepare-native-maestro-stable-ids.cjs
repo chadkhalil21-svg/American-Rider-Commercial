@@ -36,12 +36,12 @@ function generate(role){
     // Strictly require "Card number" after the tap, before entering TEST data.
     if (result.includes('visible: "Card"')) {
       result=edit(result,
-        '- extendedWaitUntil:\\n    visible: "Card"\\n    timeout: 45000',
-        '- tapOn:\\n    point: "50%,57%"',
+        '- extendedWaitUntil:\n    visible: "Card"\n    timeout: 45000',
+        '- tapOn:\n    point: "50%,57%"',
         'iOS Stripe card row behind native accessibility boundary');
       result=edit(result,
-        '- tapOn: "Card"\\n- extendedWaitUntil:\\n    visible: "Card number"',
-        '- extendedWaitUntil:\\n    visible: "Card number"',
+        '- tapOn: "Card"\n- extendedWaitUntil:\n    visible: "Card number"',
+        '- extendedWaitUntil:\n    visible: "Card number"',
         'iOS Stripe card entry requires actual card form');
     }
   } else if(role==='operator'){
