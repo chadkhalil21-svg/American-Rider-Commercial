@@ -33,12 +33,12 @@ function generate(role){
     // Do not count an accessible but differently-labeled Stripe option as failure.
     if (result.includes('visible: "Card"')) {
       result=edit(result,
-        '- extendedWaitUntil:\\n    visible: "Card"\\n    timeout: 45000',
-        '- runFlow:\\n    when:\\n      visible: "New card"\\n    commands:\\n      - tapOn: "New card"\\n      - extendedWaitUntil:\\n          visible: "Card number"\\n          timeout: 45000',
+        '- extendedWaitUntil:\n    visible: "Card"\n    timeout: 45000',
+        '- runFlow:\n    when:\n      visible: "New card"\n    commands:\n      - tapOn: "New card"\n      - extendedWaitUntil:\n          visible: "Card number"\n          timeout: 45000',
         'traveler Stripe saved-card picker');
       result=edit(result,
-        '- tapOn: "Card"\\n- extendedWaitUntil:\\n    visible: "Card number"',
-        '- runFlow:\\n    when:\\n      notVisible: "Card number"\\n    commands:\\n      - tapOn: "Card"\\n- extendedWaitUntil:\\n    visible: "Card number"',
+        '- tapOn: "Card"\n- extendedWaitUntil:\n    visible: "Card number"',
+        '- runFlow:\n    when:\n      notVisible: "Card number"\n    commands:\n      - tapOn: "Card"\n- extendedWaitUntil:\n    visible: "Card number"',
         'traveler fallback Stripe card picker');
     }
   } else if(role==='operator'){
