@@ -64,6 +64,62 @@ for device in "$OP" "$TR"; do
   adb -s "$device" shell settings put global transition_animation_scale 0
   adb -s "$device" shell settings put global animator_duration_scale 0
 done
+# ADB transport + sys.boot_completed=1 do NOT prove Android UI responsiveness.
+# Run 40712790421 captured "Pixel Launcher isn't responding" ABOVE the app.
+# Test both devices here, BEFORE either Maestro flow creates a Travel.
+check_native_android_health() {
+  local device="$1"
+  local snapshot=''
+  local consecutive=0
+  local launcher_recovery=0
+  local attempt
+  adb -s "$device" shell input keyevent 82 >/dev/null 2>&1 || true
+  if ! timeout 25s adb -s "$device" shell monkey -p com.americanrider.app -c android.intent.category.LAUNCHER 1 > "artifacts/native-commercial-android/health-$device-launch.log" 2>&1; then
+    echo "QA_INFRA_DEVICE_NOT_READY: $device cannot smoke-launch installed QA app"
+    return 1
+  fi
+  for attempt in $(seq 1 16); do
+    # Bound native accessibility extraction to avoid an infinite CI hang.
+    snapshot="$(timeout 18s adb -s "$device" exec-out uiautomator dump /dev/tty 2>/dev/null || true)"
+    printf '%s\n' "$snapshot" > "artifacts/native-commercial-android/health-$device-last-hierarchy.xml"
+    if printf '%s' "$snapshot" | grep -Eq 'Pixel Launcher[^<"]*responding|Pixel Launcher isn.t responding'; then
+      echo "QA_INFRA_SYSTEM_ANR: $device Pixel Launcher blocked UI before sign-in"
+      if [ "$launcher_recovery" -ne 0 ]; then
+        echo "QA_INFRA_SYSTEM_ANR_PERSISTENT: fail without changing app assertions"
+        return 1
+      fi
+      launcher_recovery=1
+      # Recover only named OS launcher once, BEFORE any Traveler/Operator flow.
+      # Never force-stop American Rider or retry any booked/charged Travel.
+      adb -s "$device" shell am force-stop com.google.android.apps.nexuslauncher >/dev/null 2>&1 || true
+      adb -s "$device" shell input keyevent 4 >/dev/null 2>&1 || true
+      sleep 3
+      timeout 25s adb -s "$device" shell monkey -p com.americanrider.app -c android.intent.category.LAUNCHER 1 >/dev/null 2>&1 || true
+      consecutive=0
+    elif printf '%s' "$snapshot" | grep -Eq 'isn.t responding|Application Not Responding|aerr_close'; then
+      echo "QA_INFRA_OTHER_SYSTEM_DIALOG: $device shows unexpected ANR; don't tap through"
+      return 1
+    elif printf '%s' "$snapshot" | grep -q 'AMERICAN RIDER' \
+      && printf '%s' "$snapshot" | grep -q 'com.americanrider.app'; then
+      consecutive=$((consecutive+1))
+      if [ "$consecutive" -ge 2 ]; then
+        echo "PASS QA emulator ready: $device; two native app accessibility trees"
+        return 0
+      fi
+    else
+      consecutive=0
+    fi
+    sleep 3
+  done
+  echo "QA_INFRA_UI_NOT_READY: $device failed bounded UI gate; no commercial flow begun"
+  return 1
+}
+for device in "$OP" "$TR"; do
+  if ! check_native_android_health "$device"; then
+    adb -s "$device" exec-out screencap -p > "artifacts/native-commercial-android/health-$device-failure.png" 2>/dev/null || true
+    exit 1
+  fi
+done
 node scripts/prepare-native-maestro-parallel-roles.cjs
 # Operator signs in and enters service BEFORE a Traveler books on the
 # other emulator. Keep both sessions independently running.
