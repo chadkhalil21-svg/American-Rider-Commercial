@@ -27,22 +27,21 @@ function generate(role){
       ['- tapOn: "Confirm Travel"','- tapOn:\n    id: "traveler-confirm-travel"'],
     ];
     for(const [a,b] of pairs) result=edit(result,a,b,'traveler');
-    // iOS run 40706419985: PaymentSheet visibly contains a "New card" row
-    // at y ~= 57% of the fixed iPhone 17 Pro QA simulator, but Stripe's native
-    // modal is absent from the Maestro accessibility snapshot. Text selectors
-    // falsely fail against the underlying app. Official Maestro tapOn supports
-    // positional taps for non-accessible elements. This is an iOS QA-only
-    // interaction fallback, NOT a payment success assertion or production edit.
-    // Strictly require "Card number" after the tap, before entering TEST data.
+    // Native iOS Stripe TEST row is proven in run 40712660657:
+    // screen-hierarchy/step-038-assertCondition-Card_number.json has
+    // accessibility identifier (resource-id) "New card", bounds [20,470][382,518].
+    // The preceding positional tap returned success but never opened card entry.
+    // Wait for the actual native element by ID rather than brittle coordinates
+    // or a short-lived conditional check. Retry only this non-payment selector.
     if (result.includes('visible: "Card"')) {
       result=edit(result,
         '- extendedWaitUntil:\n    visible: "Card"\n    timeout: 45000',
-        '- tapOn:\n    point: "50%,57%"',
-        'iOS Stripe card row behind native accessibility boundary');
+        '- extendedWaitUntil:\n    visible:\n      id: "New card"\n    timeout: 45000\n- tapOn:\n    id: "New card"\n    retryTapIfNoChange: true',
+        'iOS Stripe native New card accessibility ID');
       result=edit(result,
         '- tapOn: "Card"\n- extendedWaitUntil:\n    visible: "Card number"',
         '- extendedWaitUntil:\n    visible: "Card number"',
-        'iOS Stripe card entry requires actual card form');
+        'iOS Stripe require actual card-entry form');
     }
   } else if(role==='operator'){
     const ids=[
