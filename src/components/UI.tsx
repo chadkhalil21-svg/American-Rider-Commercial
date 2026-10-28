@@ -14,11 +14,17 @@ export function Screen({
   scroll = true,
   note,
   scrollEnabled = true,
+  contentOwnsScrolling = false,
 }: {
   children: React.ReactNode;
   scroll?: boolean;
   note?: string | null;
   scrollEnabled?: boolean;
+  // Screens with their OWN scrollable body + fixed action footer must not be
+  // wrapped in Screen's legacy outer ScrollView. Otherwise the full screen
+  // becomes tall and the supposedly persistent payment footer sits below the
+  // viewport on both iPhone and Android.
+  contentOwnsScrolling?: boolean;
 }) {
   const insets = useSafeAreaInsets();
   // .pad{ padding:58px 24px 40px }. The demo draws its own status bar area into that
@@ -77,6 +83,17 @@ export function Screen({
   // layout rather than lifting the field. The content needs somewhere to go. The ScrollView
   // only scrolls when it has to — `grow` keeps a short screen laid out exactly as before, so
   // nothing that fits today moves today.
+  if (contentOwnsScrolling) {
+    // The child owns its body scroll and any keyboard avoidance. A second
+    // ScrollView here caused the Traveler Total and Confirm Travel action to
+    // disappear below the screen while the page's upper content looked fine.
+    return (
+      <View style={[styles.screen, pad]}>
+        {children}
+        {overlay}
+      </View>
+    );
+  }
   if (!scroll) {
     return (
       <KeyboardAvoidingView
