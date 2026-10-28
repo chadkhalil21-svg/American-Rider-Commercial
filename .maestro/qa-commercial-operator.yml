@@ -4,8 +4,23 @@ appId: com.americanrider.app
 - launchApp:
     clearState: true
 - assertVisible: "AMERICAN RIDER"
-- tapOn: "Email Address"
-- inputText: "native.qa.operator@example.test"
+# iOS simulator screenshot (run 40702841352) showed only "n" in the email
+# field after Maestro reported full inputText success. Use the same proven
+# native input ID and clipboard paste as the iOS Traveler flow. Keep Android
+# on its previously passing keyboard path.
+- tapOn:
+    id: "auth-email-entry"
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - inputText: "native.qa.operator@example.test"
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - setClipboard: "native.qa.operator@example.test"
+      - pasteText
 # Android back dismisses the keyboard. iOS hideKeyboard uses a swipe and
 # previously FAILED before the account could proceed (run 40592170783).
 # Tap a visible, non-interactive native title instead on iOS.
