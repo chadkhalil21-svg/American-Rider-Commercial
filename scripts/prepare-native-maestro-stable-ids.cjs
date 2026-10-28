@@ -22,7 +22,21 @@ function generate(role){
     // Maestro's official retryTapIfNoChange handles an unconsumed early tap.
     // Apply ONLY to idempotent destination navigation, never booking or Pay.
     const pairs=[
-      ['- tapOn: "Select your destination"','- tapOn:\n    id: "traveler-open-destination"\n    retryTapIfNoChange: true'],
+      ['- tapOn: "Select your destination"',
+        // 28 Oct run 40739783586: tap hierarchy put the button at y=490..677
+        // while failure screenshot/hierarchy put it at y=978..1165.
+        // The map changed layout between selector lookup and touch.
+        // Wait for layout, then allow ONE retry ONLY for this idempotent
+        // pre-booking navigation if the real destination input is absent.
+        // Never repeat payment, booking, or Operator acceptance.
+        '- extendedWaitUntil:\n    visible:\n      id: "traveler-open-destination"\n    timeout: 30000'+
+        '\n- waitForAnimationToEnd:\n    timeout: 6000'+
+        '\n- tapOn:\n    id: "traveler-open-destination"'+
+        '\n- runFlow:\n    when:\n      notVisible:\n        id: "destination-search-input"'+
+        '\n    commands:\n      - assertVisible:\n          id: "traveler-open-destination"'+
+        '\n      - tapOn:\n          id: "traveler-open-destination"'+
+        '\n- extendedWaitUntil:\n    visible:\n      id: "destination-search-input"\n    timeout: 30000'],
+      ['- extendedWaitUntil:\n    visible: "Search a place or address"\n    timeout: 15000','- extendedWaitUntil:\n    visible:\n      id: "destination-search-input"\n    timeout: 30000'],
       ['- tapOn: "Search a place or address"','- tapOn:\n    id: "destination-search-input"'],
       ['visible: ".*Wynwood, Estimated travel time.*"','visible:\n      id: "destination-option-wynwood"'],
       ['- tapOn: ".*Wynwood, Estimated travel time.*"','- tapOn:\n    id: "destination-option-wynwood"'],
