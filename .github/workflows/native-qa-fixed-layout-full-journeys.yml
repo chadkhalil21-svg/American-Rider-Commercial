@@ -64,7 +64,7 @@ jobs:
     # A manual dispatch SKIPS the PR-specific cancellation job. GitHub's
     # default needs behavior would then skip BOTH device jobs forever.
     # Still fail closed unless the safety preflight actually passed.
-    if: ${{ github.event.pull_request.number == 393 && needs.isolated-commercial-safety.result == 'success' }}
+    if: ${{ github.event.pull_request.head.ref == 'qa/android-expiry-selector-isolated-20261027' && needs.isolated-commercial-safety.result == 'success' }}
     # Never hold the cleanup job itself behind a pre-concurrency build.
     # New, syntax-validated source supersedes previously started QA binaries.
     # Cancel only the SAME platform's obsolete run, not the other platform.
