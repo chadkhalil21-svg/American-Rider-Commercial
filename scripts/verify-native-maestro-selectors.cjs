@@ -51,6 +51,36 @@ assert.ok(booking.includes('- tapOn: "Search a place or address"'),
   'core destination must target the actual editable search input');
 assert.ok(booking.includes('- inputText: "Wynwood"'),
   'local QA booking must not rely on missing commercial geocoder credentials');
+// These names come from the actual captured iOS accessibility hierarchy,
+// not from an invented test string. Preserve the fixture with test evidence.
+const recordedHierarchy=JSON.parse(fs.readFileSync(
+  '.maestro/fixtures/ios-wynwood-search-hierarchy.json','utf8'));
+assert.ok(recordedHierarchy.evidence.includes('40601800241'),
+  'real iOS accessibility hierarchy evidence must be attributed');
+const resultRowLabel=recordedHierarchy.destinationResultButton.accessibilityText;
+const inputLabel=recordedHierarchy.editingSearchInput.text;
+assert.equal(recordedHierarchy.visibleHeading,'Travel Confirmation',
+  'heading alone is a false positive because it remains visible in search edit mode');
+const realDestinationSelector='.*Wynwood, Estimated travel time.*';
+const destinationRowPattern=new RegExp(realDestinationSelector);
+assert.ok(booking.includes('visible: "'+realDestinationSelector+'"') &&
+          booking.includes('- tapOn: "'+realDestinationSelector+'"'),
+  'Match the actual Wynwood suggestion row, never the still-focused Wynwood TextInput');
+assert.ok(destinationRowPattern.test(resultRowLabel) && !destinationRowPattern.test(inputLabel),
+  'Maestro destination selector must distinguish result-row button from editable search field');
+assert.doesNotMatch(booking, /^- tapOn: "Wynwood"$/m,
+  'Ambiguous Wynwood selector clicked the input, not the result, in run 40601800241');
+assert.ok(booking.includes('notVisible: "Search a place or address"') &&
+          booking.includes('visible: "Complete Travel Cost"') &&
+          booking.includes('text: "Confirm Travel"') &&
+          booking.includes('enabled: true'),
+  'Require search mode exit, actual quote display, and enabled Confirm Travel');
+const reserveScreen=fs.readFileSync('app/reserve.tsx','utf8');
+assert.ok(reserveScreen.includes("t('traveler.estimatedTravelTime', { n: p.minutes })") &&
+          reserveScreen.includes('chooseDestination({ name: p.name') &&
+          reserveScreen.includes('setSearching(false)'),
+  'Destination-result accessibility row and its search-mode exit changed; review Maestro selector');
+
 assert.doesNotMatch(booking,/- inputText: "Miami International Airport"/,
   'separate airport acceptance from core isolated commercial Travel');
 assert.ok(booking.includes('- inputText: "123"'),

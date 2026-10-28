@@ -1,0 +1,10 @@
+{
+  "evidence": "GitHub run 40601800241, native-commercial-ios-evidence artifact 12779259463, Maestro step 031 actual iOS accessibility hierarchy",
+  "visibleHeading": "Travel Confirmation",
+  "editingSearchInput": {
+    "text": "Wynwood"
+  },
+  "destinationResultButton": {
+    "accessibilityText": "Wynwood, Estimated travel time · 11 minutes, ›"
+  }
+}

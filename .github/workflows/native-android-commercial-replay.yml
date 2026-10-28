@@ -1,0 +1,163 @@
+name: Independent Android paid commercial replay - exact saved APK
+on:
+  pull_request:
+    branches: [qa/full-commercial-mobile-journeys-20261027]
+    paths:
+      - '.github/workflows/native-android-commercial-replay.yml'
+      - '.maestro/qa-commercial-*.yml'
+      - 'scripts/verify-native-maestro-selectors.cjs'
+      - '.maestro/fixtures/**'
+permissions:
+  contents: read
+  actions: read
+jobs:
+  android-commercial-replay:
+    # Only the corrected, independent QA PR. NEVER cancel the iOS run.
+    if: ${{ github.event.pull_request.number == 389 }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 105
+    concurrency:
+      group: independent-android-replay-389
+      cancel-in-progress: false
+    env:
+      CI: '1'
+      NODE_ENV: test
+      AR_NATIVE_PLATFORM: android
+      AR_NATIVE_QA_LOCAL: '1'
+      AR_NATIVE_COMMERCIAL_QA: '1'
+      EXPO_PUBLIC_AR_NATIVE_QA: '1'
+      EXPO_PUBLIC_API_URL: http://10.0.2.2:4242
+      EXPO_PUBLIC_REFERRALS_ENABLED: '1'
+      FIREBASE_PROJECT_ID: demo-american-rider-qa
+      GOOGLE_CLOUD_PROJECT: demo-american-rider-qa
+      FIRESTORE_EMULATOR_HOST: 127.0.0.1:8080
+      FIREBASE_AUTH_EMULATOR_HOST: 127.0.0.1:9099
+      STRIPE_SECRET_KEY: ${{ secrets.STRIPE_TEST_SECRET_KEY }}
+      STRIPE_PUBLISHABLE_KEY: ${{ secrets.STRIPE_TEST_PUBLISHABLE_KEY || vars.STRIPE_TEST_PUBLISHABLE_KEY || vars.STRIPE_PUBLISHABLE_KEY }}
+      PORT: '4242'
+      MARKET_STATUS: fl-miami-dade:active
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Enforce no production account, no provider live keys, and exact QA source
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$AR_NATIVE_QA_LOCAL" = 1
+          test "$GOOGLE_CLOUD_PROJECT" = demo-american-rider-qa
+          test -z "$(printenv STRIPE_LIVE_SECRET_KEY || true)"
+          test -z "$(printenv K_SERVICE || true)"
+          case "$STRIPE_SECRET_KEY" in sk_test_*) ;; *) echo "::error::Only STRIPE_TEST_SECRET_KEY permitted"; exit 1;; esac
+          case "$STRIPE_PUBLISHABLE_KEY" in pk_test_*) ;; *) echo "::error::Matching STRIPE_TEST_PUBLISHABLE_KEY is not configured"; exit 1;; esac
+          git rev-parse HEAD
+      - name: Install app/backend and Firebase emulator dependencies
+        run: |
+          npm ci --ignore-scripts
+          npm ci --prefix backend --omit=dev
+          npm ci --prefix infra/rules-emulator
+      - name: Start disposable Firebase Auth/Firestore emulators
+        shell: bash
+        run: |
+          set -euo pipefail
+          node - <<'NODE'
+          const fs=require('node:fs'),config=JSON.parse(fs.readFileSync('firebase.json','utf8'));
+          config.emulators={...(config.emulators||{}),
+            auth:{host:'127.0.0.1',port:9099},firestore:{host:'127.0.0.1',port:8080}};
+          fs.writeFileSync('firebase-qa-only.generated.json',JSON.stringify(config));
+          NODE
+          ./infra/rules-emulator/node_modules/.bin/firebase emulators:start --only auth,firestore --project demo-american-rider-qa --config firebase-qa-only.generated.json > "$RUNNER_TEMP/firebase-qa.log" 2>&1 &
+          for i in $(seq 1 100); do
+            if curl --fail --silent http://127.0.0.1:9099/emulator/v1/projects/demo-american-rider-qa/config >/dev/null; then break; fi
+            sleep 2
+          done
+          curl --fail --silent http://127.0.0.1:9099/emulator/v1/projects/demo-american-rider-qa/config >/dev/null
+      - name: Provision disposable Traveler and eligible-test Operator in LOCAL Firebase and Stripe TEST
+        shell: bash
+        run: |
+          set -euo pipefail
+          node backend/native-commercial-qa-fixture.cjs | tee "$RUNNER_TEMP/fixture-result.txt"
+          grep -q 'QA_NATIVE_FIXTURES_READY=1' "$RUNNER_TEMP/fixture-result.txt" || exit 1
+      - name: Start actual local American Rider API and prove Stripe TEST readiness
+        shell: bash
+        run: |
+          set -euo pipefail
+          node backend/server.js > "$RUNNER_TEMP/local-commercial-api.log" 2>&1 &
+          for i in $(seq 1 60); do
+            if curl --fail --silent http://127.0.0.1:4242/health >/dev/null; then break; fi
+            sleep 2
+          done
+          curl --fail --silent http://127.0.0.1:4242/health >/dev/null || { tail -50 "$RUNNER_TEMP/local-commercial-api.log"; exit 1; }
+          node scripts/native-commercial-env-preflight.cjs
+      - name: Install Maestro real-screen interaction runner
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fsSL 'https://get.maestro.mobile.dev' | bash
+          echo "$HOME/.maestro/bin" >> "$GITHUB_PATH"
+      - name: Enforce exact preserved Android APK source fingerprint
+        shell: bash
+        run: |
+          set -euo pipefail
+          digest="$(node scripts/native-build-fingerprint.cjs)"
+          test "$digest" = '5cc7f746d088222c4eb000aee93e01a85b914513a09c26d5cc5e9cb79171a392' || {
+            echo "::error::Android app source drift; refuse stale APK or unplanned rebuild"
+            exit 1
+          }
+          node scripts/verify-native-maestro-selectors.cjs
+          node scripts/native-qa-android-network.test.cjs
+      - name: Retrieve actual Android release APK from saved build 40601800241
+        uses: actions/download-artifact@v4
+        with:
+          artifact-ids: 12780173052
+          run-id: 40601800241
+          github-token: ${{ github.token }}
+          path: .qa-native-build-cache/android-downloaded
+      - name: Verify saved Android APK checksum and place in standard emulator install path
+        shell: bash
+        run: |
+          set -euo pipefail
+          ART="$GITHUB_WORKSPACE/.qa-native-build-cache/android-downloaded/commercial-qa-android-app"
+          test -s "$ART/app-release.apk"
+          test -s "$ART/native.sha256"
+          (cd "$ART" && shasum -a 256 -c native.sha256)
+          mkdir -p .qa-native-build-cache/android
+          cp "$ART/app-release.apk" .qa-native-build-cache/android/app-release.apk
+          cp "$ART/native.sha256" .qa-native-build-cache/android/native.sha256
+          (cd .qa-native-build-cache/android && shasum -a 256 -c native.sha256)
+          echo 'Android APK reused exactly, no Gradle or Expo compilation'
+      - name: Enable KVM for actual Android
+        shell: bash
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Execute native Android Traveler and Operator paid journeys
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          emulator-options: -no-window -no-audio -no-snapshot -no-boot-anim -gpu swiftshader_indirect
+          disable-animations: true
+          script: bash scripts/native-commercial-android-runner.sh
+      - name: Preserve Android emulator evidence on failure or success
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: native-android-replay-389-evidence
+          path: artifacts/native-commercial-android/
+          retention-days: 14
+          if-no-files-found: warn
+      - name: Record commercial certification boundary
+        if: always()
+        run: |
+          echo 'Pass only when BOTH real Traveler/Operator Android UI flows AND the same local Firestore Travel Stripe TEST charge capture plus Operator Connect transfer reconcile.' >> "$GITHUB_STEP_SUMMARY"
+          echo 'No production market legal readiness or live payouts asserted.' >> "$GITHUB_STEP_SUMMARY"
