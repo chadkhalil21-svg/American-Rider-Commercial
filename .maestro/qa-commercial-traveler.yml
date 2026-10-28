@@ -96,7 +96,7 @@ appId: com.americanrider.app
 # Real Android/iOS Stripe PaymentSheet evidence in runs 40625765922 and
 # 40625766005 shows a payment-method picker (Card, Link, etc.) first.
 # Card number is not visible until the Traveler explicitly chooses Card.
-- tapOn: "Card"
+- tapOn: "New card"
 - extendedWaitUntil:
     visible: "Card number"
     timeout: 45000
