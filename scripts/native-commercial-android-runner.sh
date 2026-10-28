@@ -76,9 +76,40 @@ node backend/native-commercial-qa-refresh-presence.cjs
 # while the Traveler enters Stripe TEST payment on the second device.
 maestro --device "$OP" test --test-output-dir=artifacts/native-commercial-android/maestro-operator-fulfill .maestro/generated/qa-commercial-operator-fulfill.yml > artifacts/native-commercial-android/operator.log 2>&1 &
 OP_FLOW_PID=$!
+# The 28 October dual-device run 40710541111 lost ADB transport while
+# launching the second emulator, BEFORE any Traveler UI assertion or payment.
+# Permit ONE bounded recovery exclusively for that proven infrastructure error.
+# Never retry a partially booked/charged Travel, or conceal a real app failure.
 if ! maestro --device "$TR" test --test-output-dir=artifacts/native-commercial-android/maestro-traveler .maestro/generated/qa-commercial-traveler.yml > artifacts/native-commercial-android/traveler.log 2>&1; then
-  tail -90 artifacts/native-commercial-android/traveler.log
-  exit 1
+  if grep -q 'Launch app "com.americanrider.app" with clear state' artifacts/native-commercial-android/traveler.log \
+    && ! grep -Eq 'Assert that|Tap on|Input text|COMPLETED' artifacts/native-commercial-android/traveler.log \
+    && grep -Rq 'device offline' artifacts/native-commercial-android/maestro-traveler/ 2>/dev/null; then
+    echo 'QA infrastructure: Traveler device went offline during app launch; probing bounded ADB recovery.'
+    ready=0
+    for attempt in $(seq 1 25); do
+      state="$(adb -s "$TR" shell getprop sys.boot_completed 2>/dev/null | tr -d '\r' || true)"
+      if [ "$state" = '1' ]; then ready=1; break; fi
+      sleep 2
+    done
+    # Only retry when the isolated Firestore has NO booked Travel, guaranteed
+    # by the interrupted launch step and checked again before any new tap.
+    node backend/native-commercial-qa-readonly-snapshot.cjs > artifacts/native-commercial-android/pre-retry-readonly-snapshot.json 2>&1 || true
+    if [ "$ready" -eq 1 ] && grep -q '"rides": \[\]' artifacts/native-commercial-android/pre-retry-readonly-snapshot.json; then
+      echo 'QA infrastructure: both device connectivity and zero booked Travels verified; single launch retry.'
+      if maestro --device "$TR" test --test-output-dir=artifacts/native-commercial-android/maestro-traveler-retry .maestro/generated/qa-commercial-traveler.yml > artifacts/native-commercial-android/traveler-retry.log 2>&1; then
+        echo 'PASS: Traveler recovered after transient ADB disconnect before booking.'
+      else
+        tail -90 artifacts/native-commercial-android/traveler-retry.log
+        exit 1
+      fi
+    else
+      echo 'QA infrastructure: ADB/zero-Travel preconditions unavailable; refusing an unsafe retry.'
+      exit 1
+    fi
+  else
+    tail -90 artifacts/native-commercial-android/traveler.log
+    exit 1
+  fi
 fi
 # Record actual matching/assignment state independent of the onscreen button.
 node backend/native-commercial-qa-readonly-snapshot.cjs > artifacts/native-commercial-android/dispatch-after-traveler.json 2>&1 || true
