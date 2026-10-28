@@ -17,8 +17,8 @@ function generate(role){
   const original=fs.readFileSync(file,'utf8');
   let result=original;
   if(role==='traveler'){
-    const pairs=[
-      ['- tapOn: "Select your destination"','- tapOn:\n    id: "traveler-open-destination"'],
+    // Android run 40706775328: Maestro returned tap success while destination\n    // remained on Home (the accessibility tree still showed the same button).\n    // Maestro's official retryTapIfNoChange handles an unconsumed early tap.\n    // Apply ONLY to idempotent destination navigation, never booking or Pay.\n    const pairs=[
+      ['- tapOn: "Select your destination"','- tapOn:\n    id: "traveler-open-destination"\n    retryTapIfNoChange: true'],
       ['- tapOn: "Search a place or address"','- tapOn:\n    id: "destination-search-input"'],
       ['visible: ".*Wynwood, Estimated travel time.*"','visible:\n      id: "destination-option-wynwood"'],
       ['- tapOn: ".*Wynwood, Estimated travel time.*"','- tapOn:\n    id: "destination-option-wynwood"'],
