@@ -14,7 +14,9 @@ const ignored = (p) => p.startsWith('.github/') || p.startsWith('.maestro/') ||
   'scripts/native-qa-android-network.cjs',
   'scripts/native-qa-android-network.test.cjs',
   'scripts/native-commercial-android-runner.sh',
-  'scripts/native-commercial-env-preflight.cjs'].includes(p);
+  'scripts/native-commercial-env-preflight.cjs',
+  'scripts/prepare-native-maestro-stable-ids.cjs',
+  'scripts/verify-native-accessibility-contract.cjs'].includes(p);
 const h = crypto.createHash('sha256');
 h.update('american-rider-native-release-qa-v1\0');
 for (const prop of ['EXPO_PUBLIC_API_URL','EXPO_PUBLIC_AR_NATIVE_QA','EXPO_PUBLIC_REFERRALS_ENABLED']) {
