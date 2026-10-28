@@ -57,6 +57,12 @@ run_maestro traveler "$SIM_DEVICE" .maestro/generated/qa-commercial-traveler.yml
 wait "$OFFER_PID"
 OFFER_PID=''
 node scripts/native-qa-ios-confirm-accepted.cjs
+# Only refresh stationary pickup presence until genuine acceptance. Once the
+# app is driving, the signed-in Operator must supply live GPS itself; the QA
+# heartbeat intentionally refuses to overwrite a destination location.
+kill "$HEARTBEAT_PID" 2>/dev/null || true
+wait "$HEARTBEAT_PID" 2>/dev/null || true
+HEARTBEAT_PID=''
 echo 'QA_IOS_STAGE=operator_arrive_board'
 run_maestro operator-board "$SIM_OPERATOR" .maestro/generated/qa-commercial-ios-operator-board.yml 240
 # This guard reads the same local Travel's destination only AFTER server acceptance
@@ -92,6 +98,7 @@ fi
 cat artifacts/native-commercial-ios/destination-position.log
 echo 'QA_IOS_STAGE=operator_actual_completion'
 run_maestro operator-complete "$SIM_OPERATOR" .maestro/generated/qa-commercial-ios-operator-complete.yml 180
-kill -0 "$HEARTBEAT_PID" || { echo 'QA_IOS_HEARTBEAT_STOPPED'; exit 1; }
+# Do not rely on the QA presence heartbeat after the Operator moves.
+# Fresh authenticated destination telemetry has already been asserted above.
 echo 'QA_IOS_STAGE=real_stripe_test_reconciliation'
 node backend/native-commercial-qa-reconcile.cjs | tee artifacts/native-commercial-ios/reconciliation.log
