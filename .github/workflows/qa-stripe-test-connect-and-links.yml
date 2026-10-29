@@ -55,6 +55,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+      - name: One continuous synthetic Recruiter + Operator + Traveler + 90 settled Travels + ledger payout
+        run: node scripts/qa-three-role-recruiter-journey-20261029.cjs
       - name: Verify source association, referral recovery and independent recruiter contracts
         run: |
           node backend/referral-link-recovery-contract.test.js
