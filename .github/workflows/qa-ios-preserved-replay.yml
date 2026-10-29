@@ -387,6 +387,15 @@ jobs:
           # Restore the repository root before the Maestro smoke/log paths.
           cd "$GITHUB_WORKSPACE"
           mkdir -p artifacts/native-commercial-ios
+          echo 'PASS: cached iOS app installed on first iPhone; full login checkpoint is next'
+      - name: Verify real Operator sign-in and In Service on one iPhone
+        if: matrix.platform == 'ios'
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$SIM_OPERATOR"
+          test -d "$RUNNER_TEMP/qa-cached-ios/AmericanRider.app"
+          mkdir -p artifacts/native-commercial-ios
           # One reliable checkpoint, not two separate cold XCTest sessions.
           # Validate REAL Operator sign-in + Commence Operations while only one
           # simulator is booted. The prior smoke passed, but the next separate
@@ -396,7 +405,7 @@ jobs:
           node scripts/native-qa-ios-prepare-role-flows.cjs
           node backend/native-commercial-qa-refresh-presence.cjs
           echo 'QA_IOS_STAGE=single_iphone_operator_login_and_on_duty'
-          python3 - "$SIM" <<'PY'
+          python3 - "$SIM_OPERATOR" <<'PY'
           import os,sys,pathlib,subprocess,signal,glob,shutil
           sim=sys.argv[1]
           out=pathlib.Path('artifacts/native-commercial-ios/operator-start.log')
@@ -427,10 +436,17 @@ jobs:
           pathlib.Path('artifacts/native-commercial-ios/operator-signin-verified.udid').write_text(sim+'\n')
           print('PASS: real Operator signed in and commenced operations on isolated first iPhone',flush=True)
           PY
+      - name: Boot Traveler only after verified Operator sign-in checkpoint
+        if: matrix.platform == 'ios'
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s artifacts/native-commercial-ios/operator-signin-verified.udid
+          test "$(cat artifacts/native-commercial-ios/operator-signin-verified.udid)" = "$SIM_OPERATOR"
           # Only AFTER Operator login is independently verified do we allocate the
           # Traveler simulator. Both receive the same checksum-verified .app.
-          SIM_TRAVELER="$(xcrun simctl list -j devices available | python3 -c 'import json,sys;d=json.load(sys.stdin)["devices"];a=next(v for v in d.values() if any(x["udid"]==sys.argv[1] for x in v));print(next(x["udid"] for x in a if x["udid"]!=sys.argv[1] and x.get("isAvailable") and "iPhone" in x["name"]))' "$SIM")"
-          test -n "$SIM_TRAVELER" && test "$SIM_TRAVELER" != "$SIM"
+          SIM_TRAVELER="$(xcrun simctl list -j devices available | python3 -c 'import json,sys;d=json.load(sys.stdin)["devices"];a=next(v for v in d.values() if any(x["udid"]==sys.argv[1] for x in v));print(next(x["udid"] for x in a if x["udid"]!=sys.argv[1] and x.get("isAvailable") and "iPhone" in x["name"]))' "$SIM_OPERATOR")"
+          test -n "$SIM_TRAVELER" && test "$SIM_TRAVELER" != "$SIM_OPERATOR"
           echo "SIM_DEVICE=$SIM_TRAVELER" >> "$GITHUB_ENV"
           xcrun simctl boot "$SIM_TRAVELER"
           xcrun simctl bootstatus "$SIM_TRAVELER" -b
