@@ -205,11 +205,15 @@ def main():
     if approval not in valid or not re.fullmatch(r"[0-9a-f]{40}",sha):
         raise Stop("Manual founder approval and exact current branch SHA required.")
     activate_recruiters=approval=="DEPLOY_AND_ACTIVATE_PAID_RECRUITERS"
+    google_choice=os.environ.get("FOUNDER_GOOGLE_OPS_CONFIRM","NO")
+    if google_choice not in ("NO","ENABLE_GOOGLE_FOUNDER_OPERATIONS"):
+        raise Stop("Unknown Google Founder Operations activation choice.")
+    enable_google_ops=google_choice=="ENABLE_GOOGLE_FOUNDER_OPERATIONS"
     founder_uid=os.environ.get("FOUNDER_FIREBASE_UID","").strip()
     if founder_uid and not re.fullmatch(r"[A-Za-z0-9_-]{6,128}",founder_uid):
         raise Stop("Founder Firebase UID must be an exact verified provider UID, not an email, wildcard or token.")
     actor=os.environ.get("RECRUITER_FOUNDER_USERNAME","").strip()
-    if activate_recruiters and not re.fullmatch(r"[A-Za-z0-9_-]{1,80}",actor):
+    if (activate_recruiters or enable_google_ops) and not re.fullmatch(r"[A-Za-z0-9_-]{1,80}",actor):
         raise Stop("Activation needs your existing named Operations username, not a password.")
 
     # A one-time prelaunch feature activation uses the established paid-code
@@ -225,6 +229,26 @@ def main():
     before=meta("run","services","describe",SERVICE,f"--project={PROJECT}",f"--region={REGION}")
     scheduler=meta("scheduler","jobs","describe",JOB,f"--project={PROJECT}",f"--location={REGION}")
     old_env=assert_live(before,scheduler)
+    google_founder_uid=None
+    if enable_google_ops:
+        # One genuine Founder Firebase UID, and one named Ops identity.
+        google_founder_uid=founder_uid or old_env.get("AR_FOUNDER_FIREBASE_UIDS",{}).get("value","")
+        if not re.fullmatch(r"[A-Za-z0-9_-]{6,128}",str(google_founder_uid)):
+            raise Stop("One exact Founder Firebase UID is required before Google Operations activation.")
+        named_users=old_env.get("OPS_USERS",{})
+        visible_names=[part.split(":",1)[0] for part in named_users.get("value","").split(",") if ":" in part]
+        if named_users.get("value") and actor not in visible_names:
+            raise Stop("Founder must match an existing named Operations account; no authority created.")
+        if not named_users.get("value") and not named_users.get("valueFrom"):
+            raise Stop("Named Operations account not configured; no authority created.")
+        # Secret-backed OPS_USERS cannot be inspected without exposing credentials;
+        # the runtime Google sign-in independently checks that exact named user
+        # against the authorized Founder record, and fails closed on mismatch.
+        if not old_env.get("OPS_SESSION_SECRET") or not old_env.get("OPS_MFA_SECRETS"):
+            raise Stop("Existing named Operations session and revocation controls are required.")
+        if old_env.get("AR_RECRUITER_FOUNDER_USERS",{}).get("value","") not in ("",actor):
+            raise Stop("Existing Founder approval allowlist differs from the requested named Founder.")
+
     if activate_recruiters:
         # Native associations are an optional convenience for signed apps.
         # Recruiter enrollment and compensated QR/manual-code referral have a
@@ -257,6 +281,12 @@ def main():
         updates+=",AR_FOUNDER_FIREBASE_UIDS="+founder_uid
     if enable_manual:
         updates+=",AR_MANUAL_TRAVEL_CAPTURE=true"
+    if enable_google_ops:
+        # No bypass: backend verifies the signed Google token, exact UID,
+        # fresh identity and audited named session before any privileged action.
+        updates+=",AR_FOUNDER_GOOGLE_OPS_ENABLED=1"
+        if not activate_recruiters:
+            updates+=",AR_RECRUITER_FOUNDER_USERS="+actor
     if activate_recruiters:
         recruit_env={
             "AR_RECRUITER_PROGRAM_ENABLED":"1",
@@ -291,6 +321,12 @@ def main():
         not set(old_env).issubset(set(now_env)) or
         now_env.get("AR_RELEASE_COMMIT",{}).get("value")!=sha):
         raise Stop("New revision changed critical configuration; old traffic untouched.")
+    if enable_google_ops and (
+        now_env.get("AR_FOUNDER_GOOGLE_OPS_ENABLED",{}).get("value")!="1" or
+        now_env.get("AR_FOUNDER_FIREBASE_UIDS",{}).get("value")!=google_founder_uid or
+        now_env.get("AR_RECRUITER_FOUNDER_USERS",{}).get("value")!=actor
+    ):
+        raise Stop("Google Founder Operations identity or activation flag missing; old traffic untouched.")
     if enable_manual and now_env.get("AR_MANUAL_TRAVEL_CAPTURE",{}).get("value")!="true":
         raise Stop("New revision did not receive approved manual Travel capture flag.")
     if activate_recruiters and any(
@@ -309,6 +345,7 @@ def main():
         public_readiness(sha, require_manual_capture=enable_manual)
         print("SUCCESS: paid API updated to release/current",sha[:7],
               "; Recruiter finance enabled:",activate_recruiters,
+              "; Founder Google Operations enabled:",enable_google_ops,
               "; Google scheduler unchanged; both Stripe webhook URLs unchanged.")
     except Exception:
         try:
