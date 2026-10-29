@@ -1,0 +1,100 @@
+name: Founder Google access - stage verified Cloud Run revision safely
+
+# Founder explicitly starts this from GitHub Actions. Never change production
+# traffic or invoke payout/refund/market mutations in this workflow.
+on:
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: 'Type STAGE_FOUNDER_GOOGLE to build a zero-traffic revision'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: american-rider-founder-stage-without-traffic
+  cancel-in-progress: false
+
+jobs:
+  stage-founder:
+    if: ${{ github.ref == 'refs/heads/release/current' && inputs.confirmation == 'STAGE_FOUNDER_GOOGLE' }}
+    runs-on: ubuntu-latest
+    environment: american-rider-commercial-live
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Run Founder identity and scoped-command acceptance
+        shell: bash
+        run: |
+          set -euo pipefail
+          node backend/founder-google-ops-scopes.test.js
+          node backend/founder-command-services.test.js
+          node backend/chatgpt-mcp.test.js
+      - name: Federated Google Cloud authentication (no user key pasted)
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: projects/623854974930/locations/global/workloadIdentityPools/github-production/providers/github
+          service_account: ar-production-deployer@american-rider-35688.iam.gserviceaccount.com
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Check live service and Founder prerequisites without exposing secret values
+        shell: bash
+        run: |
+          set -euo pipefail
+          gcloud run services describe american-rider-api-production --region=us-east1 --project=american-rider-35688 --format=json > /tmp/ar-service.json
+          python3 - <<'PY'
+          import json,sys
+          s=json.load(open('/tmp/ar-service.json'))
+          env=s.get('spec',{}).get('template',{}).get('spec',{}).get('containers',[{}])[0].get('env',[])
+          if not env:
+              env=s.get('template',{}).get('containers',[{}])[0].get('env',[])
+          names={v.get('name') for v in env}
+          required={'OPS_USERS','OPS_SESSION_SECRET','OPS_MFA_SECRETS','AR_FOUNDER_FIREBASE_UIDS','AR_RECRUITER_FOUNDER_USERS'}
+          missing=required-names
+          if missing:
+              print('BLOCKED: missing existing Founder identity/session bindings: '+','.join(sorted(missing)))
+              sys.exit(1)
+          traffic=s.get('status',{}).get('traffic') or s.get('traffic') or []
+          if not traffic or sum(int(t.get('percent') or 0) for t in traffic)!=100:
+              print('BLOCKED: live service traffic allocation is not verified')
+              sys.exit(1)
+          print('PASS: existing Founder identity bindings present; no values printed. Live traffic remains unchanged.')
+          PY
+      - name: Build exact release as a new Google Cloud revision with ZERO customer traffic
+        shell: bash
+        run: |
+          set -euo pipefail
+          gcloud run deploy american-rider-api-production \
+            --project=american-rider-35688 \
+            --region=us-east1 \
+            --source=./backend \
+            --no-traffic \
+            --update-env-vars="AR_FOUNDER_GOOGLE_OPS_ENABLED=1,AR_RELEASE_COMMIT=${GITHUB_SHA}" \
+            --quiet
+      - name: Verify staged revision READY and still ZERO traffic, fail closed otherwise
+        shell: bash
+        run: |
+          set -euo pipefail
+          gcloud run services describe american-rider-api-production --project=american-rider-35688 --region=us-east1 --format=json > /tmp/ar-stage.json
+          python3 - <<'PY'
+          import json,sys
+          s=json.load(open('/tmp/ar-stage.json'))
+          status=s.get('status',{})
+          traffic=status.get('traffic') or s.get('traffic') or []
+          ready=status.get('latestReadyRevisionName') or status.get('latestReadyRevision') or ''
+          created=status.get('latestCreatedRevisionName') or status.get('latestCreatedRevision') or ''
+          if not created or not ready or ready!=created:
+              print('BLOCKED: newest staged revision is not READY')
+              sys.exit(1)
+          if any(t.get('revisionName')==created and int(t.get('percent') or 0)>0 for t in traffic):
+              print('BLOCKED: newest revision unexpectedly received traffic')
+              sys.exit(1)
+          print('PASS: new verified Founder revision staged at 0% without customer cutover.')
+          print('Staged revision:',created)
+          PY
+          echo "Google Founder code staged at 0%: not yet enabled for customers, no payout changes." >> "$GITHUB_STEP_SUMMARY"
