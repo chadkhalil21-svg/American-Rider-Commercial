@@ -19,13 +19,23 @@ node backend/native-commercial-qa-refresh-presence.cjs
 # failing business/UI assertion and never count a retry as a pass.
 adb wait-for-device
 sleep 12
+# Never replay a paid Travel or even a successful sign-in from the beginning.
+# A whole-flow retry is safe ONLY before authenticated UI actions begin.
+# The previous retry logic looked only at the infrastructure error, so a
+# late Pixel Launcher ANR could duplicate a TEST authorization/booking.
+safe_before_auth_retry(){
+  local log="$1"
+  ! grep -Eiq 'auth-primary-action|traveler-confirm-travel|operator-commence-operations|operator-accept-traveler|operator-confirm-arrival|operator-commence-travel|operator-complete-operation|Confirm Travel|Accept Traveler|Complete Operation' "$log"
+}
 for flow in traveler operator; do
   test_file=".maestro/generated/qa-commercial-${flow}.yml"
   result_log="artifacts/native-commercial-android/${flow}.log"
   result=0
   maestro test "$test_file" > "$result_log" 2>&1 || result=$?
   latest_debug="$(ls -1dt "$HOME"/.maestro/tests/* 2>/dev/null | head -1 || true)"
-  if [ "$result" -ne 0 ] && [ -n "$latest_debug" ] && grep -RqE 'device offline|Device server died' "$latest_debug" 2>/dev/null; then
+  if [ "$result" -ne 0 ] && [ -n "$latest_debug" ] &&
+     grep -RqE 'device offline|Device server died' "$latest_debug" 2>/dev/null &&
+     safe_before_auth_retry "$result_log"; then
     echo "Maestro emulator transport dropped in ${flow}; retrying once after reconnect."
     timeout 90 adb wait-for-device
     sleep 15
@@ -36,7 +46,9 @@ for flow in traveler operator; do
   # blocking a healthy sign-in page. Retry once ONLY for that OS infrastructure
   # dialog, never for an American Rider error or failed fare/payment assertion.
   latest_debug="$(ls -1dt "$HOME"/.maestro/tests/* 2>/dev/null | head -1 || true)"
-  if [ "$result" -ne 0 ] && [ -n "$latest_debug" ] && grep -RqF "Pixel Launcher isn't responding" "$latest_debug" 2>/dev/null; then
+  if [ "$result" -ne 0 ] && [ -n "$latest_debug" ] &&
+     grep -RqF "Pixel Launcher isn't responding" "$latest_debug" 2>/dev/null &&
+     safe_before_auth_retry "$result_log"; then
     echo "Verified Pixel Launcher ANR over healthy app; preserve original evidence and retry once."
     mkdir -p "artifacts/native-commercial-android/initial-launcher-anr"
     cp -R "$latest_debug/." "artifacts/native-commercial-android/initial-launcher-anr/" 2>/dev/null || true
@@ -47,6 +59,10 @@ for flow in traveler operator; do
     maestro test "$test_file" > "$result_log" 2>&1 || result=$?
   fi
   if [ "$result" -ne 0 ]; then
+    if ! safe_before_auth_retry "$result_log"; then
+      echo 'QA_ANDROID_REPLAY_BLOCKED=authenticated_or_payment_action_already_attempted'
+      echo 'No automated whole-flow retry after sign-in; preserve evidence and re-seed isolated fixture before any new journey.'
+    fi
     tail -100 "$result_log"
     mkdir -p artifacts/native-commercial-android/maestro-debug
     cp -R "$HOME/.maestro/tests/." artifacts/native-commercial-android/maestro-debug/ 2>/dev/null || true
