@@ -22,7 +22,6 @@ const { owns: r2Owns, readUrl: r2ReadUrl } = require('./r2');
 const { loadPrivateReviewDocument } = require('./operator-document-review');
 const { webhookReady } = require('./webhook');
 const { emailReady } = require('./email');
-const { screeningReady } = require('./screening');
 const { recordExternalReview } = require('./external-screening');
 const { recordScreeningHandoff } = require('./screening-handoff');
 const { triageScreeningCase, sortScreeningCases } = require('./screening-case-triage');
@@ -529,7 +528,6 @@ ${alarms.length
     ${stat('Stripe webhook', webhookReady() ? 'configured' : 'NOT CONFIGURED')}
     ${stat('Email receipts', emailReady() ? 'configured' : 'NOT CONFIGURED')}
     ${stat('Operator screening intake', adminStatus().ok ? 'available' : 'service unavailable')}
-    ${stat('External screening handoff', screeningReady() ? 'verified' : 'not yet independently verified')}
     ${stat('Optional incident/support analysis', readKey('ANTHROPIC_API_KEY') ? 'configured' : 'off')}
   </div>
   <a class="more" href="/health">Full health report ›</a>
