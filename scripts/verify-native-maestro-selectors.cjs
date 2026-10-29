@@ -57,6 +57,10 @@ for (const role of ['traveler','operator']) {
 const fingerprintScript=fs.readFileSync('scripts/native-build-fingerprint.cjs','utf8');
 assert.ok(fingerprintScript.includes("'scripts/verify-native-maestro-selectors.cjs'"),
   'exclude non-runtime QA preflight edits from native build fingerprint');
+assert.ok(fingerprintScript.includes("p.startsWith('scripts/native-qa-')") &&
+  fingerprintScript.includes("p.endsWith('.cjs')") &&
+  fingerprintScript.includes("if (process.env.AR_NATIVE_PLATFORM === 'android')"),
+  'Exclude Node-only native QA helpers from iOS cold-build digest, but retain Android native network policy bytes');
 const auth=fs.readFileSync('src/screens/AuthScreen.tsx','utf8');
 assert.ok(auth.includes('testID="auth-primary-action"'),'Sign In target missing');
 assert.ok(auth.includes("t('traveler.yourPasswordPh')"),'password hint wiring missing');
