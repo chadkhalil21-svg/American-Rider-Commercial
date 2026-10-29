@@ -34,14 +34,25 @@ appId: com.americanrider.app
       platform: iOS
     commands:
       - tapOn: "AMERICAN RIDER"
-- tapOn: "Continue"
+# A text-only "Continue" tap on the Operator path repeatedly completed
+# without reaching Sign In, while Traveler already used this stable test ID.
+# Confirm the *actual entered address* instead of only nonempty input.
+- assertVisible:
+    id: "auth-email-entry"
+    text: "native.qa.operator@example.test"
+- assertVisible:
+    id: "auth-primary-action"
+    enabled: true
+- tapOn:
+    id: "auth-primary-action"
+    enabled: true
+    retryTapIfNoChange: true
+# The next view is uniquely identified by its Sign In subheading.
+# An old check for "Welcome back" matched a static title and gave no
+# actionable distinction between input, transition and wrong auth step.
 - extendedWaitUntil:
-    visible: "Welcome back"
+    visible: "Sign in to your account."
     timeout: 30000
-# iOS evidence from run 40569443959 showed CREATE ACCOUNT in front
-# although a text-only "Welcome back" assertion passed. Require the
-# Sign In page to be foreground; never enter a password on signup.
-- assertVisible: "Sign in to your account."
 - assertNotVisible: "Create your account"
 # Use the password EditText hint, not the static PASSWORD label.
 - tapOn: "Your password"
