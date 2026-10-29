@@ -407,6 +407,9 @@ export function OperatorProvider({ children }: { children: React.ReactNode }) {
   // the single disposable QA Operator from AUTHENTICATED, server-assessed evidence.
   // The server still owns qualification, insurance, dispatch, Stripe and settlement.
   // This never runs in an App Store build, production Firebase project or remote API.
+  // A single transient API response used to leave a valid QA Operator permanently
+  // without "Switch to Operator View". Retry only authenticated read-only verdicts,
+  // with a bounded deadline, and NEVER commission from a local fixture flag.
   useEffect(() => {
     const isolated = Platform.OS !== 'web' &&
       process.env.EXPO_PUBLIC_AR_NATIVE_QA === '1' &&
@@ -416,18 +419,35 @@ export function OperatorProvider({ children }: { children: React.ReactNode }) {
     if (!isolated) return;
     let active = true;
     void (async () => {
-      const [qualification, coverage] = await Promise.all([
-        qualificationStatus(), insuranceStatus(),
-      ]);
-      if (!active || userUidRef.current !== 'native-qa-operator' ||
-          qualification.status !== 'qualified' ||
-          coverage?.ok !== true ||
-          !/^\d{4}-\d{2}-\d{2}$/.test(coverage.policyExpiry || '')) return;
-      // The synthetic plate and vehicle below match the isolated Firestore QA
-      // Operator fixture. This is NOT evidence of a real-world vehicle or policy.
-      setVerification('commissioned');
-      setVehicleState({car:'QA Test Vehicle',plate:'QATEST1'});
-      setInsuranceExpiryState(coverage.policyExpiry!);
+      for (let attempt = 1; attempt <= 4 && active; attempt++) {
+        // Insurance HTTP has no deadline of its own. Neither a delayed API nor
+        // a cold CoreSimulator should leave this effect unresolved indefinitely.
+        const result = await Promise.race([
+          Promise.all([qualificationStatus(), insuranceStatus()]),
+          new Promise<null>(resolve => setTimeout(() => resolve(null), 16000)),
+        ]);
+        if (!active || userUidRef.current !== 'native-qa-operator') return;
+        const [qualification, coverage] = result || [{status:'unknown'}, null];
+        if (qualification.status === 'qualified' &&
+            coverage?.ok === true &&
+            coverage.documentApproved === true &&
+            /^\d{4}-\d{2}-\d{2}$/.test(coverage.policyExpiry || '')) {
+          // These presentation fields mirror server-verified LOCAL QA status.
+          // Real Operator eligibility, insurance and payouts remain server-gated.
+          setVerification('commissioned');
+          setVehicleState({car:'QA Test Vehicle',plate:'QATEST1'});
+          setInsuranceExpiryState(coverage.policyExpiry!);
+          console.log('QA_OPERATOR_AUTHENTICATED_PRESENTATION_READY', attempt);
+          return;
+        }
+        console.warn('QA_OPERATOR_AUTHENTICATED_PRESENTATION_PENDING', {
+          attempt, qualification: qualification.status,
+          insurance: coverage?.status || 'unavailable',
+          documentApproved: coverage?.documentApproved === true,
+        });
+        if (attempt < 4) await new Promise(resolve => setTimeout(resolve, attempt * 2000));
+      }
+      if (active) console.warn('QA_OPERATOR_AUTHENTICATED_PRESENTATION_BLOCKED');
     })();
     return () => { active = false; };
   }, [user?.uid]);
