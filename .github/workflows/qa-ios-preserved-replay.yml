@@ -234,6 +234,65 @@ jobs:
       MARKET_STATUS: fl-miami-dade:active
     steps:
       - uses: actions/checkout@v4
+      # Incident #399: run simulator enumeration FIRST, while the runner has
+      # no Java, Firebase, backend or app process. A clean macOS-26 host
+      # answered this in 5.27s (run 40891282558); the same call exceeded
+      # 30s when deferred until after services. Never duplicate enumeration
+      # later on the loaded runner. Read-only, no fake GPS.
+      - name: Establish clean CoreSimulator readiness before Java or Firebase
+        if: matrix.platform == 'ios'
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/native-commercial-ios
+          python3 - <<'PY'
+          import os,subprocess,time,sys,json,pathlib
+          out=pathlib.Path('artifacts/native-commercial-ios')
+          def snapshot(label):
+              for name,cmd in [
+                  ('memory',['memory_pressure','-Q']),
+                  ('vm',['vm_stat']),
+                  ('disk',['df','-h','/'])
+              ]:
+                  try:
+                      p=subprocess.run(cmd,stdout=subprocess.PIPE,stderr=subprocess.STDOUT,
+                                       text=True,timeout=8,check=False)
+                      (out/('coresim-'+label+'-'+name+'.log')).write_text(p.stdout[:100000])
+                  except (OSError,subprocess.TimeoutExpired): pass
+          snapshot('before')
+          started=time.monotonic()
+          try:
+              sdk=subprocess.run(['xcrun','--sdk','iphonesimulator','--show-sdk-version'],
+                                 capture_output=True,text=True,check=True,timeout=20).stdout.strip()
+              target='com.apple.CoreSimulator.SimRuntime.iOS-'+sdk.replace('.','-')
+              cmd=subprocess.run(['xcrun','simctl','list','-j','devices','available'],
+                                 capture_output=True,text=True,check=True,timeout=120)
+              (out/'coresim-first-list.json').write_text(cmd.stdout)
+              (out/'coresim-first-stderr.log').write_text(cmd.stderr)
+              groups=json.loads(cmd.stdout)['devices']
+              phones=[d for d in groups.get(target,[]) if d.get('isAvailable') and
+                      'iPhone' in d.get('name','')]
+              if len(phones)<2:
+                  print('QA_IOS_CLEAN_CORESIM_FAILED reason=need_two_compatible_iphones target='+target,flush=True)
+                  sys.exit(3)
+              op=phones[0]['udid']
+              traveler=phones[1]['udid']
+              with open(os.environ['GITHUB_ENV'],'a') as e:
+                  e.write('SIM_OPERATOR='+op+'\nSIM_TRAVELER='+traveler+'\nSIM_RUNTIME='+target+'\n')
+              print('QA_IOS_CLEAN_CORESIM_PASS elapsed_seconds='+
+                    str(round(time.monotonic()-started,2))+
+                    ' runtime='+target+' compatible_iphones='+str(len(phones)),flush=True)
+              snapshot('after')
+          except subprocess.TimeoutExpired as e:
+              print('QA_IOS_CLEAN_CORESIM_BLOCKED command='+str(e.cmd)+
+                    ' timeout_seconds='+str(e.timeout),flush=True)
+              snapshot('failed')
+              sys.exit(124)
+          except (subprocess.CalledProcessError,ValueError,KeyError) as e:
+              print('QA_IOS_CLEAN_CORESIM_FAILED cause='+type(e).__name__,flush=True)
+              snapshot('failed')
+              sys.exit(1)
+          PY
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
@@ -459,28 +518,14 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p artifacts/native-commercial-ios .qa-native-build-cache/ios
-          # Apple Xcode 26.6 contains the iOS 26.5 SDK. Earlier runs chose
-          # the FIRST available iPhone (iOS 26.4) regardless of SDK runtime.
-          # Explicitly match the current SDK; refuse a missing simulator
-          # instead of silently starting another runtime. Codemagic and
-          # GitHub runner-image issue #12862 document cold/runtime mismatches.
-          SDKV="$(xcrun --sdk iphonesimulator --show-sdk-version)"
-          export SIM_RUNTIME="com.apple.CoreSimulator.SimRuntime.iOS-${SDKV//./-}"
-          echo "QA_IOS_SIMULATOR_SDK=$SDKV selected_runtime=$SIM_RUNTIME"
-          # Prewarm CoreSimulator's device database before selecting the
-          # runtime, as reported by the GitHub runner-images maintainers.
-          python3 - <<'PY'
-          import subprocess,sys
-          try:
-              subprocess.run(['xcrun','simctl','list','devices','available'],
-                             stdout=subprocess.DEVNULL,check=True,timeout=30)
-          except (subprocess.TimeoutExpired,subprocess.CalledProcessError):
-              print('QA_IOS_CORESIM_PREWARM_FAILED',flush=True)
-              sys.exit(124)
-          PY
-          SIM="$(xcrun simctl list -j devices available | python3 -c 'import json,sys,os;d=json.load(sys.stdin)["devices"];r=os.environ["SIM_RUNTIME"];devices=[x for x in d.get(r,[]) if x.get("isAvailable") and "iPhone" in x["name"]];print(devices[0]["udid"] if devices else "",end="")')"
-          test -n "$SIM" || { echo "::error::No available simulator for exact SDK runtime $SIM_RUNTIME"; exit 1; }
-          echo "SIM_OPERATOR=$SIM" >> "$GITHUB_ENV"
+          # Exact SDK-matched Operator UDID was selected on this SAME runner
+          # BEFORE Node, Java, Firebase and the backend started. Reuse it;
+          # do not enumerate all simulators under heavy resource load.
+          test -n "$SIM_OPERATOR" && test -n "$SIM_RUNTIME" || {
+            echo "::error::Missing early CoreSimulator preflight result"; exit 1;
+          }
+          SIM="$SIM_OPERATOR"
+          echo "QA_IOS_REUSE_CLEAN_CORESIM=1 runtime=$SIM_RUNTIME"
           echo 'QA_IOS_STAGE=simulator_boot'
           xcrun simctl boot "$SIM" || true
           # A blocked CoreSimulator boot used to share one opaque step with
@@ -716,26 +761,13 @@ jobs:
           test "$(cat artifacts/native-commercial-ios/operator-signin-verified.udid)" = "$SIM_OPERATOR"
           # Only AFTER Operator login is independently verified do we allocate the
           # Traveler simulator. Both receive the same checksum-verified .app.
-          echo 'QA_IOS_TRAVELER_STAGE=select_device timeout_seconds=30'
-          SIM_TRAVELER="$(python3 - "$SIM_OPERATOR" <<'PY'
-          import json, subprocess, sys
-          operator=sys.argv[1]
-          try:
-              raw=subprocess.run(['xcrun','simctl','list','-j','devices','available'],
-                                 stdout=subprocess.PIPE,stderr=subprocess.PIPE,
-                                 text=True,check=True,timeout=30).stdout
-              groups=json.loads(raw)['devices']
-              operator_group=next(v for v in groups.values() if any(x['udid']==operator for x in v))
-              traveler=next(x['udid'] for x in operator_group
-                            if x['udid']!=operator and x.get('isAvailable')
-                            and 'iPhone' in x['name'])
-              print(traveler)
-          except Exception as error:
-              print('QA_IOS_TRAVELER_SELECT_FAILED '+str(error),file=sys.stderr)
-              sys.exit(124)
-          PY
-          )"
+          # Both device identities were chosen on the otherwise unloaded
+          # runner, from the SAME SDK-matched runtime, before Firebase.
+          # Reuse these exact UDIDs; do not query CoreSimulator's entire
+          # device list under load. This is the root-cause isolation from
+          # cleanroom run 40891282558 (5.27-second enumeration).
           test -n "$SIM_TRAVELER" && test "$SIM_TRAVELER" != "$SIM_OPERATOR"
+          echo "QA_IOS_TRAVELER_STAGE=preselected_same_runtime"
           echo "SIM_DEVICE=$SIM_TRAVELER" >> "$GITHUB_ENV"
           # Oct 29 run 40884833413: second iPhone bootstatus finished after
           # 211 seconds of first-boot migration but simctl location set then
@@ -747,14 +779,11 @@ jobs:
           import os, pathlib, signal, subprocess, sys, time
           sim, app = sys.argv[1:]
           log = pathlib.Path('artifacts/native-commercial-ios/traveler-boot.log')
-          # GitHub actions/runner-images #12862 documents warming
-          # CoreSimulator with 'simctl list' to avoid cold-runtime cache stalls.
-          # Health probes are bounded and logged, not interpreted as GPS proof.
+          # No full-device listing under load: both UDIDs were selected early.
+          # Host health and actual boot/install are measured independently.
           stages = [
-              ('core-simulator-preflight', ['xcrun', 'simctl', 'list', 'devices', 'available'], 30),
               ('boot', ['xcrun', 'simctl', 'boot', sim], 90),
               ('bootstatus', ['xcrun', 'simctl', 'bootstatus', sim, '-b'], 420),
-              ('core-simulator-postboot', ['xcrun', 'simctl', 'list', 'devices', 'available'], 30),
               ('install', ['xcrun', 'simctl', 'install', sim, app], 180),
           ]
           def host_health(label):
@@ -823,7 +852,7 @@ jobs:
                       sys.exit(proc.returncode)
                   print('QA_IOS_TRAVELER_STAGE_OK='+label+
                         ' elapsed_seconds='+str(int(time.monotonic()-began)), flush=True)
-                  if label == 'core-simulator-postboot':
+                  if label == 'bootstatus':
                       host_health('after-boot')
                   elif label == 'install':
                       host_health('after-install')
