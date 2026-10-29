@@ -35,6 +35,7 @@ assert.equal(originalStart.split(postSignInNegative).length-1,1,
 const operatorDeepLink='- openLink: "americanrider:///operator"\n';
 const realOperatorNavigation=
   '- extendedWaitUntil:\n    visible:\n      id: "traveler-menu-open"\n    timeout: 90000\n'+
+  '- takeScreenshot: "qa-operator-authenticated-home"\n'+
   // Evidence: run 40869940850 showed an OPEN drawer containing the
   // commissioned role; run 40872756237 showed it CLOSED after a reported
   // successful menu tap. A hierarchy change is not proof the menu opened.
@@ -48,13 +49,16 @@ const realOperatorNavigation=
   '- runFlow:\n    when:\n      notVisible: ".*Payment Methods.*"\n    commands:\n      - tapOn:\n          id: "traveler-menu-open"\n'+
   '- extendedWaitUntil:\n    visible: ".*Payment Methods.*"\n    timeout: 15000\n'+
   '- extendedWaitUntil:\n    visible:\n      id: "traveler-switch-to-operator"\n    timeout: 20000\n'+
+  '- takeScreenshot: "qa-operator-drawer-role-available"\n'+
   '- tapOn:\n    id: "traveler-switch-to-operator"\n    retryTapIfNoChange: true\n'+
-  '- extendedWaitUntil:\n    visible:\n      id: "operator-commence-operations"\n    timeout: 60000\n';
+  '- extendedWaitUntil:\n    visible:\n      id: "operator-commence-operations"\n    timeout: 60000\n'+
+  '- takeScreenshot: "qa-operator-commence-control-visible"\n';
 assert.equal(originalStart.split(operatorDeepLink).length-1,1,
   'Refuse ambiguous Operator deep link');
 const start=originalStart.replace(postSignInNegative,'')
   .replace(operatorDeepLink,realOperatorNavigation)+
-  '- extendedWaitUntil:\n    visible: "In Service"\n    timeout: 60000\n';
+  '- extendedWaitUntil:\n    visible: "In Service"\n    timeout: 60000\n'+
+  '- takeScreenshot: "qa-operator-in-service-verified"\n';
 assert.ok(start.includes('traveler-switch-to-operator')&&
   !start.includes('Account Details') &&
   !start.includes('scrollUntilVisible:') &&
