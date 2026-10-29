@@ -37,7 +37,8 @@ const save=()=>{fs.mkdirSync('artifacts/stripe-test-travel',{recursive:true});
   }
   if(!recipient?.id?.startsWith('acct_'))throw Error('ACCOUNT_CREATION_UNCONFIRMED');
   recipient=await stripe.accounts.retrieve(recipient.id);
-  if(recipient.livemode!==false||recipient.type!=='express')throw Error('ACCOUNT_NOT_TEST_EXPRESS');
+  if(recipient.livemode===true||recipient.type!=='express')throw Error('ACCOUNT_NOT_TEST_EXPRESS');
+  // Account v1 responses may omit `livemode`; the independent TEST balance preflight above establishes sandbox mode.
   out.accountId=recipient.id;
   out.type=recipient.type;out.transferCapability=recipient.capabilities?.transfers||'missing';
   out.detailsSubmitted=recipient.details_submitted===true;
