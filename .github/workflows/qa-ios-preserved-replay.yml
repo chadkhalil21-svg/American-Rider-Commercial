@@ -29,6 +29,7 @@ jobs:
         run: node scripts/prepare-native-maestro-stable-ids.cjs
       - name: Parse bounded dual-iPhone commercial QA runner before expensive macOS boot
         run: |
+          node --check backend/native-commercial-qa-auth-preflight.cjs
           node --check scripts/native-qa-ios-prepare-role-flows.cjs
           node --check scripts/native-qa-ios-confirm-accepted.cjs
           node --check scripts/native-qa-operator-destination.cjs
@@ -227,6 +228,11 @@ jobs:
               console.log('PASS: local API /live responds correctly for native app');})
             .catch(e=>{console.error('QA_LOCAL_LIVE_FAILED',e.message);process.exitCode=1});
           NODE
+      - name: Prove actual signed-in QA Operator status BEFORE simulator build
+        shell: bash
+        run: |
+          set -euo pipefail
+          node backend/native-commercial-qa-auth-preflight.cjs
       - name: Install Maestro real-screen interaction runner
         shell: bash
         run: |
