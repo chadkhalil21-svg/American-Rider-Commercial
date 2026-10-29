@@ -79,6 +79,25 @@ jobs:
           assert.ok(w.includes('-resultBundlePath artifacts/native-commercial-ios/xcode-build.xcresult'), 'Xcode result bundle not retained');
           assert.ok(w.includes('QA_IOS_BUILD_HEARTBEAT=compiling') && w.includes('QA_IOS_SIMULATOR_BOOT_TIMEOUT=600s'), 'Missing stage diagnostics');
           assert.ok(w.includes('if-no-files-found: warn'), 'Missing artifact must not hide initial failure');
+          const buildStages=[
+            'Boot isolated iPhone simulator (bounded, independent)',
+            'Restore or compile fingerprint-bound QA iOS app (separate Xcode stage)',
+            'Save iOS simulator app across QA-only test revisions',
+            'Preserve exact iOS simulator app independently of test results',
+            'Verify compiled QA bundle and install on Operator iPhone',
+            'Verify real Operator sign-in and In Service on one iPhone',
+          ];
+          const boundaries=buildStages.map(name=>w.indexOf('      - name: '+name));
+          assert.ok(boundaries.every((n,i)=>n>=0&&(i===0||n>boundaries[i-1])),
+            'Boot, Xcode, SHA-preserved artifact, install and sign-in must be separate ordered CI steps');
+          const buildBody=w.slice(boundaries[1],boundaries[2]);
+          const installBody=w.slice(boundaries[4],boundaries[5]);
+          assert.ok(buildBody.includes('xcodebuild') && !buildBody.includes('simctl install'),
+            'Do not hide actual iPhone installation within the native compilation stage');
+          assert.ok(installBody.includes('xcrun simctl install "$SIM_OPERATOR"') &&
+            installBody.includes('native-qa-stage-ledger.cjs pass native-app-installed'),
+            'Install must happen after the binary is preserved and before UI sign-in');
+
           console.log('PASS: serial native replay + Xcode build evidence + bounded diagnostic stages');
           NODE
       - name: Refuse all live Stripe and production Firebase contexts, keep old sign-in QA safe
