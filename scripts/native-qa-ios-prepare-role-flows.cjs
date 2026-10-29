@@ -29,20 +29,23 @@ assert.equal(originalStart.split(postSignInNegative).length-1,1,
 // home after sign-in. Do not exercise a custom-scheme deep link just to reach
 // an Operator page: real commissioned accounts already have a native menu row.
 // Drive that existing user-facing navigation, then prove real Operator duty.
-// The native menu icon has no testID in the checksum-verified app binary;
-// its first-screen position was verified from the captured iPhone screenshot.
+// Run 40805559327 proves a coordinate tap may complete without opening
+// the drawer. Require actual menu and commissioned-role native testIDs;
+// a missed tap is retried only when the UI remains unchanged.
 const operatorDeepLink='- openLink: "americanrider:///operator"\n';
 const realOperatorNavigation=
-  '- extendedWaitUntil:\n    visible: "Arrange Your Travel"\n    timeout: 90000\n'+
-  '- tapOn:\n    point: "8%,10%"\n'+
-  '- extendedWaitUntil:\n    visible: "Switch to Operator View"\n    timeout: 60000\n'+
-  '- tapOn: "Switch to Operator View"\n';
+  '- extendedWaitUntil:\n    visible:\n      id: "traveler-menu-open"\n    timeout: 90000\n'+
+  '- tapOn:\n    id: "traveler-menu-open"\n    retryTapIfNoChange: true\n'+
+  '- extendedWaitUntil:\n    visible:\n      id: "traveler-switch-to-operator"\n    timeout: 60000\n'+
+  '- tapOn:\n    id: "traveler-switch-to-operator"\n    retryTapIfNoChange: true\n'+
+  '- extendedWaitUntil:\n    visible:\n      id: "operator-commence-operations"\n    timeout: 60000\n';
 assert.equal(originalStart.split(operatorDeepLink).length-1,1,
   'Refuse ambiguous Operator deep link');
 const start=originalStart.replace(postSignInNegative,'')
   .replace(operatorDeepLink,realOperatorNavigation)+
   '- extendedWaitUntil:\n    visible: "In Service"\n    timeout: 60000\n';
-assert.ok(start.includes('Switch to Operator View')&&
+assert.ok(start.includes('traveler-switch-to-operator')&&
+  start.includes('retryTapIfNoChange: true')&&
   !start.includes(operatorDeepLink)&&
   !start.includes(postSignInNegative), 'Require actual in-app Operator navigation');
 let offer=header+original.slice(ai,next);

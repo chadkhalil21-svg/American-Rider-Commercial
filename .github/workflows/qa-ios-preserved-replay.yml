@@ -43,10 +43,10 @@ jobs:
           assert.ok(!f.includes('notVisible: "Welcome back"'),
             'XCTest-crashing negative post-login poll remains in Operator checkpoint');
           const login=f.indexOf('id: "auth-primary-action"');
-          const home=f.indexOf('visible: "Arrange Your Travel"');
-          const menuTap=f.indexOf('point: "8%,10%"');
-          const menuRow=f.indexOf('visible: "Switch to Operator View"');
-          const roleTap=f.indexOf('tapOn: "Switch to Operator View"');
+          const home=f.indexOf('id: "traveler-menu-open"');
+          const menuTap=f.indexOf('- tapOn:\\n    id: "traveler-menu-open"\\n    retryTapIfNoChange: true'.replaceAll('\\n','\\n'));
+          const menuRow=f.indexOf('id: "traveler-switch-to-operator"');
+          const roleTap=f.indexOf('- tapOn:\\n    id: "traveler-switch-to-operator"\\n    retryTapIfNoChange: true'.replaceAll('\\n','\\n'));
           const commencement=f.indexOf('id: "operator-commence-operations"');
           const service=f.indexOf('visible: "In Service"');
           assert.ok(login>=0 && home>login && menuTap>home && menuRow>menuTap &&
@@ -60,7 +60,12 @@ jobs:
             source.includes("operator.setRole('operator')") &&
             source.includes("router.replace('/operator')"),
             'Native Operator drawer navigation contract changed');
-          console.log('PASS: iOS Operator uses commissioned native drawer, bypasses SafariViewService');
+          const bar=fs.readFileSync('src/components/UI.tsx','utf8');
+          assert.ok(bar.includes('testID="traveler-menu-open"') && bar.includes('testID={testID}') &&
+            source.includes("testID={item.label === t('traveler.switchToOperator') ? 'traveler-switch-to-operator' : undefined}"),
+            'Native menu/commissioned switch missing stable accessibility IDs');
+          assert.ok(!f.includes('point: "8%,10%"'), 'Prohibit coordinate-based iOS menu taps');
+          console.log('PASS: stable native menu + commissioned-role IDs, no Safari/deep-link/coordinate');
           NODE
       - name: Refuse all live Stripe and production Firebase contexts, keep old sign-in QA safe
         run: node backend/native-qa-isolation.test.js
@@ -226,52 +231,9 @@ jobs:
         with:
           path: .qa-native-build-cache/${{ matrix.platform }}
           key: qa-native-release-v1-${{ runner.os }}-${{ matrix.platform }}-${{ steps.native-fingerprint.outputs.digest }}
-      - name: Reuse exact source-matched iPhone app from previous native run
-        # Prior run 40750725516 installed its checksum-verified simulator app,
-        # then reached the native journey. Since that exact commit, only CI
-        # orchestration has changed. Verify EVERY intervening file before
-        # retrieving an immutable binary. An app/native/package change fails.
-        if: matrix.platform == 'ios' && steps.native-build-cache.outputs.cache-hit != 'true'
-        shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
-          QA_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-        run: |
-          set -euo pipefail
-          test "$GITHUB_REPOSITORY" = chadkhalil21-svg/American-Rider-Commercial
-          test "${{ github.event.pull_request.number }}" = 395
-          test "${{ github.event.pull_request.head.ref }}" = qa/ios-presence-heartbeat-20261027
-          BASE_SHA='0cc2ba6669366210b1b554befe43ddc65b03d86f'
-          test -n "$QA_HEAD_SHA"
-          gh api "repos/$GITHUB_REPOSITORY/compare/$BASE_SHA...$QA_HEAD_SHA" > "$RUNNER_TEMP/ios-qa-source-diff.json"
-          node - "$RUNNER_TEMP/ios-qa-source-diff.json" <<'NODE'
-          const fs=require('node:fs'),assert=require('node:assert/strict');
-          const d=JSON.parse(fs.readFileSync(process.argv[2],'utf8'));
-          assert.equal(d.status,'ahead','Refuse non-descendant iOS source');
-          // Source safety is enforced by the strict changed-file allowlist below.
-          // A fixed tiny commit ceiling accidentally rejects legitimate QA-only fixes.
-          assert.ok(d.ahead_by>=1 && d.ahead_by<=40,'Unexpected iOS source history');
-          const allowed=new Set([
-            '.github/workflows/qa-ios-preserved-replay.yml',
-            'scripts/native-commercial-ios-dual-runner.sh',
-            'scripts/native-qa-ios-confirm-accepted.cjs',
-            'scripts/native-qa-ios-prepare-role-flows.cjs',
-            'scripts/native-qa-operator-destination.cjs',
-            'scripts/native-build-fingerprint.cjs',
-            'scripts/prepare-native-maestro-stable-ids.cjs'
-          ]);
-          const changed=(d.files||[]).map(x=>x.filename);
-          assert.ok(changed.includes('scripts/native-qa-ios-prepare-role-flows.cjs'),
-            'No expected QA-only flow improvement found');
-          assert.ok(changed.every(p=>allowed.has(p)),
-            'Native source changed, refuse binary reuse: '+changed.join(', '));
-          console.log('PASS: exact GitHub diff proves no native app, package, backend or configuration change');
-          NODE
-          mkdir -p .qa-native-build-cache/ios
-          gh run download 40750725516 -R "$GITHUB_REPOSITORY" -n commercial-qa-ios-simulator-app -D .qa-native-build-cache/ios
-          (cd .qa-native-build-cache/ios && shasum -a 256 -c native.sha256)
-          test -s .qa-native-build-cache/ios/AmericanRider.app.tgz
-          echo 'PASS: reused byte-verified iPhone simulator binary from the same native app source'
+      # Native source changes require a new fingerprint-bound QA build.
+      # QA-script-only changes restore the same checksummed app from Actions cache;
+      # never import an old binary if its source fingerprint differs.
       # GitHub caches are scoped to PR merge refs. A native-identical APK
       # compiled on PR #390 can be unavailable in PR #393's cache namespace.
       # Retrieve the previous independently SHA-verified artifact instead of
@@ -417,6 +379,20 @@ jobs:
           cd "$GITHUB_WORKSPACE"
           mkdir -p artifacts/native-commercial-ios
           echo 'PASS: cached iOS app installed on first iPhone; full login checkpoint is next'
+      - name: Save iOS simulator app across QA-only test revisions
+        if: matrix.platform == 'ios' && steps.native-build-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: .qa-native-build-cache/ios
+          key: qa-native-release-v1-${{ runner.os }}-${{ matrix.platform }}-${{ steps.native-fingerprint.outputs.digest }}
+      - name: Preserve exact iOS simulator app independently of test results
+        if: matrix.platform == 'ios'
+        uses: actions/upload-artifact@v4
+        with:
+          name: commercial-qa-ios-simulator-app
+          path: .qa-native-build-cache/ios/
+          retention-days: 14
+          if-no-files-found: error
       - name: Verify real Operator sign-in and In Service on one iPhone
         if: matrix.platform == 'ios'
         shell: bash
@@ -482,20 +458,6 @@ jobs:
           xcrun simctl location "$SIM_TRAVELER" set 25.7617,-80.1918
           xcrun simctl install "$SIM_TRAVELER" "$RUNNER_TEMP/qa-cached-ios/AmericanRider.app"
           echo 'PASS: Operator login checkpoint succeeded, two independent iPhones installed with identical SHA-verified app'
-      - name: Save iOS simulator app across QA-only test revisions
-        if: matrix.platform == 'ios' && steps.native-build-cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v4
-        with:
-          path: .qa-native-build-cache/ios
-          key: qa-native-release-v1-${{ runner.os }}-${{ matrix.platform }}-${{ steps.native-fingerprint.outputs.digest }}
-      - name: Preserve exact iOS simulator app independently of test results
-        if: matrix.platform == 'ios'
-        uses: actions/upload-artifact@v4
-        with:
-          name: commercial-qa-ios-simulator-app
-          path: .qa-native-build-cache/ios/
-          retention-days: 14
-          if-no-files-found: error
       - name: Execute concurrent real iPhone Traveler and Operator paid journeys
         if: matrix.platform == 'ios'
         shell: bash

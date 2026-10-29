@@ -173,7 +173,7 @@ export function LetterheadBar({ onBack, onMenu }: { onBack?: () => void; onMenu?
   return (
     <View style={styles.bar}>
       {onMenu ? (
-        <Pressable onPress={onMenu} hitSlop={12} style={styles.barIcon}>
+        <Pressable testID="traveler-menu-open" accessibilityRole="button" accessibilityLabel="Open navigation menu" onPress={onMenu} hitSlop={12} style={styles.barIcon}>
           <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
             <Path
               d="M4 7h16M4 12h16M4 17h16"
@@ -550,14 +550,16 @@ export function DrawerRow({
   onPress,
   color = colors.ink,
   chev = true,
+  testID,
 }: {
   label: string;
   onPress: () => void;
   color?: string;
   chev?: boolean;
+  testID?: string;
 }) {
   return (
-    <Pressable onPress={onPress}>
+    <Pressable testID={testID} accessibilityRole="button" onPress={onPress}>
       <View style={styles.drow}>
         <Text style={[styles.drowLabel, { color }]}>{label}</Text>
         {chev ? <Chev /> : null}
