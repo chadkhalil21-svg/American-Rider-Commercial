@@ -74,6 +74,7 @@ jobs:
           const fs=require('node:fs'),assert=require('node:assert/strict');
           const w=fs.readFileSync('.github/workflows/qa-ios-preserved-replay.yml','utf8');
           assert.ok(w.includes('cancel-in-progress: false'), 'QA iOS rerun may cancel valuable active build');
+          assert.ok(w.includes('queue: max'), 'GitHub default single-pending behavior would cancel older queued native tests');
           assert.ok(w.includes('always() && matrix.platform =='), 'Missing always-on iOS binary evidence');
           assert.ok(w.includes('-resultBundlePath artifacts/native-commercial-ios/xcode-build.xcresult'), 'Xcode result bundle not retained');
           assert.ok(w.includes('QA_IOS_BUILD_HEARTBEAT=compiling') && w.includes('QA_IOS_SIMULATOR_BOOT_TIMEOUT=600s'), 'Missing stage diagnostics');
