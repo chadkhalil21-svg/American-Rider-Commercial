@@ -36,6 +36,19 @@ for (const role of ['traveler','operator']) {
     path+': unguarded root hideKeyboard blocks iOS before entering test flow');
   assert.ok(src.includes('- assertVisible: "Sign In"'),
     path+': auth-primary-action is shared with Create Account, ensure correct label');
+  if (role === 'operator') {
+    // A previous Operator replay used an ambiguous "Continue" text tap and
+    // stalled before the second sign-in screen. Traveler already used the
+    // native ID successfully. Make this regression impossible to reintroduce.
+    assert.doesNotMatch(src, /^- tapOn: "Continue"$/m,
+      path+': ambiguous Operator Continue tap can leave the wrong view foreground');
+    assert.ok(src.includes('id: "auth-email-entry"\n    text: "native.qa.operator@example.test"'),
+      path+': confirm complete native email input, not just one character');
+    assert.ok(src.includes('id: "auth-primary-action"\n    enabled: true\n    retryTapIfNoChange: true'),
+      path+': insist on enabled native Continue and retry only ignored nonpayment tap');
+    assert.ok(src.includes('visible: "Sign in to your account."'),
+      path+': wait for the unique sign-in subheading, not generic welcome title');
+  }
 }
 // Changing this cheap source-contract guard must not force rebuilding a
 // binary that uses exactly the same native app sources.
