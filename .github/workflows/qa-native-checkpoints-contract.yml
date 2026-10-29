@@ -9,6 +9,7 @@ on:
       - '.github/workflows/qa-native-checkpoints-contract.yml'
       - 'scripts/native-qa-stage-ledger.cjs'
       - 'scripts/native-commercial-ios-dual-runner.sh'
+      - 'scripts/native-commercial-android-runner.sh'
 
 permissions:
   contents: read
@@ -29,10 +30,12 @@ jobs:
           node --check scripts/native-qa-stage-ledger.cjs
           node scripts/native-qa-stage-ledger.cjs selftest
           bash -n scripts/native-commercial-ios-dual-runner.sh
+          bash -n scripts/native-commercial-android-runner.sh
           node - <<'NODE'
           const fs=require('node:fs'),assert=require('node:assert/strict');
           const workflow=fs.readFileSync('.github/workflows/qa-ios-preserved-replay.yml','utf8');
           const runner=fs.readFileSync('scripts/native-commercial-ios-dual-runner.sh','utf8');
+          const android=fs.readFileSync('scripts/native-commercial-android-runner.sh','utf8');
           for(const stage of ['isolated-fixtures','authenticated-operator-eligibility','native-app-installed','operator-in-service','traveler-device-installed']){
             assert.ok(workflow.includes('pass '+stage), 'Missing explicit iOS checkpoint '+stage);
           }
@@ -42,6 +45,9 @@ jobs:
           assert.ok(workflow.includes('if: always()') &&
             workflow.includes('scripts/native-qa-stage-ledger.cjs report'),
             'Missing failure-safe acceptance summary');
+          assert.ok(android.includes('safe_before_auth_retry') &&
+            android.includes('QA_ANDROID_REPLAY_BLOCKED='),
+            'Android launcher retry may replay a paid or authenticated journey');
           assert.ok(workflow.includes('cancel-in-progress: false'),
             'Never cancel in-progress expensive iOS acceptance builds');
           console.log('PASS: eight proof-linked stages with separate Operator, Travel and settlement milestones');
