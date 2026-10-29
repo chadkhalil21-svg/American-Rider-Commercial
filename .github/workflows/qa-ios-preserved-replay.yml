@@ -79,6 +79,19 @@ jobs:
           assert.ok(w.includes('-resultBundlePath artifacts/native-commercial-ios/xcode-build.xcresult'), 'Xcode result bundle not retained');
           assert.ok(w.includes('QA_IOS_BUILD_HEARTBEAT=compiling') && w.includes('QA_IOS_SIMULATOR_BOOT_TIMEOUT=600s'), 'Missing stage diagnostics');
           assert.ok(w.includes('if-no-files-found: warn'), 'Missing artifact must not hide initial failure');
+          const android=fs.readFileSync('scripts/native-commercial-android-runner.sh','utf8');
+          const ios=fs.readFileSync('scripts/native-commercial-ios-dual-runner.sh','utf8');
+          const role=fs.readFileSync('scripts/native-qa-ios-prepare-role-flows.cjs','utf8');
+          assert.ok(android.includes('QA_ANDROID_REPLAY_BLOCKED=flow_already_started') &&
+            android.includes('QA_ANDROID_FAILURE_CLASS=os_pixel_launcher_anr') &&
+            !android.includes('safe_before_auth_retry') &&
+            (android.match(/maestro test/g)||[]).length===1,
+            'Android must never restart an authenticated/payment-capable native journey');
+          assert.ok(ios.includes("driver-evidence-'+label") && ios.includes("failure.png") &&
+            !ios.includes('safe_before_auth_retry'),
+            'All iOS stage failures must preserve screenshot and logs without whole-journey retry');
+          assert.ok(role.includes('waitForAnimationToEnd:') && role.includes('traveler-switch-to-operator'),
+            'Wait for actual native Operator drawer before asserting its role switch');
           const buildStages=[
             'Boot isolated iPhone simulator (bounded, independent)',
             'Restore or compile fingerprint-bound QA iOS app (separate Xcode stage)',
