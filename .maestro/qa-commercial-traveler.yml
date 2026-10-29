@@ -4,6 +4,19 @@ appId: com.americanrider.app
 ---
 - launchApp:
     clearState: true
+# Run 40884833413: the second iPhone's cold boot finished, but a separate
+# simctl location set hung for 45 seconds before installation. Use Maestro's
+# documented device-scoped GPS command in the actual Traveler flow instead.
+# This is an actual simulator location, NOT a fabricated server position.
+# Set it before sign-in reaches the app's location-sensitive Home screen.
+# Android retains its established native fixture/location path unchanged.
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - setLocation:
+          latitude: 25.7617
+          longitude: -80.1918
 - assertVisible: "AMERICAN RIDER"
 - tapOn:
     id: "auth-email-entry"
