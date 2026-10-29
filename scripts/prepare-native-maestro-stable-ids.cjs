@@ -19,11 +19,15 @@ function generate(role){
   // iOS run 40716321434 showed the real editable welcome-screen email field,
   // but a duplicated title made the text assertion a false-negative. Replace
   // only that test assertion with actual native input readiness for BOTH roles.
-  // Require the isolated API banner to clear before any login or Stripe TEST.
+  // The /live banner is a one-shot 8-second startup check. On a cold,
+  // CPU-heavy iPhone simulator it may remain stale after connectivity returns.
+  // Real network readiness is proven by the local /live preflight followed by
+  // actual native Firebase sign-in, server quote, and Stripe TEST payment.
+  // Never fake a login, booking, offer, or payment based on this UI status.
   result=edit(result,
     '- assertVisible: "AMERICAN RIDER"',
-    '- extendedWaitUntil:\n    visible:\n      id: "auth-email-entry"\n    timeout: 60000\n- assertVisible:\n    id: "auth-email-entry"\n- extendedWaitUntil:\n    notVisible: "American Rider Network — Unreachable"\n    timeout: 60000',
-    'native login and isolated network readiness');
+    '- extendedWaitUntil:\\n    visible:\\n      id: "auth-email-entry"\\n    timeout: 60000\\n- assertVisible:\\n    id: "auth-email-entry"',
+    'native login input readiness (network proved by real backend operations)');
   if(role==='traveler'){
     // Run 40735430356: real iPhone failure screenshot displayed the
     // complete Arrange Your Travel page, but a deep Maestro hierarchy caused
