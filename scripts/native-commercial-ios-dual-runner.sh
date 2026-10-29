@@ -29,14 +29,50 @@ trap cleanup EXIT
 run_maestro(){
   local label="$1" device="$2" flow="$3" limit="$4"
   python3 - "$label" "$device" "$flow" "$limit" <<'PY'
-import os,sys,subprocess,signal,pathlib
+import os,sys,subprocess,signal,pathlib,time
 label,device,flow,limit=sys.argv[1:]; limit=int(limit)
-out=pathlib.Path('artifacts/native-commercial-ios/'+label+'.log')
+base=pathlib.Path('artifacts/native-commercial-ios')
+out=base/(label+'.log')
+# Official Maestro CI convention: isolate every flow's screenshots, debug
+# output and JUnit report. Two concurrent iPhones must never overwrite files.
+test_dir=base/('maestro-test-'+label)
+debug_dir=base/('maestro-debug-'+label)
+junit=base/(label+'.junit.xml')
+test_dir.mkdir(parents=True,exist_ok=True)
+debug_dir.mkdir(parents=True,exist_ok=True)
+# Maestro CLI 2.6+ supports per-device host ports for simultaneous iOS
+# processes. Keep the Operator's session distinct from the Traveler driver.
+driver_port='7102' if label=='traveler' else '7101'
+args=['maestro','--device',device,'--driver-host-port',driver_port,'test',
+      '--test-output-dir='+str(test_dir),
+      '--debug-output='+str(debug_dir),
+      '--format','junit','--output',str(junit),flow]
+began=time.monotonic()
+last_bytes=-1
+stale_seconds=0
+print('QA_IOS_FLOW_STARTED',label,'device='+device,'driver_port='+driver_port,
+      'limit='+str(limit),flush=True)
 with out.open('w') as f:
-    p=subprocess.Popen(['maestro','--device',device,'test',flow],
-                       stdout=f,stderr=subprocess.STDOUT,start_new_session=True)
-    try: return_code=p.wait(timeout=limit)
-    except subprocess.TimeoutExpired:
+    p=subprocess.Popen(args,stdout=f,stderr=subprocess.STDOUT,start_new_session=True)
+    while True:
+        remaining=limit-(time.monotonic()-began)
+        if remaining<=0:
+            return_code=124
+            break
+        try:
+            return_code=p.wait(timeout=min(60,remaining))
+            break
+        except subprocess.TimeoutExpired:
+            # Report only volume of output, never passwords, test cards or
+            # personally identifiable data from accessibility debug logs.
+            size=out.stat().st_size if out.exists() else 0
+            stale_seconds=stale_seconds+60 if size==last_bytes else 0
+            last_bytes=size
+            print('QA_IOS_FLOW_HEARTBEAT',label,
+                  'elapsed_seconds='+str(int(time.monotonic()-began)),
+                  'log_bytes='+str(size),
+                  'no_log_growth_seconds='+str(stale_seconds),flush=True)
+    if return_code==124 and p.poll() is None:
         os.killpg(p.pid,signal.SIGTERM)
         try: p.wait(timeout=8)
         except subprocess.TimeoutExpired: os.killpg(p.pid,signal.SIGKILL)
@@ -60,6 +96,21 @@ with out.open('w') as f:
             print('QA_IOS_DRIVER_DIAGNOSIS',marker.read_text().replace('\n',';'),flush=True)
         return_code=124
 if return_code:
+    # Capture every failed Maestro phase, not just XCUITest timeouts.
+    # A failed payment/dispatch stage must NOT relaunch the whole journey.
+    import glob,shutil
+    evidence=pathlib.Path('artifacts/native-commercial-ios/driver-evidence-'+label)
+    evidence.mkdir(parents=True,exist_ok=True)
+    roots=glob.glob(os.path.expanduser('~/.maestro/tests/*/'))
+    if roots:
+        latest=max(roots,key=os.path.getmtime)
+        for filename in glob.glob(os.path.join(latest,'maestro.log'))+glob.glob(os.path.join(latest,'xctest_runner_*.log')):
+            shutil.copy2(filename,evidence/pathlib.Path(filename).name)
+    try:
+        subprocess.run(['xcrun','simctl','io',device,'screenshot',str(evidence/'failure.png')],
+                       check=False,timeout=30,capture_output=True)
+    except (subprocess.TimeoutExpired,OSError):
+        print('QA_IOS_FAILURE_SCREENSHOT_UNAVAILABLE',label,flush=True)
     print('QA_IOS_STAGE_FAILED',label,'exit',return_code,flush=True)
     print('\n'.join(out.read_text(errors='replace').splitlines()[-45:]),flush=True)
     sys.exit(return_code)
@@ -83,6 +134,7 @@ run_maestro traveler "$SIM_DEVICE" .maestro/generated/qa-commercial-traveler.yml
 wait "$OFFER_PID"
 OFFER_PID=''
 node scripts/native-qa-ios-confirm-accepted.cjs
+node scripts/native-qa-stage-ledger.cjs pass paid-travel-and-offer
 # Only refresh stationary pickup presence until genuine acceptance. Once the
 # app is driving, the signed-in Operator must supply live GPS itself; the QA
 # heartbeat intentionally refuses to overwrite a destination location.
@@ -124,7 +176,9 @@ fi
 cat artifacts/native-commercial-ios/destination-position.log
 echo 'QA_IOS_STAGE=operator_actual_completion'
 run_maestro operator-complete "$SIM_OPERATOR" .maestro/generated/qa-commercial-ios-operator-complete.yml 1050
+node scripts/native-qa-stage-ledger.cjs pass travel-completion
 # Do not rely on the QA presence heartbeat after the Operator moves.
 # Fresh authenticated destination telemetry has already been asserted above.
 echo 'QA_IOS_STAGE=real_stripe_test_reconciliation'
 node backend/native-commercial-qa-reconcile.cjs | tee artifacts/native-commercial-ios/reconciliation.log
+node scripts/native-qa-stage-ledger.cjs pass stripe-test-reconciliation

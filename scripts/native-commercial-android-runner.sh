@@ -13,40 +13,35 @@ adb shell pm grant com.americanrider.app android.permission.ACCESS_COARSE_LOCATI
 # 5-minute presence expires during SDK boot unless refreshed immediately
 # before the real Traveler booking. This ONLY writes the local QA emulator.
 node backend/native-commercial-qa-refresh-presence.cjs
-# Maestro's adb transport may falsely report an otherwise healthy
-# Android emulator offline on launch (see Maestro issue #3451).
-# Retry ONCE for that exact infrastructure error; never retry a
-# failing business/UI assertion and never count a retry as a pass.
-adb wait-for-device
+# Prove emulator transport is responsive BEFORE launching any authenticated
+# or payment-capable Maestro flow. Once a flow starts, never replay it from
+# login, even if the OS Launcher or ADB later fails. A log string is not
+# reliable proof that no payment action was sent.
+if ! timeout 90 adb wait-for-device; then
+  echo 'QA_ANDROID_FAILURE_CLASS=emulator_transport_preflight'
+  exit 1
+fi
+if [ "$(adb get-state 2>/dev/null || true)" != 'device' ]; then
+  echo 'QA_ANDROID_FAILURE_CLASS=emulator_offline_preflight'
+  exit 1
+fi
 sleep 12
 for flow in traveler operator; do
   test_file=".maestro/generated/qa-commercial-${flow}.yml"
   result_log="artifacts/native-commercial-android/${flow}.log"
   result=0
   maestro test "$test_file" > "$result_log" 2>&1 || result=$?
-  latest_debug="$(ls -1dt "$HOME"/.maestro/tests/* 2>/dev/null | head -1 || true)"
-  if [ "$result" -ne 0 ] && [ -n "$latest_debug" ] && grep -RqE 'device offline|Device server died' "$latest_debug" 2>/dev/null; then
-    echo "Maestro emulator transport dropped in ${flow}; retrying once after reconnect."
-    timeout 90 adb wait-for-device
-    sleep 15
-    result=0
-    maestro test "$test_file" > "$result_log" 2>&1 || result=$?
-  fi
-  # The exact captured CI failure was an Android *Pixel Launcher* ANR dialog
-  # blocking a healthy sign-in page. Retry once ONLY for that OS infrastructure
-  # dialog, never for an American Rider error or failed fare/payment assertion.
-  latest_debug="$(ls -1dt "$HOME"/.maestro/tests/* 2>/dev/null | head -1 || true)"
-  if [ "$result" -ne 0 ] && [ -n "$latest_debug" ] && grep -RqF "Pixel Launcher isn't responding" "$latest_debug" 2>/dev/null; then
-    echo "Verified Pixel Launcher ANR over healthy app; preserve original evidence and retry once."
-    mkdir -p "artifacts/native-commercial-android/initial-launcher-anr"
-    cp -R "$latest_debug/." "artifacts/native-commercial-android/initial-launcher-anr/" 2>/dev/null || true
-    adb shell input keyevent KEYCODE_BACK || true
-    adb wait-for-device
-    sleep 20
-    result=0
-    maestro test "$test_file" > "$result_log" 2>&1 || result=$?
-  fi
   if [ "$result" -ne 0 ]; then
+    latest_debug="$(ls -1dt "$HOME"/.maestro/tests/* 2>/dev/null | head -1 || true)"
+    if [ -n "$latest_debug" ] && grep -RqF "Pixel Launcher isn't responding" "$latest_debug" 2>/dev/null; then
+      echo 'QA_ANDROID_FAILURE_CLASS=os_pixel_launcher_anr'
+    elif [ -n "$latest_debug" ] && grep -RqE 'device offline|Device server died' "$latest_debug" 2>/dev/null; then
+      echo 'QA_ANDROID_FAILURE_CLASS=emulator_transport_dropped'
+    else
+      echo 'QA_ANDROID_FAILURE_CLASS=native_flow_or_unclassified'
+    fi
+    echo 'QA_ANDROID_REPLAY_BLOCKED=flow_already_started'
+    echo 'Never infer retry safety from partial Maestro logs. Preserve the stage evidence and re-seed isolated fixtures for a future independent attempt.'
     tail -100 "$result_log"
     mkdir -p artifacts/native-commercial-android/maestro-debug
     cp -R "$HOME/.maestro/tests/." artifacts/native-commercial-android/maestro-debug/ 2>/dev/null || true

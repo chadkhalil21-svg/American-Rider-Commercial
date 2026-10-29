@@ -34,13 +34,52 @@ appId: com.americanrider.app
       platform: iOS
     commands:
       - tapOn: "AMERICAN RIDER"
-- tapOn: "Continue"
+# A text-only "Continue" tap on the Operator path repeatedly completed
+# without reaching Sign In, while Traveler already used this stable test ID.
+# Confirm the *actual entered address* instead of only nonempty input.
+# Apple's accessibilityLabel is the field prompt, not necessarily its value.
+# Maestro's official copyTextFrom example reads the actual editable content.
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - copyTextFrom:
+          id: "auth-email-entry"
+      # Run 40879383424 captured the actual iPhone with an EMPTY email after
+      # Maestro reported pasteText COMPLETED. That is a keyboard/input fault,
+      # not failed Firebase sign-in or an Operator eligibility verdict.
+      # Recover ONCE, only at the pre-auth editable field, and refuse to
+      # continue unless the exact entered value is then independently read.
+      - runFlow:
+          when:
+            true: ${maestro.copiedText !== "native.qa.operator@example.test"}
+          commands:
+            - tapOn:
+                id: "auth-email-entry"
+            - eraseText: 50
+            - inputText: "native.qa.operator@example.test"
+            - tapOn: "AMERICAN RIDER"
+      - copyTextFrom:
+          id: "auth-email-entry"
+      # Preserve actual native input before a failed assertion closes Step 31.
+      # Every value here is a synthetic local QA identity, never live credentials.
+      - takeScreenshot: "qa-operator-email-before-final-assert"
+      - assertTrue:
+          condition: ${maestro.copiedText === "native.qa.operator@example.test"}
+          label: "QA_OPERATOR_EMAIL_NOT_PRESENT_IN_EDITABLE_FIELD"
+- assertVisible:
+    id: "auth-primary-action"
+    enabled: true
+- tapOn:
+    id: "auth-primary-action"
+    enabled: true
+    retryTapIfNoChange: true
+# The next view is uniquely identified by its Sign In subheading.
+# An old check for "Welcome back" matched a static title and gave no
+# actionable distinction between input, transition and wrong auth step.
 - extendedWaitUntil:
-    visible: "Welcome back"
+    visible: "Sign in to your account."
     timeout: 30000
-# iOS evidence from run 40569443959 showed CREATE ACCOUNT in front
-# although a text-only "Welcome back" assertion passed. Require the
-# Sign In page to be foreground; never enter a password on signup.
 - assertVisible: "Sign in to your account."
 - assertNotVisible: "Create your account"
 # Use the password EditText hint, not the static PASSWORD label.

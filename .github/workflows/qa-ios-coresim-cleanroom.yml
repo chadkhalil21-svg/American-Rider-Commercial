@@ -1,0 +1,112 @@
+name: QA incident 399 - clean CoreSimulator service check
+
+on:
+  pull_request:
+    branches: [qa/native-journey-stage-ledger-20261029]
+    paths:
+      - '.github/workflows/qa-ios-coresim-cleanroom.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  cleanroom:
+    runs-on: macos-26
+    timeout-minutes: 8
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
+    steps:
+      # No checkout, Java, Node install, npm install, Firebase, backend,
+      # simulator boot, XCTest, or Maestro is launched in this job.
+      - name: Measure CoreSimulator IPC on a fresh macOS host
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p coresim-evidence
+          echo 'QA_CORESIM_CLEANROOM=1 no_checkout=1 no_java=1 no_firebase=1 no_app=1'
+          xcodebuild -version | tee coresim-evidence/xcode.txt
+          xcrun --find simctl | tee coresim-evidence/simctl-path.txt
+          xcrun --sdk iphonesimulator --show-sdk-version | tee coresim-evidence/sdk.txt
+          python3 - <<'PY'
+          import os,sys,subprocess,time,json,pathlib,signal
+          out=pathlib.Path('coresim-evidence')
+          runtime='com.apple.CoreSimulator.SimRuntime.iOS-'+(out/'sdk.txt').read_text().strip().replace('.','-')
+          def probe(label,cmd,seconds=8):
+              try:
+                  r=subprocess.run(cmd,stdout=subprocess.PIPE,stderr=subprocess.STDOUT,
+                                   timeout=seconds,text=True,check=False)
+                  (out/(label+'.txt')).write_text(r.stdout[:100000])
+                  print('QA_HOST_PROBE label='+label+' exit='+str(r.returncode),flush=True)
+              except (OSError,subprocess.TimeoutExpired) as e:
+                  print('QA_HOST_PROBE_UNAVAILABLE label='+label+' cause='+type(e).__name__,flush=True)
+          for label,cmd in [
+              ('memory-before',['memory_pressure','-Q']),
+              ('vm-before',['vm_stat']),
+              ('disk-before',['df','-h','/']),
+              ('coresim-pid-before',['pgrep','-fl','CoreSimulatorService|simdiskimaged']),
+          ]: probe(label,cmd)
+          # GitHub runner-images #12862 attributes some cold simctl stalls
+          # to CoreSimulator runtime cache rebuild. This is an observational
+          # test with one bounded invocation, NOT a blind retry or workaround.
+          cmd=['xcrun','simctl','list','-j','devices','available']
+          started=time.monotonic()
+          logfile=out/'simctl-list.json'
+          with logfile.open('w') as fd:
+              p=subprocess.Popen(cmd,stdout=fd,stderr=subprocess.PIPE,
+                                 text=True,start_new_session=True)
+              timed_out=False
+              while p.poll() is None:
+                  elapsed=time.monotonic()-started
+                  if elapsed >= 150:
+                      timed_out=True
+                      try: os.killpg(p.pid,signal.SIGTERM)
+                      except ProcessLookupError: pass
+                      try: p.wait(timeout=6)
+                      except subprocess.TimeoutExpired:
+                          os.killpg(p.pid,signal.SIGKILL); p.wait()
+                      break
+                  try: p.wait(timeout=min(15,max(0.25,150-elapsed)))
+                  except subprocess.TimeoutExpired:
+                      print('QA_CORESIM_CLEANROOM_HEARTBEAT elapsed_seconds='+
+                            str(round(time.monotonic()-started)),flush=True)
+              elapsed=round(time.monotonic()-started,2)
+              err=(p.stderr.read() if p.stderr else '')[:20000]
+          (out/'simctl-stderr.txt').write_text(err)
+          print('QA_CORESIM_CLEANROOM_RESULT elapsed_seconds='+str(elapsed)+
+                ' rc='+str(p.returncode)+' timeout='+str(timed_out)+
+                ' stdout_bytes='+str(logfile.stat().st_size),flush=True)
+          for label,cmd in [
+              ('memory-after',['memory_pressure','-Q']),
+              ('vm-after',['vm_stat']),
+              ('disk-after',['df','-h','/']),
+              ('coresim-pid-after',['pgrep','-fl','CoreSimulatorService|simdiskimaged']),
+          ]: probe(label,cmd)
+          if timed_out or p.returncode:
+              print('QA_CORESIM_CLEANROOM_FAIL: no app or Firebase was running; preserve CoreSimulator diagnostics',flush=True)
+              sys.exit(124 if timed_out else 1)
+          try:
+              devices=json.loads(logfile.read_text())['devices']
+              eligible=[x for x in devices.get(runtime,[]) if x.get('isAvailable') and 'iPhone' in x.get('name','')]
+              print('QA_CORESIM_CLEANROOM_RUNTIME='+runtime+' matching_iphones='+str(len(eligible)),flush=True)
+              (out/'summary.json').write_text(json.dumps({
+                  'kind':'cleanroom-ios-core-simulator','sdk_runtime':runtime,
+                  'duration_seconds':elapsed,'matching_iPhones':len(eligible),
+                  'firebase_started':False,'app_launched':False,'simulators_booted':0
+              },indent=2))
+              if not eligible:
+                  print('QA_CORESIM_CLEANROOM_FAIL: exact SDK simulator not installed',flush=True)
+                  sys.exit(3)
+          except (ValueError,KeyError) as e:
+              print('QA_CORESIM_CLEANROOM_FAIL: invalid device list '+type(e).__name__,flush=True)
+              sys.exit(2)
+          print('QA_CORESIM_CLEANROOM_PASS: simulator service responds before dependency loading',flush=True)
+          PY
+      - name: Preserve clean-room evidence even on failure
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-core-simulator-cleanroom-incident399
+          path: coresim-evidence/
+          retention-days: 7
+          if-no-files-found: warn

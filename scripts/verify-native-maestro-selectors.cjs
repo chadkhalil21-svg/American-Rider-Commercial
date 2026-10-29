@@ -36,12 +36,31 @@ for (const role of ['traveler','operator']) {
     path+': unguarded root hideKeyboard blocks iOS before entering test flow');
   assert.ok(src.includes('- assertVisible: "Sign In"'),
     path+': auth-primary-action is shared with Create Account, ensure correct label');
+  if (role === 'operator') {
+    // A previous Operator replay used an ambiguous "Continue" text tap and
+    // stalled before the second sign-in screen. Traveler already used the
+    // native ID successfully. Make this regression impossible to reintroduce.
+    assert.doesNotMatch(src, /^- tapOn: "Continue"$/m,
+      path+': ambiguous Operator Continue tap can leave the wrong view foreground');
+    assert.ok(src.includes('copyTextFrom:') &&
+      src.includes('id: "auth-email-entry"') &&
+      src.includes('maestro.copiedText === "native.qa.operator@example.test"'),
+      path+': confirm exact editable email via Maestro clipboard, not the accessibility label');
+    assert.ok(src.includes('id: "auth-primary-action"\n    enabled: true\n    retryTapIfNoChange: true'),
+      path+': insist on enabled native Continue and retry only ignored nonpayment tap');
+    assert.ok(src.includes('visible: "Sign in to your account."'),
+      path+': wait for the unique sign-in subheading, not generic welcome title');
+  }
 }
 // Changing this cheap source-contract guard must not force rebuilding a
 // binary that uses exactly the same native app sources.
 const fingerprintScript=fs.readFileSync('scripts/native-build-fingerprint.cjs','utf8');
 assert.ok(fingerprintScript.includes("'scripts/verify-native-maestro-selectors.cjs'"),
   'exclude non-runtime QA preflight edits from native build fingerprint');
+assert.ok(fingerprintScript.includes("p.startsWith('scripts/native-qa-')") &&
+  fingerprintScript.includes("p.endsWith('.cjs')") &&
+  fingerprintScript.includes("if (process.env.AR_NATIVE_PLATFORM === 'android')"),
+  'Exclude Node-only native QA helpers from iOS cold-build digest, but retain Android native network policy bytes');
 const auth=fs.readFileSync('src/screens/AuthScreen.tsx','utf8');
 assert.ok(auth.includes('testID="auth-primary-action"'),'Sign In target missing');
 assert.ok(auth.includes("t('traveler.yourPasswordPh')"),'password hint wiring missing');

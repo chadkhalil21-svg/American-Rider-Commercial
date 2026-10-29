@@ -2,7 +2,7 @@ name: Independent iOS preserved-binary commercial QA replay
 
 on:
   pull_request:
-    branches: [qa/ios-choose-actual-wynwood-result-20261027]
+    branches: [qa/ios-choose-actual-wynwood-result-20261027, qa/ios-presence-heartbeat-20261027]
     paths:
       - '.github/workflows/qa-ios-preserved-replay.yml'
 
@@ -29,6 +29,7 @@ jobs:
         run: node scripts/prepare-native-maestro-stable-ids.cjs
       - name: Parse bounded dual-iPhone commercial QA runner before expensive macOS boot
         run: |
+          node --check backend/native-commercial-qa-auth-preflight.cjs
           node --check scripts/native-qa-ios-prepare-role-flows.cjs
           node --check scripts/native-qa-ios-confirm-accepted.cjs
           node --check scripts/native-qa-operator-destination.cjs
@@ -44,14 +45,26 @@ jobs:
             'XCTest-crashing negative post-login poll remains in Operator checkpoint');
           const login=f.indexOf('id: "auth-primary-action"');
           const home=f.indexOf('id: "traveler-menu-open"');
-          const menuTap=f.indexOf('- tapOn:\n    id: "traveler-menu-open"\n    retryTapIfNoChange: true');
+          const menuTap=f.indexOf('- tapOn:\n    id: "traveler-menu-open"\n');
+          const drawerShot=f.indexOf('takeScreenshot: "operator-drawer-first-tap"');
+          const drawerRetry=f.indexOf('- runFlow:\n    when:\n      notVisible: ".*Payment Methods.*"');
+          const drawerConfirmed=f.indexOf('- extendedWaitUntil:\n    visible: ".*Payment Methods.*"');
+          // Actual Oct 29 iOS hierarchy: Account Details is a combined label,
+          // but the commissioned Operator row has a stable resource-id.
+          const roleWait=f.indexOf('- extendedWaitUntil:\n    visible:\n      id: "traveler-switch-to-operator"\n    timeout: 20000');
           const menuRow=f.indexOf('id: "traveler-switch-to-operator"');
           const roleTap=f.indexOf('- tapOn:\n    id: "traveler-switch-to-operator"\n    retryTapIfNoChange: true');
           const commencement=f.indexOf('id: "operator-commence-operations"');
           const service=f.indexOf('visible: "In Service"');
-          assert.ok(login>=0 && home>login && menuTap>home && menuRow>menuTap &&
-            roleTap>menuRow && commencement>roleTap && service>commencement,
-            'Require signed-in Traveler to switch using real native Operator menu then enter In Service');
+          assert.ok(login>=0 && home>login && menuTap>home &&
+            drawerShot>menuTap && drawerRetry>drawerShot &&
+            drawerConfirmed>drawerRetry && roleWait>drawerConfirmed &&
+            menuRow>=roleWait && roleTap>menuRow &&
+            commencement>roleTap && service>commencement &&
+            !f.includes('Account Details') && !f.includes('scrollUntilVisible:') &&
+            (f.match(/notVisible: ".*Payment Methods.*/g)||[]).length===1 &&
+            (f.match(/id: "traveler-menu-open"/g)||[]).length===3,
+            'Require one initial menu tap, one conditional drawer recovery, and commissioned-role proof before real In Service');
           assert.ok(!f.includes('- openLink:') && !f.includes('Open in.*American.*'),
             'Never trigger Apple system deep-link dialog from the iOS Operator checkpoint');
           const source=fs.readFileSync('app/index.tsx','utf8');
@@ -67,6 +80,87 @@ jobs:
           assert.ok(!f.includes('point: "8%,10%"'), 'Prohibit coordinate-based iOS menu taps');
           console.log('PASS: stable native menu + commissioned-role IDs, no Safari/deep-link/coordinate');
           NODE
+      - name: Prove queued iOS replay retains Apple build evidence on compilation failure
+        run: |
+          node - <<'NODE'
+          const fs=require('node:fs'),assert=require('node:assert/strict');
+          const w=fs.readFileSync('.github/workflows/qa-ios-preserved-replay.yml','utf8');
+          assert.ok(w.includes('cancel-in-progress: false'), 'QA iOS rerun may cancel valuable active build');
+          assert.ok(w.includes('queue: single') && w.includes('cancel-in-progress: false'), 'Retain running native build but supersede redundant pending QA revisions');
+          assert.ok(w.includes('always() && matrix.platform =='), 'Missing always-on iOS binary evidence');
+          assert.ok(w.includes('-resultBundlePath artifacts/native-commercial-ios/xcode-build.xcresult'), 'Xcode result bundle not retained');
+          assert.ok(w.includes('QA_IOS_BUILD_HEARTBEAT=compiling') && w.includes('QA_IOS_SIMULATOR_BOOT_TIMEOUT=600s'), 'Missing stage diagnostics');
+          assert.ok(w.includes('QA_IOS_BUILD_STALLED=no_log_growth_900s') &&
+            w.includes('unchanged_seconds=$UNCHANGED_SECS') &&
+            w.includes('LOG_BYTES="$(wc -c < artifacts/native-commercial-ios/xcode.log'),
+            'Heartbeat must distinguish an active Xcode log from a hung compiler');
+          assert.ok(w.includes('if-no-files-found: warn'), 'Missing artifact must not hide initial failure');
+          assert.ok(w.includes('legacy_digest=$(node scripts/native-build-fingerprint.cjs --legacy-qa-script-digest)') &&
+            w.includes('steps.native-fingerprint.outputs.legacy_digest'),
+            'Existing checksum-verified binaries must remain restorable across QA-only digest narrowing');
+          const android=fs.readFileSync('scripts/native-commercial-android-runner.sh','utf8');
+          const ios=fs.readFileSync('scripts/native-commercial-ios-dual-runner.sh','utf8');
+          const role=fs.readFileSync('scripts/native-qa-ios-prepare-role-flows.cjs','utf8');
+          assert.ok(android.includes('QA_ANDROID_REPLAY_BLOCKED=flow_already_started') &&
+            android.includes('QA_ANDROID_FAILURE_CLASS=os_pixel_launcher_anr') &&
+            !android.includes('safe_before_auth_retry') &&
+            (android.match(/maestro test/g)||[]).length===1,
+            'Android must never restart an authenticated/payment-capable native journey');
+          assert.ok(ios.includes("driver-evidence-'+label") && ios.includes("failure.png") &&
+            !ios.includes('safe_before_auth_retry'),
+            'All iOS stage failures must preserve screenshot and logs without whole-journey retry');
+          assert.ok(ios.includes('QA_IOS_FLOW_HEARTBEAT') &&
+            ios.includes("'--test-output-dir='+str(test_dir)") &&
+            ios.includes("'--debug-output='+str(debug_dir)") &&
+            ios.includes("'--format','junit','--output',str(junit)") &&
+            ios.includes("maestro-test-'+label") && ios.includes("maestro-debug-'+label"),
+            'Concurrent real iPhones need distinct Maestro artifacts, JUnit report and live heartbeats');
+          assert.ok(ios.includes("driver_port='7102' if label=='traveler' else '7101'") &&
+            ios.includes("'--driver-host-port',driver_port"),
+            'Operator and Traveler must use distinct iOS XCTest driver host ports');
+          assert.ok(w.includes("'--driver-host-port','7101','test'") &&
+            w.includes('MAESTRO_VERSION=2.12.0') &&
+            !w.includes('maestro\" --help | grep -q'),
+            'Pin verified Maestro CLI and retain Operator first-device driver-port isolation');
+          assert.ok(w.includes('operator-start.junit.xml') &&
+            w.includes('maestro-debug-operator-start'),
+            'First iPhone sign-in needs its own JUnit and debug diagnostics');
+          const loginStep='\n      - name: Verify real Operator sign-in and In Service on one iPhone\n';
+          const nextStep='\n      - name: Boot Traveler only after verified Operator sign-in checkpoint\n';
+          const loginStart=w.lastIndexOf(loginStep);
+          const loginEnd=w.indexOf(nextStep,loginStart+loginStep.length);
+          const loginBody=w.slice(loginStart,loginEnd);
+          assert.ok(loginStart>=0 && loginEnd>loginStart &&
+            loginBody.includes('QA_IOS_OPERATOR_LOGIN_HEARTBEAT') &&
+            loginBody.includes('QA_IOS_OPERATOR_LOGIN_STALLED') &&
+            loginBody.includes('elapsed>=600') && loginBody.includes('stale>=300') &&
+            !loginBody.includes('proc.wait(timeout=1050)'),
+            'Operator navigation must expose progress and have a bounded driver-stall cutoff');
+          assert.ok(role.includes('waitForAnimationToEnd:') && role.includes('traveler-switch-to-operator'),
+            'Wait for actual native Operator drawer before asserting its role switch');
+          const buildStages=[
+            'Boot isolated iPhone simulator (bounded, independent)',
+            'Restore or compile fingerprint-bound QA iOS app (separate Xcode stage)',
+            'Save iOS simulator app across QA-only test revisions',
+            'Preserve exact iOS simulator app independently of test results',
+            'Verify compiled QA bundle and install on Operator iPhone',
+            'Verify real Operator sign-in and In Service on one iPhone',
+          ];
+          // Match full YAML step lines, never look-alike strings in this
+          // very preflight script. An earlier indexOf self-matched loginStep.
+          const boundaries=buildStages.map(name=>w.lastIndexOf('\n      - name: '+name+'\n'));
+          assert.ok(boundaries.every((n,i)=>n>=0&&(i===0||n>boundaries[i-1])),
+            'Boot, Xcode, SHA-preserved artifact, install and sign-in must be separate ordered CI steps');
+          const buildBody=w.slice(boundaries[1],boundaries[2]);
+          const installBody=w.slice(boundaries[4],boundaries[5]);
+          assert.ok(buildBody.includes('xcodebuild') && !buildBody.includes('simctl install'),
+            'Do not hide actual iPhone installation within the native compilation stage');
+          assert.ok(installBody.includes('xcrun simctl install "$SIM_OPERATOR"') &&
+            installBody.includes('native-qa-stage-ledger.cjs pass native-app-installed'),
+            'Install must happen after the binary is preserved and before UI sign-in');
+
+          console.log('PASS: serial native replay + Xcode build evidence + bounded diagnostic stages');
+          NODE
       - name: Refuse all live Stripe and production Firebase contexts, keep old sign-in QA safe
         run: node backend/native-qa-isolation.test.js
       - name: Verify synthetic local toll fixture never leaks to production
@@ -81,13 +175,15 @@ jobs:
         run: node scripts/native-qa-android-network.test.cjs
       - name: Prove one body scroll and fixed fare footer plus stable user-action IDs
         run: node scripts/verify-native-accessibility-contract.cjs
+      - name: Verify evidence-bound stage ledger definitions before device allocation
+        run: node scripts/native-qa-stage-ledger.cjs selftest
 
   paid-native-journey:
     needs: [isolated-commercial-safety]
     # A manual dispatch SKIPS the PR-specific cancellation job. GitHub's
     # default needs behavior would then skip BOTH device jobs forever.
     # Still fail closed unless the safety preflight actually passed.
-    if: ${{ github.event.pull_request.head.ref == 'qa/ios-presence-heartbeat-20261027' && needs.isolated-commercial-safety.result == 'success' }}
+    if: ${{ (github.event.pull_request.head.ref == 'qa/ios-presence-heartbeat-20261027' || github.event.pull_request.head.ref == 'qa/ios-menu-a11y-i18n-fix-20261028' || github.event.pull_request.head.ref == 'qa/native-journey-stage-ledger-20261029') && needs.isolated-commercial-safety.result == 'success' }}
     # Never hold the cleanup job itself behind a pre-concurrency build.
     # New, syntax-validated source supersedes previously started QA binaries.
     # Cancel only the SAME platform's obsolete run, not the other platform.
@@ -95,7 +191,12 @@ jobs:
     # iOS behind Android or vice versa.
     concurrency:
       group: isolated-ios-saved-app-393-${{ matrix.platform }}
-      cancel-in-progress: true
+      # Commercial QA replays supersede unstarted QA revisions, not a
+      # production deployment or an active expensive native build. GitHub's
+      # queue: single retains only the newest pending run for this QA group.
+      # Preserve any in-progress compile and its reusable SHA-verified binary.
+      cancel-in-progress: false
+      queue: single
     strategy:
       fail-fast: false
       matrix:
@@ -133,6 +234,65 @@ jobs:
       MARKET_STATUS: fl-miami-dade:active
     steps:
       - uses: actions/checkout@v4
+      # Incident #399: run simulator enumeration FIRST, while the runner has
+      # no Java, Firebase, backend or app process. A clean macOS-26 host
+      # answered this in 5.27s (run 40891282558); the same call exceeded
+      # 30s when deferred until after services. Never duplicate enumeration
+      # later on the loaded runner. Read-only, no fake GPS.
+      - name: Establish clean CoreSimulator readiness before Java or Firebase
+        if: matrix.platform == 'ios'
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/native-commercial-ios
+          python3 - <<'PY'
+          import os,subprocess,time,sys,json,pathlib
+          out=pathlib.Path('artifacts/native-commercial-ios')
+          def snapshot(label):
+              for name,cmd in [
+                  ('memory',['memory_pressure','-Q']),
+                  ('vm',['vm_stat']),
+                  ('disk',['df','-h','/'])
+              ]:
+                  try:
+                      p=subprocess.run(cmd,stdout=subprocess.PIPE,stderr=subprocess.STDOUT,
+                                       text=True,timeout=8,check=False)
+                      (out/('coresim-'+label+'-'+name+'.log')).write_text(p.stdout[:100000])
+                  except (OSError,subprocess.TimeoutExpired): pass
+          snapshot('before')
+          started=time.monotonic()
+          try:
+              sdk=subprocess.run(['xcrun','--sdk','iphonesimulator','--show-sdk-version'],
+                                 capture_output=True,text=True,check=True,timeout=20).stdout.strip()
+              target='com.apple.CoreSimulator.SimRuntime.iOS-'+sdk.replace('.','-')
+              cmd=subprocess.run(['xcrun','simctl','list','-j','devices','available'],
+                                 capture_output=True,text=True,check=True,timeout=120)
+              (out/'coresim-first-list.json').write_text(cmd.stdout)
+              (out/'coresim-first-stderr.log').write_text(cmd.stderr)
+              groups=json.loads(cmd.stdout)['devices']
+              phones=[d for d in groups.get(target,[]) if d.get('isAvailable') and
+                      'iPhone' in d.get('name','')]
+              if len(phones)<2:
+                  print('QA_IOS_CLEAN_CORESIM_FAILED reason=need_two_compatible_iphones target='+target,flush=True)
+                  sys.exit(3)
+              op=phones[0]['udid']
+              traveler=phones[1]['udid']
+              with open(os.environ['GITHUB_ENV'],'a') as e:
+                  e.write('SIM_OPERATOR='+op+'\nSIM_TRAVELER='+traveler+'\nSIM_RUNTIME='+target+'\n')
+              print('QA_IOS_CLEAN_CORESIM_PASS elapsed_seconds='+
+                    str(round(time.monotonic()-started,2))+
+                    ' runtime='+target+' compatible_iphones='+str(len(phones)),flush=True)
+              snapshot('after')
+          except subprocess.TimeoutExpired as e:
+              print('QA_IOS_CLEAN_CORESIM_BLOCKED command='+str(e.cmd)+
+                    ' timeout_seconds='+str(e.timeout),flush=True)
+              snapshot('failed')
+              sys.exit(124)
+          except (subprocess.CalledProcessError,ValueError,KeyError) as e:
+              print('QA_IOS_CLEAN_CORESIM_FAILED cause='+type(e).__name__,flush=True)
+              snapshot('failed')
+              sys.exit(1)
+          PY
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
@@ -213,24 +373,47 @@ jobs:
               console.log('PASS: local API /live responds correctly for native app');})
             .catch(e=>{console.error('QA_LOCAL_LIVE_FAILED',e.message);process.exitCode=1});
           NODE
+      - name: Record isolated fixture + server + Stripe TEST precondition
+        run: node scripts/native-qa-stage-ledger.cjs pass isolated-fixtures
+      - name: Prove actual signed-in QA Operator status BEFORE simulator build
+        shell: bash
+        run: |
+          set -euo pipefail
+          node backend/native-commercial-qa-auth-preflight.cjs
+          node scripts/native-qa-stage-ledger.cjs pass authenticated-operator-eligibility
       - name: Install Maestro real-screen interaction runner
         shell: bash
         run: |
           set -euo pipefail
+          # Reproducible runner: 2.12.0 was published October 26, 2026.
+          # The generic installer otherwise fetches an unpinned latest version.
+          export MAESTRO_VERSION=2.12.0
           curl -fsSL 'https://get.maestro.mobile.dev' | bash
           echo "$HOME/.maestro/bin" >> "$GITHUB_PATH"
+          "$HOME/.maestro/bin/maestro" --version
+          # Maestro 2.6+ accepts --driver-host-port, but its normal --help does
+          # not list the advanced flag. Do not reject a valid CLI based on grep.
+          "$HOME/.maestro/bin/maestro" test --help | grep -q -- '--test-output-dir'
+          "$HOME/.maestro/bin/maestro" test --help | grep -q -- '--debug-output'
+          echo 'PASS: pinned Maestro CLI supports independent iOS driver ports and evidence reports'
       - name: Fingerprint exact native application sources, excluding only QA scripts
         id: native-fingerprint
         shell: bash
         run: |
           set -euo pipefail
           echo "digest=$(node scripts/native-build-fingerprint.cjs)" >> "$GITHUB_OUTPUT"
+          echo "legacy_digest=$(node scripts/native-build-fingerprint.cjs --legacy-qa-script-digest)" >> "$GITHUB_OUTPUT"
       - name: Restore precompiled unsigned QA app (never a production release)
         id: native-build-cache
         uses: actions/cache/restore@v4
         with:
           path: .qa-native-build-cache/${{ matrix.platform }}
           key: qa-native-release-v1-${{ runner.os }}-${{ matrix.platform }}-${{ steps.native-fingerprint.outputs.digest }}
+          # The legacy key differs only in hashing Node-only QA scripts. Using a
+          # legacy hit is safe: it still hashes every actual runtime source and
+          # the app archive is independently SHA-verified before installation.
+          restore-keys: |
+            qa-native-release-v1-${{ runner.os }}-${{ matrix.platform }}-${{ steps.native-fingerprint.outputs.legacy_digest }}
       # Native source changes require a new fingerprint-bound QA build.
       # QA-script-only changes restore the same checksummed app from Actions cache;
       # never import an old binary if its source fingerprint differs.
@@ -329,30 +512,128 @@ jobs:
           emulator-options: -no-window -no-audio -no-snapshot -no-boot-anim -gpu swiftshader_indirect
           disable-animations: true
           script: bash scripts/native-commercial-android-runner.sh
-      - name: Boot iPhone simulator and install cached or newly compiled app
+      - name: Boot isolated iPhone simulator (bounded, independent)
         if: matrix.platform == 'ios'
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p artifacts/native-commercial-ios .qa-native-build-cache/ios
-          SIM="$(xcrun simctl list -j devices available | python3 -c 'import json,sys;d=json.load(sys.stdin)["devices"];print(next(z["udid"] for a in d.values() for z in a if z.get("isAvailable") and "iPhone" in z["name"]))')"
-          echo "SIM_OPERATOR=$SIM" >> "$GITHUB_ENV"
+          # Exact SDK-matched Operator UDID was selected on this SAME runner
+          # BEFORE Node, Java, Firebase and the backend started. Reuse it;
+          # do not enumerate all simulators under heavy resource load.
+          test -n "$SIM_OPERATOR" && test -n "$SIM_RUNTIME" || {
+            echo "::error::Missing early CoreSimulator preflight result"; exit 1;
+          }
+          SIM="$SIM_OPERATOR"
+          echo "QA_IOS_REUSE_CLEAN_CORESIM=1 runtime=$SIM_RUNTIME"
+          echo 'QA_IOS_STAGE=simulator_boot'
           xcrun simctl boot "$SIM" || true
-          xcrun simctl bootstatus "$SIM" -b
+          # A blocked CoreSimulator boot used to share one opaque step with
+          # expensive Xcode compilation. Bound and label these separately.
+          python3 - "$SIM" <<'PY'
+          import subprocess,sys,time
+          sim=sys.argv[1]
+          began=time.monotonic()
+          try:
+              subprocess.run(['xcrun','simctl','bootstatus',sim,'-b'],
+                             timeout=600,check=True)
+          except subprocess.TimeoutExpired:
+              print('QA_IOS_SIMULATOR_BOOT_TIMEOUT=600s',flush=True)
+              sys.exit(124)
+          print('QA_IOS_SIMULATOR_READY_SECS='+str(round(time.monotonic()-began)),flush=True)
+          PY
           xcrun simctl location "$SIM" set 25.7617,-80.1918
+          echo 'QA_IOS_STAGE=simulator_ready'
+      - name: Restore or compile fingerprint-bound QA iOS app (separate Xcode stage)
+        if: matrix.platform == 'ios'
+        shell: bash
+        run: |
+          set -euo pipefail
           # Check the restored iOS artifact *before* deciding to spend on Xcode.
           # Fail closed if the archive exists but its own SHA is wrong.
           if [[ -s .qa-native-build-cache/ios/AmericanRider.app.tgz ]]; then
             (cd .qa-native-build-cache/ios && shasum -a 256 -c native.sha256)
             echo 'Using proven iOS QA binary instead of recompiling unchanged source'
           else
+            echo 'QA_IOS_STAGE=expo_prebuild'
             NODE_ENV=production npx expo prebuild --clean --platform ios --non-interactive
-            NODE_ENV=production xcodebuild -workspace ios/AmericanRider.xcworkspace -scheme AmericanRider -configuration Release -destination "id=$SIM" -derivedDataPath "$RUNNER_TEMP/QARelease" CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO build > artifacts/native-commercial-ios/xcode.log 2>&1 || { tail -120 artifacts/native-commercial-ios/xcode.log; exit 1; }
+            echo 'QA_IOS_STAGE=xcodebuild_release_compile'
+            # Keep the expensive compile's detailed log on disk, but emit a
+            # bounded periodic heartbeat so the job no longer appears frozen.
+            NODE_ENV=production xcodebuild -workspace ios/AmericanRider.xcworkspace -scheme AmericanRider -configuration Release -destination "id=$SIM_OPERATOR" -derivedDataPath "$RUNNER_TEMP/QARelease" -showBuildTimingSummary -resultBundlePath artifacts/native-commercial-ios/xcode-build.xcresult CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO build > artifacts/native-commercial-ios/xcode.log 2>&1 &
+            BUILD_PID=$!
+            (
+              # Abort an unresponsive compile before the 155-minute whole-job
+              # limit consumes the opportunity to preserve its diagnostic log.
+              BUILD_BEGAN=$SECONDS
+              LAST_LOG_BYTES=-1
+              UNCHANGED_SECS=0
+              while kill -0 "$BUILD_PID" 2>/dev/null; do
+                sleep 60
+                if kill -0 "$BUILD_PID" 2>/dev/null; then
+                  # A PID alone is not proof of progress. Watch actual log byte
+                  # growth; do not report the same stale output as a live build.
+                  LOG_BYTES="$(wc -c < artifacts/native-commercial-ios/xcode.log | tr -d ' ')"
+                  if [[ "$LOG_BYTES" == "$LAST_LOG_BYTES" ]]; then
+                    UNCHANGED_SECS=$((UNCHANGED_SECS + 60))
+                  else
+                    LAST_LOG_BYTES="$LOG_BYTES"
+                    UNCHANGED_SECS=0
+                  fi
+                  echo "QA_IOS_BUILD_HEARTBEAT=compiling elapsed_seconds=$((SECONDS - BUILD_BEGAN)) log_bytes=$LOG_BYTES unchanged_seconds=$UNCHANGED_SECS"
+                  tail -n 2 artifacts/native-commercial-ios/xcode.log | cut -c 1-200
+                  # If the compiler stops emitting any output for 15 minutes,
+                  # fail visibly and keep the Xcode log/result bundle. Avoid
+                  # occupying the macOS runner until its whole-job timeout.
+                  if (( UNCHANGED_SECS >= 900 )); then
+                    echo 'QA_IOS_BUILD_STALLED=no_log_growth_900s'
+                    kill -TERM "$BUILD_PID" 2>/dev/null || true
+                    break
+                  fi
+                  if (( SECONDS - BUILD_BEGAN >= 4500 )); then
+                    echo 'QA_IOS_BUILD_TIMEOUT=4500s'
+                    kill -TERM "$BUILD_PID" 2>/dev/null || true
+                    break
+                  fi
+                fi
+              done
+            ) &
+            WATCH_PID=$!
+            if wait "$BUILD_PID"; then
+              echo 'QA_IOS_STAGE=xcodebuild_succeeded'
+            else
+              rc=$?
+              echo "QA_IOS_BUILD_FAILED=$rc"
+              tail -n 120 artifacts/native-commercial-ios/xcode.log
+              kill "$WATCH_PID" 2>/dev/null || true
+              exit "$rc"
+            fi
+            kill "$WATCH_PID" 2>/dev/null || true
+            wait "$WATCH_PID" 2>/dev/null || true
             APP="$RUNNER_TEMP/QARelease/Build/Products/Release-iphonesimulator/AmericanRider.app"
             test -d "$APP"
             tar -czf .qa-native-build-cache/ios/AmericanRider.app.tgz -C "$(dirname "$APP")" AmericanRider.app
             (cd .qa-native-build-cache/ios && shasum -a 256 AmericanRider.app.tgz > native.sha256)
           fi
+      - name: Save iOS simulator app across QA-only test revisions
+        if: matrix.platform == 'ios' && steps.native-build-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: .qa-native-build-cache/ios
+          key: qa-native-release-v1-${{ runner.os }}-${{ matrix.platform }}-${{ steps.native-fingerprint.outputs.digest }}
+      - name: Preserve exact iOS simulator app independently of test results
+        if: ${{ always() && matrix.platform == 'ios' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: commercial-qa-ios-simulator-app
+          path: .qa-native-build-cache/ios/
+          retention-days: 14
+          if-no-files-found: warn
+      - name: Verify compiled QA bundle and install on Operator iPhone
+        if: matrix.platform == 'ios'
+        shell: bash
+        run: |
+          set -euo pipefail
           cd .qa-native-build-cache/ios
           test -s AmericanRider.app.tgz
           shasum -a 256 -c native.sha256
@@ -373,26 +654,14 @@ jobs:
               assert expected in data, 'Native simulator bundle missing isolated local QA configuration'
           print('PASS: compiled QA iPhone bundle targets local API + Firebase and permits local networking')
           PY
-          xcrun simctl install "$SIM" "$RUNNER_TEMP/qa-cached-ios/AmericanRider.app"
+          echo 'QA_IOS_STAGE=install_checksum_verified_app'
+          xcrun simctl install "$SIM_OPERATOR" "$RUNNER_TEMP/qa-cached-ios/AmericanRider.app"
           # The archive check above changes directories to the binary cache.
           # Restore the repository root before the Maestro smoke/log paths.
           cd "$GITHUB_WORKSPACE"
           mkdir -p artifacts/native-commercial-ios
           echo 'PASS: cached iOS app installed on first iPhone; full login checkpoint is next'
-      - name: Save iOS simulator app across QA-only test revisions
-        if: matrix.platform == 'ios' && steps.native-build-cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v4
-        with:
-          path: .qa-native-build-cache/ios
-          key: qa-native-release-v1-${{ runner.os }}-${{ matrix.platform }}-${{ steps.native-fingerprint.outputs.digest }}
-      - name: Preserve exact iOS simulator app independently of test results
-        if: matrix.platform == 'ios'
-        uses: actions/upload-artifact@v4
-        with:
-          name: commercial-qa-ios-simulator-app
-          path: .qa-native-build-cache/ios/
-          retention-days: 14
-          if-no-files-found: error
+          node scripts/native-qa-stage-ledger.cjs pass native-app-installed
       - name: Verify real Operator sign-in and In Service on one iPhone
         if: matrix.platform == 'ios'
         shell: bash
@@ -411,19 +680,60 @@ jobs:
           node backend/native-commercial-qa-refresh-presence.cjs
           echo 'QA_IOS_STAGE=single_iphone_operator_login_and_on_duty'
           python3 - "$SIM_OPERATOR" <<'PY'
-          import os,sys,pathlib,subprocess,signal,glob,shutil
+          import os,sys,pathlib,subprocess,signal,glob,shutil,time
           sim=sys.argv[1]
           out=pathlib.Path('artifacts/native-commercial-ios/operator-start.log')
           flow='.maestro/generated/qa-commercial-ios-operator-start.yml'
+          # Preserve first-device sign-in diagnostics separately from later
+          # two-iPhone paid-journey traces, as Maestro's CI docs recommend.
+          test_dir=pathlib.Path('artifacts/native-commercial-ios/maestro-test-operator-start')
+          debug_dir=pathlib.Path('artifacts/native-commercial-ios/maestro-debug-operator-start')
+          test_dir.mkdir(parents=True,exist_ok=True)
+          debug_dir.mkdir(parents=True,exist_ok=True)
+          cmd=['maestro','--device',sim,'--driver-host-port','7101','test',
+               '--test-output-dir='+str(test_dir),
+               '--debug-output='+str(debug_dir),
+               '--format','junit',
+               '--output','artifacts/native-commercial-ios/operator-start.junit.xml',
+               flow]
+          # Short, observable first-device checkpoint. Never wait 17.5 min for
+          # an ordinary role-switch UI assertion. A quiet driver gets evidence
+          # after 300s with no output; total runtime is bounded to 600s.
+          began=time.monotonic()
+          last_change=began
+          last_size=-1
+          rc=None
+          print('QA_IOS_OPERATOR_LOGIN_STARTED max_seconds=600 stall_seconds=300',flush=True)
           with out.open('w') as f:
-              proc=subprocess.Popen(['maestro','--device',sim,'test',flow],
+              proc=subprocess.Popen(cmd,
                                     stdout=f,stderr=subprocess.STDOUT,start_new_session=True)
-              try: rc=proc.wait(timeout=1050)
-              except subprocess.TimeoutExpired:
+              while True:
+                  elapsed=time.monotonic()-began
+                  if elapsed>=600:
+                      rc=124
+                      print('QA_IOS_OPERATOR_LOGIN_TIMEOUT elapsed_seconds='+str(int(elapsed)),flush=True)
+                      break
+                  try:
+                      rc=proc.wait(timeout=min(40,max(1,600-elapsed)))
+                      break
+                  except subprocess.TimeoutExpired:
+                      current_size=out.stat().st_size if out.exists() else 0
+                      now=time.monotonic()
+                      if current_size!=last_size:
+                          last_size=current_size
+                          last_change=now
+                      stale=int(now-last_change)
+                      print('QA_IOS_OPERATOR_LOGIN_HEARTBEAT elapsed_seconds='+str(int(now-began))+
+                            ' log_bytes='+str(current_size)+
+                            ' no_log_growth_seconds='+str(stale),flush=True)
+                      if stale>=300:
+                          rc=125
+                          print('QA_IOS_OPERATOR_LOGIN_STALLED no_log_growth_seconds='+str(stale),flush=True)
+                          break
+              if rc in (124,125) and proc.poll() is None:
                   os.killpg(proc.pid,signal.SIGTERM)
                   try: proc.wait(timeout=8)
                   except subprocess.TimeoutExpired: os.killpg(proc.pid,signal.SIGKILL)
-                  rc=124
           if rc:
               print('QA_IOS_OPERATOR_LOGIN_CHECKPOINT_FAILED',rc,flush=True)
               print('\n'.join(out.read_text(errors='replace').splitlines()[-50:]),flush=True)
@@ -441,6 +751,7 @@ jobs:
           pathlib.Path('artifacts/native-commercial-ios/operator-signin-verified.udid').write_text(sim+'\n')
           print('PASS: real Operator signed in and commenced operations on isolated first iPhone',flush=True)
           PY
+          node scripts/native-qa-stage-ledger.cjs pass operator-in-service
       - name: Boot Traveler only after verified Operator sign-in checkpoint
         if: matrix.platform == 'ios'
         shell: bash
@@ -450,14 +761,104 @@ jobs:
           test "$(cat artifacts/native-commercial-ios/operator-signin-verified.udid)" = "$SIM_OPERATOR"
           # Only AFTER Operator login is independently verified do we allocate the
           # Traveler simulator. Both receive the same checksum-verified .app.
-          SIM_TRAVELER="$(xcrun simctl list -j devices available | python3 -c 'import json,sys;d=json.load(sys.stdin)["devices"];a=next(v for v in d.values() if any(x["udid"]==sys.argv[1] for x in v));print(next(x["udid"] for x in a if x["udid"]!=sys.argv[1] and x.get("isAvailable") and "iPhone" in x["name"]))' "$SIM_OPERATOR")"
+          # Both device identities were chosen on the otherwise unloaded
+          # runner, from the SAME SDK-matched runtime, before Firebase.
+          # Reuse these exact UDIDs; do not query CoreSimulator's entire
+          # device list under load. This is the root-cause isolation from
+          # cleanroom run 40891282558 (5.27-second enumeration).
           test -n "$SIM_TRAVELER" && test "$SIM_TRAVELER" != "$SIM_OPERATOR"
+          echo "QA_IOS_TRAVELER_STAGE=preselected_same_runtime"
           echo "SIM_DEVICE=$SIM_TRAVELER" >> "$GITHUB_ENV"
-          xcrun simctl boot "$SIM_TRAVELER"
-          xcrun simctl bootstatus "$SIM_TRAVELER" -b
-          xcrun simctl location "$SIM_TRAVELER" set 25.7617,-80.1918
-          xcrun simctl install "$SIM_TRAVELER" "$RUNNER_TEMP/qa-cached-ios/AmericanRider.app"
-          echo 'PASS: Operator login checkpoint succeeded, two independent iPhones installed with identical SHA-verified app'
+          # Oct 29 run 40884833413: second iPhone bootstatus finished after
+          # 211 seconds of first-boot migration but simctl location set then
+          # hung for 45 seconds. Keep CoreSimulator health and installation
+          # separate; Maestro sets the Traveler's real simulator GPS on-device
+          # before signed-in location is consumed. Never fake server GPS.
+          mkdir -p artifacts/native-commercial-ios
+          python3 - "$SIM_TRAVELER" "$RUNNER_TEMP/qa-cached-ios/AmericanRider.app" <<'PY'
+          import os, pathlib, signal, subprocess, sys, time
+          sim, app = sys.argv[1:]
+          log = pathlib.Path('artifacts/native-commercial-ios/traveler-boot.log')
+          # No full-device listing under load: both UDIDs were selected early.
+          # Host health and actual boot/install are measured independently.
+          stages = [
+              ('boot', ['xcrun', 'simctl', 'boot', sim], 90),
+              ('bootstatus', ['xcrun', 'simctl', 'bootstatus', sim, '-b'], 420),
+              ('install', ['xcrun', 'simctl', 'install', sim, app], 180),
+          ]
+          def host_health(label):
+              # Observe resource pressure before two simulator drivers start.
+              # Never print environment variables, auth tokens or commands.
+              for name, command in [
+                  ('memory', ['memory_pressure', '-Q']),
+                  ('virtual-memory', ['vm_stat']),
+                  ('disk', ['df', '-h', '/']),
+              ]:
+                  try:
+                      info=subprocess.run(command,stdout=subprocess.PIPE,
+                                          stderr=subprocess.STDOUT,text=True,
+                                          check=False,timeout=8)
+                      (log.parent/('traveler-health-'+label+'-'+name+'.log')).write_text(info.stdout)
+                      print('QA_IOS_TRAVELER_HOST_HEALTH stage='+label+
+                            ' probe='+name+' exit='+str(info.returncode),flush=True)
+                  except (OSError,subprocess.TimeoutExpired) as exc:
+                      print('QA_IOS_TRAVELER_HOST_HEALTH_UNAVAILABLE stage='+label+
+                            ' probe='+name+' error='+type(exc).__name__,flush=True)
+          def evidence(label, reason):
+              host_health('failure-'+label)
+              print('QA_IOS_TRAVELER_BLOCKED stage='+label+' reason='+reason, flush=True)
+              for name, command in [
+                  ('device-list', ['xcrun', 'simctl', 'list', 'devices']),
+                  ('screenshot', ['xcrun', 'simctl', 'io', sim, 'screenshot',
+                                  'artifacts/native-commercial-ios/traveler-boot-failed.png']),
+              ]:
+                  try:
+                      result = subprocess.run(command, stdout=subprocess.PIPE,
+                                              stderr=subprocess.STDOUT, text=True,
+                                              timeout=20, check=False)
+                      pathlib.Path('artifacts/native-commercial-ios/traveler-'+name+'.log').write_text(result.stdout)
+                  except Exception as exc:
+                      print('QA_IOS_TRAVELER_EVIDENCE_ERROR '+name+' '+str(exc), flush=True)
+              try:
+                  print('\\n'.join(log.read_text(errors='replace').splitlines()[-25:]), flush=True)
+              except OSError:
+                  pass
+          with log.open('a') as output:
+              for label, command, limit in stages:
+                  print('QA_IOS_TRAVELER_STAGE='+label+' timeout_seconds='+str(limit), flush=True)
+                  output.write('STAGE '+label+' START\\n')
+                  output.flush()
+                  began = time.monotonic()
+                  proc = subprocess.Popen(command, stdout=output, stderr=subprocess.STDOUT,
+                                          start_new_session=True)
+                  while proc.poll() is None:
+                      elapsed = time.monotonic() - began
+                      if elapsed >= limit:
+                          os.killpg(proc.pid, signal.SIGTERM)
+                          try:
+                              proc.wait(timeout=8)
+                          except subprocess.TimeoutExpired:
+                              os.killpg(proc.pid, signal.SIGKILL)
+                              proc.wait()
+                          evidence(label, 'timeout_'+str(limit)+'s')
+                          sys.exit(124)
+                      try:
+                          proc.wait(timeout=min(30, max(0.5, limit-elapsed)))
+                      except subprocess.TimeoutExpired:
+                          print('QA_IOS_TRAVELER_HEARTBEAT stage='+label+
+                                ' elapsed_seconds='+str(int(time.monotonic()-began)), flush=True)
+                  if proc.returncode:
+                      evidence(label, 'exit_'+str(proc.returncode))
+                      sys.exit(proc.returncode)
+                  print('QA_IOS_TRAVELER_STAGE_OK='+label+
+                        ' elapsed_seconds='+str(int(time.monotonic()-began)), flush=True)
+                  if label == 'bootstatus':
+                      host_health('after-boot')
+                  elif label == 'install':
+                      host_health('after-install')
+          PY
+          echo 'PASS: Operator login checkpoint succeeded, two independent iPhones installed with identical SHA-verified app; Traveler GPS still requires real Maestro setLocation'
+          node scripts/native-qa-stage-ledger.cjs pass traveler-device-installed
       - name: Execute concurrent real iPhone Traveler and Operator paid journeys
         if: matrix.platform == 'ios'
         shell: bash
@@ -471,6 +872,9 @@ jobs:
             cp -R "$HOME/.maestro/tests/." artifacts/native-commercial-ios/maestro-debug/ 2>/dev/null || true
             exit 1
           fi
+      - name: Report independent native acceptance milestones, including blocked stages
+        if: always()
+        run: node scripts/native-qa-stage-ledger.cjs report
       - name: Preserve platform evidence even when full journey fails
         if: always()
         uses: actions/upload-artifact@v4

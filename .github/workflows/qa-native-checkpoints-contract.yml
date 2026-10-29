@@ -1,0 +1,143 @@
+name: QA-only native journey checkpoint contract
+
+on:
+  pull_request:
+    branches:
+      - qa/ios-menu-a11y-i18n-fix-20261028
+    paths:
+      - '.github/workflows/qa-ios-preserved-replay.yml'
+      - '.github/workflows/qa-native-checkpoints-contract.yml'
+      - 'scripts/native-qa-stage-ledger.cjs'
+      - 'scripts/native-commercial-ios-dual-runner.sh'
+      - 'scripts/native-commercial-android-runner.sh'
+
+permissions:
+  contents: read
+
+jobs:
+  validate-stage-checkpoints:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate stage ledger and macOS runner without renting a simulator
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check scripts/native-qa-stage-ledger.cjs
+          node scripts/native-qa-stage-ledger.cjs selftest
+          bash -n scripts/native-commercial-ios-dual-runner.sh
+          bash -n scripts/native-commercial-android-runner.sh
+          node - <<'NODE'
+          const fs=require('node:fs'),assert=require('node:assert/strict');
+          const workflow=fs.readFileSync('.github/workflows/qa-ios-preserved-replay.yml','utf8');
+          const runner=fs.readFileSync('scripts/native-commercial-ios-dual-runner.sh','utf8');
+          const android=fs.readFileSync('scripts/native-commercial-android-runner.sh','utf8');
+          for(const stage of ['isolated-fixtures','authenticated-operator-eligibility','native-app-installed','operator-in-service','traveler-device-installed']){
+            assert.ok(workflow.includes('pass '+stage), 'Missing explicit iOS checkpoint '+stage);
+          }
+          for(const stage of ['paid-travel-and-offer','travel-completion','stripe-test-reconciliation']){
+            assert.ok(runner.includes('pass '+stage), 'Missing independent Traveler/Operator/Stripe checkpoint '+stage);
+          }
+          assert.ok(workflow.includes('if: always()') &&
+            workflow.includes('scripts/native-qa-stage-ledger.cjs report'),
+            'Missing failure-safe acceptance summary');
+          assert.ok(android.includes('QA_ANDROID_REPLAY_BLOCKED=flow_already_started') &&
+            android.includes('QA_ANDROID_FAILURE_CLASS=os_pixel_launcher_anr') &&
+            android.includes('QA_ANDROID_FAILURE_CLASS=emulator_transport_dropped') &&
+            !android.includes('safe_before_auth_retry') &&
+            (android.match(/maestro test/g)||[]).length===1,
+            'Never replay any Android native flow after sign-in or payment-capable automation begins');
+          assert.ok(workflow.includes('cancel-in-progress: false'),
+            'Never cancel in-progress expensive iOS acceptance builds');
+          console.log('PASS: eight proof-linked stages with separate Operator, Travel and settlement milestones');
+          NODE
+
+  authenticated-operator-eligibility:
+    needs: [validate-stage-checkpoints]
+    # Independent QA safety probe: reproduce the same Firebase/Stripe TEST
+    # fixture and authenticated requests before scheduling another macOS build.
+    # No iOS simulator, no Android emulator, no live payment credentials.
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      NODE_ENV: test
+      AR_NATIVE_PLATFORM: ios
+      AR_NATIVE_QA_LOCAL: '1'
+      AR_NATIVE_COMMERCIAL_QA: '1'
+      EXPO_PUBLIC_AR_NATIVE_QA: '1'
+      EXPO_PUBLIC_API_URL: http://127.0.0.1:4242
+      EXPO_PUBLIC_REFERRALS_ENABLED: '1'
+      FIREBASE_PROJECT_ID: demo-american-rider-qa
+      GOOGLE_CLOUD_PROJECT: demo-american-rider-qa
+      FIRESTORE_EMULATOR_HOST: 127.0.0.1:8080
+      FIREBASE_AUTH_EMULATOR_HOST: 127.0.0.1:9099
+      STRIPE_SECRET_KEY: ${{ secrets.STRIPE_TEST_SECRET_KEY }}
+      STRIPE_PUBLISHABLE_KEY: ${{ vars.STRIPE_TEST_PUBLISHABLE_KEY }}
+      PORT: '4242'
+      MARKET_STATUS: fl-miami-dade:active
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Refuse all production identities and provider live money
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$AR_NATIVE_QA_LOCAL" = 1
+          test "$GOOGLE_CLOUD_PROJECT" = demo-american-rider-qa
+          test -z "${K_SERVICE:-}"
+          test -z "${GOOGLE_APPLICATION_CREDENTIALS:-}"
+          test -z "${FIREBASE_SERVICE_ACCOUNT:-}"
+          test -z "${STRIPE_LIVE_SECRET_KEY:-}"
+          case "$STRIPE_SECRET_KEY" in sk_test_*) ;; *) echo 'Only Stripe TEST is permitted'; exit 1;; esac
+          case "$STRIPE_PUBLISHABLE_KEY" in pk_test_*) ;; *) echo 'Matching publishable Stripe TEST key required'; exit 1;; esac
+      - name: Install local backend and Firebase emulator dependencies
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          npm ci --prefix backend --omit=dev --no-audit --no-fund
+          npm ci --prefix infra/rules-emulator --no-audit --no-fund
+      - name: Boot disposable local Firebase Auth and Firestore
+        shell: bash
+        run: |
+          set -euo pipefail
+          node - <<'NODE'
+          const fs=require('node:fs');
+          const cfg=JSON.parse(fs.readFileSync('firebase.json','utf8'));
+          cfg.emulators={...(cfg.emulators||{}),
+            auth:{host:'127.0.0.1',port:9099},
+            firestore:{host:'127.0.0.1',port:8080}};
+          fs.writeFileSync('firebase-qa-only.generated.json',JSON.stringify(cfg));
+          NODE
+          ./infra/rules-emulator/node_modules/.bin/firebase emulators:start --only auth,firestore --project demo-american-rider-qa --config firebase-qa-only.generated.json > "$RUNNER_TEMP/firebase-qa.log" 2>&1 &
+          for i in $(seq 1 100); do
+            if curl -fsS http://127.0.0.1:9099/emulator/v1/projects/demo-american-rider-qa/config >/dev/null 2>&1; then break; fi
+            sleep 2
+          done
+          curl -fsS http://127.0.0.1:9099/emulator/v1/projects/demo-american-rider-qa/config >/dev/null
+      - name: Seed only disposable QA identities and Stripe TEST Connect recipient
+        shell: bash
+        run: |
+          set -euo pipefail
+          node backend/native-commercial-qa-fixture.cjs
+      - name: Start local API and inspect true authenticated Operator eligibility
+        shell: bash
+        run: |
+          set -euo pipefail
+          node backend/server.js > "$RUNNER_TEMP/qa-api.log" 2>&1 &
+          for i in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:4242/health >/dev/null 2>&1; then break; fi
+            sleep 2
+          done
+          curl -fsS http://127.0.0.1:4242/health >/dev/null
+          node backend/native-commercial-qa-auth-preflight.cjs
+          echo '### Authenticated Operator eligibility' >> "$GITHUB_STEP_SUMMARY"
+          echo 'PASS: real local Auth token, server qualification, policy document and coverage status.' >> "$GITHUB_STEP_SUMMARY"
