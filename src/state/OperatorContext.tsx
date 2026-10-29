@@ -427,8 +427,9 @@ export function OperatorProvider({ children }: { children: React.ReactNode }) {
           new Promise<null>(resolve => setTimeout(() => resolve(null), 16000)),
         ]);
         if (!active || userUidRef.current !== 'native-qa-operator') return;
-        const [qualification, coverage] = result || [{status:'unknown'}, null];
-        if (qualification.status === 'qualified' &&
+        const qualification = result?.[0];
+        const coverage = result?.[1];
+        if (qualification?.status === 'qualified' &&
             coverage?.ok === true &&
             coverage.documentApproved === true &&
             /^\d{4}-\d{2}-\d{2}$/.test(coverage.policyExpiry || '')) {
@@ -441,7 +442,7 @@ export function OperatorProvider({ children }: { children: React.ReactNode }) {
           return;
         }
         console.warn('QA_OPERATOR_AUTHENTICATED_PRESENTATION_PENDING', {
-          attempt, qualification: qualification.status,
+          attempt, qualification: qualification?.status || 'unknown',
           insurance: coverage?.status || 'unavailable',
           documentApproved: coverage?.documentApproved === true,
         });
