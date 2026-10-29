@@ -1,0 +1,34 @@
+name: Native QA incident-399 failure taxonomy (no simulator)
+on:
+  pull_request:
+    branches: [qa/native-journey-stage-ledger-20261029]
+    paths:
+      - 'scripts/native-qa-failure-classifier.cjs'
+      - '.github/workflows/native-qa-failure-taxonomy.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  classify-known-failures:
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate syntax
+        run: node --check scripts/native-qa-failure-classifier.cjs
+      - name: Prove old and current failures are distinguished
+        run: node scripts/native-qa-failure-classifier.cjs --selftest
+      - name: Refuse false commercial certification
+        run: |
+          node - <<'NODE'
+          const {classify}=require('./scripts/native-qa-failure-classifier.cjs');
+          const assert=require('node:assert/strict');
+          for (const source of ['Step 31 failed','IOSDriverTimeoutException','No operator was available']) {
+            const result=classify(source);
+            assert.equal(result.certification,'NOT_CERTIFIED');
+          }
+          console.log('PASS: infrastructure/test failures never certify commercial journeys');
+          NODE
