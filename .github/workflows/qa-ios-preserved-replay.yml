@@ -44,12 +44,15 @@ jobs:
             'XCTest-crashing negative post-login poll remains in Operator checkpoint');
           const login=f.indexOf('id: "auth-primary-action"');
           const link=f.indexOf('openLink: "americanrider:///operator"');
+          const systemDialog=f.indexOf('visible: "Open in.*American.*"');
+          const confirmOpen=f.indexOf('tapOn: "Open"',systemDialog);
           const service=f.indexOf('visible: "In Service"');
-          assert.ok(login>=0 && link>login && service>link,
-            'Require real login then operator navigation then positive In Service proof');
+          assert.ok(login>=0 && link>login && systemDialog>link &&
+            confirmOpen>systemDialog && service>confirmOpen,
+            'Require real login, conditional Apple deep-link confirmation and In Service');
           assert.ok(f.includes('id: "operator-commence-operations"'),
             'Do not bypass native Operator Commence Operations');
-          console.log('PASS: iOS Operator checkpoint avoids stale login hierarchy, still requires In Service');
+          console.log('PASS: iOS checkpoint handles Apple deep-link confirmation, still requires real In Service');
           NODE
       - name: Refuse all live Stripe and production Firebase contexts, keep old sign-in QA safe
         run: node backend/native-qa-isolation.test.js
