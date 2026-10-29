@@ -3,6 +3,7 @@ import React from 'react';
 import { Animated, Easing, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleProp, StyleSheet, TextStyle, View, ViewStyle } from 'react-native';
 import { Text } from './AppText';
 import { useNative } from './anim';
+import { useLanguage } from '../state/LanguageContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Circle, Path } from 'react-native-svg';
 import { colors, mono, radii } from '../theme';
@@ -170,10 +171,11 @@ export function BackLink({ label, onPress }: { label: string; onPress: () => voi
 // let home drift to 28 while every other screen sat at 24.
 export function LetterheadBar({ onBack, onMenu }: { onBack?: () => void; onMenu?: () => void }) {
   const router = useRouter();
+  const { t } = useLanguage();
   return (
     <View style={styles.bar}>
       {onMenu ? (
-        <Pressable testID="traveler-menu-open" accessibilityRole="button" accessibilityLabel="Open navigation menu" onPress={onMenu} hitSlop={12} style={styles.barIcon}>
+        <Pressable testID="traveler-menu-open" accessibilityRole="button" accessibilityLabel={t('traveler.menu')} onPress={onMenu} hitSlop={12} style={styles.barIcon}>
           <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
             <Path
               d="M4 7h16M4 12h16M4 17h16"
