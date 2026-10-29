@@ -1,0 +1,78 @@
+name: Verify existing Founder Google Cloud Run revision without redeploy
+on:
+  push:
+    branches: [release/current]
+    paths:
+      - '.github/workflows/founder-google-verify-staged-20261029.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+  id-token: write
+concurrency:
+  group: american-rider-founder-stage-readonly-verification
+  cancel-in-progress: false
+jobs:
+  check-staged-founder:
+    if: github.ref == 'refs/heads/release/current'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: american-rider-commercial-live
+    steps:
+      - uses: actions/checkout@v4
+      - name: Authenticate to production read-only (no credentials exported)
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: projects/623854974930/locations/global/workloadIdentityPools/github-production/providers/github
+          service_account: ar-production-deployer@american-rider-35688.iam.gserviceaccount.com
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Verify only the exact revision built by Founder run #2
+        shell: bash
+        run: |
+          set -euo pipefail
+          gcloud run services describe american-rider-api-production \
+            --project=american-rider-35688 --region=us-east1 --format=json > /tmp/ar-service-stage.json
+          gcloud run revisions describe american-rider-api-production-00034-72t \
+            --project=american-rider-35688 --region=us-east1 --format=json > /tmp/ar-revision-stage.json
+          python3 - <<'PY'
+          import json,sys
+          service=json.load(open('/tmp/ar-service-stage.json'))
+          revision=json.load(open('/tmp/ar-revision-stage.json'))
+          expected_revision='american-rider-api-production-00034-72t'
+          source_sha='b3d8a4b83e9a43de605b33e429dcb0d94e5a8600'
+          spec=revision.get('spec') or revision
+          containers=spec.get('containers') or []
+          env=containers[0].get('env',[]) if containers else []
+          mapping={x.get('name'):x.get('value') for x in env}
+          status=revision.get('status') or revision
+          conditions=status.get('conditions') or []
+          ready=[c for c in conditions if c.get('type')=='Ready']
+          ready_ok=any(str(c.get('status')).lower()=='true' for c in ready)
+          service_status=service.get('status') or service
+          targets=service_status.get('traffic') or service.get('traffic') or []
+          allocated=sum(int(x.get('percent') or 0) for x in targets)
+          got_stage=sum(int(x.get('percent') or 0) for x in targets
+                         if x.get('revisionName')==expected_revision or
+                            str(x.get('revision','')).endswith('/'+expected_revision))
+          flags_ok=(mapping.get('AR_FOUNDER_GOOGLE_OPS_ENABLED')=='1' and
+                    bool(mapping.get('AR_FOUNDER_FIREBASE_UIDS')))
+          source_ok=mapping.get('AR_RELEASE_COMMIT')==source_sha
+          name_ok=(revision.get('metadata') or {}).get('name',expected_revision)==expected_revision
+          print('Founder staged revision name verified:',name_ok)
+          print('Founder staged revision Ready condition:',ready_ok)
+          print('Founder approved Firebase identity binding PRESENT:',flags_ok)
+          print('Source is exact previously staged code:',source_ok)
+          print('Current normal customer traffic allocation remains 100%:',allocated==100)
+          print('Traffic to staged Founder revision remains 0%:',got_stage==0)
+          print('Service last created revision matches staged:',
+                service_status.get('latestCreatedRevisionName')==expected_revision)
+          print('Service last ready revision matches staged:',
+                service_status.get('latestReadyRevisionName')==expected_revision)
+          # No personally identifying Firebase IDs, secrets, private records or tokens in logs.
+          if not (name_ok and ready_ok and flags_ok and source_ok and allocated==100 and got_stage==0):
+              sys.exit('BLOCKED: actual revision is not certified ready/configured at zero traffic')
+          print('PASS: exact founder revision is ready and isolated. This is not live activation.')
+          PY
+      - name: Certification boundary
+        if: always()
+        run: |
+          echo "No revision was created, no traffic was shifted, no Operator or Recruiter record was modified, and no payment or payout was attempted." >> "$GITHUB_STEP_SUMMARY"
