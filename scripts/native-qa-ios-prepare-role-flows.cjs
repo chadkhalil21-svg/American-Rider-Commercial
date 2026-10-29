@@ -23,9 +23,21 @@ assert.equal(originalStart.split(postSignInNegative).length-1,1,
 // successful credential submission, then Safari WebView snapshotting lost its
 // accessibility server (run 40799591251). Avoid that expensive negative poll.
 // A real native operator route + real In Service screen must still appear.
-const start=originalStart.replace(postSignInNegative,'')+
+// Maestro's official iOS openLink guidance: iOS can require confirmation
+// of the very first custom-scheme deep link. Run 40801389841 screenshot shows
+// "Open in “American”?" obscuring the Traveler screen. The test waited for
+// Commence Operations behind this system modal until it timed out.
+// Only acknowledge the genuine Apple dialog if it appears. Keep the actual
+// Operator route, Commence Operations tap, and In Service assertion mandatory.
+const operatorDeepLink='- openLink: "americanrider:///operator"\n';
+const iosSystemConfirmation=
+  '- runFlow:\n    when:\n      visible: "Open in.*American.*"\n    commands:\n      - tapOn: "Open"\n';
+assert.equal(originalStart.split(operatorDeepLink).length-1,1,
+  'Refuse ambiguous Operator deep link');
+const start=originalStart.replace(postSignInNegative,'')
+  .replace(operatorDeepLink,operatorDeepLink+iosSystemConfirmation)+
   '- extendedWaitUntil:\n    visible: "In Service"\n    timeout: 60000\n';
-assert.ok(start.includes('- openLink: "americanrider:///operator"')&&
+assert.ok(start.includes(operatorDeepLink+iosSystemConfirmation)&&
   !start.includes(postSignInNegative), 'Require real on-device role transition');
 let offer=header+original.slice(ai,next);
 offer=offer.replace('    timeout: 90000','    timeout: 600000');
