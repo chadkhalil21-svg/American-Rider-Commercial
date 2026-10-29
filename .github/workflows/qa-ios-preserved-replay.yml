@@ -110,9 +110,12 @@ jobs:
     # iOS behind Android or vice versa.
     concurrency:
       group: isolated-ios-saved-app-393-${{ matrix.platform }}
-      # Preserve any active expensive iOS compilation. Queue this test until
-      # the previous same-platform job exits instead of replacing it.
+      # Keep all pending native runs rather than cancelling and replacing
+      # earlier queued work. GitHub's default queue: single silently replaces
+      # pending runs EVEN with cancel-in-progress set false (May 2026 update).
+      # Preserve active expensive native builds and process QA runs in order.
       cancel-in-progress: false
+      queue: max
     strategy:
       fail-fast: false
       matrix:
