@@ -6,11 +6,15 @@ const crypto = require('node:crypto');
 const cp = require('node:child_process');
 const files = cp.execFileSync('git', ['ls-files', '-z'], { maxBuffer: 128 * 1024 * 1024 })
   .toString('utf8').split('\0').filter(Boolean).sort();
+// Legacy key is solely a compatibility lookup for an existing checksummed app
+// produced by the same tracked native inputs before Node-only QA helpers were
+// excluded. New app binaries are always saved under the narrowed digest.
+const legacyQaDigest = process.argv.includes('--legacy-qa-script-digest');
 const ignored = (p) => p.startsWith('.github/') || p.startsWith('.maestro/') ||
   // Node-only QA stage/checkpoint/fixture scripts are executed by CI, never
   // bundled into the native app. They must NOT invalidate a compiled iPhone.
   // Keep native config generators distinct (e.g. Android network policy below).
-  (p.startsWith('scripts/native-qa-') && p.endsWith('.cjs')) ||
+  (!legacyQaDigest && p.startsWith('scripts/native-qa-') && p.endsWith('.cjs')) ||
   p.startsWith('backend/') || p.startsWith('docs/') ||
   p.startsWith('infra/') || ['AGENTS.md','PROJECT-LEDGER.md',
   'scripts/native-build-fingerprint.cjs',
