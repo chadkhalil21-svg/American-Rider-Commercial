@@ -120,6 +120,11 @@ jobs:
           assert.ok(w.includes('operator-start.junit.xml') &&
             w.includes('maestro-debug-operator-start'),
             'First iPhone sign-in needs its own JUnit and debug diagnostics');
+          assert.ok(w.includes('QA_IOS_OPERATOR_LOGIN_HEARTBEAT') &&
+            w.includes('QA_IOS_OPERATOR_LOGIN_STALLED') &&
+            w.includes('elapsed>=600') && w.includes('stale>=300') &&
+            !w.includes('proc.wait(timeout=1050)'),
+            'Operator navigation must expose progress and have a bounded driver-stall cutoff');
           assert.ok(role.includes('waitForAnimationToEnd:') && role.includes('traveler-switch-to-operator'),
             'Wait for actual native Operator drawer before asserting its role switch');
           const buildStages=[
@@ -597,7 +602,7 @@ jobs:
           node backend/native-commercial-qa-refresh-presence.cjs
           echo 'QA_IOS_STAGE=single_iphone_operator_login_and_on_duty'
           python3 - "$SIM_OPERATOR" <<'PY'
-          import os,sys,pathlib,subprocess,signal,glob,shutil
+          import os,sys,pathlib,subprocess,signal,glob,shutil,time
           sim=sys.argv[1]
           out=pathlib.Path('artifacts/native-commercial-ios/operator-start.log')
           flow='.maestro/generated/qa-commercial-ios-operator-start.yml'
@@ -613,15 +618,44 @@ jobs:
                '--format','junit',
                '--output','artifacts/native-commercial-ios/operator-start.junit.xml',
                flow]
+          # Short, observable first-device checkpoint. Never wait 17.5 min for
+          # an ordinary role-switch UI assertion. A quiet driver gets evidence
+          # after 300s with no output; total runtime is bounded to 600s.
+          began=time.monotonic()
+          last_change=began
+          last_size=-1
+          rc=None
+          print('QA_IOS_OPERATOR_LOGIN_STARTED max_seconds=600 stall_seconds=300',flush=True)
           with out.open('w') as f:
               proc=subprocess.Popen(cmd,
                                     stdout=f,stderr=subprocess.STDOUT,start_new_session=True)
-              try: rc=proc.wait(timeout=1050)
-              except subprocess.TimeoutExpired:
+              while True:
+                  elapsed=time.monotonic()-began
+                  if elapsed>=600:
+                      rc=124
+                      print('QA_IOS_OPERATOR_LOGIN_TIMEOUT elapsed_seconds='+str(int(elapsed)),flush=True)
+                      break
+                  try:
+                      rc=proc.wait(timeout=min(40,max(1,600-elapsed)))
+                      break
+                  except subprocess.TimeoutExpired:
+                      current_size=out.stat().st_size if out.exists() else 0
+                      now=time.monotonic()
+                      if current_size!=last_size:
+                          last_size=current_size
+                          last_change=now
+                      stale=int(now-last_change)
+                      print('QA_IOS_OPERATOR_LOGIN_HEARTBEAT elapsed_seconds='+str(int(now-began))+
+                            ' log_bytes='+str(current_size)+
+                            ' no_log_growth_seconds='+str(stale),flush=True)
+                      if stale>=300:
+                          rc=125
+                          print('QA_IOS_OPERATOR_LOGIN_STALLED no_log_growth_seconds='+str(stale),flush=True)
+                          break
+              if rc in (124,125) and proc.poll() is None:
                   os.killpg(proc.pid,signal.SIGTERM)
                   try: proc.wait(timeout=8)
                   except subprocess.TimeoutExpired: os.killpg(proc.pid,signal.SIGKILL)
-                  rc=124
           if rc:
               print('QA_IOS_OPERATOR_LOGIN_CHECKPOINT_FAILED',rc,flush=True)
               print('\n'.join(out.read_text(errors='replace').splitlines()[-50:]),flush=True)
