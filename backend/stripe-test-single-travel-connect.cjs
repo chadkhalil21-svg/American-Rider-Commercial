@@ -103,7 +103,29 @@ let intent,transfer,recipient,refund;
        summary:String(e.message||'').slice(0,160)});
     process.exitCode=1;
   }finally{
-    // Failing a later step must not strand TEST transfer balances or a\n    // captured TEST payment. Independently verify cleanup and label failures.\n    if(transfer?.id){\n      try{const t=await stripe.transfers.retrieve(transfer.id);\n        if(Number(t.amount_reversed||0)<t.amount){\n          const remain=t.amount-Number(t.amount_reversed||0);\n          await stripe.transfers.createReversal(t.id,{amount:remain},\n            {idempotencyKey:'ar_qa_cleanup_reverse_'+id});\n          note('Provider TEST transfer cleanup reversal','PASS');\n        }\n      }catch(e){note('Provider TEST transfer cleanup reversal','FAIL',{errorCode:String(e.code||'unknown')});process.exitCode=1;}\n    }\n    if(intent?.id){\n      try{const state=await stripe.paymentIntents.retrieve(intent.id);\n        if(state.status==='requires_capture')await stripe.paymentIntents.cancel(intent.id);\n        if(state.status==='succeeded'&&!refund){\n          refund=await stripe.refunds.create({payment_intent:intent.id,amount:state.amount_received,\n            reason:'requested_by_customer'},\n            {idempotencyKey:'ar_qa_cleanup_refund_'+id});\n          note('Provider TEST captured-payment cleanup refund','PASS',{providerStatus:refund.status});\n        }\n      }catch(e){note('Provider TEST captured-payment cleanup','FAIL',{errorCode:String(e.code||'unknown')});process.exitCode=1;}\n    }
+    // Failing a later step must not strand TEST transfer balances or a
+    // captured TEST payment. Independently verify cleanup and label failures.
+    if(transfer?.id){
+      try{const t=await stripe.transfers.retrieve(transfer.id);
+        if(Number(t.amount_reversed||0)<t.amount){
+          const remain=t.amount-Number(t.amount_reversed||0);
+          await stripe.transfers.createReversal(t.id,{amount:remain},
+            {idempotencyKey:'ar_qa_cleanup_reverse_'+id});
+          note('Provider TEST transfer cleanup reversal','PASS');
+        }
+      }catch(e){note('Provider TEST transfer cleanup reversal','FAIL',{errorCode:String(e.code||'unknown')});process.exitCode=1;}
+    }
+    if(intent?.id){
+      try{const state=await stripe.paymentIntents.retrieve(intent.id);
+        if(state.status==='requires_capture')await stripe.paymentIntents.cancel(intent.id);
+        if(state.status==='succeeded'&&!refund){
+          refund=await stripe.refunds.create({payment_intent:intent.id,amount:state.amount_received,
+            reason:'requested_by_customer'},
+            {idempotencyKey:'ar_qa_cleanup_refund_'+id});
+          note('Provider TEST captured-payment cleanup refund','PASS',{providerStatus:refund.status});
+        }
+      }catch(e){note('Provider TEST captured-payment cleanup','FAIL',{errorCode:String(e.code||'unknown')});process.exitCode=1;}
+    }
     // Never hide a failure to reverse a sandbox transfer as a successful
     // cleanup. Objects are explicitly retained for authenticated inspection.
     dump();
