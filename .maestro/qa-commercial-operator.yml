@@ -37,9 +37,15 @@ appId: com.americanrider.app
 # A text-only "Continue" tap on the Operator path repeatedly completed
 # without reaching Sign In, while Traveler already used this stable test ID.
 # Confirm the *actual entered address* instead of only nonempty input.
-- assertVisible:
-    id: "auth-email-entry"
-    text: "native.qa.operator@example.test"
+# Apple's accessibilityLabel is the field prompt, not necessarily its value.
+# Maestro's official copyTextFrom example reads the actual editable content.
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - copyTextFrom:
+          id: "auth-email-entry"
+      - assertTrue: ${maestro.copiedText === "native.qa.operator@example.test"}
 - assertVisible:
     id: "auth-primary-action"
     enabled: true
