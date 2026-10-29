@@ -47,37 +47,55 @@ jobs:
           assert.ok(role.indexOf('qa-operator-commence-control-visible')<role.indexOf('qa-operator-in-service-verified'));
           console.log('PASS: native Step 31 preserves labeled stages and screenshot evidence without restart');
           NODE
-      - name: Verify cold-boot GPS cannot block Traveler install
+      - name: Verify early clean-room device selection and joined iOS GPS contract
         run: |
           node - <<'NODE'
           const fs=require('node:fs'),assert=require('node:assert/strict');
           const wf=fs.readFileSync('.github/workflows/qa-ios-preserved-replay.yml','utf8');
           const flow=fs.readFileSync('.maestro/qa-commercial-traveler.yml','utf8');
-          const begin=wf.lastIndexOf('\n      - name: Boot Traveler only after verified Operator sign-in checkpoint\n');
-          const end=wf.lastIndexOf('\n      - name: Execute concurrent real iPhone Traveler and Operator paid journeys\n');
-          assert.ok(begin>0&&end>begin,'Missing exact Traveler setup boundaries');
-          const boot=wf.slice(begin,end);
-          const bootOperator=wf.slice(wf.lastIndexOf('\n      - name: Boot isolated iPhone simulator (bounded, independent)\n'),begin);
-          assert.ok(bootOperator.includes('xcrun --sdk iphonesimulator --show-sdk-version')&&
-                    bootOperator.includes('SIM_RUNTIME')&&
-                    bootOperator.includes('d.get(r,[])')&&
-                    bootOperator.includes('test -n "$SIM"'),
-                    'Operator iPhone must be selected from exact Xcode SDK runtime, never global first');
-          assert.ok(boot.includes('operator_group=next(v for v in groups.values() if any(x[\'udid\']==operator for x in v))'),
-                    'Traveler must remain in same runtime as verified Operator');
-          assert.ok(boot.includes('core-simulator-preflight')&&boot.includes('core-simulator-postboot'));
-          assert.ok(boot.includes("'simctl', 'list', 'devices', 'available'"));
-          assert.ok(boot.includes("'simctl', 'install', sim, app"));
-          assert.ok(!boot.includes("'simctl', 'location', sim"),
-            'Never set Traveler location through blocked cold-boot simctl IPC');
-          assert.ok(boot.includes('host_health(\'after-boot\')'));
-          assert.ok(boot.includes('host_health(\'after-install\')'));
+          const paid=wf.slice(wf.indexOf('\n  paid-native-journey:'));
+          const earlyName='\n      - name: Establish clean CoreSimulator readiness before Java or Firebase\n';
+          const init=paid.indexOf(earlyName);
+          const node=paid.indexOf('\n      - uses: actions/setup-node@v4',init);
+          const java=paid.indexOf('\n      - uses: actions/setup-java@v4',node);
+          const firebase=paid.indexOf('\n      - name: Start disposable Firebase Auth/Firestore emulators',java);
+          const api=paid.indexOf('\n      - name: Start actual local American Rider API',java);
+          assert.ok(init>0&&node>init&&java>node&&firebase>java&&api>firebase,
+            'Clean simulator selection must precede Node, Java, Firebase and API');
+          const early=paid.slice(init,node);
+          assert.ok(early.includes("['xcrun','simctl','list','-j','devices','available']")&&
+                    early.includes('timeout=120')&&
+                    early.includes('SIM_OPERATOR=')&&early.includes('SIM_TRAVELER=')&&
+                    early.includes("phones[0]['udid']")&&early.includes("phones[1]['udid']")&&
+                    early.includes("target='com.apple.CoreSimulator.SimRuntime.iOS-'"),
+                    'Choose two iPhones together by exact SDK runtime, once while clean');
+          const op=paid.slice(paid.lastIndexOf('\n      - name: Boot isolated iPhone simulator (bounded, independent)\n'),
+                paid.lastIndexOf('\n      - name: Restore or compile fingerprint-bound QA iOS app'));
+          assert.ok(op.includes('SIM="$SIM_OPERATOR"')&&
+                    op.includes('QA_IOS_REUSE_CLEAN_CORESIM=1')&&
+                    !op.includes('simctl list'), 'Operator must reuse preselected clean ID');
+          const begin=paid.lastIndexOf('\n      - name: Boot Traveler only after verified Operator sign-in checkpoint\n');
+          const end=paid.lastIndexOf('\n      - name: Execute concurrent real iPhone Traveler and Operator paid journeys\n');
+          assert.ok(begin>0&&end>begin);
+          const boot=paid.slice(begin,end);
+          assert.ok(boot.includes('test -n "$SIM_TRAVELER"')&&
+                    boot.includes('SIM_DEVICE=$SIM_TRAVELER')&&
+                    !boot.includes('core-simulator-preflight')&&
+                    !boot.includes('core-simulator-postboot'), 'Traveler must reuse SDK-matched clean ID');
+          assert.ok(boot.includes("('boot', ['xcrun', 'simctl', 'boot', sim]")&&
+                    boot.includes("('bootstatus', ['xcrun', 'simctl', 'bootstatus', sim")&&
+                    boot.includes("('install', ['xcrun', 'simctl', 'install', sim")&&
+                    !boot.includes("('location', ['xcrun', 'simctl'"),
+                    'Second device must boot and install without cold IPC location');
+          assert.ok(boot.includes("host_health('after-boot')")&&
+                    boot.includes("host_health('after-install')"));
           const start=flow.indexOf('- runFlow:\n    when:\n      platform: iOS\n    commands:\n      - setLocation:');
           const auth=flow.indexOf('- assertVisible: "AMERICAN RIDER"');
-          assert.ok(start>0&&auth>start,'Real iOS Maestro setLocation must precede auth and Home');
-          assert.ok(flow.slice(start,auth).includes('latitude: 25.7617')&&
-                    flow.slice(start,auth).includes('longitude: -80.1918'));
-          console.log('PASS: bounded CoreSimulator readiness and real iOS device-scoped GPS, no preinstall location stall');
+          assert.ok(start>0&&auth>start&&
+                    flow.slice(start,auth).includes('latitude: 25.7617')&&
+                    flow.slice(start,auth).includes('longitude: -80.1918'),
+                    'Maestro must set actual iOS simulated position before app auth');
+          console.log('PASS: clean-before-Java two-device runtime selection + no late enumeration + GPS');
           NODE
       - name: Refuse false commercial certification
         run: |
