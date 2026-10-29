@@ -339,7 +339,20 @@ jobs:
           echo "SIM_OPERATOR=$SIM" >> "$GITHUB_ENV"
           echo 'QA_IOS_STAGE=simulator_boot'
           xcrun simctl boot "$SIM" || true
-          xcrun simctl bootstatus "$SIM" -b
+          # A blocked CoreSimulator boot used to share one opaque step with
+          # expensive Xcode compilation. Bound and label these separately.
+          python3 - "$SIM" <<'PY'
+          import subprocess,sys,time
+          sim=sys.argv[1]
+          began=time.monotonic()
+          try:
+              subprocess.run(['xcrun','simctl','bootstatus',sim,'-b'],
+                             timeout=600,check=True)
+          except subprocess.TimeoutExpired:
+              print('QA_IOS_SIMULATOR_BOOT_TIMEOUT=600s',flush=True)
+              sys.exit(124)
+          print('QA_IOS_SIMULATOR_READY_SECS='+str(round(time.monotonic()-began)),flush=True)
+          PY
           xcrun simctl location "$SIM" set 25.7617,-80.1918
           echo 'QA_IOS_STAGE=simulator_ready'
           # Check the restored iOS artifact *before* deciding to spend on Xcode.
@@ -353,14 +366,22 @@ jobs:
             echo 'QA_IOS_STAGE=xcodebuild_release_compile'
             # Keep the expensive compile's detailed log on disk, but emit a
             # bounded periodic heartbeat so the job no longer appears frozen.
-            NODE_ENV=production xcodebuild -workspace ios/AmericanRider.xcworkspace -scheme AmericanRider -configuration Release -destination "id=$SIM" -derivedDataPath "$RUNNER_TEMP/QARelease" CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO build > artifacts/native-commercial-ios/xcode.log 2>&1 &
+            NODE_ENV=production xcodebuild -workspace ios/AmericanRider.xcworkspace -scheme AmericanRider -configuration Release -destination "id=$SIM" -derivedDataPath "$RUNNER_TEMP/QARelease" -showBuildTimingSummary CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO build > artifacts/native-commercial-ios/xcode.log 2>&1 &
             BUILD_PID=$!
             (
+              # Abort an unresponsive compile before the 155-minute whole-job
+              # limit consumes the opportunity to preserve its diagnostic log.
+              BUILD_BEGAN=$SECONDS
               while kill -0 "$BUILD_PID" 2>/dev/null; do
                 sleep 60
                 if kill -0 "$BUILD_PID" 2>/dev/null; then
-                  echo 'QA_IOS_BUILD_HEARTBEAT=compilation_in_progress'
+                  echo "QA_IOS_BUILD_HEARTBEAT=compiling elapsed_seconds=$((SECONDS - BUILD_BEGAN))"
                   tail -n 2 artifacts/native-commercial-ios/xcode.log | cut -c 1-200
+                  if (( SECONDS - BUILD_BEGAN >= 4500 )); then
+                    echo 'QA_IOS_BUILD_TIMEOUT=4500s'
+                    kill -TERM "$BUILD_PID" 2>/dev/null || true
+                    break
+                  fi
                 fi
               done
             ) &
