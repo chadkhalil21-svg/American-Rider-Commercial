@@ -52,7 +52,9 @@ export async function pickDocument(fromCamera: boolean): Promise<SelectedDocumen
   }
 }
 
-const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
+// Allow ordinary multi-page insurance PDFs and phone scans without a needless conversion.
+// Large documents remain private and require the existing bounded named review.
+const MAX_UPLOAD_BYTES = 15 * 1024 * 1024;
 const ACCEPTED_TYPES = new Set([
   'application/pdf', 'image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif',
 ]);
