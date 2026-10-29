@@ -85,30 +85,43 @@ jobs:
             --no-traffic \
             --update-env-vars="AR_FOUNDER_FIREBASE_UIDS=${FOUNDER_UID},AR_FOUNDER_GOOGLE_OPS_ENABLED=1,AR_RELEASE_COMMIT=${GITHUB_SHA}" \
             --quiet
-      - name: Verify staged revision READY and still ZERO traffic, fail closed otherwise
+      - name: Verify actual revision READY and still ZERO traffic
         shell: bash
         run: |
           set -euo pipefail
-          gcloud run services describe american-rider-api-production --project=american-rider-35688 --region=us-east1 --format=json > /tmp/ar-stage.json
+          gcloud run services describe american-rider-api-production \
+            --project=american-rider-35688 --region=us-east1 --format=json > /tmp/ar-stage-service.json
+          CREATED="$(python3 - <<'PY'
+          import json
+          s=json.load(open('/tmp/ar-stage-service.json'))
+          print((s.get('status') or {}).get('latestCreatedRevisionName') or '')
+          PY
+          )"
+          if [[ ! "$CREATED" =~ ^american-rider-api-production-[A-Za-z0-9-]+$ ]]; then
+            echo "::error::Cloud Run did not disclose a valid new revision name"; exit 1
+          fi
+          gcloud run revisions describe "$CREATED" \
+            --project=american-rider-35688 --region=us-east1 --format=json > /tmp/ar-stage-revision.json
           python3 - <<'PY'
           import json,sys
-          s=json.load(open('/tmp/ar-stage.json'))
-          status=s.get('status',{})
-          traffic=status.get('traffic') or s.get('traffic') or []
-          ready=status.get('latestReadyRevisionName') or status.get('latestReadyRevision') or ''
-          created=status.get('latestCreatedRevisionName') or status.get('latestCreatedRevision') or ''
-          if not created or not ready or ready!=created:
-              print('BLOCKED: newest staged revision is not READY')
-              sys.exit(1)
+          service=json.load(open('/tmp/ar-stage-service.json'))
+          revision=json.load(open('/tmp/ar-stage-revision.json'))
+          status=service.get('status') or {}
+          traffic=status.get('traffic') or service.get('traffic') or []
+          created=status.get('latestCreatedRevisionName')
+          conditions=(revision.get('status') or {}).get('conditions') or []
+          ready=any(c.get('type')=='Ready' and str(c.get('status')).lower()=='true' for c in conditions)
+          if not created or not ready:
+              print('BLOCKED: new revision not READY');sys.exit(1)
           if any(t.get('revisionName')==created and int(t.get('percent') or 0)>0 for t in traffic):
-              print('BLOCKED: newest revision unexpectedly received traffic')
-              sys.exit(1)
-          containers=s.get('spec',{}).get('template',{}).get('spec',{}).get('containers') or s.get('template',{}).get('containers') or [{}]
+              print('BLOCKED: staged revision unexpectedly received customer traffic');sys.exit(1)
+          if sum(int(t.get('percent') or 0) for t in traffic)!=100:
+              print('BLOCKED: customer traffic is not fully accounted for');sys.exit(1)
+          containers=(revision.get('spec') or {}).get('containers') or [{}]
           mapping={v.get('name'):v.get('value') for v in containers[0].get('env',[])}
           if mapping.get('AR_FOUNDER_GOOGLE_OPS_ENABLED')!='1' or not mapping.get('AR_FOUNDER_FIREBASE_UIDS'):
-              print('BLOCKED: staged revision lacks Founder allowlist or Google flag')
-              sys.exit(1)
-          print('PASS: new verified Founder revision staged at 0% without customer cutover.')
+              print('BLOCKED: revision missing the Founder Google allowlist');sys.exit(1)
+          print('PASS: actual revision READY at 0%, old service remains at 100%.')
           print('Staged revision:',created)
           PY
-          echo "Google Founder code staged at 0%: not yet enabled for customers, no payout changes." >> "$GITHUB_STEP_SUMMARY"
+          echo "Founder code staged at 0%: not activated for customers or payouts." >> "$GITHUB_STEP_SUMMARY"
