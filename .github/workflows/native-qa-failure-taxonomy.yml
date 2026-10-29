@@ -1,0 +1,92 @@
+name: Native QA incident-399 failure taxonomy (no simulator)
+on:
+  pull_request:
+    branches: [qa/native-journey-stage-ledger-20261029]
+    paths:
+      - 'scripts/native-qa-failure-classifier.cjs'
+      - 'scripts/native-qa-ios-prepare-role-flows.cjs'
+      - '.maestro/qa-commercial-operator.yml'
+      - '.maestro/qa-commercial-traveler.yml'
+      - '.github/workflows/qa-ios-preserved-replay.yml'
+      - '.github/workflows/native-qa-failure-taxonomy.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  classify-known-failures:
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate syntax
+        run: node --check scripts/native-qa-failure-classifier.cjs
+      - name: Prove old and current failures are distinguished
+        run: node scripts/native-qa-failure-classifier.cjs --selftest
+      - name: Verify Step 31 preserves distinct input and role checkpoints
+        run: |
+          node --check scripts/native-qa-ios-prepare-role-flows.cjs
+          node - <<'NODE'
+          const assert=require('node:assert/strict');
+          const fs=require('node:fs');
+          const auth=fs.readFileSync('.maestro/qa-commercial-operator.yml','utf8');
+          const role=fs.readFileSync('scripts/native-qa-ios-prepare-role-flows.cjs','utf8');
+          const screenshot='qa-operator-email-before-final-assert';
+          assert.ok(auth.includes(screenshot));
+          assert.ok(auth.indexOf(screenshot)<auth.lastIndexOf('QA_OPERATOR_EMAIL_NOT_PRESENT_IN_EDITABLE_FIELD'));
+          assert.ok(auth.includes('condition: ${maestro.copiedText === "native.qa.operator@example.test"}'));
+          for(const screen of [
+             'qa-operator-authenticated-home',
+             'qa-operator-drawer-role-available',
+             'qa-operator-commence-control-visible',
+             'qa-operator-in-service-verified'
+          ]) assert.ok(role.includes(screen), 'Missing actual UI milestone: '+screen);
+          assert.ok(role.indexOf('qa-operator-drawer-role-available')<role.indexOf('qa-operator-commence-control-visible'));
+          assert.ok(role.indexOf('qa-operator-commence-control-visible')<role.indexOf('qa-operator-in-service-verified'));
+          console.log('PASS: native Step 31 preserves labeled stages and screenshot evidence without restart');
+          NODE
+      - name: Verify cold-boot GPS cannot block Traveler install
+        run: |
+          node - <<'NODE'
+          const fs=require('node:fs'),assert=require('node:assert/strict');
+          const wf=fs.readFileSync('.github/workflows/qa-ios-preserved-replay.yml','utf8');
+          const flow=fs.readFileSync('.maestro/qa-commercial-traveler.yml','utf8');
+          const begin=wf.lastIndexOf('\n      - name: Boot Traveler only after verified Operator sign-in checkpoint\n');
+          const end=wf.lastIndexOf('\n      - name: Execute concurrent real iPhone Traveler and Operator paid journeys\n');
+          assert.ok(begin>0&&end>begin,'Missing exact Traveler setup boundaries');
+          const boot=wf.slice(begin,end);
+          const bootOperator=wf.slice(wf.lastIndexOf('\n      - name: Boot isolated iPhone simulator (bounded, independent)\n'),begin);
+          assert.ok(bootOperator.includes('xcrun --sdk iphonesimulator --show-sdk-version')&&
+                    bootOperator.includes('SIM_RUNTIME')&&
+                    bootOperator.includes('d.get(r,[])')&&
+                    bootOperator.includes('test -n "$SIM"'),
+                    'Operator iPhone must be selected from exact Xcode SDK runtime, never global first');
+          assert.ok(boot.includes('operator_group=next(v for v in groups.values() if any(x[\'udid\']==operator for x in v))'),
+                    'Traveler must remain in same runtime as verified Operator');
+          assert.ok(boot.includes('core-simulator-preflight')&&boot.includes('core-simulator-postboot'));
+          assert.ok(boot.includes("'simctl', 'list', 'devices', 'available'"));
+          assert.ok(boot.includes("'simctl', 'install', sim, app"));
+          assert.ok(!boot.includes("'simctl', 'location', sim"),
+            'Never set Traveler location through blocked cold-boot simctl IPC');
+          assert.ok(boot.includes('host_health(\'after-boot\')'));
+          assert.ok(boot.includes('host_health(\'after-install\')'));
+          const start=flow.indexOf('- runFlow:\n    when:\n      platform: iOS\n    commands:\n      - setLocation:');
+          const auth=flow.indexOf('- assertVisible: "AMERICAN RIDER"');
+          assert.ok(start>0&&auth>start,'Real iOS Maestro setLocation must precede auth and Home');
+          assert.ok(flow.slice(start,auth).includes('latitude: 25.7617')&&
+                    flow.slice(start,auth).includes('longitude: -80.1918'));
+          console.log('PASS: bounded CoreSimulator readiness and real iOS device-scoped GPS, no preinstall location stall');
+          NODE
+      - name: Refuse false commercial certification
+        run: |
+          node - <<'NODE'
+          const {classify}=require('./scripts/native-qa-failure-classifier.cjs');
+          const assert=require('node:assert/strict');
+          for (const source of ['Step 31 failed','IOSDriverTimeoutException','No operator was available']) {
+            const result=classify(source);
+            assert.equal(result.certification,'NOT_CERTIFIED');
+          }
+          console.log('PASS: infrastructure/test failures never certify commercial journeys');
+          NODE

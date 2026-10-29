@@ -61,7 +61,12 @@ appId: com.americanrider.app
             - tapOn: "AMERICAN RIDER"
       - copyTextFrom:
           id: "auth-email-entry"
-      - assertTrue: ${maestro.copiedText === "native.qa.operator@example.test"}
+      # Preserve actual native input before a failed assertion closes Step 31.
+      # Every value here is a synthetic local QA identity, never live credentials.
+      - takeScreenshot: "qa-operator-email-before-final-assert"
+      - assertTrue:
+          condition: ${maestro.copiedText === "native.qa.operator@example.test"}
+          label: "QA_OPERATOR_EMAIL_NOT_PRESENT_IN_EDITABLE_FIELD"
 - assertVisible:
     id: "auth-primary-action"
     enabled: true

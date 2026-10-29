@@ -459,7 +459,27 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p artifacts/native-commercial-ios .qa-native-build-cache/ios
-          SIM="$(xcrun simctl list -j devices available | python3 -c 'import json,sys;d=json.load(sys.stdin)["devices"];print(next(z["udid"] for a in d.values() for z in a if z.get("isAvailable") and "iPhone" in z["name"]))')"
+          # Apple Xcode 26.6 contains the iOS 26.5 SDK. Earlier runs chose
+          # the FIRST available iPhone (iOS 26.4) regardless of SDK runtime.
+          # Explicitly match the current SDK; refuse a missing simulator
+          # instead of silently starting another runtime. Codemagic and
+          # GitHub runner-image issue #12862 document cold/runtime mismatches.
+          SDKV="$(xcrun --sdk iphonesimulator --show-sdk-version)"
+          export SIM_RUNTIME="com.apple.CoreSimulator.SimRuntime.iOS-${SDKV//./-}"
+          echo "QA_IOS_SIMULATOR_SDK=$SDKV selected_runtime=$SIM_RUNTIME"
+          # Prewarm CoreSimulator's device database before selecting the
+          # runtime, as reported by the GitHub runner-images maintainers.
+          python3 - <<'PY'
+          import subprocess,sys
+          try:
+              subprocess.run(['xcrun','simctl','list','devices','available'],
+                             stdout=subprocess.DEVNULL,check=True,timeout=30)
+          except (subprocess.TimeoutExpired,subprocess.CalledProcessError):
+              print('QA_IOS_CORESIM_PREWARM_FAILED',flush=True)
+              sys.exit(124)
+          PY
+          SIM="$(xcrun simctl list -j devices available | python3 -c 'import json,sys,os;d=json.load(sys.stdin)["devices"];r=os.environ["SIM_RUNTIME"];devices=[x for x in d.get(r,[]) if x.get("isAvailable") and "iPhone" in x["name"]];print(devices[0]["udid"] if devices else "",end="")')"
+          test -n "$SIM" || { echo "::error::No available simulator for exact SDK runtime $SIM_RUNTIME"; exit 1; }
           echo "SIM_OPERATOR=$SIM" >> "$GITHUB_ENV"
           echo 'QA_IOS_STAGE=simulator_boot'
           xcrun simctl boot "$SIM" || true
@@ -717,21 +737,46 @@ jobs:
           )"
           test -n "$SIM_TRAVELER" && test "$SIM_TRAVELER" != "$SIM_OPERATOR"
           echo "SIM_DEVICE=$SIM_TRAVELER" >> "$GITHUB_ENV"
-          # The second simulator previously had unbounded boot, bootstatus,
-          # location and install calls. Capture the exact blocked operation,
-          # rather than spending the whole macOS job on an opaque Step 32.
+          # Oct 29 run 40884833413: second iPhone bootstatus finished after
+          # 211 seconds of first-boot migration but simctl location set then
+          # hung for 45 seconds. Keep CoreSimulator health and installation
+          # separate; Maestro sets the Traveler's real simulator GPS on-device
+          # before signed-in location is consumed. Never fake server GPS.
           mkdir -p artifacts/native-commercial-ios
           python3 - "$SIM_TRAVELER" "$RUNNER_TEMP/qa-cached-ios/AmericanRider.app" <<'PY'
           import os, pathlib, signal, subprocess, sys, time
           sim, app = sys.argv[1:]
           log = pathlib.Path('artifacts/native-commercial-ios/traveler-boot.log')
+          # GitHub actions/runner-images #12862 documents warming
+          # CoreSimulator with 'simctl list' to avoid cold-runtime cache stalls.
+          # Health probes are bounded and logged, not interpreted as GPS proof.
           stages = [
+              ('core-simulator-preflight', ['xcrun', 'simctl', 'list', 'devices', 'available'], 30),
               ('boot', ['xcrun', 'simctl', 'boot', sim], 90),
               ('bootstatus', ['xcrun', 'simctl', 'bootstatus', sim, '-b'], 420),
-              ('location', ['xcrun', 'simctl', 'location', sim, 'set', '25.7617,-80.1918'], 45),
+              ('core-simulator-postboot', ['xcrun', 'simctl', 'list', 'devices', 'available'], 30),
               ('install', ['xcrun', 'simctl', 'install', sim, app], 180),
           ]
+          def host_health(label):
+              # Observe resource pressure before two simulator drivers start.
+              # Never print environment variables, auth tokens or commands.
+              for name, command in [
+                  ('memory', ['memory_pressure', '-Q']),
+                  ('virtual-memory', ['vm_stat']),
+                  ('disk', ['df', '-h', '/']),
+              ]:
+                  try:
+                      info=subprocess.run(command,stdout=subprocess.PIPE,
+                                          stderr=subprocess.STDOUT,text=True,
+                                          check=False,timeout=8)
+                      (log.parent/('traveler-health-'+label+'-'+name+'.log')).write_text(info.stdout)
+                      print('QA_IOS_TRAVELER_HOST_HEALTH stage='+label+
+                            ' probe='+name+' exit='+str(info.returncode),flush=True)
+                  except (OSError,subprocess.TimeoutExpired) as exc:
+                      print('QA_IOS_TRAVELER_HOST_HEALTH_UNAVAILABLE stage='+label+
+                            ' probe='+name+' error='+type(exc).__name__,flush=True)
           def evidence(label, reason):
+              host_health('failure-'+label)
               print('QA_IOS_TRAVELER_BLOCKED stage='+label+' reason='+reason, flush=True)
               for name, command in [
                   ('device-list', ['xcrun', 'simctl', 'list', 'devices']),
@@ -778,8 +823,12 @@ jobs:
                       sys.exit(proc.returncode)
                   print('QA_IOS_TRAVELER_STAGE_OK='+label+
                         ' elapsed_seconds='+str(int(time.monotonic()-began)), flush=True)
+                  if label == 'core-simulator-postboot':
+                      host_health('after-boot')
+                  elif label == 'install':
+                      host_health('after-install')
           PY
-          echo 'PASS: Operator login checkpoint succeeded, two independent iPhones installed with identical SHA-verified app'
+          echo 'PASS: Operator login checkpoint succeeded, two independent iPhones installed with identical SHA-verified app; Traveler GPS still requires real Maestro setLocation'
           node scripts/native-qa-stage-ledger.cjs pass traveler-device-installed
       - name: Execute concurrent real iPhone Traveler and Operator paid journeys
         if: matrix.platform == 'ios'
