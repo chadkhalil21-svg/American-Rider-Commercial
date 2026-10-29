@@ -699,10 +699,67 @@ jobs:
           SIM_TRAVELER="$(xcrun simctl list -j devices available | python3 -c 'import json,sys;d=json.load(sys.stdin)["devices"];a=next(v for v in d.values() if any(x["udid"]==sys.argv[1] for x in v));print(next(x["udid"] for x in a if x["udid"]!=sys.argv[1] and x.get("isAvailable") and "iPhone" in x["name"]))' "$SIM_OPERATOR")"
           test -n "$SIM_TRAVELER" && test "$SIM_TRAVELER" != "$SIM_OPERATOR"
           echo "SIM_DEVICE=$SIM_TRAVELER" >> "$GITHUB_ENV"
-          xcrun simctl boot "$SIM_TRAVELER"
-          xcrun simctl bootstatus "$SIM_TRAVELER" -b
-          xcrun simctl location "$SIM_TRAVELER" set 25.7617,-80.1918
-          xcrun simctl install "$SIM_TRAVELER" "$RUNNER_TEMP/qa-cached-ios/AmericanRider.app"
+          # The second simulator previously had unbounded boot, bootstatus,
+          # location and install calls. Capture the exact blocked operation,
+          # rather than spending the whole macOS job on an opaque Step 32.
+          mkdir -p artifacts/native-commercial-ios
+          python3 - "$SIM_TRAVELER" "$RUNNER_TEMP/qa-cached-ios/AmericanRider.app" <<'PY'
+          import os, pathlib, signal, subprocess, sys, time
+          sim, app = sys.argv[1:]
+          log = pathlib.Path('artifacts/native-commercial-ios/traveler-boot.log')
+          stages = [
+              ('boot', ['xcrun', 'simctl', 'boot', sim], 90),
+              ('bootstatus', ['xcrun', 'simctl', 'bootstatus', sim, '-b'], 420),
+              ('location', ['xcrun', 'simctl', 'location', sim, 'set', '25.7617,-80.1918'], 45),
+              ('install', ['xcrun', 'simctl', 'install', sim, app], 180),
+          ]
+          def evidence(label, reason):
+              print('QA_IOS_TRAVELER_BLOCKED stage='+label+' reason='+reason, flush=True)
+              for name, command in [
+                  ('device-list', ['xcrun', 'simctl', 'list', 'devices']),
+                  ('screenshot', ['xcrun', 'simctl', 'io', sim, 'screenshot',
+                                  'artifacts/native-commercial-ios/traveler-boot-failed.png']),
+              ]:
+                  try:
+                      result = subprocess.run(command, stdout=subprocess.PIPE,
+                                              stderr=subprocess.STDOUT, text=True,
+                                              timeout=20, check=False)
+                      pathlib.Path('artifacts/native-commercial-ios/traveler-'+name+'.log').write_text(result.stdout)
+                  except Exception as exc:
+                      print('QA_IOS_TRAVELER_EVIDENCE_ERROR '+name+' '+str(exc), flush=True)
+              try:
+                  print('\\n'.join(log.read_text(errors='replace').splitlines()[-25:]), flush=True)
+              except OSError:
+                  pass
+          with log.open('a') as output:
+              for label, command, limit in stages:
+                  print('QA_IOS_TRAVELER_STAGE='+label+' timeout_seconds='+str(limit), flush=True)
+                  output.write('STAGE '+label+' START\\n')
+                  output.flush()
+                  began = time.monotonic()
+                  proc = subprocess.Popen(command, stdout=output, stderr=subprocess.STDOUT,
+                                          start_new_session=True)
+                  while proc.poll() is None:
+                      elapsed = time.monotonic() - began
+                      if elapsed >= limit:
+                          os.killpg(proc.pid, signal.SIGTERM)
+                          try:
+                              proc.wait(timeout=8)
+                          except subprocess.TimeoutExpired:
+                              os.killpg(proc.pid, signal.SIGKILL)
+                              proc.wait()
+                          evidence(label, 'timeout_'+str(limit)+'s')
+                          sys.exit(124)
+                      time.sleep(min(30, max(0.5, limit-elapsed)))
+                      if proc.poll() is None:
+                          print('QA_IOS_TRAVELER_HEARTBEAT stage='+label+
+                                ' elapsed_seconds='+str(int(time.monotonic()-began)), flush=True)
+                  if proc.returncode:
+                      evidence(label, 'exit_'+str(proc.returncode))
+                      sys.exit(proc.returncode)
+                  print('QA_IOS_TRAVELER_STAGE_OK='+label+
+                        ' elapsed_seconds='+str(int(time.monotonic()-began)), flush=True)
+          PY
           echo 'PASS: Operator login checkpoint succeeded, two independent iPhones installed with identical SHA-verified app'
           node scripts/native-qa-stage-ledger.cjs pass traveler-device-installed
       - name: Execute concurrent real iPhone Traveler and Operator paid journeys
