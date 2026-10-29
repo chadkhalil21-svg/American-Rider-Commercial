@@ -2,32 +2,14 @@
 // unscreened person may carry a passenger, so every branch gets a test.
 const path = require('path');
 const ROOT = __dirname;
-const { screeningCurrent, screeningReady, RECHECK_MS } = require(path.join(ROOT, 'screening.js'));
+const { screeningCurrent, RECHECK_MS } = require(path.join(ROOT, 'screening.js'));
 
 const now = Date.now(), YEAR = 365*24*3600*1000;
 const R = [];
 const check = (l, c, d) => R.push({ l, ok: !!c, d });
 
-// No vendor link is required. Only the owner's verified end-to-end evidence
-// commissioning is authoritative. A URL alone can never enable paid Travel.
-const priorProviderUrl = process.env.SCREENING_PROVIDER_URL;
-const priorPilot = process.env.SCREENING_EVIDENCE_WORKFLOW_VERIFIED;
-try {
-  process.env.SCREENING_PROVIDER_URL = 'https://example.test/cra';
-  delete process.env.SCREENING_EVIDENCE_WORKFLOW_VERIFIED;
-  check('vendor link alone cannot mark screening ready', !screeningReady());
-  process.env.SCREENING_EVIDENCE_WORKFLOW_VERIFIED = 'false';
-  check('uncommissioned evidence workflow cannot mark screening ready', !screeningReady());
-  delete process.env.SCREENING_PROVIDER_URL;
-  process.env.SCREENING_EVIDENCE_WORKFLOW_VERIFIED = 'true';
-  check('vendor-neutral verified evidence workflow may be signed off with NO vendor link', screeningReady());
-} finally {
-  if (priorProviderUrl === undefined) delete process.env.SCREENING_PROVIDER_URL;
-  else process.env.SCREENING_PROVIDER_URL = priorProviderUrl;
-  if (priorPilot === undefined) delete process.env.SCREENING_EVIDENCE_WORKFLOW_VERIFIED;
-  else process.env.SCREENING_EVIDENCE_WORKFLOW_VERIFIED = priorPilot;
-}
-
+// Paid eligibility depends on a current screening decision for each Operator.
+// A vendor or a platform-wide setting cannot authorize an unscreened person.
 // screeningCurrent is what the gate turns on.
 check('no screening at all -> not current', !screeningCurrent(null));
 check('undefined -> not current', !screeningCurrent(undefined));
