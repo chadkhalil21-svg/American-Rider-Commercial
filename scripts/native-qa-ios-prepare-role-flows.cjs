@@ -15,8 +15,18 @@ assert.ok(ai>120 && ti>ai && fi>ti && original.indexOf(accept,ai+1)<0 &&
   'Refuse ambiguous Operator journey split');
 const next=original.indexOf('- extendedWaitUntil:',ti+tap.length);
 assert.ok(next>ti && next<fi,'Offer must precede arrival controls');
-const start=original.slice(0,ai)+
+const postSignInNegative='- extendedWaitUntil:\n    notVisible: "Welcome back"\n    timeout: 30000\n';
+const originalStart=original.slice(0,ai);
+assert.equal(originalStart.split(postSignInNegative).length-1,1,
+  'Refuse ambiguous post-sign-in negative assertion');
+// iOS 26.4 XCTest stalled while polling for a stale login heading after a
+// successful credential submission, then Safari WebView snapshotting lost its
+// accessibility server (run 40799591251). Avoid that expensive negative poll.
+// A real native operator route + real In Service screen must still appear.
+const start=originalStart.replace(postSignInNegative,'')+
   '- extendedWaitUntil:\n    visible: "In Service"\n    timeout: 60000\n';
+assert.ok(start.includes('- openLink: "americanrider:///operator"')&&
+  !start.includes(postSignInNegative), 'Require real on-device role transition');
 let offer=header+original.slice(ai,next);
 offer=offer.replace('    timeout: 90000','    timeout: 600000');
 const board=header+original.slice(next,fi);
