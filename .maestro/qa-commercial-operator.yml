@@ -53,6 +53,7 @@ appId: com.americanrider.app
 - extendedWaitUntil:
     visible: "Sign in to your account."
     timeout: 30000
+- assertVisible: "Sign in to your account."
 - assertNotVisible: "Create your account"
 # Use the password EditText hint, not the static PASSWORD label.
 - tapOn: "Your password"
