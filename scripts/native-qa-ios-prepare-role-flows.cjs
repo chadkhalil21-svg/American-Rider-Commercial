@@ -23,22 +23,28 @@ assert.equal(originalStart.split(postSignInNegative).length-1,1,
 // successful credential submission, then Safari WebView snapshotting lost its
 // accessibility server (run 40799591251). Avoid that expensive negative poll.
 // A real native operator route + real In Service screen must still appear.
-// Maestro's official iOS openLink guidance: iOS can require confirmation
-// of the very first custom-scheme deep link. Run 40801389841 screenshot shows
-// "Open in “American”?" obscuring the Traveler screen. The test waited for
-// Commence Operations behind this system modal until it timed out.
-// Only acknowledge the genuine Apple dialog if it appears. Keep the actual
-// Operator route, Commence Operations tap, and In Service assertion mandatory.
+// Maestro iOS 26 test driver (40803352514) died while inspecting the Apple
+// deep-link system modal's SafariViewService accessibility hierarchy. Earlier
+// runs (40801389841) showed "Open in American?" covering the actual Traveler
+// home after sign-in. Do not exercise a custom-scheme deep link just to reach
+// an Operator page: real commissioned accounts already have a native menu row.
+// Drive that existing user-facing navigation, then prove real Operator duty.
+// The native menu icon has no testID in the checksum-verified app binary;
+// its first-screen position was verified from the captured iPhone screenshot.
 const operatorDeepLink='- openLink: "americanrider:///operator"\n';
-const iosSystemConfirmation=
-  '- runFlow:\n    when:\n      visible: "Open in.*American.*"\n    commands:\n      - tapOn: "Open"\n';
+const realOperatorNavigation=
+  '- extendedWaitUntil:\n    visible: "Arrange Your Travel"\n    timeout: 90000\n'+
+  '- tapOn:\n    point: "8%,10%"\n'+
+  '- extendedWaitUntil:\n    visible: "Switch to Operator View"\n    timeout: 60000\n'+
+  '- tapOn: "Switch to Operator View"\n';
 assert.equal(originalStart.split(operatorDeepLink).length-1,1,
   'Refuse ambiguous Operator deep link');
 const start=originalStart.replace(postSignInNegative,'')
-  .replace(operatorDeepLink,operatorDeepLink+iosSystemConfirmation)+
+  .replace(operatorDeepLink,realOperatorNavigation)+
   '- extendedWaitUntil:\n    visible: "In Service"\n    timeout: 60000\n';
-assert.ok(start.includes(operatorDeepLink+iosSystemConfirmation)&&
-  !start.includes(postSignInNegative), 'Require real on-device role transition');
+assert.ok(start.includes('Switch to Operator View')&&
+  !start.includes(operatorDeepLink)&&
+  !start.includes(postSignInNegative), 'Require actual in-app Operator navigation');
 let offer=header+original.slice(ai,next);
 offer=offer.replace('    timeout: 90000','    timeout: 600000');
 const board=header+original.slice(next,fi);
