@@ -52,7 +52,7 @@ async function main(){
   assert.equal(insurance.http,200,'Authenticated Operator insurance request failed');
   assert.equal(insurance.ok,true,'QA insurance continuing-status gate failed');
   assert.equal(insurance.documentApproved,true,'QA policy document not approved by configured jurisdiction rules');
-  assert.match(insurance.policyExpiry||'',/^\\d{4}-\\d{2}-\\d{2}$/);
+  assert.match(insurance.policyExpiry||'',/^\d{4}-\d{2}-\d{2}$/);
   console.log('PASS: authenticated local Operator is qualified, covered, and eligible for app-side role restoration');
 }
 main().catch(e=>{console.error('QA_OPERATOR_PREBUILD_ELIGIBILITY_FAILED:',e.message);process.exitCode=1});
