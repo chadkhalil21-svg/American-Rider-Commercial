@@ -6,6 +6,8 @@ on:
       - 'scripts/native-qa-failure-classifier.cjs'
       - 'scripts/native-qa-ios-prepare-role-flows.cjs'
       - '.maestro/qa-commercial-operator.yml'
+      - '.maestro/qa-commercial-traveler.yml'
+      - '.github/workflows/qa-ios-preserved-replay.yml'
       - '.github/workflows/native-qa-failure-taxonomy.yml'
   workflow_dispatch:
 permissions:
@@ -44,6 +46,30 @@ jobs:
           assert.ok(role.indexOf('qa-operator-drawer-role-available')<role.indexOf('qa-operator-commence-control-visible'));
           assert.ok(role.indexOf('qa-operator-commence-control-visible')<role.indexOf('qa-operator-in-service-verified'));
           console.log('PASS: native Step 31 preserves labeled stages and screenshot evidence without restart');
+          NODE
+      - name: Verify cold-boot GPS cannot block Traveler install
+        run: |
+          node - <<'NODE'
+          const fs=require('node:fs'),assert=require('node:assert/strict');
+          const wf=fs.readFileSync('.github/workflows/qa-ios-preserved-replay.yml','utf8');
+          const flow=fs.readFileSync('.maestro/qa-commercial-traveler.yml','utf8');
+          const begin=wf.lastIndexOf('\n      - name: Boot Traveler only after verified Operator sign-in checkpoint\n');
+          const end=wf.lastIndexOf('\n      - name: Execute concurrent real iPhone Traveler and Operator paid journeys\n');
+          assert.ok(begin>0&&end>begin,'Missing exact Traveler setup boundaries');
+          const boot=wf.slice(begin,end);
+          assert.ok(boot.includes('core-simulator-preflight')&&boot.includes('core-simulator-postboot'));
+          assert.ok(boot.includes("'simctl', 'list', 'devices', 'available'"));
+          assert.ok(boot.includes("'simctl', 'install', sim, app"));
+          assert.ok(!boot.includes("'simctl', 'location', sim"),
+            'Never set Traveler location through blocked cold-boot simctl IPC');
+          assert.ok(boot.includes('host_health(\'after-boot\')'));
+          assert.ok(boot.includes('host_health(\'after-install\')'));
+          const start=flow.indexOf('- runFlow:\n    when:\n      platform: iOS\n    commands:\n      - setLocation:');
+          const auth=flow.indexOf('- assertVisible: "AMERICAN RIDER"');
+          assert.ok(start>0&&auth>start,'Real iOS Maestro setLocation must precede auth and Home');
+          assert.ok(flow.slice(start,auth).includes('latitude: 25.7617')&&
+                    flow.slice(start,auth).includes('longitude: -80.1918'));
+          console.log('PASS: bounded CoreSimulator readiness and real iOS device-scoped GPS, no preinstall location stall');
           NODE
       - name: Refuse false commercial certification
         run: |
