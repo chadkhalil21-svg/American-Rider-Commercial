@@ -337,17 +337,45 @@ jobs:
           mkdir -p artifacts/native-commercial-ios .qa-native-build-cache/ios
           SIM="$(xcrun simctl list -j devices available | python3 -c 'import json,sys;d=json.load(sys.stdin)["devices"];print(next(z["udid"] for a in d.values() for z in a if z.get("isAvailable") and "iPhone" in z["name"]))')"
           echo "SIM_OPERATOR=$SIM" >> "$GITHUB_ENV"
+          echo 'QA_IOS_STAGE=simulator_boot'
           xcrun simctl boot "$SIM" || true
           xcrun simctl bootstatus "$SIM" -b
           xcrun simctl location "$SIM" set 25.7617,-80.1918
+          echo 'QA_IOS_STAGE=simulator_ready'
           # Check the restored iOS artifact *before* deciding to spend on Xcode.
           # Fail closed if the archive exists but its own SHA is wrong.
           if [[ -s .qa-native-build-cache/ios/AmericanRider.app.tgz ]]; then
             (cd .qa-native-build-cache/ios && shasum -a 256 -c native.sha256)
             echo 'Using proven iOS QA binary instead of recompiling unchanged source'
           else
+            echo 'QA_IOS_STAGE=expo_prebuild'
             NODE_ENV=production npx expo prebuild --clean --platform ios --non-interactive
-            NODE_ENV=production xcodebuild -workspace ios/AmericanRider.xcworkspace -scheme AmericanRider -configuration Release -destination "id=$SIM" -derivedDataPath "$RUNNER_TEMP/QARelease" CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO build > artifacts/native-commercial-ios/xcode.log 2>&1 || { tail -120 artifacts/native-commercial-ios/xcode.log; exit 1; }
+            echo 'QA_IOS_STAGE=xcodebuild_release_compile'
+            # Keep the expensive compile's detailed log on disk, but emit a
+            # bounded periodic heartbeat so the job no longer appears frozen.
+            NODE_ENV=production xcodebuild -workspace ios/AmericanRider.xcworkspace -scheme AmericanRider -configuration Release -destination "id=$SIM" -derivedDataPath "$RUNNER_TEMP/QARelease" CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO build > artifacts/native-commercial-ios/xcode.log 2>&1 &
+            BUILD_PID=$!
+            (
+              while kill -0 "$BUILD_PID" 2>/dev/null; do
+                sleep 60
+                if kill -0 "$BUILD_PID" 2>/dev/null; then
+                  echo 'QA_IOS_BUILD_HEARTBEAT=compilation_in_progress'
+                  tail -n 2 artifacts/native-commercial-ios/xcode.log | cut -c 1-200
+                fi
+              done
+            ) &
+            WATCH_PID=$!
+            if wait "$BUILD_PID"; then
+              echo 'QA_IOS_STAGE=xcodebuild_succeeded'
+            else
+              rc=$?
+              echo "QA_IOS_BUILD_FAILED=$rc"
+              tail -n 120 artifacts/native-commercial-ios/xcode.log
+              kill "$WATCH_PID" 2>/dev/null || true
+              exit "$rc"
+            fi
+            kill "$WATCH_PID" 2>/dev/null || true
+            wait "$WATCH_PID" 2>/dev/null || true
             APP="$RUNNER_TEMP/QARelease/Build/Products/Release-iphonesimulator/AmericanRider.app"
             test -d "$APP"
             tar -czf .qa-native-build-cache/ios/AmericanRider.app.tgz -C "$(dirname "$APP")" AmericanRider.app
@@ -373,6 +401,7 @@ jobs:
               assert expected in data, 'Native simulator bundle missing isolated local QA configuration'
           print('PASS: compiled QA iPhone bundle targets local API + Firebase and permits local networking')
           PY
+          echo 'QA_IOS_STAGE=install_checksum_verified_app'
           xcrun simctl install "$SIM" "$RUNNER_TEMP/qa-cached-ios/AmericanRider.app"
           # The archive check above changes directories to the binary cache.
           # Restore the repository root before the Maestro smoke/log paths.
