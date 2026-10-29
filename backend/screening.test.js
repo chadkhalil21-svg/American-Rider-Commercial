@@ -161,6 +161,28 @@ check('pending qualification refreshes on phone resume without 30-second backgro
  reviewMobile.includes('}, 10 * 60_000)') &&
  reviewMobile.includes('checkingRef.current') &&
  !reviewMobile.includes('setInterval(check, 30000)'));
+// Screening is per-Operator, not blocked behind a global platform certification flag.
+const screeningSource = fs.readFileSync(path.join(ROOT,'screening.js'),'utf8');
+const serverSource = fs.readFileSync(path.join(ROOT,'server.js'),'utf8');
+const opsSource = fs.readFileSync(path.join(ROOT,'ops.js'),'utf8');
+const qualificationSource = fs.readFileSync(path.join(ROOT,'qualification.js'),'utf8');
+check('no platform-wide screening attestation gate remains',
+ ![screeningSource,serverSource,opsSource].some(text=>text.includes('SCREENING_EVIDENCE_WORKFLOW_VERIFIED')) &&
+ !screeningSource.includes('screeningReady') &&
+ !serverSource.includes('screeningReady') &&
+ !opsSource.includes('screeningReady'));
+check('Operations displays actual intake availability',
+ opsSource.includes("stat('Operator screening intake', adminStatus().ok ? 'available' : 'service unavailable')") &&
+ serverSource.includes("screening: adminStatus().ok ? 'on' : 'off'"));
+check('optional provider link and screening requests are not globally gated',
+ serverSource.includes("app.post('/operator/screening/existing'") &&
+ serverSource.includes("providerUrl: /^https:") &&
+ !serverSource.includes('providerUrl: screeningReady()'));
+check('current verified individual screening still gates paid Operator qualification',
+ qualificationSource.includes('if (liveMoney && !blockers.some((b) => b.item === \'screening\'))') &&
+ qualificationSource.includes('screeningCurrent(s, now)') &&
+ serverSource.includes('const screened = screeningCurrent(user?.screening || null)'));
+
 let bad = 0;
 for (const r of R) { if (!r.ok) bad++; console.log(`${r.ok ? 'PASS' : 'FAIL'}  ${r.l}${r.ok ? '' : '  <-- ' + r.d}`); }
 console.log(`\n${R.length - bad}/${R.length} passed`);
