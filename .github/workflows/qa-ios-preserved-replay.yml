@@ -46,6 +46,9 @@ jobs:
           const login=f.indexOf('id: "auth-primary-action"');
           const home=f.indexOf('id: "traveler-menu-open"');
           const menuTap=f.indexOf('- tapOn:\n    id: "traveler-menu-open"\n');
+          const drawerShot=f.indexOf('takeScreenshot: "operator-drawer-first-tap"');
+          const drawerRetry=f.indexOf('- runFlow:\n    when:\n      notVisible: ".*Payment Methods.*"');
+          const drawerConfirmed=f.indexOf('- extendedWaitUntil:\n    visible: ".*Payment Methods.*"');
           // Actual Oct 29 iOS hierarchy: Account Details is a combined label,
           // but the commissioned Operator row has a stable resource-id.
           const roleWait=f.indexOf('- extendedWaitUntil:\n    visible:\n      id: "traveler-switch-to-operator"\n    timeout: 20000');
@@ -54,10 +57,14 @@ jobs:
           const commencement=f.indexOf('id: "operator-commence-operations"');
           const service=f.indexOf('visible: "In Service"');
           assert.ok(login>=0 && home>login && menuTap>home &&
-            roleWait>menuTap && menuRow>=roleWait && roleTap>menuRow &&
+            drawerShot>menuTap && drawerRetry>drawerShot &&
+            drawerConfirmed>drawerRetry && roleWait>drawerConfirmed &&
+            menuRow>=roleWait && roleTap>menuRow &&
             commencement>roleTap && service>commencement &&
-            !f.includes('Account Details') && !f.includes('scrollUntilVisible:'),
-            'Require screenshot-verified commissioned-role ID, not combined iOS label, before real In Service');
+            !f.includes('Account Details') && !f.includes('scrollUntilVisible:') &&
+            (f.match(/notVisible: ".*Payment Methods.*/g)||[]).length===1 &&
+            (f.match(/id: "traveler-menu-open"/g)||[]).length===3,
+            'Require one initial menu tap, one conditional drawer recovery, and commissioned-role proof before real In Service');
           assert.ok(!f.includes('- openLink:') && !f.includes('Open in.*American.*'),
             'Never trigger Apple system deep-link dialog from the iOS Operator checkpoint');
           const source=fs.readFileSync('app/index.tsx','utf8');
