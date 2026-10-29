@@ -358,7 +358,7 @@ jobs:
           emulator-options: -no-window -no-audio -no-snapshot -no-boot-anim -gpu swiftshader_indirect
           disable-animations: true
           script: bash scripts/native-commercial-android-runner.sh
-      - name: Boot iPhone simulator and install cached or newly compiled app
+      - name: Boot isolated iPhone simulator (bounded, independent)
         if: matrix.platform == 'ios'
         shell: bash
         run: |
@@ -384,6 +384,11 @@ jobs:
           PY
           xcrun simctl location "$SIM" set 25.7617,-80.1918
           echo 'QA_IOS_STAGE=simulator_ready'
+      - name: Restore or compile fingerprint-bound QA iOS app (separate Xcode stage)
+        if: matrix.platform == 'ios'
+        shell: bash
+        run: |
+          set -euo pipefail
           # Check the restored iOS artifact *before* deciding to spend on Xcode.
           # Fail closed if the archive exists but its own SHA is wrong.
           if [[ -s .qa-native-build-cache/ios/AmericanRider.app.tgz ]]; then
@@ -395,7 +400,7 @@ jobs:
             echo 'QA_IOS_STAGE=xcodebuild_release_compile'
             # Keep the expensive compile's detailed log on disk, but emit a
             # bounded periodic heartbeat so the job no longer appears frozen.
-            NODE_ENV=production xcodebuild -workspace ios/AmericanRider.xcworkspace -scheme AmericanRider -configuration Release -destination "id=$SIM" -derivedDataPath "$RUNNER_TEMP/QARelease" -showBuildTimingSummary -resultBundlePath artifacts/native-commercial-ios/xcode-build.xcresult CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO build > artifacts/native-commercial-ios/xcode.log 2>&1 &
+            NODE_ENV=production xcodebuild -workspace ios/AmericanRider.xcworkspace -scheme AmericanRider -configuration Release -destination "id=$SIM_OPERATOR" -derivedDataPath "$RUNNER_TEMP/QARelease" -showBuildTimingSummary -resultBundlePath artifacts/native-commercial-ios/xcode-build.xcresult CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO build > artifacts/native-commercial-ios/xcode.log 2>&1 &
             BUILD_PID=$!
             (
               # Abort an unresponsive compile before the 155-minute whole-job
@@ -431,6 +436,25 @@ jobs:
             tar -czf .qa-native-build-cache/ios/AmericanRider.app.tgz -C "$(dirname "$APP")" AmericanRider.app
             (cd .qa-native-build-cache/ios && shasum -a 256 AmericanRider.app.tgz > native.sha256)
           fi
+      - name: Save iOS simulator app across QA-only test revisions
+        if: matrix.platform == 'ios' && steps.native-build-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: .qa-native-build-cache/ios
+          key: qa-native-release-v1-${{ runner.os }}-${{ matrix.platform }}-${{ steps.native-fingerprint.outputs.digest }}
+      - name: Preserve exact iOS simulator app independently of test results
+        if: ${{ always() && matrix.platform == 'ios' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: commercial-qa-ios-simulator-app
+          path: .qa-native-build-cache/ios/
+          retention-days: 14
+          if-no-files-found: warn
+      - name: Verify compiled QA bundle and install on Operator iPhone
+        if: matrix.platform == 'ios'
+        shell: bash
+        run: |
+          set -euo pipefail
           cd .qa-native-build-cache/ios
           test -s AmericanRider.app.tgz
           shasum -a 256 -c native.sha256
@@ -452,27 +476,13 @@ jobs:
           print('PASS: compiled QA iPhone bundle targets local API + Firebase and permits local networking')
           PY
           echo 'QA_IOS_STAGE=install_checksum_verified_app'
-          xcrun simctl install "$SIM" "$RUNNER_TEMP/qa-cached-ios/AmericanRider.app"
+          xcrun simctl install "$SIM_OPERATOR" "$RUNNER_TEMP/qa-cached-ios/AmericanRider.app"
           # The archive check above changes directories to the binary cache.
           # Restore the repository root before the Maestro smoke/log paths.
           cd "$GITHUB_WORKSPACE"
           mkdir -p artifacts/native-commercial-ios
           echo 'PASS: cached iOS app installed on first iPhone; full login checkpoint is next'
           node scripts/native-qa-stage-ledger.cjs pass native-app-installed
-      - name: Save iOS simulator app across QA-only test revisions
-        if: matrix.platform == 'ios' && steps.native-build-cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v4
-        with:
-          path: .qa-native-build-cache/ios
-          key: qa-native-release-v1-${{ runner.os }}-${{ matrix.platform }}-${{ steps.native-fingerprint.outputs.digest }}
-      - name: Preserve exact iOS simulator app independently of test results
-        if: ${{ always() && matrix.platform == 'ios' }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: commercial-qa-ios-simulator-app
-          path: .qa-native-build-cache/ios/
-          retention-days: 14
-          if-no-files-found: warn
       - name: Verify real Operator sign-in and In Service on one iPhone
         if: matrix.platform == 'ios'
         shell: bash
