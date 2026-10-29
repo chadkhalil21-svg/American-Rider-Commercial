@@ -45,6 +45,22 @@ appId: com.americanrider.app
     commands:
       - copyTextFrom:
           id: "auth-email-entry"
+      # Run 40879383424 captured the actual iPhone with an EMPTY email after
+      # Maestro reported pasteText COMPLETED. That is a keyboard/input fault,
+      # not failed Firebase sign-in or an Operator eligibility verdict.
+      # Recover ONCE, only at the pre-auth editable field, and refuse to
+      # continue unless the exact entered value is then independently read.
+      - runFlow:
+          when:
+            true: ${maestro.copiedText !== "native.qa.operator@example.test"}
+          commands:
+            - tapOn:
+                id: "auth-email-entry"
+            - eraseText: 50
+            - inputText: "native.qa.operator@example.test"
+            - tapOn: "AMERICAN RIDER"
+      - copyTextFrom:
+          id: "auth-email-entry"
       - assertTrue: ${maestro.copiedText === "native.qa.operator@example.test"}
 - assertVisible:
     id: "auth-primary-action"
