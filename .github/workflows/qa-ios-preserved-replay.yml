@@ -44,9 +44,9 @@ jobs:
             'XCTest-crashing negative post-login poll remains in Operator checkpoint');
           const login=f.indexOf('id: "auth-primary-action"');
           const home=f.indexOf('id: "traveler-menu-open"');
-          const menuTap=f.indexOf('- tapOn:\\n    id: "traveler-menu-open"\\n    retryTapIfNoChange: true'.replaceAll('\\n','\\n'));
+          const menuTap=f.indexOf('- tapOn:\n    id: "traveler-menu-open"\n    retryTapIfNoChange: true');
           const menuRow=f.indexOf('id: "traveler-switch-to-operator"');
-          const roleTap=f.indexOf('- tapOn:\\n    id: "traveler-switch-to-operator"\\n    retryTapIfNoChange: true'.replaceAll('\\n','\\n'));
+          const roleTap=f.indexOf('- tapOn:\n    id: "traveler-switch-to-operator"\n    retryTapIfNoChange: true');
           const commencement=f.indexOf('id: "operator-commence-operations"');
           const service=f.indexOf('visible: "In Service"');
           assert.ok(login>=0 && home>login && menuTap>home && menuRow>menuTap &&
