@@ -1,0 +1,64 @@
+name: QA Build 57 exact source versus deployed Cloud Run read-only
+on:
+  pull_request:
+    branches: [release/current]
+    paths:
+      - '.github/workflows/qa-build57-backend-readonly-parity.yml'
+permissions:
+  contents: read
+jobs:
+  production-parity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          fetch-depth: 0
+      - name: Compare public real backend revision to current release source
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json,subprocess,urllib.request,sys
+          API='https://american-rider-api-production-623854974930.us-east1.run.app'
+          def get(endpoint):
+              req=urllib.request.Request(API+endpoint,headers={'Accept':'application/json'})
+              with urllib.request.urlopen(req,timeout=15) as response:
+                  if response.status != 200:raise RuntimeError('HTTP '+str(response.status)+' '+endpoint)
+                  return json.load(response)
+          live,health,config=get('/live'),get('/health'),get('/config')
+          head=subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip()
+          def check(name,condition):
+              print(('PASS' if condition else 'BLOCKED')+': '+name)
+              return condition
+          checks=[
+              check('live public production API',live.get('ok') is True),
+              check('Cloud Run in production, Stripe live',health.get('deployment')=='production' and health.get('stripe')=='live'),
+              check('production backend operational',health.get('operationalReady') is True and health.get('scheduler')=='authenticated'),
+              check('app payment config live',config.get('mode')=='live' and config.get('canTakePayment') is True and
+                    str(config.get('stripePublishableKey','')).startswith('pk_live_')),
+          ]
+          prefix=str(health.get('commit','')).strip()
+          print('Candidate release SHA:',head)
+          print('Deployed public /health commit prefix:',prefix)
+          if not (len(prefix)>=7 and all(c in '0123456789abcdef' for c in prefix.lower())):
+              print('BLOCKED: deployed commit not available for source comparison');sys.exit(1)
+          res=subprocess.run(['git','rev-parse','--verify',prefix+'^{commit}'],capture_output=True,text=True)
+          if res.returncode:
+              print('BLOCKED: deployed revision not in verified repository history; no source parity claim');sys.exit(1)
+          deployed=res.stdout.strip()
+          ancestor=subprocess.run(['git','merge-base','--is-ancestor',deployed,head]).returncode==0
+          checks.append(check('deployed backend ancestor of current source',ancestor))
+          if not ancestor:sys.exit(1)
+          changed=subprocess.check_output(['git','diff','--name-only',deployed,head],text=True).splitlines()
+          service=[p for p in changed if
+                   p.startswith(('backend/','infra/cloud-run/','src/backend/')) or
+                   p in ('package.json','package-lock.json','Dockerfile','eas.json')]
+          print('Changed paths since deployed:',len(changed))
+          print('Backend/runtime relevant changed files:',service[:30])
+          checks.append(check('no changed server/runtime files since deployed backend',len(service)==0))
+          print('For security, source-only parity does NOT automatically override exact-SHA store workflow; require a reviewed gate that accepts verifiable backend equivalence.')
+          if not all(checks):sys.exit(1)
+          print('PASS: current release backend parity and operational/read-only API preflight')
+          PY
