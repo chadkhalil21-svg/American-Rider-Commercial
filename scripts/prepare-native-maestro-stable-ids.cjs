@@ -26,7 +26,7 @@ function generate(role){
   // Never fake a login, booking, offer, or payment based on this UI status.
   result=edit(result,
     '- assertVisible: "AMERICAN RIDER"',
-    '- extendedWaitUntil:\\n    visible:\\n      id: "auth-email-entry"\\n    timeout: 60000\\n- assertVisible:\\n    id: "auth-email-entry"',
+    '- extendedWaitUntil:\n    visible:\n      id: "auth-email-entry"\n    timeout: 60000\n- assertVisible:\n    id: "auth-email-entry"',
     'native login input readiness (network proved by real backend operations)');
   if(role==='traveler'){
     // Run 40735430356: real iPhone failure screenshot displayed the
