@@ -42,8 +42,10 @@ for (const role of ['traveler','operator']) {
     // native ID successfully. Make this regression impossible to reintroduce.
     assert.doesNotMatch(src, /^- tapOn: "Continue"$/m,
       path+': ambiguous Operator Continue tap can leave the wrong view foreground');
-    assert.ok(src.includes('id: "auth-email-entry"\n    text: "native.qa.operator@example.test"'),
-      path+': confirm complete native email input, not just one character');
+    assert.ok(src.includes('copyTextFrom:') &&
+      src.includes('id: "auth-email-entry"') &&
+      src.includes('maestro.copiedText === "native.qa.operator@example.test"'),
+      path+': confirm exact editable email via Maestro clipboard, not the accessibility label');
     assert.ok(src.includes('id: "auth-primary-action"\n    enabled: true\n    retryTapIfNoChange: true'),
       path+': insist on enabled native Continue and retry only ignored nonpayment tap');
     assert.ok(src.includes('visible: "Sign in to your account."'),
