@@ -139,7 +139,9 @@ jobs:
             'Verify compiled QA bundle and install on Operator iPhone',
             'Verify real Operator sign-in and In Service on one iPhone',
           ];
-          const boundaries=buildStages.map(name=>w.indexOf('      - name: '+name));
+          // Match full YAML step lines, never look-alike strings in this
+          // very preflight script. An earlier indexOf self-matched loginStep.
+          const boundaries=buildStages.map(name=>w.lastIndexOf('\n      - name: '+name+'\n'));
           assert.ok(boundaries.every((n,i)=>n>=0&&(i===0||n>boundaries[i-1])),
             'Boot, Xcode, SHA-preserved artifact, install and sign-in must be separate ordered CI steps');
           const buildBody=w.slice(boundaries[1],boundaries[2]);
