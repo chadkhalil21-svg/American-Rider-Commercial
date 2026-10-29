@@ -33,6 +33,24 @@ jobs:
           node --check scripts/native-qa-ios-confirm-accepted.cjs
           node --check scripts/native-qa-operator-destination.cjs
           bash -n scripts/native-commercial-ios-dual-runner.sh
+          # Generate exactly the iOS replay flow before renting macOS devices.
+          # Prove the fragile negative post-login hierarchy poll is absent,
+          # without weakening real in-service and actual Operator UI checks.
+          node scripts/native-qa-ios-prepare-role-flows.cjs
+          node - <<'NODE'
+          const fs=require('node:fs'),assert=require('node:assert/strict');
+          const f=fs.readFileSync('.maestro/generated/qa-commercial-ios-operator-start.yml','utf8');
+          assert.ok(!f.includes('notVisible: "Welcome back"'),
+            'XCTest-crashing negative post-login poll remains in Operator checkpoint');
+          const login=f.indexOf('id: "auth-primary-action"');
+          const link=f.indexOf('openLink: "americanrider:///operator"');
+          const service=f.indexOf('visible: "In Service"');
+          assert.ok(login>=0 && link>login && service>link,
+            'Require real login then operator navigation then positive In Service proof');
+          assert.ok(f.includes('id: "operator-commence-operations"'),
+            'Do not bypass native Operator Commence Operations');
+          console.log('PASS: iOS Operator checkpoint avoids stale login hierarchy, still requires In Service');
+          NODE
       - name: Refuse all live Stripe and production Firebase contexts, keep old sign-in QA safe
         run: node backend/native-qa-isolation.test.js
       - name: Verify synthetic local toll fixture never leaks to production
