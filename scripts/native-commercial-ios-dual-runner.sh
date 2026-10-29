@@ -40,14 +40,18 @@ debug_dir=base/('maestro-debug-'+label)
 junit=base/(label+'.junit.xml')
 test_dir.mkdir(parents=True,exist_ok=True)
 debug_dir.mkdir(parents=True,exist_ok=True)
-args=['maestro','--device',device,'test',
+# Maestro CLI 2.6+ supports per-device host ports for simultaneous iOS
+# processes. Keep the Operator's session distinct from the Traveler driver.
+driver_port='7102' if label=='traveler' else '7101'
+args=['maestro','--device',device,'--driver-host-port',driver_port,'test',
       '--test-output-dir='+str(test_dir),
       '--debug-output='+str(debug_dir),
       '--format','junit','--output',str(junit),flow]
 began=time.monotonic()
 last_bytes=-1
 stale_seconds=0
-print('QA_IOS_FLOW_STARTED',label,'device='+device,'limit='+str(limit),flush=True)
+print('QA_IOS_FLOW_STARTED',label,'device='+device,'driver_port='+driver_port,
+      'limit='+str(limit),flush=True)
 with out.open('w') as f:
     p=subprocess.Popen(args,stdout=f,stderr=subprocess.STDOUT,start_new_session=True)
     while True:
