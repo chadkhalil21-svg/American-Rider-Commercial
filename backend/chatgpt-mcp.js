@@ -6,6 +6,7 @@
 const crypto = require('node:crypto');
 const { readKey } = require('./env');
 const { withinDeadline, OPS_MFA_DEADLINE_MS } = require('./opslatency');
+const {createFounderCommandServices}=require('./founder-command-services');
 const BASE = 'https://american-rider-api-production-623854974930.us-east1.run.app';
 const RESOURCE = BASE + '/mcp';
 const CLIENT = 'https://chatgpt.com/oauth/client.json';
@@ -113,6 +114,8 @@ const TOOLS = [
   _meta: { securitySchemes: [{type:'oauth2',scopes:[t.scope]}]}}));
 function mount(app, express, deps) {
   const db = () => deps.db();
+  const founderServices=createFounderCommandServices(db);
+  const founderCanCommand=actor=>operational()&&founderServices.founderAuthorized(actor);
   // Return the authenticated account identity, not a boolean.
   // Consent must bind the real named Ops principal to its credential fingerprint.
   const named = req => deps.authMode() === 'named' ? deps.opsSignedIn(req) : null;
@@ -349,37 +352,33 @@ function mount(app, express, deps) {
           }
         }
       } else if (chosen.name === 'recruiter_status') {
-        if(!operational()||typeof deps.recruiterStatus!=='function'||!deps.founderCanReviewRecruiter?.(auth.actor))
-          out={ok:false,code:'founder_authorization_required'};
-        else out=await deps.recruiterStatus({email:args.email,actor:auth.actor});
+        if(!founderCanCommand(auth.actor))out={ok:false,code:'founder_authorization_required'};
+        else out=await founderServices.recruiterStatus({email:args.email});
       } else if (chosen.name === 'recruiter_review') {
-        if(!operational()||!deps.founderCanReviewRecruiter?.(auth.actor)||typeof deps.reviewRecruiter!=='function')
-          out={ok:false,code:'founder_authorization_required'};
+        if(!founderCanCommand(auth.actor))out={ok:false,code:'founder_authorization_required'};
         else if(args.confirmation!==String(args.decision||'').toUpperCase()+' '+String(args.uid||''))
           out={ok:false,code:'explicit_confirmation_required'};
-        else out=await deps.reviewRecruiter({uid:args.uid,decision:args.decision,actor:auth.actor});
+        else out=await founderServices.reviewRecruiter({uid:args.uid,decision:args.decision,actor:auth.actor});
       } else if (chosen.name === 'operator_status') {
-        if(!operational()||typeof deps.operatorStatus!=='function')
-          out={ok:false,code:'operations_unavailable'};
-        else out=await deps.operatorStatus({uid:args.uid,actor:auth.actor});
+        if(!founderCanCommand(auth.actor))out={ok:false,code:'founder_authorization_required'};
+        else out=await founderServices.operatorStatus({uid:args.uid});
       } else if (chosen.name === 'operator_suspend') {
-        if(!operational()||typeof deps.suspendOperator!=='function')
-          out={ok:false,code:'operations_unavailable'};
+        if(!founderCanCommand(auth.actor))out={ok:false,code:'founder_authorization_required'};
         else if(args.confirmation!==(args.suspended?'SUSPEND ':'REINSTATE ')+String(args.uid||'')||
-          String(args.note||'').trim().length<12)
+           String(args.note||'').trim().length<12)
           out={ok:false,code:'explicit_confirmation_and_reason_required'};
-        else out=await deps.suspendOperator({uid:args.uid,suspended:args.suspended,note:args.note,actor:auth.actor});
+        else out=await founderServices.suspendOperator({uid:args.uid,suspended:args.suspended,
+          note:args.note,actor:auth.actor});
       } else if (chosen.name === 'operations_cases') {
-        if(!operational()||typeof deps.operationsCases!=='function')
-          out={ok:false,code:'operations_unavailable'};
-        else out=await deps.operationsCases({kind:args.kind||'emergency',actor:auth.actor});
+        if(!founderCanCommand(auth.actor))out={ok:false,code:'founder_authorization_required'};
+        else out=await founderServices.operationsCases({kind:args.kind||'emergency'});
       } else if (chosen.name === 'operations_case_action') {
-        if(!operational()||typeof deps.operationsCaseAction!=='function')
-          out={ok:false,code:'operations_unavailable'};
+        if(!founderCanCommand(auth.actor))out={ok:false,code:'founder_authorization_required'};
         else if(args.confirmation!==String(args.action||'').toUpperCase()+' '+String(args.caseNo||'')||
-          String(args.note||'').trim().length<12)
+           String(args.note||'').trim().length<12)
           out={ok:false,code:'explicit_confirmation_and_reason_required'};
-        else out=await deps.operationsCaseAction({caseNo:args.caseNo,action:args.action,note:args.note,actor:auth.actor});
+        else out=await founderServices.operationsCaseAction({caseNo:args.caseNo,action:args.action,
+          note:args.note,actor:auth.actor});
       } else if (chosen.name === 'invite_recruiter') {
         // OAuth scopes alone do not give access to the Founder recruiter allowlist.
         // The identical live invitation gate is checked on every delegated call.
