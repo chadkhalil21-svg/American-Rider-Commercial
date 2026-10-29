@@ -35,13 +35,18 @@ assert.equal(originalStart.split(postSignInNegative).length-1,1,
 const operatorDeepLink='- openLink: "americanrider:///operator"\n';
 const realOperatorNavigation=
   '- extendedWaitUntil:\n    visible:\n      id: "traveler-menu-open"\n    timeout: 90000\n'+
-  // Actual XCTest hierarchy from run 40869940850 proves the commissioned
-  // switch is a visible accessibility node with this exact stable ID.
-  // "Account Details" is not an exact iOS node: accessibility merges it with
-  // the Operator name and chevron, so an exact-text wait always fails.
-  // Test the real user-facing destination, not incidental drawer copy.
-  '- tapOn:\n    id: "traveler-menu-open"\n    retryTapIfNoChange: true\n'+
+  // Evidence: run 40869940850 showed an OPEN drawer containing the
+  // commissioned role; run 40872756237 showed it CLOSED after a reported
+  // successful menu tap. A hierarchy change is not proof the menu opened.
+  // Tap once WITHOUT Maestro's blind retry, inspect a real drawer-only row,
+  // and allow at most one harmless menu retry if that row is still absent.
+  // "Payment Methods, ›" was independently observed in the opened drawer
+  // accessibility hierarchy. Do not retry any journey or payment actions.
+  '- tapOn:\n    id: "traveler-menu-open"\n'+
   '- waitForAnimationToEnd:\n    timeout: 5000\n'+
+  '- takeScreenshot: "operator-drawer-first-tap"\n'+
+  '- runFlow:\n    when:\n      notVisible: ".*Payment Methods.*"\n    commands:\n      - tapOn:\n          id: "traveler-menu-open"\n'+
+  '- extendedWaitUntil:\n    visible: ".*Payment Methods.*"\n    timeout: 15000\n'+
   '- extendedWaitUntil:\n    visible:\n      id: "traveler-switch-to-operator"\n    timeout: 20000\n'+
   '- tapOn:\n    id: "traveler-switch-to-operator"\n    retryTapIfNoChange: true\n'+
   '- extendedWaitUntil:\n    visible:\n      id: "operator-commence-operations"\n    timeout: 60000\n';
@@ -53,6 +58,9 @@ const start=originalStart.replace(postSignInNegative,'')
 assert.ok(start.includes('traveler-switch-to-operator')&&
   !start.includes('Account Details') &&
   !start.includes('scrollUntilVisible:') &&
+  start.includes('notVisible: ".*Payment Methods.*"') &&
+  start.includes('visible: ".*Payment Methods.*"') &&
+  start.includes('operator-drawer-first-tap') &&
   start.includes('retryTapIfNoChange: true')&&
   start.includes('waitForAnimationToEnd:')&&
   !start.includes(operatorDeepLink)&&
