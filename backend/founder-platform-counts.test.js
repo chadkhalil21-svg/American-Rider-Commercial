@@ -14,6 +14,8 @@ function db(){
      if(collection==='operators'&&first?.field==='available')count=5;
      if(collection==='users'&&first?.field==='operatorOnboardingStartedAt')count=3;
      if(collection==='users'&&first?.field==='qualification.qualifiedAt')count=2;
+     if(collection==='recruiter_accounts'&&first?.field==='status')
+       count=first.value==='pending_review'?1:first.value==='approved'?2:0;
      if(collection==='rides'&&first?.field==='status')
        count=first.value==='completed'?104:9;
      if(collection==='rides'&&first?.field==='createdAt')count=12;
@@ -58,13 +60,19 @@ function db(){
  assert.equal(results.counts.travelsCreatedToday,12);
  assert.equal(results.counts.travelsSettledToday,7);
  assert.equal(results.counts.recruiterAccounts,3);
- assert.equal(log.filter(x=>x.kind==='collection').length,10,'10 bounded indexed count queries; no full-document downloads');
+ assert.equal(results.counts.recruitersAwaitingReview,1);
+ assert.equal(results.counts.recruitersApprovedRecords,2);
+ assert.equal(results.counts.recruitersSuspendedRecords,0);
+ assert.equal(log.filter(x=>x.kind==='collection').length,13,'13 bounded indexed count queries; no full-document downloads');
+ assert.equal(log.filter(x=>x.collection==='recruiter_accounts'&&x.field==='status').length,3);
  assert.equal(log.filter(x=>x.field==='createdAt').length,2);
  assert.equal(log.filter(x=>x.field==='settledAt').length,2);
  assert.equal(log.filter(x=>x.field==='operatorOnboardingStartedAt').length,2);
  assert.equal(log.filter(x=>x.field==='qualification.qualifiedAt').length,2);
  assert.match(overviewMarkup(results),/2026-10-24/);
  assert.match(overviewMarkup(results),/Travels settled today/);
+ assert.match(overviewMarkup(results),/Recruiters awaiting review/);
+ assert.match(overviewMarkup(results),/Approved Recruiter records/);
  assert.match(overviewMarkup(results),/Operators beginning onboarding today/);
  assert.match(overviewMarkup(results),/Operators qualifying today/);
  assert.match(overviewMarkup(results),/distinct Traveler-only count/);

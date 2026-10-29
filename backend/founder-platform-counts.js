@@ -40,6 +40,10 @@ const QUERIES=Object.freeze([
   ['travelsSettledToday',(db,day)=>db.collection('rides').where('settledAt','>=',day.start)
     .where('settledAt','<',day.end)],
   ['recruiterAccounts',db=>db.collection('recruiter_accounts')],
+  // Founder-only, indexed aggregation. Status is NOT bank or contract eligibility.
+  ['recruitersAwaitingReview',db=>db.collection('recruiter_accounts').where('status','==','pending_review')],
+  ['recruitersApprovedRecords',db=>db.collection('recruiter_accounts').where('status','==','approved')],
+  ['recruitersSuspendedRecords',db=>db.collection('recruiter_accounts').where('status','==','suspended')],
 ]);
 async function founderPlatformCounts(db,{deadlineMs=OPS_BOARD_DEADLINE_MS,now=Date.now()}={}){
   if(!db)return {ok:false,reason:'database_unavailable'};
@@ -68,6 +72,9 @@ async function founderPlatformCounts(db,{deadlineMs=OPS_BOARD_DEADLINE_MS,now=Da
       travelsCreatedToday:'Travel records created on the stated Eastern calendar date',
       travelsSettledToday:'Travel records with a server-recorded settlement date today; later refunds or disputes may change net receipts',
       recruiterAccounts:'Private invited recruiter accounts, not earning participants',
+      recruitersAwaitingReview:'Invited Recruiter accounts awaiting independent Founder approval',
+      recruitersApprovedRecords:'Approved Recruiter account records, not evidence of an accepted agreement, bank verification or earned money',
+      recruitersSuspendedRecords:'Recruiter account records currently marked suspended; additional flags can prevent payment independently',
     }};
 }
 function overviewMarkup(result){
@@ -82,6 +89,9 @@ function overviewMarkup(result){
     ['travelsCreatedToday','Travels created today'],
     ['travelsSettledToday','Travels settled today'],
     ['recruiterAccounts','Recruiter accounts'],
+    ['recruitersAwaitingReview','Recruiters awaiting review'],
+    ['recruitersApprovedRecords','Approved Recruiter records'],
+    ['recruitersSuspendedRecords','Suspended Recruiter records'],
   ];
   const day=result?.day?.date||'Unavailable';
   const cards=labels.map(([key,label])=>

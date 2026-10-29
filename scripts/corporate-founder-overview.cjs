@@ -44,7 +44,9 @@ const fields=[
  ['operatorsStartedOnboardingToday','Operator onboarding started today'],['operatorsQualifiedToday','Operators qualifying today'],
  ['operatorsReportingAvailable','Operators reporting available'],['activeTravelRecords','Travels in progress'],
  ['completedTravelRecords','Completed Travels, all time'],['travelsCreatedToday','Travels created today'],
- ['travelsSettledToday','Travels settled today'],['recruiterAccounts','Recruiter accounts']
+ ['travelsSettledToday','Travels settled today'],['recruiterAccounts','Recruiter accounts'],
+ ['recruitersAwaitingReview','Recruiters awaiting review'],['recruitersApprovedRecords','Approved Recruiter records'],
+ ['recruitersSuspendedRecords','Suspended Recruiter records']
 ];
 let busy=false;
 function message(t){by('founder-message').textContent=t;}
