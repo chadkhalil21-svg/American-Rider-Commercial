@@ -235,10 +235,15 @@ def main():
         google_founder_uid=founder_uid or old_env.get("AR_FOUNDER_FIREBASE_UIDS",{}).get("value","")
         if not re.fullmatch(r"[A-Za-z0-9_-]{6,128}",str(google_founder_uid)):
             raise Stop("One exact Founder Firebase UID is required before Google Operations activation.")
-        named_users=old_env.get("OPS_USERS",{}).get("value","")
-        names=[part.split(":",1)[0] for part in named_users.split(",") if ":" in part]
-        if actor not in names:
+        named_users=old_env.get("OPS_USERS",{})
+        visible_names=[part.split(":",1)[0] for part in named_users.get("value","").split(",") if ":" in part]
+        if named_users.get("value") and actor not in visible_names:
             raise Stop("Founder must match an existing named Operations account; no authority created.")
+        if not named_users.get("value") and not named_users.get("valueFrom"):
+            raise Stop("Named Operations account not configured; no authority created.")
+        # Secret-backed OPS_USERS cannot be inspected without exposing credentials;
+        # the runtime Google sign-in independently checks that exact named user
+        # against the authorized Founder record, and fails closed on mismatch.
         if not old_env.get("OPS_SESSION_SECRET") or not old_env.get("OPS_MFA_SECRETS"):
             raise Stop("Existing named Operations session and revocation controls are required.")
         if old_env.get("AR_RECRUITER_FOUNDER_USERS",{}).get("value","") not in ("",actor):
