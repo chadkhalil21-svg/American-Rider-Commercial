@@ -651,6 +651,8 @@ export default function Home() {
       )}
 
       {canOfferNewTravel && <Pressable
+        testID="traveler-open-destination"
+        accessibilityRole="button"
         onPress={() => {
           ride.startBooking();
           router.navigate({ pathname: '/reserve', params: { search: '1' } });
@@ -849,7 +851,7 @@ export default function Home() {
           <View key={group.label}>
             <SectionLabel style={styles.drawerLabel}>{group.label}</SectionLabel>
             {group.rows.map((item) => (
-              <DrawerRow key={item.label} label={menuTitleCase(item.label, language)} onPress={item.onPress} />
+              <DrawerRow key={item.label} label={menuTitleCase(item.label, language)} onPress={item.onPress} testID={item.label === t('traveler.switchToOperator') ? 'traveler-switch-to-operator' : undefined} />
             ))}
           </View>
         ))}

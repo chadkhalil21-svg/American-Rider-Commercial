@@ -7,6 +7,7 @@
 const { readKey } = require('./env');
 const { officialTollPriceForRoute } = require('./official-toll-pricing');
 const { recordTollDecision } = require('./toll-decision-audit');
+const { isolatedWynwoodTollFixture } = require('./native-qa-toll-fixture');
 
 const HERE_TOLL_URL = 'https://router.hereapi.com/v8/routes';
 const TIMEOUT_MS = 7000;
@@ -162,6 +163,15 @@ async function resolveTolls(from, to, opts = {}) {
  * evidence is not evidence of no toll.
  */
 async function resolveTollsCostAware(from, to, opts = {}) {
+  // LOCAL-ONLY SYNTHETIC acceptance fixture. This is NOT a certified free
+  // road. The full live resolver remains fail-closed for all production,
+  // non-Wynwood, and otherwise unverified routes. Its isolation guard also
+  // rejects real Firestore, any production Cloud Run instance and live Stripe.
+  const synthetic = isolatedWynwoodTollFixture(from,to);
+  if(synthetic){
+    recordTollDecision('isolated_qa_fixture',{route:opts.route||null,outcome:synthetic});
+    return synthetic;
+  }
   let route = opts.route || null;
   // A caller that already attempted to select the authoritative road route must not trigger a
   // second route selection here. A transient second answer could make tolls describe a

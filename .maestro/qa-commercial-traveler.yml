@@ -5,8 +5,13 @@ appId: com.americanrider.app
 - launchApp:
     clearState: true
 - assertVisible: "AMERICAN RIDER"
-- tapOn: "Email Address"
-- inputText: "native.qa.traveler@example.test"
+- tapOn:
+    id: "auth-email-entry"
+- setClipboard: "native.qa.traveler@example.test"
+- pasteText
+- assertVisible:
+    id: "auth-primary-action"
+    enabled: true
 # Android back dismisses the keyboard. iOS hideKeyboard uses a swipe and
 # previously FAILED before the account could proceed (run 40592170783).
 # Tap a visible, non-interactive native title instead on iOS.
@@ -20,8 +25,14 @@ appId: com.americanrider.app
       platform: iOS
     commands:
       - tapOn: "AMERICAN RIDER"
-- tapOn: "Continue"
-- assertVisible: "Welcome back"
+- assertVisible:
+    id: "auth-primary-action"
+    enabled: true
+- tapOn:
+    id: "auth-primary-action"
+- extendedWaitUntil:
+    visible: "Welcome back"
+    timeout: 45000
 # iOS evidence from run 40569443959 showed CREATE ACCOUNT in front
 # although a text-only "Welcome back" assertion passed. Require the
 # Sign In page to be foreground; never enter a password on signup.
@@ -91,6 +102,13 @@ appId: com.americanrider.app
     enabled: true
 - tapOn: "Confirm Travel"
 - extendedWaitUntil:
+    visible: "Card"
+    timeout: 45000
+# Real Android/iOS Stripe PaymentSheet evidence in runs 40625765922 and
+# 40625766005 shows a payment-method picker (Card, Link, etc.) first.
+# Card number is not visible until the Traveler explicitly chooses Card.
+- tapOn: "Card"
+- extendedWaitUntil:
     visible: "Card number"
     timeout: 45000
 # The Stripe TEST PaymentSheet card entry and authenticated authorization must
@@ -98,13 +116,24 @@ appId: com.americanrider.app
 # PaymentSheet does not appear or the eligible Operator is not available.
 - tapOn: "Card number"
 - inputText: "4242424242424242"
-- tapOn: "MM / YY"
+# Real iPhone PaymentSheet hierarchy from run 40629150857 names the
+# expiry field "expiration date", not the visible placeholder MM / YY.
+- tapOn: "expiration date"
 - inputText: "1230"
 - tapOn: "CVC"
 - inputText: "123"
-# Do not use an unreliable blind iOS swipe in native Stripe PaymentSheet.
-# Tap the actual primary Pay action; a failed tap remains a test failure.
-- tapOn: "Pay"
+# The US billing ZIP is mandatory before Stripe enables its Pay action.
+- tapOn: "ZIP"
+- inputText: "33130"
+# Preserve the server-owned amount in the accessibility text.
+- extendedWaitUntil:
+    visible:
+      text: "^Pay .*"
+      enabled: true
+    timeout: 20000
+- tapOn:
+    text: "^Pay .*"
+    enabled: true
 - extendedWaitUntil:
     visible: "Awaiting Operator confirmation"
     timeout: 60000

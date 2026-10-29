@@ -14,11 +14,17 @@ export function Screen({
   scroll = true,
   note,
   scrollEnabled = true,
+  contentOwnsScrolling = false,
 }: {
   children: React.ReactNode;
   scroll?: boolean;
   note?: string | null;
   scrollEnabled?: boolean;
+  // Screens with their OWN scrollable body + fixed action footer must not be
+  // wrapped in Screen's legacy outer ScrollView. Otherwise the full screen
+  // becomes tall and the supposedly persistent payment footer sits below the
+  // viewport on both iPhone and Android.
+  contentOwnsScrolling?: boolean;
 }) {
   const insets = useSafeAreaInsets();
   // .pad{ padding:58px 24px 40px }. The demo draws its own status bar area into that
@@ -77,6 +83,17 @@ export function Screen({
   // layout rather than lifting the field. The content needs somewhere to go. The ScrollView
   // only scrolls when it has to — `grow` keeps a short screen laid out exactly as before, so
   // nothing that fits today moves today.
+  if (contentOwnsScrolling) {
+    // The child owns its body scroll and any keyboard avoidance. A second
+    // ScrollView here caused the Traveler Total and Confirm Travel action to
+    // disappear below the screen while the page's upper content looked fine.
+    return (
+      <View style={[styles.screen, pad]}>
+        {children}
+        {overlay}
+      </View>
+    );
+  }
   if (!scroll) {
     return (
       <KeyboardAvoidingView
@@ -156,7 +173,7 @@ export function LetterheadBar({ onBack, onMenu }: { onBack?: () => void; onMenu?
   return (
     <View style={styles.bar}>
       {onMenu ? (
-        <Pressable onPress={onMenu} hitSlop={12} style={styles.barIcon}>
+        <Pressable testID="traveler-menu-open" accessibilityRole="button" accessibilityLabel="Open navigation menu" onPress={onMenu} hitSlop={12} style={styles.barIcon}>
           <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
             <Path
               d="M4 7h16M4 12h16M4 17h16"
@@ -322,6 +339,7 @@ export function PrimaryButton({
   textColor = '#fff',
   disabled = false,
   style,
+  testID,
 }: {
   label: string;
   onPress: () => void;
@@ -329,9 +347,13 @@ export function PrimaryButton({
   textColor?: string;
   disabled?: boolean;
   style?: StyleProp<ViewStyle>;
+  testID?: string;
 }) {
   return (
     <Pressable
+      testID={testID}
+      accessibilityRole="button"
+      disabled={disabled}
       onPress={disabled ? undefined : onPress}
       style={({ pressed }) => [
         styles.primaryBtn,
@@ -528,14 +550,16 @@ export function DrawerRow({
   onPress,
   color = colors.ink,
   chev = true,
+  testID,
 }: {
   label: string;
   onPress: () => void;
   color?: string;
   chev?: boolean;
+  testID?: string;
 }) {
   return (
-    <Pressable onPress={onPress}>
+    <Pressable testID={testID} accessibilityRole="button" onPress={onPress}>
       <View style={styles.drow}>
         <Text style={[styles.drowLabel, { color }]}>{label}</Text>
         {chev ? <Chev /> : null}

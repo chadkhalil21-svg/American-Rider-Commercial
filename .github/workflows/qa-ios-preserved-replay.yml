@@ -1,0 +1,487 @@
+name: Independent iOS preserved-binary commercial QA replay
+
+on:
+  pull_request:
+    branches: [qa/ios-choose-actual-wynwood-result-20261027]
+    paths:
+      - '.github/workflows/qa-ios-preserved-replay.yml'
+
+permissions:
+  contents: read
+  actions: read # only for fetching earlier, checksum-verified QA simulator artifact
+
+jobs:
+  isolated-commercial-safety:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install JS parser locally for cheap syntax validation
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Verify local QA Operator is indexed and presence is refreshed safely
+        run: node backend/native-qa-dispatch-fixture.test.cjs
+      - name: Parse ALL native application TS/TSX/JSX before any device build
+        run: node scripts/verify-native-source-syntax.cjs
+      - name: Validate real Maestro selectors can be converted to native IDs
+        run: node scripts/prepare-native-maestro-stable-ids.cjs
+      - name: Parse bounded dual-iPhone commercial QA runner before expensive macOS boot
+        run: |
+          node --check scripts/native-qa-ios-prepare-role-flows.cjs
+          node --check scripts/native-qa-ios-confirm-accepted.cjs
+          node --check scripts/native-qa-operator-destination.cjs
+          bash -n scripts/native-commercial-ios-dual-runner.sh
+          # Generate exactly the iOS replay flow before renting macOS devices.
+          # Prove the fragile negative post-login hierarchy poll is absent,
+          # without weakening real in-service and actual Operator UI checks.
+          node scripts/native-qa-ios-prepare-role-flows.cjs
+          node - <<'NODE'
+          const fs=require('node:fs'),assert=require('node:assert/strict');
+          const f=fs.readFileSync('.maestro/generated/qa-commercial-ios-operator-start.yml','utf8');
+          assert.ok(!f.includes('notVisible: "Welcome back"'),
+            'XCTest-crashing negative post-login poll remains in Operator checkpoint');
+          const login=f.indexOf('id: "auth-primary-action"');
+          const home=f.indexOf('id: "traveler-menu-open"');
+          const menuTap=f.indexOf('- tapOn:\n    id: "traveler-menu-open"\n    retryTapIfNoChange: true');
+          const menuRow=f.indexOf('id: "traveler-switch-to-operator"');
+          const roleTap=f.indexOf('- tapOn:\n    id: "traveler-switch-to-operator"\n    retryTapIfNoChange: true');
+          const commencement=f.indexOf('id: "operator-commence-operations"');
+          const service=f.indexOf('visible: "In Service"');
+          assert.ok(login>=0 && home>login && menuTap>home && menuRow>menuTap &&
+            roleTap>menuRow && commencement>roleTap && service>commencement,
+            'Require signed-in Traveler to switch using real native Operator menu then enter In Service');
+          assert.ok(!f.includes('- openLink:') && !f.includes('Open in.*American.*'),
+            'Never trigger Apple system deep-link dialog from the iOS Operator checkpoint');
+          const source=fs.readFileSync('app/index.tsx','utf8');
+          assert.ok(source.includes("t('traveler.switchToOperator')") &&
+            source.includes("operator.verification === 'commissioned'") &&
+            source.includes("operator.setRole('operator')") &&
+            source.includes("router.replace('/operator')"),
+            'Native Operator drawer navigation contract changed');
+          const bar=fs.readFileSync('src/components/UI.tsx','utf8');
+          assert.ok(bar.includes('testID="traveler-menu-open"') && bar.includes('testID={testID}') &&
+            source.includes("testID={item.label === t('traveler.switchToOperator') ? 'traveler-switch-to-operator' : undefined}"),
+            'Native menu/commissioned switch missing stable accessibility IDs');
+          assert.ok(!f.includes('point: "8%,10%"'), 'Prohibit coordinate-based iOS menu taps');
+          console.log('PASS: stable native menu + commissioned-role IDs, no Safari/deep-link/coordinate');
+          NODE
+      - name: Refuse all live Stripe and production Firebase contexts, keep old sign-in QA safe
+        run: node backend/native-qa-isolation.test.js
+      - name: Verify synthetic local toll fixture never leaks to production
+        run: |
+          node backend/native-qa-toll-fixture.test.js
+          node backend/tolls.test.js
+      - name: Validate native Android runner syntax before expensive builds
+        run: bash -n scripts/native-commercial-android-runner.sh
+      - name: Verify every native journey target and platform-specific keyboard gesture before expensive builds
+        run: node scripts/verify-native-maestro-selectors.cjs
+      - name: Validate scoped Android emulator HTTP exception before expensive builds
+        run: node scripts/native-qa-android-network.test.cjs
+      - name: Prove one body scroll and fixed fare footer plus stable user-action IDs
+        run: node scripts/verify-native-accessibility-contract.cjs
+
+  paid-native-journey:
+    needs: [isolated-commercial-safety]
+    # A manual dispatch SKIPS the PR-specific cancellation job. GitHub's
+    # default needs behavior would then skip BOTH device jobs forever.
+    # Still fail closed unless the safety preflight actually passed.
+    if: ${{ github.event.pull_request.head.ref == 'qa/ios-presence-heartbeat-20261027' && needs.isolated-commercial-safety.result == 'success' }}
+    # Never hold the cleanup job itself behind a pre-concurrency build.
+    # New, syntax-validated source supersedes previously started QA binaries.
+    # Cancel only the SAME platform's obsolete run, not the other platform.
+    # This avoids wasted compilation and stale binaries without serializing
+    # iOS behind Android or vice versa.
+    concurrency:
+      group: isolated-ios-saved-app-393-${{ matrix.platform }}
+      cancel-in-progress: true
+    strategy:
+      fail-fast: false
+      matrix:
+        # Both OS jobs run independently; a newer run supersedes only its own
+        # older same-platform job. Identical compiled QA binaries are cached.
+        # Dedicated iOS replay; no Android job is created or cancelled.
+        platform: [ios]
+        include:
+          - platform: ios
+            os: macos-26
+            local_url: http://127.0.0.1:4242
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 155
+    env:
+      CI: '1'
+      DEVELOPER_DIR: ${{ matrix.platform == 'ios' && '/Applications/Xcode_26.6.app/Contents/Developer' || '' }}
+      # On a fresh macOS 26/Xcode 26.6 runner, XCTest bootstrap is separate
+      # from Operator authentication. Maestro's documented knob is in ms.
+      MAESTRO_DRIVER_STARTUP_TIMEOUT: '720000'
+      MAESTRO_CLI_NO_ANALYTICS: '1'
+      NODE_ENV: test
+      AR_NATIVE_PLATFORM: ${{ matrix.platform }}
+      AR_NATIVE_QA_LOCAL: '1'
+      AR_NATIVE_COMMERCIAL_QA: '1'
+      EXPO_PUBLIC_AR_NATIVE_QA: '1'
+      EXPO_PUBLIC_API_URL: ${{ matrix.local_url }}
+      EXPO_PUBLIC_REFERRALS_ENABLED: '1'
+      FIREBASE_PROJECT_ID: demo-american-rider-qa
+      GOOGLE_CLOUD_PROJECT: demo-american-rider-qa
+      FIRESTORE_EMULATOR_HOST: 127.0.0.1:8080
+      FIREBASE_AUTH_EMULATOR_HOST: 127.0.0.1:9099
+      STRIPE_SECRET_KEY: ${{ secrets.STRIPE_TEST_SECRET_KEY }}
+      STRIPE_PUBLISHABLE_KEY: ${{ vars.STRIPE_TEST_PUBLISHABLE_KEY }}
+      PORT: '4242'
+      MARKET_STATUS: fl-miami-dade:active
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Enforce no production account, no provider live keys, and exact QA source
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$AR_NATIVE_QA_LOCAL" = 1
+          test "$GOOGLE_CLOUD_PROJECT" = demo-american-rider-qa
+          test -z "$(printenv STRIPE_LIVE_SECRET_KEY || true)"
+          test -z "$(printenv K_SERVICE || true)"
+          case "$STRIPE_SECRET_KEY" in sk_test_*) ;; *) echo "::error::Only STRIPE_TEST_SECRET_KEY permitted"; exit 1;; esac
+          case "$STRIPE_PUBLISHABLE_KEY" in pk_test_*) ;; *) echo "::error::Matching STRIPE_TEST_PUBLISHABLE_KEY is not configured"; exit 1;; esac
+          git rev-parse HEAD
+      - name: Verify existing Stripe TEST key pair before installing dependencies or booting devices
+        shell: bash
+        run: node scripts/native-qa-stripe-pair-fastcheck.cjs
+      - name: Refuse incompatible Apple Swift toolchain before iOS compilation
+        if: matrix.platform == 'ios'
+        shell: bash
+        run: |
+          test -x /Applications/Xcode_26.6.app/Contents/Developer/usr/bin/xcodebuild
+          xcodebuild -version | tee /tmp/qa-xcode-version.txt
+          grep -Fx 'Xcode 26.6' /tmp/qa-xcode-version.txt
+          swift --version
+          swift --version | grep -Eq 'Apple Swift version (6\.[2-9]|[7-9]\.)' || { echo '::error::Expo SDK 57 requires Swift tools >= 6.2'; exit 1; }
+      - name: Install app/backend and Firebase emulator dependencies
+        run: |
+          npm ci --ignore-scripts
+          npm ci --prefix backend --omit=dev
+          npm ci --prefix infra/rules-emulator
+      - name: Generate stable native ID Maestro flows before device tests
+        run: node scripts/prepare-native-maestro-stable-ids.cjs
+      - name: Start disposable Firebase Auth/Firestore emulators
+        shell: bash
+        run: |
+          set -euo pipefail
+          node - <<'NODE'
+          const fs=require('node:fs'),config=JSON.parse(fs.readFileSync('firebase.json','utf8'));
+          config.emulators={...(config.emulators||{}),
+            auth:{host:'127.0.0.1',port:9099},firestore:{host:'127.0.0.1',port:8080}};
+          fs.writeFileSync('firebase-qa-only.generated.json',JSON.stringify(config));
+          NODE
+          ./infra/rules-emulator/node_modules/.bin/firebase emulators:start --only auth,firestore --project demo-american-rider-qa --config firebase-qa-only.generated.json > "$RUNNER_TEMP/firebase-qa.log" 2>&1 &
+          for i in $(seq 1 100); do
+            if curl --fail --silent http://127.0.0.1:9099/emulator/v1/projects/demo-american-rider-qa/config >/dev/null; then break; fi
+            sleep 2
+          done
+          curl --fail --silent http://127.0.0.1:9099/emulator/v1/projects/demo-american-rider-qa/config >/dev/null
+      - name: Provision disposable Traveler and eligible-test Operator in LOCAL Firebase and Stripe TEST
+        shell: bash
+        run: |
+          set -euo pipefail
+          node backend/native-commercial-qa-fixture.cjs | tee "$RUNNER_TEMP/fixture-result.txt"
+          grep -q 'QA_NATIVE_FIXTURES_READY=1' "$RUNNER_TEMP/fixture-result.txt" || exit 1
+      - name: Start actual local American Rider API and prove Stripe TEST readiness
+        shell: bash
+        run: |
+          set -euo pipefail
+          node backend/server.js > "$RUNNER_TEMP/local-commercial-api.log" 2>&1 &
+          for i in $(seq 1 60); do
+            if curl --fail --silent http://127.0.0.1:4242/health >/dev/null; then break; fi
+            sleep 2
+          done
+          curl --fail --silent http://127.0.0.1:4242/health >/dev/null || { tail -50 "$RUNNER_TEMP/local-commercial-api.log"; exit 1; }
+          node scripts/native-commercial-env-preflight.cjs
+          # The app tests /live (not /health) at its first launch. Verify that
+          # exact route before booting an expensive iPhone simulator.
+          node - <<'NODE'
+          const assert=require('node:assert/strict');
+          fetch('http://127.0.0.1:4242/live',{signal:AbortSignal.timeout(5000)})
+            .then(async r=>{assert.equal(r.status,200);assert.equal((await r.json()).ok,true);
+              console.log('PASS: local API /live responds correctly for native app');})
+            .catch(e=>{console.error('QA_LOCAL_LIVE_FAILED',e.message);process.exitCode=1});
+          NODE
+      - name: Install Maestro real-screen interaction runner
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fsSL 'https://get.maestro.mobile.dev' | bash
+          echo "$HOME/.maestro/bin" >> "$GITHUB_PATH"
+      - name: Fingerprint exact native application sources, excluding only QA scripts
+        id: native-fingerprint
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "digest=$(node scripts/native-build-fingerprint.cjs)" >> "$GITHUB_OUTPUT"
+      - name: Restore precompiled unsigned QA app (never a production release)
+        id: native-build-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: .qa-native-build-cache/${{ matrix.platform }}
+          key: qa-native-release-v1-${{ runner.os }}-${{ matrix.platform }}-${{ steps.native-fingerprint.outputs.digest }}
+      # Native source changes require a new fingerprint-bound QA build.
+      # QA-script-only changes restore the same checksummed app from Actions cache;
+      # never import an old binary if its source fingerprint differs.
+      # GitHub caches are scoped to PR merge refs. A native-identical APK
+      # compiled on PR #390 can be unavailable in PR #393's cache namespace.
+      # Retrieve the previous independently SHA-verified artifact instead of
+      # compiling unchanged native source for another 15 minutes. Refuse any
+      # mismatch in exact native source fingerprint before downloading.
+      - name: Reuse exact prior Android binary across PR-scoped caches
+        if: matrix.platform == 'android' && steps.native-build-cache.outputs.cache-hit != 'true'
+        id: prior-android-artifact
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          test "${{ steps.native-fingerprint.outputs.digest }}" = '2ce8aef44249dff8bff9860b2b83190be2df511dccf06def40d7a937910ea40b'
+          mkdir -p .qa-native-build-cache/android
+          gh run download 40616456450 -R "$GITHUB_REPOSITORY" -n commercial-qa-android-app -D .qa-native-build-cache/android
+          (cd .qa-native-build-cache/android && shasum -a 256 -c native.sha256)
+          test -s .qa-native-build-cache/android/app-release.apk
+          echo 'PASS: prior Android APK matches exact app source fingerprint and saved binary checksum'
+      - name: Compile Android only when no identical APK is cached
+        if: matrix.platform == 'android' && steps.native-build-cache.outputs.cache-hit != 'true' && steps.prior-android-artifact.outcome != 'success'
+        shell: bash
+        run: |
+          set -euo pipefail
+          sdkmanager --install 'platforms;android-36' 'build-tools;36.0.0' || true
+          NODE_ENV=production npx expo prebuild --platform android --clean --non-interactive
+          # Android 9+ release packages block plain HTTP even to 10.0.2.2.
+          # Only this disposable Android QA APK may reach LOCAL emulators.
+          # Change neither app.json nor production network policy.
+          node scripts/native-qa-android-network.cjs
+          cd android
+          chmod +x gradlew
+          NODE_ENV=production ./gradlew --no-daemon --max-workers=2 --console=plain :app:assembleRelease
+          test -s app/build/outputs/apk/release/app-release.apk
+          # Preserve the expensive, freshly compiled APK BEFORE ANY postbuild
+          # verification command. If aapt2/lint/automation fails, evidence
+          # still survives in a checksum-verified GitHub artifact.
+          mkdir -p ../.qa-native-build-cache/android
+          cp app/build/outputs/apk/release/app-release.apk ../.qa-native-build-cache/android/app-release.apk
+          (cd ../.qa-native-build-cache/android && shasum -a 256 app-release.apk > native.sha256)
+      - name: Verify Android app bytes before installation
+        if: matrix.platform == 'android'
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd .qa-native-build-cache/android
+          test -s app-release.apk
+          shasum -a 256 -c native.sha256
+      - name: Save Android binary across QA-only test revisions
+        if: matrix.platform == 'android' && steps.native-build-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: .qa-native-build-cache/android
+          key: qa-native-release-v1-${{ runner.os }}-${{ matrix.platform }}-${{ steps.native-fingerprint.outputs.digest }}
+      - name: Preserve the exact Android APK independently of test results
+        if: ${{ always() && matrix.platform == 'android' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: commercial-qa-android-app
+          path: .qa-native-build-cache/android/
+          retention-days: 14
+          if-no-files-found: warn
+      - name: Verify actual compiled Android manifest and resource symbols
+        if: matrix.platform == 'android'
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK='.qa-native-build-cache/android/app-release.apk'
+          test -s "$APK"
+          AAPT="$ANDROID_HOME/build-tools/36.0.0/aapt2"
+          test -x "$AAPT"
+          # Official Android AAPT2 requires --file for xmltree. Do not
+          # interpret Gradle success as a passed postbuild manifest check.
+          "$AAPT" dump xmltree "$APK" --file AndroidManifest.xml > "$RUNNER_TEMP/qa-compiled-manifest.txt"
+          "$AAPT" dump resources "$APK" > "$RUNNER_TEMP/qa-compiled-resources.txt"
+          grep -F 'networkSecurityConfig' "$RUNNER_TEMP/qa-compiled-manifest.txt" >/dev/null
+          grep -F 'american_rider_qa_network_security_config' "$RUNNER_TEMP/qa-compiled-resources.txt" >/dev/null
+      - name: Enable KVM for actual Android
+        if: matrix.platform == 'android'
+        shell: bash
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Execute native Android Traveler and Operator paid journeys
+        if: matrix.platform == 'android'
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          emulator-options: -no-window -no-audio -no-snapshot -no-boot-anim -gpu swiftshader_indirect
+          disable-animations: true
+          script: bash scripts/native-commercial-android-runner.sh
+      - name: Boot iPhone simulator and install cached or newly compiled app
+        if: matrix.platform == 'ios'
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/native-commercial-ios .qa-native-build-cache/ios
+          SIM="$(xcrun simctl list -j devices available | python3 -c 'import json,sys;d=json.load(sys.stdin)["devices"];print(next(z["udid"] for a in d.values() for z in a if z.get("isAvailable") and "iPhone" in z["name"]))')"
+          echo "SIM_OPERATOR=$SIM" >> "$GITHUB_ENV"
+          xcrun simctl boot "$SIM" || true
+          xcrun simctl bootstatus "$SIM" -b
+          xcrun simctl location "$SIM" set 25.7617,-80.1918
+          # Check the restored iOS artifact *before* deciding to spend on Xcode.
+          # Fail closed if the archive exists but its own SHA is wrong.
+          if [[ -s .qa-native-build-cache/ios/AmericanRider.app.tgz ]]; then
+            (cd .qa-native-build-cache/ios && shasum -a 256 -c native.sha256)
+            echo 'Using proven iOS QA binary instead of recompiling unchanged source'
+          else
+            NODE_ENV=production npx expo prebuild --clean --platform ios --non-interactive
+            NODE_ENV=production xcodebuild -workspace ios/AmericanRider.xcworkspace -scheme AmericanRider -configuration Release -destination "id=$SIM" -derivedDataPath "$RUNNER_TEMP/QARelease" CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO build > artifacts/native-commercial-ios/xcode.log 2>&1 || { tail -120 artifacts/native-commercial-ios/xcode.log; exit 1; }
+            APP="$RUNNER_TEMP/QARelease/Build/Products/Release-iphonesimulator/AmericanRider.app"
+            test -d "$APP"
+            tar -czf .qa-native-build-cache/ios/AmericanRider.app.tgz -C "$(dirname "$APP")" AmericanRider.app
+            (cd .qa-native-build-cache/ios && shasum -a 256 AmericanRider.app.tgz > native.sha256)
+          fi
+          cd .qa-native-build-cache/ios
+          test -s AmericanRider.app.tgz
+          shasum -a 256 -c native.sha256
+          mkdir -p "$RUNNER_TEMP/qa-cached-ios"
+          tar -xzf AmericanRider.app.tgz -C "$RUNNER_TEMP/qa-cached-ios"
+          test -d "$RUNNER_TEMP/qa-cached-ios/AmericanRider.app"
+          # The previous failure was a one-shot network banner on real iOS.
+          # Verify the ACTUAL compiled binary: QA loopback URL, QA Firebase
+          # identity, and narrowly scoped Apple local-network ATS permission.
+          # Never infer the embedded runtime configuration from runner ENV.
+          python3 - "$RUNNER_TEMP/qa-cached-ios/AmericanRider.app" <<'PY'
+          import pathlib,plistlib,sys
+          app=pathlib.Path(sys.argv[1])
+          info=plistlib.loads((app/'Info.plist').read_bytes())
+          assert info.get('NSAppTransportSecurity',{}).get('NSAllowsLocalNetworking') is True, 'iOS local networking not permitted'
+          data=(app/'main.jsbundle').read_bytes()
+          for expected in (b'http://127.0.0.1:4242',b'demo-american-rider-qa',b'native-qa-local-only'):
+              assert expected in data, 'Native simulator bundle missing isolated local QA configuration'
+          print('PASS: compiled QA iPhone bundle targets local API + Firebase and permits local networking')
+          PY
+          xcrun simctl install "$SIM" "$RUNNER_TEMP/qa-cached-ios/AmericanRider.app"
+          # The archive check above changes directories to the binary cache.
+          # Restore the repository root before the Maestro smoke/log paths.
+          cd "$GITHUB_WORKSPACE"
+          mkdir -p artifacts/native-commercial-ios
+          echo 'PASS: cached iOS app installed on first iPhone; full login checkpoint is next'
+      - name: Save iOS simulator app across QA-only test revisions
+        if: matrix.platform == 'ios' && steps.native-build-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: .qa-native-build-cache/ios
+          key: qa-native-release-v1-${{ runner.os }}-${{ matrix.platform }}-${{ steps.native-fingerprint.outputs.digest }}
+      - name: Preserve exact iOS simulator app independently of test results
+        if: matrix.platform == 'ios'
+        uses: actions/upload-artifact@v4
+        with:
+          name: commercial-qa-ios-simulator-app
+          path: .qa-native-build-cache/ios/
+          retention-days: 14
+          if-no-files-found: error
+      - name: Verify real Operator sign-in and In Service on one iPhone
+        if: matrix.platform == 'ios'
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$SIM_OPERATOR"
+          test -d "$RUNNER_TEMP/qa-cached-ios/AmericanRider.app"
+          mkdir -p artifacts/native-commercial-ios
+          # One reliable checkpoint, not two separate cold XCTest sessions.
+          # Validate REAL Operator sign-in + Commence Operations while only one
+          # simulator is booted. The prior smoke passed, but the next separate
+          # Maestro driver died when both expensive iOS simulators were running.
+          # The generated flow still uses actual native controls, real local
+          # Firebase sign-in, and the server's unchanged eligibility checks.
+          node scripts/native-qa-ios-prepare-role-flows.cjs
+          node backend/native-commercial-qa-refresh-presence.cjs
+          echo 'QA_IOS_STAGE=single_iphone_operator_login_and_on_duty'
+          python3 - "$SIM_OPERATOR" <<'PY'
+          import os,sys,pathlib,subprocess,signal,glob,shutil
+          sim=sys.argv[1]
+          out=pathlib.Path('artifacts/native-commercial-ios/operator-start.log')
+          flow='.maestro/generated/qa-commercial-ios-operator-start.yml'
+          with out.open('w') as f:
+              proc=subprocess.Popen(['maestro','--device',sim,'test',flow],
+                                    stdout=f,stderr=subprocess.STDOUT,start_new_session=True)
+              try: rc=proc.wait(timeout=1050)
+              except subprocess.TimeoutExpired:
+                  os.killpg(proc.pid,signal.SIGTERM)
+                  try: proc.wait(timeout=8)
+                  except subprocess.TimeoutExpired: os.killpg(proc.pid,signal.SIGKILL)
+                  rc=124
+          if rc:
+              print('QA_IOS_OPERATOR_LOGIN_CHECKPOINT_FAILED',rc,flush=True)
+              print('\n'.join(out.read_text(errors='replace').splitlines()[-50:]),flush=True)
+              dest=pathlib.Path('artifacts/native-commercial-ios/driver-evidence-operator-login')
+              dest.mkdir(parents=True,exist_ok=True)
+              roots=glob.glob(os.path.expanduser('~/.maestro/tests/*/'))
+              if roots:
+                  latest=max(roots,key=os.path.getmtime)
+                  for source in glob.glob(os.path.join(latest,'maestro.log'))+glob.glob(os.path.join(latest,'xctest_runner_*.log')):
+                      shutil.copy2(source,dest/pathlib.Path(source).name)
+              subprocess.run(['xcrun','simctl','io',sim,'screenshot',
+                              'artifacts/native-commercial-ios/operator-login-failed.png'],
+                              check=False,timeout=30)
+              sys.exit(rc)
+          pathlib.Path('artifacts/native-commercial-ios/operator-signin-verified.udid').write_text(sim+'\n')
+          print('PASS: real Operator signed in and commenced operations on isolated first iPhone',flush=True)
+          PY
+      - name: Boot Traveler only after verified Operator sign-in checkpoint
+        if: matrix.platform == 'ios'
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s artifacts/native-commercial-ios/operator-signin-verified.udid
+          test "$(cat artifacts/native-commercial-ios/operator-signin-verified.udid)" = "$SIM_OPERATOR"
+          # Only AFTER Operator login is independently verified do we allocate the
+          # Traveler simulator. Both receive the same checksum-verified .app.
+          SIM_TRAVELER="$(xcrun simctl list -j devices available | python3 -c 'import json,sys;d=json.load(sys.stdin)["devices"];a=next(v for v in d.values() if any(x["udid"]==sys.argv[1] for x in v));print(next(x["udid"] for x in a if x["udid"]!=sys.argv[1] and x.get("isAvailable") and "iPhone" in x["name"]))' "$SIM_OPERATOR")"
+          test -n "$SIM_TRAVELER" && test "$SIM_TRAVELER" != "$SIM_OPERATOR"
+          echo "SIM_DEVICE=$SIM_TRAVELER" >> "$GITHUB_ENV"
+          xcrun simctl boot "$SIM_TRAVELER"
+          xcrun simctl bootstatus "$SIM_TRAVELER" -b
+          xcrun simctl location "$SIM_TRAVELER" set 25.7617,-80.1918
+          xcrun simctl install "$SIM_TRAVELER" "$RUNNER_TEMP/qa-cached-ios/AmericanRider.app"
+          echo 'PASS: Operator login checkpoint succeeded, two independent iPhones installed with identical SHA-verified app'
+      - name: Execute concurrent real iPhone Traveler and Operator paid journeys
+        if: matrix.platform == 'ios'
+        shell: bash
+        run: |
+          set -euo pipefail
+          if ! bash scripts/native-commercial-ios-dual-runner.sh; then
+            echo 'QA_NATIVE_IOS_FAILED: stage-scoped logs and screenshots retained; no commercial certification'
+            xcrun simctl io "$SIM_DEVICE" screenshot artifacts/native-commercial-ios/failure-traveler.png || true
+            xcrun simctl io "$SIM_OPERATOR" screenshot artifacts/native-commercial-ios/failure-operator.png || true
+            mkdir -p artifacts/native-commercial-ios/maestro-debug
+            cp -R "$HOME/.maestro/tests/." artifacts/native-commercial-ios/maestro-debug/ 2>/dev/null || true
+            exit 1
+          fi
+      - name: Preserve platform evidence even when full journey fails
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: native-commercial-${{ matrix.platform }}-evidence
+          path: |
+            artifacts/native-commercial-*/
+          if-no-files-found: warn
+          retention-days: 14
+      - name: Explain non-certification boundary
+        if: always()
+        run: |
+          echo 'Native end-to-end passes ONLY if Traveler+Operator on-device workflows AND the same local Firestore Travel/actual Stripe TEST transfer reconciliation all succeed.' >> "$GITHUB_STEP_SUMMARY"
+          echo 'No fake live Operator, legal commercial insurance, real payout bank arrival, App Store review, signed device entitlement, or Recruiter bank funding is asserted.' >> "$GITHUB_STEP_SUMMARY"
