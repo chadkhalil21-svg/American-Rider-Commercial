@@ -35,17 +35,14 @@ assert.equal(originalStart.split(postSignInNegative).length-1,1,
 const operatorDeepLink='- openLink: "americanrider:///operator"\n';
 const realOperatorNavigation=
   '- extendedWaitUntil:\n    visible:\n      id: "traveler-menu-open"\n    timeout: 90000\n'+
-  // The Oct 29 screenshot proved the menu was CLOSED despite Maestro
-  // reporting the preceding tap as COMPLETED. Verify the drawer itself, not
-  // just that Maestro could tap its hamburger. Retry opening only when the
-  // actual account-details header is missing. No booking or payment is rerun.
-  '- tapOn:\n    id: "traveler-menu-open"\n'+
+  // Actual XCTest hierarchy from run 40869940850 proves the commissioned
+  // switch is a visible accessibility node with this exact stable ID.
+  // "Account Details" is not an exact iOS node: accessibility merges it with
+  // the Operator name and chevron, so an exact-text wait always fails.
+  // Test the real user-facing destination, not incidental drawer copy.
+  '- tapOn:\n    id: "traveler-menu-open"\n    retryTapIfNoChange: true\n'+
   '- waitForAnimationToEnd:\n    timeout: 5000\n'+
-  '- runFlow:\n    when:\n      notVisible: "Account Details"\n    commands:\n      - tapOn:\n          id: "traveler-menu-open"\n'+
-  '- extendedWaitUntil:\n    visible: "Account Details"\n    timeout: 15000\n'+
-  // The role row follows four account rows and can be below a smaller
-  // simulator viewport. Scroll the actual drawer instead of waiting 60s.
-  '- scrollUntilVisible:\n    element:\n      id: "traveler-switch-to-operator"\n    direction: DOWN\n    timeout: 45000\n'+
+  '- extendedWaitUntil:\n    visible:\n      id: "traveler-switch-to-operator"\n    timeout: 20000\n'+
   '- tapOn:\n    id: "traveler-switch-to-operator"\n    retryTapIfNoChange: true\n'+
   '- extendedWaitUntil:\n    visible:\n      id: "operator-commence-operations"\n    timeout: 60000\n';
 assert.equal(originalStart.split(operatorDeepLink).length-1,1,
@@ -54,9 +51,8 @@ const start=originalStart.replace(postSignInNegative,'')
   .replace(operatorDeepLink,realOperatorNavigation)+
   '- extendedWaitUntil:\n    visible: "In Service"\n    timeout: 60000\n';
 assert.ok(start.includes('traveler-switch-to-operator')&&
-  start.includes('notVisible: "Account Details"') &&
-  start.includes('visible: "Account Details"') &&
-  start.includes('scrollUntilVisible:') &&
+  !start.includes('Account Details') &&
+  !start.includes('scrollUntilVisible:') &&
   start.includes('retryTapIfNoChange: true')&&
   start.includes('waitForAnimationToEnd:')&&
   !start.includes(operatorDeepLink)&&
