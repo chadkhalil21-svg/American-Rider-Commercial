@@ -561,7 +561,10 @@ app.get('/health', async (req, res) => {
     // NO PROVIDER MEANS NOBODY CAN BE COMMISSIONED. Every operator sits at
     // `awaiting_provider`, which is deliberately not a pass and not dispatchable — so an
     // empty fleet would otherwise look like nobody had applied.
+    // Legacy screening field describes independently certified CRA handoff, not intake availability.
     screening: screeningReady() ? 'on' : 'off',
+    screeningIntake: adminStatus().ok ? 'on' : 'off',
+    screeningExternalEvidence: screeningReady() ? 'verified' : 'pending_independent_verification',
     // Reading an operator's licence, registration, inspection and insurance. `off` means every
     // document falls to 'review' — never to 'accept'.
     documents: documentsReady() ? 'on' : 'off',
