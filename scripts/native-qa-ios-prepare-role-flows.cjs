@@ -16,7 +16,7 @@ assert.ok(ai>120 && ti>ai && fi>ti && original.indexOf(accept,ai+1)<0 &&
 const next=original.indexOf('- extendedWaitUntil:',ti+tap.length);
 assert.ok(next>ti && next<fi,'Offer must precede arrival controls');
 const start=original.slice(0,ai)+
-  '- extendedWaitUntil:\\n    visible: "In Service"\\n    timeout: 60000\\n';
+  '- extendedWaitUntil:\n    visible: "In Service"\n    timeout: 60000\n';
 let offer=header+original.slice(ai,next);
 offer=offer.replace('    timeout: 90000','    timeout: 600000');
 const board=header+original.slice(next,fi);
