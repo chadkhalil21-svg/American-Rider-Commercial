@@ -97,6 +97,15 @@ jobs:
           assert.ok(ios.includes("driver-evidence-'+label") && ios.includes("failure.png") &&
             !ios.includes('safe_before_auth_retry'),
             'All iOS stage failures must preserve screenshot and logs without whole-journey retry');
+          assert.ok(ios.includes('QA_IOS_FLOW_HEARTBEAT') &&
+            ios.includes("'--test-output-dir='+str(test_dir)") &&
+            ios.includes("'--debug-output='+str(debug_dir)") &&
+            ios.includes("'--format','junit','--output',str(junit)") &&
+            ios.includes("maestro-test-'+label") && ios.includes("maestro-debug-'+label"),
+            'Concurrent real iPhones need distinct Maestro artifacts, JUnit report and live heartbeats');
+          assert.ok(w.includes('operator-start.junit.xml') &&
+            w.includes('maestro-debug-operator-start'),
+            'First iPhone sign-in needs its own JUnit and debug diagnostics');
           assert.ok(role.includes('waitForAnimationToEnd:') && role.includes('traveler-switch-to-operator'),
             'Wait for actual native Operator drawer before asserting its role switch');
           const buildStages=[
@@ -569,8 +578,20 @@ jobs:
           sim=sys.argv[1]
           out=pathlib.Path('artifacts/native-commercial-ios/operator-start.log')
           flow='.maestro/generated/qa-commercial-ios-operator-start.yml'
+          # Preserve first-device sign-in diagnostics separately from later
+          # two-iPhone paid-journey traces, as Maestro's CI docs recommend.
+          test_dir=pathlib.Path('artifacts/native-commercial-ios/maestro-test-operator-start')
+          debug_dir=pathlib.Path('artifacts/native-commercial-ios/maestro-debug-operator-start')
+          test_dir.mkdir(parents=True,exist_ok=True)
+          debug_dir.mkdir(parents=True,exist_ok=True)
+          cmd=['maestro','--device',sim,'test',
+               '--test-output-dir='+str(test_dir),
+               '--debug-output='+str(debug_dir),
+               '--format','junit',
+               '--output','artifacts/native-commercial-ios/operator-start.junit.xml',
+               flow]
           with out.open('w') as f:
-              proc=subprocess.Popen(['maestro','--device',sim,'test',flow],
+              proc=subprocess.Popen(cmd,
                                     stdout=f,stderr=subprocess.STDOUT,start_new_session=True)
               try: rc=proc.wait(timeout=1050)
               except subprocess.TimeoutExpired:
