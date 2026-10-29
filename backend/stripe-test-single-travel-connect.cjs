@@ -24,14 +24,24 @@ let intent,transfer,recipient,refund;
     insist(capability?.id&&capability?.charges_enabled!==undefined,'Test platform identity unavailable');
     log.gates.connectPlatformIdVerified=true;
     note('Test platform identity','PASS');
-    // A disposable, UNVERIFIED Express account used solely for a sandbox
-    // transfer. Never count this as a verified Recruiter or real Operator.
-    recipient=await stripe.accounts.create({type:'express',country:'US',
-      capabilities:{transfers:{requested:true}},
-      metadata:{ar_qa_only:'true',ar_qa_travel:travel}});
-    // Stripe Account objects do not reliably expose a livemode field.\n    // The already-authenticated TEST balance is the mode authority; verify\n    // the returned and retrieved account identity and our disposable marker.\n    const accountProof=await stripe.accounts.retrieve(recipient.id);\n    insist(recipient?.id?.startsWith('acct_')&&accountProof.id===recipient.id&&\n      accountProof.metadata?.ar_qa_only==='true'&&\n      accountProof.metadata?.ar_qa_travel===travel,\n      'Sandbox Express recipient identity or QA marker not retrievable');
+    // Only a TEST recipient already enabled by Stripe may receive transfers.
+    // Newly created Express accounts are NOT activated by an API create call;
+    // their TEST onboarding requires the Stripe-hosted account flow. Do not
+    // fabricate KYC or start a payment before checking recipient capability.
+    const accounts=await stripe.accounts.list({limit:100});
+    const candidates=(accounts.data||[]).filter(a=>
+      a.id?.startsWith('acct_')&&a.capabilities?.transfers==='active'&&
+      a.type==='express');
+    log.gates.testExpressAccountsChecked=(accounts.data||[]).length;
+    log.gates.testExpressTransferCapable=candidates.length;
+    insist(candidates.length>0,
+      'No TEST Express recipient with active transfers capability; complete sandbox hosted onboarding first. No new charges created.');
+    recipient=await stripe.accounts.retrieve(candidates[0].id);
+    insist(recipient.id===candidates[0].id&&recipient.capabilities?.transfers==='active',
+      'Test recipient cannot be verified as transfer capable');
     log.provider.sandboxRecipient=recipient.id;
-    note('Disposable unverified TEST Connect recipient','PASS');
+    log.gates.recipientHasActiveTransfers=true;
+    note('Existing TEST Express recipient with active transfers capability','PASS');
     // Create a real provider TEST authorization under one immutable synthetic
     // Travel identity. This is not an actual Firebase booking.
     intent=await stripe.paymentIntents.create({
