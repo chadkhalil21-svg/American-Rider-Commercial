@@ -29,14 +29,46 @@ trap cleanup EXIT
 run_maestro(){
   local label="$1" device="$2" flow="$3" limit="$4"
   python3 - "$label" "$device" "$flow" "$limit" <<'PY'
-import os,sys,subprocess,signal,pathlib
+import os,sys,subprocess,signal,pathlib,time
 label,device,flow,limit=sys.argv[1:]; limit=int(limit)
-out=pathlib.Path('artifacts/native-commercial-ios/'+label+'.log')
+base=pathlib.Path('artifacts/native-commercial-ios')
+out=base/(label+'.log')
+# Official Maestro CI convention: isolate every flow's screenshots, debug
+# output and JUnit report. Two concurrent iPhones must never overwrite files.
+test_dir=base/('maestro-test-'+label)
+debug_dir=base/('maestro-debug-'+label)
+junit=base/(label+'.junit.xml')
+test_dir.mkdir(parents=True,exist_ok=True)
+debug_dir.mkdir(parents=True,exist_ok=True)
+args=['maestro','--device',device,'test',
+      '--test-output-dir='+str(test_dir),
+      '--debug-output='+str(debug_dir),
+      '--format','junit','--output',str(junit),flow]
+began=time.monotonic()
+last_bytes=-1
+stale_seconds=0
+print('QA_IOS_FLOW_STARTED',label,'device='+device,'limit='+str(limit),flush=True)
 with out.open('w') as f:
-    p=subprocess.Popen(['maestro','--device',device,'test',flow],
-                       stdout=f,stderr=subprocess.STDOUT,start_new_session=True)
-    try: return_code=p.wait(timeout=limit)
-    except subprocess.TimeoutExpired:
+    p=subprocess.Popen(args,stdout=f,stderr=subprocess.STDOUT,start_new_session=True)
+    while True:
+        remaining=limit-(time.monotonic()-began)
+        if remaining<=0:
+            return_code=124
+            break
+        try:
+            return_code=p.wait(timeout=min(60,remaining))
+            break
+        except subprocess.TimeoutExpired:
+            # Report only volume of output, never passwords, test cards or
+            # personally identifiable data from accessibility debug logs.
+            size=out.stat().st_size if out.exists() else 0
+            stale_seconds=stale_seconds+60 if size==last_bytes else 0
+            last_bytes=size
+            print('QA_IOS_FLOW_HEARTBEAT',label,
+                  'elapsed_seconds='+str(int(time.monotonic()-began)),
+                  'log_bytes='+str(size),
+                  'no_log_growth_seconds='+str(stale_seconds),flush=True)
+    if return_code==124 and p.poll() is None:
         os.killpg(p.pid,signal.SIGTERM)
         try: p.wait(timeout=8)
         except subprocess.TimeoutExpired: os.killpg(p.pid,signal.SIGKILL)
