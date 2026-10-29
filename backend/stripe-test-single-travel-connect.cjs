@@ -29,7 +29,7 @@ let intent,transfer,recipient,refund;
     recipient=await stripe.accounts.create({type:'express',country:'US',
       capabilities:{transfers:{requested:true}},
       metadata:{ar_qa_only:'true',ar_qa_travel:travel}});
-    insist(recipient?.livemode===false&&recipient.id?.startsWith('acct_'),'Test recipient did not verify sandbox identity');
+    // Stripe Account objects do not reliably expose a livemode field.\n    // The already-authenticated TEST balance is the mode authority; verify\n    // the returned and retrieved account identity and our disposable marker.\n    const accountProof=await stripe.accounts.retrieve(recipient.id);\n    insist(recipient?.id?.startsWith('acct_')&&accountProof.id===recipient.id&&\n      accountProof.metadata?.ar_qa_only==='true'&&\n      accountProof.metadata?.ar_qa_travel===travel,\n      'Sandbox Express recipient identity or QA marker not retrievable');
     log.provider.sandboxRecipient=recipient.id;
     note('Disposable unverified TEST Connect recipient','PASS');
     // Create a real provider TEST authorization under one immutable synthetic
@@ -93,12 +93,7 @@ let intent,transfer,recipient,refund;
        summary:String(e.message||'').slice(0,160)});
     process.exitCode=1;
   }finally{
-    if(intent?.id){
-      try{
-        const state=await stripe.paymentIntents.retrieve(intent.id);
-        if(state.status==='requires_capture')await stripe.paymentIntents.cancel(intent.id);
-      }catch{}
-    }
+    // Failing a later step must not strand TEST transfer balances or a\n    // captured TEST payment. Independently verify cleanup and label failures.\n    if(transfer?.id){\n      try{const t=await stripe.transfers.retrieve(transfer.id);\n        if(Number(t.amount_reversed||0)<t.amount){\n          const remain=t.amount-Number(t.amount_reversed||0);\n          await stripe.transfers.createReversal(t.id,{amount:remain},\n            {idempotencyKey:'ar_qa_cleanup_reverse_'+id});\n          note('Provider TEST transfer cleanup reversal','PASS');\n        }\n      }catch(e){note('Provider TEST transfer cleanup reversal','FAIL',{errorCode:String(e.code||'unknown')});process.exitCode=1;}\n    }\n    if(intent?.id){\n      try{const state=await stripe.paymentIntents.retrieve(intent.id);\n        if(state.status==='requires_capture')await stripe.paymentIntents.cancel(intent.id);\n        if(state.status==='succeeded'&&!refund){\n          refund=await stripe.refunds.create({payment_intent:intent.id,amount:state.amount_received,\n            reason:'requested_by_customer'},\n            {idempotencyKey:'ar_qa_cleanup_refund_'+id});\n          note('Provider TEST captured-payment cleanup refund','PASS',{providerStatus:refund.status});\n        }\n      }catch(e){note('Provider TEST captured-payment cleanup','FAIL',{errorCode:String(e.code||'unknown')});process.exitCode=1;}\n    }
     // Never hide a failure to reverse a sandbox transfer as a successful
     // cleanup. Objects are explicitly retained for authenticated inspection.
     dump();
