@@ -66,10 +66,14 @@ if return_code:
 print('PASS: native iPhone stage',label,flush=True)
 PY
 }
-echo 'QA_IOS_STAGE=operator_login_and_on_duty'
-# The first native stage initializes XCTest from a cold macOS/Xcode runner.
-# Allow the full driver budget plus actual UI time; not a blank 4-minute kill.
-run_maestro operator-start "$SIM_OPERATOR" .maestro/generated/qa-commercial-ios-operator-start.yml 1050
+# The Operator signed in, commenced real operations and passed Maestro on
+# ONE iPhone BEFORE the Traveler simulator was booted. This marker is written
+# only after a real successful on-device flow in the preceding GitHub step.
+# Never repeat login or fake its success from local Firebase fixture data.
+CHECKPOINT='artifacts/native-commercial-ios/operator-signin-verified.udid'
+test -s "$CHECKPOINT" || { echo 'QA_IOS_OPERATOR_LOGIN_CHECKPOINT_MISSING'; exit 1; }
+test "$(cat "$CHECKPOINT")" = "$SIM_OPERATOR" || { echo 'QA_IOS_OPERATOR_DEVICE_MISMATCH'; exit 1; }
+echo 'QA_IOS_STAGE=operator_login_and_on_duty_verified'
 echo 'QA_IOS_STAGE=two_device_offer_and_traveler_payment'
 run_maestro operator-offer "$SIM_OPERATOR" .maestro/generated/qa-commercial-ios-operator-offer.yml 1500 &
 OFFER_PID=$!
