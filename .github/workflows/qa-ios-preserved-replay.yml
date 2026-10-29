@@ -170,6 +170,15 @@ jobs:
           done
           curl --fail --silent http://127.0.0.1:4242/health >/dev/null || { tail -50 "$RUNNER_TEMP/local-commercial-api.log"; exit 1; }
           node scripts/native-commercial-env-preflight.cjs
+          # The app tests /live (not /health) at its first launch. Verify that
+          # exact route before booting an expensive iPhone simulator.
+          node - <<'NODE'
+          const assert=require('node:assert/strict');
+          fetch('http://127.0.0.1:4242/live',{signal:AbortSignal.timeout(5000)})
+            .then(async r=>{assert.equal(r.status,200);assert.equal((await r.json()).ok,true);
+              console.log('PASS: local API /live responds correctly for native app');})
+            .catch(e=>{console.error('QA_LOCAL_LIVE_FAILED',e.message);process.exitCode=1});
+          NODE
       - name: Install Maestro real-screen interaction runner
         shell: bash
         run: |
@@ -219,7 +228,8 @@ jobs:
             'scripts/native-qa-ios-confirm-accepted.cjs',
             'scripts/native-qa-ios-prepare-role-flows.cjs',
             'scripts/native-qa-operator-destination.cjs',
-            'scripts/native-build-fingerprint.cjs'
+            'scripts/native-build-fingerprint.cjs',
+            'scripts/prepare-native-maestro-stable-ids.cjs'
           ]);
           const changed=(d.files||[]).map(x=>x.filename);
           assert.ok(changed.includes('scripts/native-qa-ios-prepare-role-flows.cjs'),
@@ -358,6 +368,20 @@ jobs:
           mkdir -p "$RUNNER_TEMP/qa-cached-ios"
           tar -xzf AmericanRider.app.tgz -C "$RUNNER_TEMP/qa-cached-ios"
           test -d "$RUNNER_TEMP/qa-cached-ios/AmericanRider.app"
+          # The previous failure was a one-shot network banner on real iOS.
+          # Verify the ACTUAL compiled binary: QA loopback URL, QA Firebase
+          # identity, and narrowly scoped Apple local-network ATS permission.
+          # Never infer the embedded runtime configuration from runner ENV.
+          python3 - "$RUNNER_TEMP/qa-cached-ios/AmericanRider.app" <<'PY'
+          import pathlib,plistlib,sys
+          app=pathlib.Path(sys.argv[1])
+          info=plistlib.loads((app/'Info.plist').read_bytes())
+          assert info.get('NSAppTransportSecurity',{}).get('NSAllowsLocalNetworking') is True, 'iOS local networking not permitted'
+          data=(app/'main.jsbundle').read_bytes()
+          for expected in (b'http://127.0.0.1:4242',b'demo-american-rider-qa',b'native-qa-local-only'):
+              assert expected in data, 'Native simulator bundle missing isolated local QA configuration'
+          print('PASS: compiled QA iPhone bundle targets local API + Firebase and permits local networking')
+          PY
           xcrun simctl install "$SIM" "$RUNNER_TEMP/qa-cached-ios/AmericanRider.app"
           # The archive check above changes directories to the binary cache.
           # Restore the repository root before the Maestro smoke/log paths.
