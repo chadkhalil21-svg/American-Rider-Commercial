@@ -59,7 +59,7 @@ jobs:
         run: |
           node backend/referral-link-recovery-contract.test.js
           node backend/recruiter-crosschannel-source.test.js
-          node backend/recruiter-qr-source.test.js
+          node backend/recruiter-native-share-reporting.test.js
       - name: Check public HTTPS referral pages, domain association and QR library
         run: node scripts/qa-public-invitation-endpoints.cjs
       - name: Save public endpoint evidence
