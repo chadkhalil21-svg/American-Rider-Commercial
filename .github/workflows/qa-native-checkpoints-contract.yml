@@ -45,9 +45,12 @@ jobs:
           assert.ok(workflow.includes('if: always()') &&
             workflow.includes('scripts/native-qa-stage-ledger.cjs report'),
             'Missing failure-safe acceptance summary');
-          assert.ok(android.includes('safe_before_auth_retry') &&
-            android.includes('QA_ANDROID_REPLAY_BLOCKED='),
-            'Android launcher retry may replay a paid or authenticated journey');
+          assert.ok(android.includes('QA_ANDROID_REPLAY_BLOCKED=flow_already_started') &&
+            android.includes('QA_ANDROID_FAILURE_CLASS=os_pixel_launcher_anr') &&
+            android.includes('QA_ANDROID_FAILURE_CLASS=emulator_transport_dropped') &&
+            !android.includes('safe_before_auth_retry') &&
+            (android.match(/maestro test/g)||[]).length===1,
+            'Never replay any Android native flow after sign-in or payment-capable automation begins');
           assert.ok(workflow.includes('cancel-in-progress: false'),
             'Never cancel in-progress expensive iOS acceptance builds');
           console.log('PASS: eight proof-linked stages with separate Operator, Travel and settlement milestones');
