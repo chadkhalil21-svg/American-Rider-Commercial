@@ -94,6 +94,8 @@ jobs:
         run: node scripts/native-qa-android-network.test.cjs
       - name: Prove one body scroll and fixed fare footer plus stable user-action IDs
         run: node scripts/verify-native-accessibility-contract.cjs
+      - name: Verify evidence-bound stage ledger definitions before device allocation
+        run: node scripts/native-qa-stage-ledger.cjs selftest
 
   paid-native-journey:
     needs: [isolated-commercial-safety]
@@ -228,11 +230,14 @@ jobs:
               console.log('PASS: local API /live responds correctly for native app');})
             .catch(e=>{console.error('QA_LOCAL_LIVE_FAILED',e.message);process.exitCode=1});
           NODE
+      - name: Record isolated fixture + server + Stripe TEST precondition
+        run: node scripts/native-qa-stage-ledger.cjs pass isolated-fixtures
       - name: Prove actual signed-in QA Operator status BEFORE simulator build
         shell: bash
         run: |
           set -euo pipefail
           node backend/native-commercial-qa-auth-preflight.cjs
+          node scripts/native-qa-stage-ledger.cjs pass authenticated-operator-eligibility
       - name: Install Maestro real-screen interaction runner
         shell: bash
         run: |
@@ -449,6 +454,7 @@ jobs:
           cd "$GITHUB_WORKSPACE"
           mkdir -p artifacts/native-commercial-ios
           echo 'PASS: cached iOS app installed on first iPhone; full login checkpoint is next'
+          node scripts/native-qa-stage-ledger.cjs pass native-app-installed
       - name: Save iOS simulator app across QA-only test revisions
         if: matrix.platform == 'ios' && steps.native-build-cache.outputs.cache-hit != 'true'
         uses: actions/cache/save@v4
@@ -511,6 +517,7 @@ jobs:
           pathlib.Path('artifacts/native-commercial-ios/operator-signin-verified.udid').write_text(sim+'\n')
           print('PASS: real Operator signed in and commenced operations on isolated first iPhone',flush=True)
           PY
+          node scripts/native-qa-stage-ledger.cjs pass operator-in-service
       - name: Boot Traveler only after verified Operator sign-in checkpoint
         if: matrix.platform == 'ios'
         shell: bash
@@ -528,6 +535,7 @@ jobs:
           xcrun simctl location "$SIM_TRAVELER" set 25.7617,-80.1918
           xcrun simctl install "$SIM_TRAVELER" "$RUNNER_TEMP/qa-cached-ios/AmericanRider.app"
           echo 'PASS: Operator login checkpoint succeeded, two independent iPhones installed with identical SHA-verified app'
+          node scripts/native-qa-stage-ledger.cjs pass traveler-device-installed
       - name: Execute concurrent real iPhone Traveler and Operator paid journeys
         if: matrix.platform == 'ios'
         shell: bash
@@ -541,6 +549,9 @@ jobs:
             cp -R "$HOME/.maestro/tests/." artifacts/native-commercial-ios/maestro-debug/ 2>/dev/null || true
             exit 1
           fi
+      - name: Report independent native acceptance milestones, including blocked stages
+        if: always()
+        run: node scripts/native-qa-stage-ledger.cjs report
       - name: Preserve platform evidence even when full journey fails
         if: always()
         uses: actions/upload-artifact@v4
