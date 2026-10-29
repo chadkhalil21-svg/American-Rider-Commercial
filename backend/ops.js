@@ -15,6 +15,8 @@
 const crypto = require('crypto');
 const { page, T } = require('./shell');
 const { adminDb, adminStatus } = require('./firebase-admin');
+const {getAuth}=require('firebase-admin/auth');
+const {allowedFounderUids,founderTokenAllowed}=require('./founder-readonly-access');
 const { readKey } = require('./env');
 const { owns: r2Owns, readUrl: r2ReadUrl } = require('./r2');
 const { loadPrivateReviewDocument } = require('./operator-document-review');
@@ -109,6 +111,17 @@ if (isProduction()) {
   if (issues.length) console.warn('[operations] Sign-in blocked: ' + issues.join('; '));
 }
 const shared = () => !readKey('OPS_USERS') && configured();
+// Authenticated Firebase Google identity can sign in as ONE specifically permitted
+// named Founder. This is opt-in and never grants admin power to all Google users.
+function googleFounderAccount(){
+ if(readKey('AR_FOUNDER_GOOGLE_OPS_ENABLED')!=='1')return null;
+ const ids=allowedFounderUids();
+ const names=String(readKey('AR_RECRUITER_FOUNDER_USERS')||'')
+   .split(',').map(x=>x.trim()).filter(Boolean);
+ if(ids.length!==1||names.length!==1||!configured())return null;
+ const accounts=opsAccounts().filter(x=>x.name===names[0]);
+ return accounts.length===1?accounts[0]:null;
+}
 
 /** For /health: how /ops is signed in to. */
 function opsAuthMode() {
@@ -180,6 +193,9 @@ const ago = (ms) => {
   return h < 24 ? `${h}h ago` : `${Math.round(h / 24)}d ago`;
 };
 
+const GOOGLE_LOGIN = `<section><h2>Founder Google sign-in</h2>
+<p>Use your approved Google account to manage American Rider.</p>
+<p><a class="cta" href="/ops/google">Continue with Google</a></p></section>`;
 const LOGIN = `
 <h1>Operations</h1>
 <p class="lede">Sign in to continue.</p>
@@ -196,7 +212,7 @@ const LOGIN = `
       font-size:16px;background:#fff;color:${T.ink};box-sizing:border-box;margin-top:10px;">
     <button type="submit" class="cta" style="border:0;cursor:pointer;">Sign in</button>
   </form>
-  <p style="margin:20px 0 0;font-size:14px"><a href="https://americanrider.tech/founder/" rel="noopener">For read-only company figures, sign in with Google.</a></p>
+  <p style="margin:20px 0 0;font-size:14px"><a href="https://americanrider.tech/founder/" rel="noopener">Read-only Founder overview</a></p>
 </section>`;
 
 /** A stat line: a quiet label and a value, the app's own row idiom. */
@@ -528,6 +544,71 @@ function mount(app, express, deps = {}) {
   const dbOf = deps.db || adminDb;
   const liveMoney = deps.liveMoney || (() => false);
   const checks = deps.checks || (async () => ({ account: { disabled: null }, payouts: { enabled: false } }));
+  // Sign-in requires Google/Firebase ID-token verification and an exact Founder UID
+  // allowlist. This route does not accept a claimed email, UID or provider from JSON.
+  app.get('/ops/google',(req,res)=>{
+    res.set('Cache-Control','no-store');
+    if(!googleFounderAccount())return res.status(503).type('html').send(page('Founder Google sign-in',
+      '<h1>Founder Google sign-in is not yet enabled</h1><p>Configure the single approved Founder Google account and release flag first.</p>'));
+    const html=`<h1>American Rider Founder</h1>
+<section><p>Use your authorized Google account.</p>
+<button type="button" class="cta" id="google-ops">Continue with Google</button>
+<p id="google-status" role="status"></p></section>
+<script type="module">
+import {initializeApp} from 'https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js';
+import {getAuth,GoogleAuthProvider,signInWithPopup} from 'https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js';
+const app=initializeApp({apiKey:'AIzaSyAQMJ1ikGvhrmCZY9D0OjM6EM2r2m0V4OY',authDomain:'american-rider-35688.firebaseapp.com',projectId:'american-rider-35688',appId:'1:623854974930:web:d73e4dec7949c3756efa0b'});
+const auth=getAuth(app),button=document.getElementById('google-ops'),
+  message=document.getElementById('google-status');
+button.addEventListener('click',async()=>{
+ button.disabled=true;message.textContent='Opening Google…';
+ try{
+   const provider=new GoogleAuthProvider();provider.setCustomParameters({prompt:'select_account'});
+   const result=await signInWithPopup(auth,provider);
+   const token=await result.user.getIdToken();
+   const response=await fetch('/ops/google/session',{method:'POST',credentials:'same-origin',
+    headers:{'Content-Type':'application/json','X-AR-Founder-Google':'1'},
+    body:JSON.stringify({idToken:token}),cache:'no-store',referrerPolicy:'no-referrer'});
+   if(!response.ok)throw new Error('not_authorized');
+   location.replace('/ops');
+ }catch(err){
+   const code=String(err?.code||'');
+   message.textContent=code==='auth/unauthorized-domain'
+    ? 'This service address must be authorized for Google sign-in in Firebase.'
+    : code==='auth/popup-blocked'
+    ? 'Open this page directly in Safari and permit the Google sign-in window.'
+    : 'Sign-in did not complete. Check that this is your authorized Founder Google account.';
+   button.disabled=false;
+ }
+});
+</script>`;
+    res.type('html').send(page('Founder Google sign-in',html));
+  });
+  app.post('/ops/google/session',deps.googleLoginLimit||((_req,_res,next)=>next()),async(req,res)=>{
+    res.set('Cache-Control','private, no-store');
+    const acct=googleFounderAccount();
+    if(!acct)return res.status(503).json({ok:false,code:'founder_google_not_configured'});
+    const origin='https://american-rider-api-production-623854974930.us-east1.run.app';
+    if(req.get('origin')!==origin||req.get('x-ar-founder-google')!=='1'||
+       !/^application\/json(?:;|$)/.test(String(req.get('content-type')||'')))
+       return res.status(403).json({ok:false,code:'invalid_sign_in_origin'});
+    const token=req.body?.idToken;
+    if(typeof token!=='string'||token.length<60||token.length>4096||
+       !/^[A-Za-z0-9._-]+$/.test(token))
+       return res.status(401).json({ok:false,code:'google_sign_in_required'});
+    let decoded;
+    try{decoded=await getAuth().verifyIdToken(token,true);}
+    catch{return res.status(401).json({ok:false,code:'google_sign_in_required'});}
+    if(!founderTokenAllowed(decoded,allowedFounderUids())||
+       decoded.firebase?.sign_in_provider!=='google.com'||
+       Math.floor(Date.now()/1000)-Number(decoded.auth_time)>15*60)
+      return res.status(403).json({ok:false,code:'founder_google_not_authorized'});
+    // Issue the *existing*, audited, named Ops session. No duplicate /ops rights
+    // or temporary API key, no raw Firebase token persisted anywhere.
+    res.setHeader('Set-Cookie',
+      `${COOKIE}=${encodeURIComponent(sessionFor(acct,readKey('OPS_SESSION_SECRET')))}; HttpOnly; SameSite=Strict; Path=/; Max-Age=43200; Secure`);
+    return res.json({ok:true,mode:'google_verified_founder'});
+  });
 
   // Deliberately on-demand: broad national count aggregations must NOT run
   // on every booking, every operational exception refresh or health probe.
@@ -559,7 +640,7 @@ function mount(app, express, deps = {}) {
           .some((part) => part.trim().startsWith(`${COOKIE}=`));
         console.info(`[operations] Sign-in page rendered: session_cookie=${cookiePresent ? 'present_invalid' : 'absent'}`);
       }
-      return res.type('html').send(page('Operations', LOGIN));
+      return res.type('html').send(page('Operations', (googleFounderAccount()?GOOGLE_LOGIN:'')+LOGIN));
     }
     try {
       res.type('html').send(page('Operations', await board()));
