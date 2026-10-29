@@ -15,12 +15,14 @@ assert.ok(ai>120 && ti>ai && fi>ti && original.indexOf(accept,ai+1)<0 &&
   'Refuse ambiguous Operator journey split');
 const next=original.indexOf('- extendedWaitUntil:',ti+tap.length);
 assert.ok(next>ti && next<fi,'Offer must precede arrival controls');
-const start=original.slice(0,ai);
+const start=original.slice(0,ai)+
+  '- extendedWaitUntil:\\n    visible: "In Service"\\n    timeout: 60000\\n';
 let offer=header+original.slice(ai,next);
 offer=offer.replace('    timeout: 90000','    timeout: 600000');
 const board=header+original.slice(next,fi);
 const complete=header+original.slice(fi);
-assert.ok(start.includes('operator-commence-operations')&&!start.includes('operator-accept-traveler'));
+assert.ok(start.includes('operator-commence-operations')&&start.includes('In Service')&&
+  !start.includes('operator-accept-traveler'));
 assert.ok(offer.includes('operator-accept-traveler')&&!offer.includes('operator-confirm-arrival'));
 assert.ok(board.includes('operator-confirm-arrival')&&board.includes('operator-commence-travel')&&!board.includes('operator-complete-operation'));
 assert.ok(complete.includes('operator-complete-operation')&&complete.includes('Operation Complete'));
