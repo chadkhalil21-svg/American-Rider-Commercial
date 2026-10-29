@@ -74,7 +74,7 @@ jobs:
           const fs=require('node:fs'),assert=require('node:assert/strict');
           const w=fs.readFileSync('.github/workflows/qa-ios-preserved-replay.yml','utf8');
           assert.ok(w.includes('cancel-in-progress: false'), 'QA iOS rerun may cancel valuable active build');
-          assert.ok(w.includes('queue: max'), 'GitHub default single-pending behavior would cancel older queued native tests');
+          assert.ok(w.includes('queue: single') && w.includes('cancel-in-progress: false'), 'Retain running native build but supersede redundant pending QA revisions');
           assert.ok(w.includes('always() && matrix.platform =='), 'Missing always-on iOS binary evidence');
           assert.ok(w.includes('-resultBundlePath artifacts/native-commercial-ios/xcode-build.xcresult'), 'Xcode result bundle not retained');
           assert.ok(w.includes('QA_IOS_BUILD_HEARTBEAT=compiling') && w.includes('QA_IOS_SIMULATOR_BOOT_TIMEOUT=600s'), 'Missing stage diagnostics');
@@ -130,12 +130,12 @@ jobs:
     # iOS behind Android or vice versa.
     concurrency:
       group: isolated-ios-saved-app-393-${{ matrix.platform }}
-      # Keep all pending native runs rather than cancelling and replacing
-      # earlier queued work. GitHub's default queue: single silently replaces
-      # pending runs EVEN with cancel-in-progress set false (May 2026 update).
-      # Preserve active expensive native builds and process QA runs in order.
+      # Commercial QA replays supersede unstarted QA revisions, not a
+      # production deployment or an active expensive native build. GitHub's
+      # queue: single retains only the newest pending run for this QA group.
+      # Preserve any in-progress compile and its reusable SHA-verified binary.
       cancel-in-progress: false
-      queue: max
+      queue: single
     strategy:
       fail-fast: false
       matrix:
