@@ -36,6 +36,9 @@ const operatorDeepLink='- openLink: "americanrider:///operator"\n';
 const realOperatorNavigation=
   '- extendedWaitUntil:\n    visible:\n      id: "traveler-menu-open"\n    timeout: 90000\n'+
   '- tapOn:\n    id: "traveler-menu-open"\n    retryTapIfNoChange: true\n'+
+  // The iOS native drawer may still be animating when its row first appears.
+  // Maestro recommends waiting for stability, then checking the target ID.
+  '- waitForAnimationToEnd:\n    timeout: 5000\n'+
   '- extendedWaitUntil:\n    visible:\n      id: "traveler-switch-to-operator"\n    timeout: 60000\n'+
   '- tapOn:\n    id: "traveler-switch-to-operator"\n    retryTapIfNoChange: true\n'+
   '- extendedWaitUntil:\n    visible:\n      id: "operator-commence-operations"\n    timeout: 60000\n';
@@ -46,6 +49,7 @@ const start=originalStart.replace(postSignInNegative,'')
   '- extendedWaitUntil:\n    visible: "In Service"\n    timeout: 60000\n';
 assert.ok(start.includes('traveler-switch-to-operator')&&
   start.includes('retryTapIfNoChange: true')&&
+  start.includes('waitForAnimationToEnd:')&&
   !start.includes(operatorDeepLink)&&
   !start.includes(postSignInNegative), 'Require actual in-app Operator navigation');
 let offer=header+original.slice(ai,next);
