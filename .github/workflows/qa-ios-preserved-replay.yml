@@ -78,6 +78,10 @@ jobs:
           assert.ok(w.includes('always() && matrix.platform =='), 'Missing always-on iOS binary evidence');
           assert.ok(w.includes('-resultBundlePath artifacts/native-commercial-ios/xcode-build.xcresult'), 'Xcode result bundle not retained');
           assert.ok(w.includes('QA_IOS_BUILD_HEARTBEAT=compiling') && w.includes('QA_IOS_SIMULATOR_BOOT_TIMEOUT=600s'), 'Missing stage diagnostics');
+          assert.ok(w.includes('QA_IOS_BUILD_STALLED=no_log_growth_900s') &&
+            w.includes('unchanged_seconds=$UNCHANGED_SECS') &&
+            w.includes('LOG_BYTES="$(wc -c < artifacts/native-commercial-ios/xcode.log'),
+            'Heartbeat must distinguish an active Xcode log from a hung compiler');
           assert.ok(w.includes('if-no-files-found: warn'), 'Missing artifact must not hide initial failure');
           assert.ok(w.includes('legacy_digest=$(node scripts/native-build-fingerprint.cjs --legacy-qa-script-digest)') &&
             w.includes('steps.native-fingerprint.outputs.legacy_digest'),
@@ -447,11 +451,30 @@ jobs:
               # Abort an unresponsive compile before the 155-minute whole-job
               # limit consumes the opportunity to preserve its diagnostic log.
               BUILD_BEGAN=$SECONDS
+              LAST_LOG_BYTES=-1
+              UNCHANGED_SECS=0
               while kill -0 "$BUILD_PID" 2>/dev/null; do
                 sleep 60
                 if kill -0 "$BUILD_PID" 2>/dev/null; then
-                  echo "QA_IOS_BUILD_HEARTBEAT=compiling elapsed_seconds=$((SECONDS - BUILD_BEGAN))"
+                  # A PID alone is not proof of progress. Watch actual log byte
+                  # growth; do not report the same stale output as a live build.
+                  LOG_BYTES="$(wc -c < artifacts/native-commercial-ios/xcode.log | tr -d ' ')"
+                  if [[ "$LOG_BYTES" == "$LAST_LOG_BYTES" ]]; then
+                    UNCHANGED_SECS=$((UNCHANGED_SECS + 60))
+                  else
+                    LAST_LOG_BYTES="$LOG_BYTES"
+                    UNCHANGED_SECS=0
+                  fi
+                  echo "QA_IOS_BUILD_HEARTBEAT=compiling elapsed_seconds=$((SECONDS - BUILD_BEGAN)) log_bytes=$LOG_BYTES unchanged_seconds=$UNCHANGED_SECS"
                   tail -n 2 artifacts/native-commercial-ios/xcode.log | cut -c 1-200
+                  # If the compiler stops emitting any output for 15 minutes,
+                  # fail visibly and keep the Xcode log/result bundle. Avoid
+                  # occupying the macOS runner until its whole-job timeout.
+                  if (( UNCHANGED_SECS >= 900 )); then
+                    echo 'QA_IOS_BUILD_STALLED=no_log_growth_900s'
+                    kill -TERM "$BUILD_PID" 2>/dev/null || true
+                    break
+                  fi
                   if (( SECONDS - BUILD_BEGAN >= 4500 )); then
                     echo 'QA_IOS_BUILD_TIMEOUT=4500s'
                     kill -TERM "$BUILD_PID" 2>/dev/null || true
