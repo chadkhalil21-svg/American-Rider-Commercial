@@ -23,9 +23,6 @@ async function run() {
   assert.equal(MAX_VIEW_BYTES, 15 * 1024 * 1024, 'multi-page policies fit the private review limit');
   const mobile = fs.readFileSync(require.resolve('../src/backend/documentUpload.ts'), 'utf8');
   assert.match(mobile, /const MAX_UPLOAD_BYTES = 15 \* 1024 \* 1024/, 'mobile must accept the same 15 MiB bound');
-  const largerPdf = Buffer.concat([pdf, Buffer.alloc(6 * 1024 * 1024, 32)]);
-  assert.equal((await loadPrivateReviewDocument({ ...options, fetcher: async () => res(largerPdf, 'application/pdf') })).status, 200,
-    'valid scanned PDF above old 5 MiB limit must remain inspectable');
   assert.equal(viewContentType(Buffer.from('<html>x</html>')), null);
 
   let signed = 0;
@@ -48,6 +45,9 @@ async function run() {
     },
   };
   const success = await loadPrivateReviewDocument(options);
+  const largerPdf = Buffer.concat([pdf, Buffer.alloc(6 * 1024 * 1024, 32)]);
+  assert.equal((await loadPrivateReviewDocument({ ...options, fetcher: async () => res(largerPdf, 'application/pdf') })).status, 200,
+    'valid scanned PDF above old 5 MiB limit must remain inspectable');
   assert.equal(success.status, 200);
   assert.equal(success.contentType, 'image/png');
   assert.deepEqual(success.body, png);
