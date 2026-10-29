@@ -60,6 +60,21 @@ with out.open('w') as f:
             print('QA_IOS_DRIVER_DIAGNOSIS',marker.read_text().replace('\n',';'),flush=True)
         return_code=124
 if return_code:
+    # Capture every failed Maestro phase, not just XCUITest timeouts.
+    # A failed payment/dispatch stage must NOT relaunch the whole journey.
+    import glob,shutil
+    evidence=pathlib.Path('artifacts/native-commercial-ios/driver-evidence-'+label)
+    evidence.mkdir(parents=True,exist_ok=True)
+    roots=glob.glob(os.path.expanduser('~/.maestro/tests/*/'))
+    if roots:
+        latest=max(roots,key=os.path.getmtime)
+        for filename in glob.glob(os.path.join(latest,'maestro.log'))+glob.glob(os.path.join(latest,'xctest_runner_*.log')):
+            shutil.copy2(filename,evidence/pathlib.Path(filename).name)
+    try:
+        subprocess.run(['xcrun','simctl','io',device,'screenshot',str(evidence/'failure.png')],
+                       check=False,timeout=30,capture_output=True)
+    except (subprocess.TimeoutExpired,OSError):
+        print('QA_IOS_FAILURE_SCREENSHOT_UNAVAILABLE',label,flush=True)
     print('QA_IOS_STAGE_FAILED',label,'exit',return_code,flush=True)
     print('\n'.join(out.read_text(errors='replace').splitlines()[-45:]),flush=True)
     sys.exit(return_code)
