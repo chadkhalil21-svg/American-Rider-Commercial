@@ -39,6 +39,9 @@ function pass(stage){
   assert.ok(KNOWN.has(stage),'Unknown native QA checkpoint: '+stage);
   const f=file(),v=read(f);
   assert.ok(!v.passed[stage],'Duplicate evidence checkpoint: '+stage);
+  const current=STAGES.findIndex(([id])=>id===stage);
+  const prerequisite=STAGES.slice(0,current).find(([id])=>!v.passed[id]);
+  assert.ok(!prerequisite,'Checkpoint out of order; missing '+(prerequisite?.[0]||''));
   v.passed[stage]={at:new Date().toISOString()};
   fs.mkdirSync(path.dirname(f),{recursive:true});
   fs.writeFileSync(f+'.tmp',JSON.stringify(v,null,2)+'\n');
@@ -46,7 +49,9 @@ function pass(stage){
   console.log('QA_NATIVE_CHECKPOINT_PASS='+stage);
 }
 function report(){
-  const v=read(file());
+  const f=file(),v=read(f);
+  fs.mkdirSync(path.dirname(f),{recursive:true});
+  if(!fs.existsSync(f))fs.writeFileSync(f,JSON.stringify(v,null,2)+'\n');
   const count=STAGES.filter(([id])=>!!v.passed[id]).length;
   const certified=count===STAGES.length;
   const lines=[
