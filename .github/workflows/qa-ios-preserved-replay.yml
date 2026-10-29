@@ -79,6 +79,9 @@ jobs:
           assert.ok(w.includes('-resultBundlePath artifacts/native-commercial-ios/xcode-build.xcresult'), 'Xcode result bundle not retained');
           assert.ok(w.includes('QA_IOS_BUILD_HEARTBEAT=compiling') && w.includes('QA_IOS_SIMULATOR_BOOT_TIMEOUT=600s'), 'Missing stage diagnostics');
           assert.ok(w.includes('if-no-files-found: warn'), 'Missing artifact must not hide initial failure');
+          assert.ok(w.includes('legacy_digest=$(node scripts/native-build-fingerprint.cjs --legacy-qa-script-digest)') &&
+            w.includes('steps.native-fingerprint.outputs.legacy_digest'),
+            'Existing checksum-verified binaries must remain restorable across QA-only digest narrowing');
           const android=fs.readFileSync('scripts/native-commercial-android-runner.sh','utf8');
           const ios=fs.readFileSync('scripts/native-commercial-ios-dual-runner.sh','utf8');
           const role=fs.readFileSync('scripts/native-qa-ios-prepare-role-flows.cjs','utf8');
@@ -286,12 +289,18 @@ jobs:
         run: |
           set -euo pipefail
           echo "digest=$(node scripts/native-build-fingerprint.cjs)" >> "$GITHUB_OUTPUT"
+          echo "legacy_digest=$(node scripts/native-build-fingerprint.cjs --legacy-qa-script-digest)" >> "$GITHUB_OUTPUT"
       - name: Restore precompiled unsigned QA app (never a production release)
         id: native-build-cache
         uses: actions/cache/restore@v4
         with:
           path: .qa-native-build-cache/${{ matrix.platform }}
           key: qa-native-release-v1-${{ runner.os }}-${{ matrix.platform }}-${{ steps.native-fingerprint.outputs.digest }}
+          # The legacy key differs only in hashing Node-only QA scripts. Using a
+          # legacy hit is safe: it still hashes every actual runtime source and
+          # the app archive is independently SHA-verified before installation.
+          restore-keys: |
+            qa-native-release-v1-${{ runner.os }}-${{ matrix.platform }}-${{ steps.native-fingerprint.outputs.legacy_digest }}
       # Native source changes require a new fingerprint-bound QA build.
       # QA-script-only changes restore the same checksummed app from Actions cache;
       # never import an old binary if its source fingerprint differs.
