@@ -528,7 +528,8 @@ ${alarms.length
     ${stat('Firestore', unreadable.length ? 'DEGRADED' : adminStatus().ok ? 'connected' : 'DOWN')}
     ${stat('Stripe webhook', webhookReady() ? 'configured' : 'NOT CONFIGURED')}
     ${stat('Email receipts', emailReady() ? 'configured' : 'NOT CONFIGURED')}
-    ${stat('Operator screening', screeningReady() ? 'configured' : 'NOT CONFIGURED')}
+    ${stat('Operator screening intake', adminStatus().ok ? 'available' : 'service unavailable')}
+    ${stat('External screening handoff', screeningReady() ? 'verified' : 'not yet independently verified')}
     ${stat('Optional incident/support analysis', readKey('ANTHROPIC_API_KEY') ? 'configured' : 'off')}
   </div>
   <a class="more" href="/health">Full health report ›</a>
