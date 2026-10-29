@@ -33,7 +33,6 @@
 const { createHash } = require('node:crypto');
 const { distanceMiles, matchOperator, coverageLapsed } = require('./matching');
 const { nearbyOperatorCandidates } = require('./geooperators');
-const { screeningReady } = require('./screening');
 const { assessOperator } = require('./qualification');
 const { connectAccountStatus, verifiedTravelPayment } = require('./payments');
 const { assignPaidTravel, paymentMatches } = require('./booking');
@@ -776,7 +775,7 @@ async function sweepAssignments({ now = Date.now(), checkMarket } = {}) {
     let next = null;
     let candidates = [...fleet];
     while (candidates.length) {
-      const candidate = matchOperator(candidates, from, ride.travelClass || 'Standard', { requireScreening: screeningReady() });
+      const candidate = matchOperator(candidates, from, ride.travelClass || 'Standard', { requireScreening: true });
       if (!candidate) break;
       try {
         const uid = String(candidate.operator.id);
@@ -831,7 +830,7 @@ async function sweepAssignments({ now = Date.now(), checkMarket } = {}) {
       });
       if (!marked) continue;
       const result = await assignPaidTravel({ db, uid: ride.travelerUid, rideId: ride.id,
-        payment, candidate: next, now, requireScreening: screeningReady() });
+        payment, candidate: next, now, requireScreening: true });
       if (result.status === 200 && !result.body.reused) out.reoffered.push({ rideId: ride.id, to: next.operator.name });
       else if (result.status !== 200) out.stranded.push(ride.id);
     } catch {
