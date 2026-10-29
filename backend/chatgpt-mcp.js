@@ -7,7 +7,9 @@ const crypto = require('node:crypto');
 const { readKey } = require('./env');
 const { withinDeadline, OPS_MFA_DEADLINE_MS } = require('./opslatency');
 const {createFounderCommandServices}=require('./founder-command-services');
-const BASE = 'https://american-rider-api-production-623854974930.us-east1.run.app';
+const BASE = process.env.RENDER === 'true' ?
+  'https://american-rider-server-3d7x.onrender.com' :
+  'https://american-rider-api-production-623854974930.us-east1.run.app';
 const RESOURCE = BASE + '/mcp';
 const CLIENT = 'https://chatgpt.com/oauth/client.json';
 const REDIRECT = 'https://chatgpt.com/connector_platform_oauth_redirect';
