@@ -57,6 +57,14 @@ jobs:
           const end=wf.lastIndexOf('\n      - name: Execute concurrent real iPhone Traveler and Operator paid journeys\n');
           assert.ok(begin>0&&end>begin,'Missing exact Traveler setup boundaries');
           const boot=wf.slice(begin,end);
+          const bootOperator=wf.slice(wf.lastIndexOf('\n      - name: Boot isolated iPhone simulator (bounded, independent)\n'),begin);
+          assert.ok(bootOperator.includes('xcrun --sdk iphonesimulator --show-sdk-version')&&
+                    bootOperator.includes('SIM_RUNTIME')&&
+                    bootOperator.includes('d.get(r,[])')&&
+                    bootOperator.includes('test -n "$SIM"'),
+                    'Operator iPhone must be selected from exact Xcode SDK runtime, never global first');
+          assert.ok(boot.includes('operator_group=next(v for v in groups.values() if any(x[\'udid\']==operator for x in v))'),
+                    'Traveler must remain in same runtime as verified Operator');
           assert.ok(boot.includes('core-simulator-preflight')&&boot.includes('core-simulator-postboot'));
           assert.ok(boot.includes("'simctl', 'list', 'devices', 'available'"));
           assert.ok(boot.includes("'simctl', 'install', sim, app"));
