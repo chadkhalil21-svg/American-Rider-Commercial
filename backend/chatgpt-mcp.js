@@ -6,12 +6,15 @@
 const crypto = require('node:crypto');
 const { readKey } = require('./env');
 const { withinDeadline, OPS_MFA_DEADLINE_MS } = require('./opslatency');
-const BASE = 'https://american-rider-server-3d7x.onrender.com';
+const {createFounderCommandServices}=require('./founder-command-services');
+const BASE = process.env.RENDER === 'true' ?
+  'https://american-rider-server-3d7x.onrender.com' :
+  'https://american-rider-api-production-623854974930.us-east1.run.app';
 const RESOURCE = BASE + '/mcp';
 const CLIENT = 'https://chatgpt.com/oauth/client.json';
 const REDIRECT = 'https://chatgpt.com/connector_platform_oauth_redirect';
 const PENDING_COOKIE = 'ar_mcp_pending';
-const SCOPES = ['market:read', 'market:plan', 'market:activate', 'market:pause', 'recruiter:invite'];
+const SCOPES = ['market:read','market:plan','market:activate','market:pause','recruiter:invite','recruiter:read','recruiter:review','operator:read','operator:manage','cases:read','cases:act'];
 const CHALLENGE = /^[A-Za-z0-9_-]{43,128}$/;
 const hash = x => crypto.createHash('sha256').update(x).digest('hex');
 const b64 = x => Buffer.from(x).toString('base64url');
@@ -71,6 +74,37 @@ const TOOLS = [
   { name: 'pause_market', title: 'Request geographic closure', description: 'A county closure must be applied to the geographic service configuration. The retired county admission register cannot suspend service.',
     inputSchema: { type: 'object', properties: { marketId: { type: 'string' }, reason: { type: 'string', minLength: 8, maxLength: 500 }, confirmation: { type: 'string', description: 'Must exactly equal PAUSE followed by a space and the market ID.' } }, required: ['marketId', 'reason', 'confirmation'], additionalProperties: false },
     annotations: { readOnlyHint: false, destructiveHint: true }, scope: 'market:pause' },
+
+  {name:'recruiter_status',title:'Check an invited Recruiter',
+   description:'Check the real approval status of one invited Recruiter by verified email, without revealing bank details.',
+   inputSchema:{type:'object',properties:{email:{type:'string'}},required:['email'],additionalProperties:false},
+   annotations:{readOnlyHint:true},scope:'recruiter:read'},
+  {name:'recruiter_review',title:'Approve, suspend or reject a Recruiter',
+   description:'Make one audited Founder decision on a real invited Recruiter. This never attests bank/identity verification or releases commissions.',
+   inputSchema:{type:'object',properties:{uid:{type:'string'},decision:{type:'string',enum:['approve','suspend','reject']},
+     confirmation:{type:'string',description:'Exact DECISION UID in uppercase decision, e.g. APPROVE abc'}},
+     required:['uid','decision','confirmation'],additionalProperties:false},
+   annotations:{readOnlyHint:false,destructiveHint:true},scope:'recruiter:review'},
+  {name:'operator_status',title:'Inspect an Operator',
+   description:'Read one Operator account operational eligibility and suspension status by exact UID, not underlying consumer reports or personal details.',
+   inputSchema:{type:'object',properties:{uid:{type:'string'}},required:['uid'],additionalProperties:false},
+   annotations:{readOnlyHint:true},scope:'operator:read'},
+  {name:'operator_suspend',title:'Suspend or reinstate an Operator',
+   description:'Audited Founder suspension/reinstatement. Reinstatement does not grant qualification or put an Operator on duty.',
+   inputSchema:{type:'object',properties:{uid:{type:'string'},suspended:{type:'boolean'},note:{type:'string',minLength:12,maxLength:500},
+    confirmation:{type:'string',description:'Exact SUSPEND UID or REINSTATE UID'}},
+    required:['uid','suspended','note','confirmation'],additionalProperties:false},
+   annotations:{readOnlyHint:false,destructiveHint:true},scope:'operator:manage'},
+  {name:'operations_cases',title:'Inspect open Operations cases',
+   description:'Read bounded open emergency or support cases with their reference numbers, without exposing sensitive documents.',
+   inputSchema:{type:'object',properties:{kind:{type:'string',enum:['emergency','support']}},additionalProperties:false},
+   annotations:{readOnlyHint:true},scope:'cases:read'},
+  {name:'operations_case_action',title:'Acknowledge or close a case',
+   description:'Audited Founder case action. An acknowledged case can be closed only after a 12-character or longer rationale.',
+   inputSchema:{type:'object',properties:{caseNo:{type:'string'},action:{type:'string',enum:['acknowledge','close']},
+    note:{type:'string',minLength:12,maxLength:500},confirmation:{type:'string'}},
+    required:['caseNo','action','note','confirmation'],additionalProperties:false},
+   annotations:{readOnlyHint:false,destructiveHint:true},scope:'cases:act'},
   { name:'invite_recruiter',title:'Invite an independent recruiter',
     description:'Send one private invitation to the email expressly provided by the Founder. Requires named MFA, recruitment legal/web launch gates, and an authorized Founder account. The invitation does not approve banking, pay commissions or activate public recruiting.',
     inputSchema:{type:'object',properties:{
@@ -82,6 +116,8 @@ const TOOLS = [
   _meta: { securitySchemes: [{type:'oauth2',scopes:[t.scope]}]}}));
 function mount(app, express, deps) {
   const db = () => deps.db();
+  const founderServices=createFounderCommandServices(db);
+  const founderCanCommand=actor=>operational()&&founderServices.founderAuthorized(actor);
   // Return the authenticated account identity, not a boolean.
   // Consent must bind the real named Ops principal to its credential fingerprint.
   const named = req => deps.authMode() === 'named' ? deps.opsSignedIn(req) : null;
@@ -317,6 +353,34 @@ function mount(app, express, deps) {
                 marketIds:entries.map(m=>m.id)};
           }
         }
+      } else if (chosen.name === 'recruiter_status') {
+        if(!founderCanCommand(auth.actor))out={ok:false,code:'founder_authorization_required'};
+        else out=await founderServices.recruiterStatus({email:args.email});
+      } else if (chosen.name === 'recruiter_review') {
+        if(!founderCanCommand(auth.actor))out={ok:false,code:'founder_authorization_required'};
+        else if(args.confirmation!==String(args.decision||'').toUpperCase()+' '+String(args.uid||''))
+          out={ok:false,code:'explicit_confirmation_required'};
+        else out=await founderServices.reviewRecruiter({uid:args.uid,decision:args.decision,actor:auth.actor});
+      } else if (chosen.name === 'operator_status') {
+        if(!founderCanCommand(auth.actor))out={ok:false,code:'founder_authorization_required'};
+        else out=await founderServices.operatorStatus({uid:args.uid});
+      } else if (chosen.name === 'operator_suspend') {
+        if(!founderCanCommand(auth.actor))out={ok:false,code:'founder_authorization_required'};
+        else if(args.confirmation!==(args.suspended?'SUSPEND ':'REINSTATE ')+String(args.uid||'')||
+           String(args.note||'').trim().length<12)
+          out={ok:false,code:'explicit_confirmation_and_reason_required'};
+        else out=await founderServices.suspendOperator({uid:args.uid,suspended:args.suspended,
+          note:args.note,actor:auth.actor});
+      } else if (chosen.name === 'operations_cases') {
+        if(!founderCanCommand(auth.actor))out={ok:false,code:'founder_authorization_required'};
+        else out=await founderServices.operationsCases({kind:args.kind||'emergency'});
+      } else if (chosen.name === 'operations_case_action') {
+        if(!founderCanCommand(auth.actor))out={ok:false,code:'founder_authorization_required'};
+        else if(args.confirmation!==String(args.action||'').toUpperCase()+' '+String(args.caseNo||'')||
+           String(args.note||'').trim().length<12)
+          out={ok:false,code:'explicit_confirmation_and_reason_required'};
+        else out=await founderServices.operationsCaseAction({caseNo:args.caseNo,action:args.action,
+          note:args.note,actor:auth.actor});
       } else if (chosen.name === 'invite_recruiter') {
         // OAuth scopes alone do not give access to the Founder recruiter allowlist.
         // The identical live invitation gate is checked on every delegated call.

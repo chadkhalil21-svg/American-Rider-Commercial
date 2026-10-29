@@ -90,7 +90,20 @@ function request(method,path,{body={},query={},headers={}}={}){
  const metadata=await request('GET','/.well-known/oauth-authorization-server').run();
  assert.ok(metadata.body.code_challenge_methods_supported.includes('S256'));
  const tools=await request('POST','/mcp',{body:{jsonrpc:'2.0',id:1,method:'tools/list'}}).run();
- assert.equal(tools.body.result.tools.length,6);
+ assert.equal(tools.body.result.tools.length,12);
+ for(const [name,scope,readOnly] of [
+  ['recruiter_status','recruiter:read',true],
+  ['recruiter_review','recruiter:review',false],
+  ['operator_status','operator:read',true],
+  ['operator_suspend','operator:manage',false],
+  ['operations_cases','cases:read',true],
+  ['operations_case_action','cases:act',false],
+ ]) {
+  const found=tools.body.result.tools.find(x=>x.name===name);
+  assert.ok(found);
+  assert.equal(found.scope,scope);
+  assert.equal(found.annotations.readOnlyHint,readOnly);
+ }
  assert.equal(tools.body.result.tools.find(x=>x.name==='platform_overview').scope,'market:read');
  assert.equal(tools.body.result.tools.find(x=>x.name==='platform_overview').annotations.readOnlyHint,true);
  const unauthorized=await request('POST','/mcp',{body:{id:1,method:'tools/call',params:{name:'open_region',arguments:{regionId:'fl-southeast',confirmation:'OPEN fl-southeast'}}}}).run();
