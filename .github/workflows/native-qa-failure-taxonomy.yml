@@ -4,6 +4,8 @@ on:
     branches: [qa/native-journey-stage-ledger-20261029]
     paths:
       - 'scripts/native-qa-failure-classifier.cjs'
+      - 'scripts/native-qa-ios-prepare-role-flows.cjs'
+      - '.maestro/qa-commercial-operator.yml'
       - '.github/workflows/native-qa-failure-taxonomy.yml'
   workflow_dispatch:
 permissions:
@@ -21,6 +23,28 @@ jobs:
         run: node --check scripts/native-qa-failure-classifier.cjs
       - name: Prove old and current failures are distinguished
         run: node scripts/native-qa-failure-classifier.cjs --selftest
+      - name: Verify Step 31 preserves distinct input and role checkpoints
+        run: |
+          node --check scripts/native-qa-ios-prepare-role-flows.cjs
+          node - <<'NODE'
+          const assert=require('node:assert/strict');
+          const fs=require('node:fs');
+          const auth=fs.readFileSync('.maestro/qa-commercial-operator.yml','utf8');
+          const role=fs.readFileSync('scripts/native-qa-ios-prepare-role-flows.cjs','utf8');
+          const screenshot='qa-operator-email-before-final-assert';
+          assert.ok(auth.includes(screenshot));
+          assert.ok(auth.indexOf(screenshot)<auth.lastIndexOf('QA_OPERATOR_EMAIL_NOT_PRESENT_IN_EDITABLE_FIELD'));
+          assert.ok(auth.includes('condition: ${maestro.copiedText === "native.qa.operator@example.test"}'));
+          for(const screen of [
+             'qa-operator-authenticated-home',
+             'qa-operator-drawer-role-available',
+             'qa-operator-commence-control-visible',
+             'qa-operator-in-service-verified'
+          ]) assert.ok(role.includes(screen), 'Missing actual UI milestone: '+screen);
+          assert.ok(role.indexOf('qa-operator-drawer-role-available')<role.indexOf('qa-operator-commence-control-visible'));
+          assert.ok(role.indexOf('qa-operator-commence-control-visible')<role.indexOf('qa-operator-in-service-verified'));
+          console.log('PASS: native Step 31 preserves labeled stages and screenshot evidence without restart');
+          NODE
       - name: Refuse false commercial certification
         run: |
           node - <<'NODE'
