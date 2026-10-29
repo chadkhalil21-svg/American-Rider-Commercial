@@ -27,7 +27,6 @@
 // docs/SCHEDULED-TRAVEL.md.
 const { nearbyOperatorCandidates } = require('./geooperators');
 const { matchOperator, etaMinutes, coverageLapsed } = require('./matching');
-const { screeningReady } = require('./screening');
 const { adminDb, adminStatus } = require('./firebase-admin');
 const { chargeScheduledTravel, verifiedTravelPayment, quote, operatorPayoutAccount, connectAccountStatus } = require('./payments');
 const { bookingId, prepareBooking, assignPaidTravel } = require('./booking');
@@ -161,8 +160,8 @@ async function sweepScheduled({ now = Date.now(), checkMarket } = {}) {
       fleet,
       pickup,
       r.travelClass || 'Standard',
-      // The screening gate: once a provider is live, only operators with a recorded pass.
-      { requireScreening: screeningReady() },
+      // Always require a per-Operator recorded screening pass before paid dispatch.
+      { requireScreening: true },
     );
 
     if (!match) {
@@ -346,7 +345,7 @@ async function sweepScheduled({ now = Date.now(), checkMarket } = {}) {
       }
       const payment = await verifiedTravelPayment(paid.paymentIntentId);
       const assigned = await assignPaidTravel({ db, uid: r.travelerUid, rideId,
-        payment, candidate: match, now:Date.now(), requireScreening: screeningReady() });
+        payment, candidate: match, now:Date.now(), requireScreening: true });
       if (assigned.status !== 200 || !assigned.body.matched) {
         throw new Error(assigned.body.code || 'Paid Travel could not reserve Operator');
       }
