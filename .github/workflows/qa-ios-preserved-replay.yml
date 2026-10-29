@@ -46,20 +46,18 @@ jobs:
           const login=f.indexOf('id: "auth-primary-action"');
           const home=f.indexOf('id: "traveler-menu-open"');
           const menuTap=f.indexOf('- tapOn:\n    id: "traveler-menu-open"\n');
-          const drawerProbe=f.indexOf('notVisible: "Account Details"');
-          const drawerRecovery=f.indexOf('- runFlow:\n    when:\n      notVisible: "Account Details"');
-          const drawerVerified=f.indexOf('visible: "Account Details"');
-          const scrollToRole=f.indexOf('- scrollUntilVisible:\n    element:\n      id: "traveler-switch-to-operator"');
+          // Actual Oct 29 iOS hierarchy: Account Details is a combined label,
+          // but the commissioned Operator row has a stable resource-id.
+          const roleWait=f.indexOf('- extendedWaitUntil:\n    visible:\n      id: "traveler-switch-to-operator"\n    timeout: 20000');
           const menuRow=f.indexOf('id: "traveler-switch-to-operator"');
           const roleTap=f.indexOf('- tapOn:\n    id: "traveler-switch-to-operator"\n    retryTapIfNoChange: true');
           const commencement=f.indexOf('id: "operator-commence-operations"');
           const service=f.indexOf('visible: "In Service"');
           assert.ok(login>=0 && home>login && menuTap>home &&
-            drawerRecovery>menuTap && drawerProbe>=drawerRecovery &&
-            drawerVerified>drawerRecovery && scrollToRole>drawerVerified &&
-            menuRow>scrollToRole && roleTap>menuRow &&
-            commencement>roleTap && service>commencement,
-            'Require verified drawer opening, bounded navigation recovery, scroll to commissioned role, and actual In Service');
+            roleWait>menuTap && menuRow>=roleWait && roleTap>menuRow &&
+            commencement>roleTap && service>commencement &&
+            !f.includes('Account Details') && !f.includes('scrollUntilVisible:'),
+            'Require screenshot-verified commissioned-role ID, not combined iOS label, before real In Service');
           assert.ok(!f.includes('- openLink:') && !f.includes('Open in.*American.*'),
             'Never trigger Apple system deep-link dialog from the iOS Operator checkpoint');
           const source=fs.readFileSync('app/index.tsx','utf8');
