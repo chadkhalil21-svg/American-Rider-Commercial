@@ -6,6 +6,7 @@ on:
     paths:
       - '.github/workflows/qa-stripe-test-connect-and-links.yml'
       - 'backend/stripe-test-single-travel-connect.cjs'
+      - 'backend/stripe-test-express-onboarding-prep.cjs'
 
 permissions:
   contents: read
@@ -33,6 +34,8 @@ jobs:
             *) echo "::error::No TEST secret; no provider transactions"; exit 1 ;;
           esac
       - run: npm ci --prefix backend --omit=dev
+      - name: Prepare one Stripe TEST Express recipient without charges or fabricated identity
+        run: node backend/stripe-test-express-onboarding-prep.cjs
       - name: REAL Stripe TEST single-Travel authorization, capture, Connect transfer, reversal and refund
         run: node backend/stripe-test-single-travel-connect.cjs
       - name: Preserve provider identities and outcome without credentials
