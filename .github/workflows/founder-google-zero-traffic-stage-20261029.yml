@@ -44,7 +44,14 @@ jobs:
       - uses: google-github-actions/setup-gcloud@v2
       - name: Check live service and Founder prerequisites without exposing secret values
         shell: bash
+        env:
+          FOUNDER_UID: ${{ secrets.AR_FOUNDER_FIREBASE_UID }}
         run: |
+          set -euo pipefail
+          if [[ ! "${FOUNDER_UID:-}" =~ ^[A-Za-z0-9_-]{6,128}$ ]]; then
+            echo "::error::Approved Google Account Reference missing. Set the protected GitHub Actions secret AR_FOUNDER_FIREBASE_UID using the reference displayed after Google sign-in at americanrider.tech/founder/."
+            exit 1
+          fi
           set -euo pipefail
           gcloud run services describe american-rider-api-production --region=us-east1 --project=american-rider-35688 --format=json > /tmp/ar-service.json
           python3 - <<'PY'
@@ -54,7 +61,7 @@ jobs:
           if not env:
               env=s.get('template',{}).get('containers',[{}])[0].get('env',[])
           names={v.get('name') for v in env}
-          required={'OPS_USERS','OPS_SESSION_SECRET','OPS_MFA_SECRETS','AR_FOUNDER_FIREBASE_UIDS','AR_RECRUITER_FOUNDER_USERS'}
+          required={'OPS_USERS','OPS_SESSION_SECRET','OPS_MFA_SECRETS','AR_RECRUITER_FOUNDER_USERS'}
           missing=required-names
           if missing:
               print('BLOCKED: missing existing Founder identity/session bindings: '+','.join(sorted(missing)))
@@ -67,6 +74,8 @@ jobs:
           PY
       - name: Build exact release as a new Google Cloud revision with ZERO customer traffic
         shell: bash
+        env:
+          FOUNDER_UID: ${{ secrets.AR_FOUNDER_FIREBASE_UID }}
         run: |
           set -euo pipefail
           gcloud run deploy american-rider-api-production \
@@ -74,7 +83,7 @@ jobs:
             --region=us-east1 \
             --source=./backend \
             --no-traffic \
-            --update-env-vars="AR_FOUNDER_GOOGLE_OPS_ENABLED=1,AR_RELEASE_COMMIT=${GITHUB_SHA}" \
+            --update-env-vars="AR_FOUNDER_FIREBASE_UIDS=${FOUNDER_UID},AR_FOUNDER_GOOGLE_OPS_ENABLED=1,AR_RELEASE_COMMIT=${GITHUB_SHA}" \
             --quiet
       - name: Verify staged revision READY and still ZERO traffic, fail closed otherwise
         shell: bash
@@ -93,6 +102,11 @@ jobs:
               sys.exit(1)
           if any(t.get('revisionName')==created and int(t.get('percent') or 0)>0 for t in traffic):
               print('BLOCKED: newest revision unexpectedly received traffic')
+              sys.exit(1)
+          containers=s.get('spec',{}).get('template',{}).get('spec',{}).get('containers') or s.get('template',{}).get('containers') or [{}]
+          mapping={v.get('name'):v.get('value') for v in containers[0].get('env',[])}
+          if mapping.get('AR_FOUNDER_GOOGLE_OPS_ENABLED')!='1' or not mapping.get('AR_FOUNDER_FIREBASE_UIDS'):
+              print('BLOCKED: staged revision lacks Founder allowlist or Google flag')
               sys.exit(1)
           print('PASS: new verified Founder revision staged at 0% without customer cutover.')
           print('Staged revision:',created)
