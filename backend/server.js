@@ -186,7 +186,7 @@ const { provisionTeenPin, verifyTeenPin, teenPinReady, pinForRide } = require('.
 const adultPickup = require('./adultpickup');
 const { listPlatformMessages, markPlatformMessageRead } = require('./platforminbox');
 const { page } = require('./shell');
-const { screeningReady, screeningCurrent, sweepScreening } = require('./screening');
+const { screeningCurrent, sweepScreening } = require('./screening');
 const { screeningPreparationFor } = require('./screening-jurisdictions');
 const { runMarketReferenceSweep, firestoreReady: marketReferenceReady } = require('./market-reference-service');
 const { configuredCollectors: marketReferenceCollectors } = require('./market-evidence-collectors');
@@ -558,10 +558,10 @@ app.get('/health', async (req, res) => {
     tolls: readKey('HERE_API_KEY') ? 'on' : 'off',
     marketReference: marketReferenceReady() ? 'scheduler-on' : 'off',
     receipts: mailReady() ? 'on' : 'off',
-    // NO PROVIDER MEANS NOBODY CAN BE COMMISSIONED. Every operator sits at
-    // `awaiting_provider`, which is deliberately not a pass and not dispatchable — so an
-    // empty fleet would otherwise look like nobody had applied.
-    screening: screeningReady() ? 'on' : 'off',
+    // Screening intake is available independently of individual approvals.
+    // Actual paid eligibility continues to require an authentic current screening decision
+    // for every Operator. A missing report never qualifies anyone.
+    screening: adminStatus().ok ? 'on' : 'off',
     // Reading an operator's licence, registration, inspection and insurance. `off` means every
     // document falls to 'review' — never to 'accept'.
     documents: documentsReady() ? 'on' : 'off',
@@ -4016,7 +4016,7 @@ app.get('/operator/screening', requireAuth, async (req, res) => {
     res.json({
       ok: true,
       provider: 'external',
-      providerUrl: screeningReady() && /^https:\/\//i.test(String(readKey('SCREENING_PROVIDER_URL') || '')) ? readKey('SCREENING_PROVIDER_URL') : null,
+      providerUrl: /^https:\/\//i.test(String(readKey('SCREENING_PROVIDER_URL') || '')) ? readKey('SCREENING_PROVIDER_URL') : null,
       jurisdiction: market?.state ? { state: market.state } : null,
       screening: user.screening || null,
     });

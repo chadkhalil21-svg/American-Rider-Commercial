@@ -8,7 +8,6 @@
 // Other states must supply their own activated jurisdiction rule set before operation. Unknown
 // jurisdictions fail closed elsewhere in the qualification/market gates.
 
-const { readKey } = require('./env');
 const { adminDb } = require('./firebase-admin');
 const { fileTicket } = require('./tickets');
 
@@ -274,14 +273,6 @@ function screeningCurrent(screening, now = Date.now()) {
   return Number.isFinite(due) && due > now + SCREENING_ADVANCE_MARGIN_MS;
 }
 
-/** Screening is provider-neutral. A vendor URL is optional and never proof.
- * The release gate refers to the whole authenticated external-CRA evidence process,
- * including a demonstrated provider-to-Operations transfer, FCRA handling and an
- * approved end-to-end pilot. The owner must independently attest to that evidence;
- * a checkbox or environment flag is NOT the evidence itself.
- */
-const screeningReady = () => readKey('SCREENING_EVIDENCE_WORKFLOW_VERIFIED') === 'true';
-
 // How far ahead of the three-year deadline the operator is warned. Thirty days: enough to
 // pay and complete a new check without losing a single day on the road, short enough that
 // the warning still feels like it is about something.
@@ -400,7 +391,6 @@ module.exports = {
   REQUIRED_ELEMENTS,
   recordDecision, recordAdverseState,
   screeningCurrent,
-  screeningReady,
   sweepScreening,
   RECHECK_MS,
   RECHECK_WARN_MS,
