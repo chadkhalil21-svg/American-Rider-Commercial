@@ -387,37 +387,47 @@ jobs:
           # Restore the repository root before the Maestro smoke/log paths.
           cd "$GITHUB_WORKSPACE"
           mkdir -p artifacts/native-commercial-ios
-          # Prove the XCUITest driver can connect and control the REAL native app
-          # on ONE simulator before booting a second expensive iOS 26 runtime.
-          # No sign-in, booking, payment, or backend mutation occurs in this probe.
-          # This also produces separate infrastructure evidence if XCTest fails.
-          cat > "$RUNNER_TEMP/qa-xctest-smoke.yaml" <<'YAML'
-          appId: com.americanrider.app
-          ---
-          - launchApp
-          - assertVisible: "AMERICAN RIDER"
-          YAML
-          echo 'QA_IOS_DRIVER_SMOKE_START single-simulator'
-          python3 - "$SIM" "$RUNNER_TEMP/qa-xctest-smoke.yaml" <<'PY'
-          import os,sys,pathlib,subprocess,signal
-          sim,flow=sys.argv[1:]
-          out=pathlib.Path('artifacts/native-commercial-ios/xctest-driver-smoke.log')
+          # One reliable checkpoint, not two separate cold XCTest sessions.
+          # Validate REAL Operator sign-in + Commence Operations while only one
+          # simulator is booted. The prior smoke passed, but the next separate
+          # Maestro driver died when both expensive iOS simulators were running.
+          # The generated flow still uses actual native controls, real local
+          # Firebase sign-in, and the server's unchanged eligibility checks.
+          node scripts/native-qa-ios-prepare-role-flows.cjs
+          node backend/native-commercial-qa-refresh-presence.cjs
+          echo 'QA_IOS_STAGE=single_iphone_operator_login_and_on_duty'
+          python3 - "$SIM" <<'PY'
+          import os,sys,pathlib,subprocess,signal,glob,shutil
+          sim=sys.argv[1]
+          out=pathlib.Path('artifacts/native-commercial-ios/operator-start.log')
+          flow='.maestro/generated/qa-commercial-ios-operator-start.yml'
           with out.open('w') as f:
               proc=subprocess.Popen(['maestro','--device',sim,'test',flow],
                                     stdout=f,stderr=subprocess.STDOUT,start_new_session=True)
-              try: rc=proc.wait(timeout=900)
+              try: rc=proc.wait(timeout=1050)
               except subprocess.TimeoutExpired:
                   os.killpg(proc.pid,signal.SIGTERM)
                   try: proc.wait(timeout=8)
                   except subprocess.TimeoutExpired: os.killpg(proc.pid,signal.SIGKILL)
                   rc=124
           if rc:
-              print('QA_IOS_DRIVER_SMOKE_FAILED',rc,flush=True)
-              print('\n'.join(out.read_text(errors='replace').splitlines()[-65:]),flush=True)
+              print('QA_IOS_OPERATOR_LOGIN_CHECKPOINT_FAILED',rc,flush=True)
+              print('\n'.join(out.read_text(errors='replace').splitlines()[-50:]),flush=True)
+              dest=pathlib.Path('artifacts/native-commercial-ios/driver-evidence-operator-login')
+              dest.mkdir(parents=True,exist_ok=True)
+              roots=glob.glob(os.path.expanduser('~/.maestro/tests/*/'))
+              if roots:
+                  latest=max(roots,key=os.path.getmtime)
+                  for source in glob.glob(os.path.join(latest,'maestro.log'))+glob.glob(os.path.join(latest,'xctest_runner_*.log')):
+                      shutil.copy2(source,dest/pathlib.Path(source).name)
+              subprocess.run(['xcrun','simctl','io',sim,'screenshot',
+                              'artifacts/native-commercial-ios/operator-login-failed.png'],
+                              check=False,timeout=30)
               sys.exit(rc)
-          print('PASS: actual XCUITest driver controlled native American Rider sign-in screen on one iPhone',flush=True)
+          pathlib.Path('artifacts/native-commercial-ios/operator-signin-verified.udid').write_text(sim+'\n')
+          print('PASS: real Operator signed in and commenced operations on isolated first iPhone',flush=True)
           PY
-          # Only AFTER XCTest is independently verified do we allocate the
+          # Only AFTER Operator login is independently verified do we allocate the
           # Traveler simulator. Both receive the same checksum-verified .app.
           SIM_TRAVELER="$(xcrun simctl list -j devices available | python3 -c 'import json,sys;d=json.load(sys.stdin)["devices"];a=next(v for v in d.values() if any(x["udid"]==sys.argv[1] for x in v));print(next(x["udid"] for x in a if x["udid"]!=sys.argv[1] and x.get("isAvailable") and "iPhone" in x["name"]))' "$SIM")"
           test -n "$SIM_TRAVELER" && test "$SIM_TRAVELER" != "$SIM"
@@ -426,7 +436,7 @@ jobs:
           xcrun simctl bootstatus "$SIM_TRAVELER" -b
           xcrun simctl location "$SIM_TRAVELER" set 25.7617,-80.1918
           xcrun simctl install "$SIM_TRAVELER" "$RUNNER_TEMP/qa-cached-ios/AmericanRider.app"
-          echo 'PASS: one-device XCTest smoke succeeded, two independent iPhone simulators installed with identical SHA-verified app'
+          echo 'PASS: Operator login checkpoint succeeded, two independent iPhones installed with identical SHA-verified app'
       - name: Save iOS simulator app across QA-only test revisions
         if: matrix.platform == 'ios' && steps.native-build-cache.outputs.cache-hit != 'true'
         uses: actions/cache/save@v4
