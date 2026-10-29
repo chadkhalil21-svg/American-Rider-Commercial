@@ -103,6 +103,13 @@ jobs:
             ios.includes("'--format','junit','--output',str(junit)") &&
             ios.includes("maestro-test-'+label") && ios.includes("maestro-debug-'+label"),
             'Concurrent real iPhones need distinct Maestro artifacts, JUnit report and live heartbeats');
+          assert.ok(ios.includes("driver_port='7102' if label=='traveler' else '7101'") &&
+            ios.includes("'--driver-host-port',driver_port"),
+            'Operator and Traveler must use distinct iOS XCTest driver host ports');
+          assert.ok(w.includes("'--driver-host-port','7101','test'") &&
+            w.includes('MAESTRO_VERSION=2.12.0') &&
+            w.includes("grep -q -- '--driver-host-port'"),
+            'Pin verified Maestro CLI and retain Operator first-device driver-port isolation');
           assert.ok(w.includes('operator-start.junit.xml') &&
             w.includes('maestro-debug-operator-start'),
             'First iPhone sign-in needs its own JUnit and debug diagnostics');
@@ -294,8 +301,16 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          # Reproducible runner: 2.12.0 was published October 26, 2026.
+          # The generic installer otherwise fetches an unpinned latest version.
+          export MAESTRO_VERSION=2.12.0
           curl -fsSL 'https://get.maestro.mobile.dev' | bash
           echo "$HOME/.maestro/bin" >> "$GITHUB_PATH"
+          "$HOME/.maestro/bin/maestro" --version
+          "$HOME/.maestro/bin/maestro" --help | grep -q -- '--driver-host-port'
+          "$HOME/.maestro/bin/maestro" test --help | grep -q -- '--test-output-dir'
+          "$HOME/.maestro/bin/maestro" test --help | grep -q -- '--debug-output'
+          echo 'PASS: pinned Maestro CLI supports independent iOS driver ports and evidence reports'
       - name: Fingerprint exact native application sources, excluding only QA scripts
         id: native-fingerprint
         shell: bash
@@ -584,7 +599,7 @@ jobs:
           debug_dir=pathlib.Path('artifacts/native-commercial-ios/maestro-debug-operator-start')
           test_dir.mkdir(parents=True,exist_ok=True)
           debug_dir.mkdir(parents=True,exist_ok=True)
-          cmd=['maestro','--device',sim,'test',
+          cmd=['maestro','--device',sim,'--driver-host-port','7101','test',
                '--test-output-dir='+str(test_dir),
                '--debug-output='+str(debug_dir),
                '--format','junit',
