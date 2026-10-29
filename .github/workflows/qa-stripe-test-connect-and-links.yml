@@ -1,0 +1,75 @@
+name: QA actual Stripe TEST Connect + public invitation association checks
+
+on:
+  pull_request:
+    branches: [release/current]
+    paths:
+      - '.github/workflows/qa-stripe-test-connect-and-links.yml'
+      - 'backend/stripe-test-single-travel-connect.cjs'
+
+permissions:
+  contents: read
+
+jobs:
+  actual-test-provider:
+    if: ${{ github.event.pull_request.head.repo.full_name == github.repository && github.head_ref == 'qa/stripe-test-connect-and-links-20261029' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 14
+    env:
+      STRIPE_TEST_SECRET_KEY: ${{ secrets.STRIPE_TEST_SECRET_KEY }}
+      NODE_ENV: test
+      CI: 'true'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Refuse live, absent, or publishable keys without provider writes
+        shell: bash
+        run: |
+          set -euo pipefail
+          case "${STRIPE_TEST_SECRET_KEY:-}" in
+            sk_test_?*) echo "PASS: present Stripe TEST-only secret (no credentials printed)" ;;
+            *) echo "::error::No TEST secret; no provider transactions"; exit 1 ;;
+          esac
+      - run: npm ci --prefix backend --omit=dev
+      - name: REAL Stripe TEST single-Travel authorization, capture, Connect transfer, reversal and refund
+        run: node backend/stripe-test-single-travel-connect.cjs
+      - name: Preserve provider identities and outcome without credentials
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: actual-stripe-test-single-travel
+          path: artifacts/stripe-test-travel/
+          if-no-files-found: warn
+          retention-days: 14
+      - name: Explicit boundary
+        if: always()
+        run: echo "TEST Stripe provider only, synthetic Travel identity. No production Firebase Travel, real Operator, commissioned Recruiter, physical device, or bank payout verified." >> "$GITHUB_STEP_SUMMARY"
+
+  website-referral-associations:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify source association, referral recovery and independent recruiter contracts
+        run: |
+          node backend/referral-link-recovery-contract.test.js
+          node backend/recruiter-crosschannel-source.test.js
+          node backend/recruiter-qr-source.test.js
+      - name: Check public HTTPS referral pages, domain association and QR library
+        run: node scripts/qa-public-invitation-endpoints.cjs
+      - name: Save public endpoint evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: public-invitation-association-evidence
+          path: artifacts/invitation-http-probe/
+          if-no-files-found: warn
+          retention-days: 14
+      - name: Honest installation boundary
+        if: always()
+        run: echo "Public HTTPS/QR and association endpoints checked only. Actual installed iOS Universal Links, Android App Links, deferred install retention and sign-in attribution need signed physical-device tests." >> "$GITHUB_STEP_SUMMARY"
