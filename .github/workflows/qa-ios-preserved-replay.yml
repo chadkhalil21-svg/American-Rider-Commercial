@@ -120,10 +120,16 @@ jobs:
           assert.ok(w.includes('operator-start.junit.xml') &&
             w.includes('maestro-debug-operator-start'),
             'First iPhone sign-in needs its own JUnit and debug diagnostics');
-          assert.ok(w.includes('QA_IOS_OPERATOR_LOGIN_HEARTBEAT') &&
-            w.includes('QA_IOS_OPERATOR_LOGIN_STALLED') &&
-            w.includes('elapsed>=600') && w.includes('stale>=300') &&
-            !w.includes('proc.wait(timeout=1050)'),
+          const loginStep='\n      - name: Verify real Operator sign-in and In Service on one iPhone\n';
+          const nextStep='\n      - name: Boot Traveler only after verified Operator sign-in checkpoint\n';
+          const loginStart=w.lastIndexOf(loginStep);
+          const loginEnd=w.indexOf(nextStep,loginStart+loginStep.length);
+          const loginBody=w.slice(loginStart,loginEnd);
+          assert.ok(loginStart>=0 && loginEnd>loginStart &&
+            loginBody.includes('QA_IOS_OPERATOR_LOGIN_HEARTBEAT') &&
+            loginBody.includes('QA_IOS_OPERATOR_LOGIN_STALLED') &&
+            loginBody.includes('elapsed>=600') && loginBody.includes('stale>=300') &&
+            !loginBody.includes('proc.wait(timeout=1050)'),
             'Operator navigation must expose progress and have a bounded driver-stall cutoff');
           assert.ok(role.includes('waitForAnimationToEnd:') && role.includes('traveler-switch-to-operator'),
             'Wait for actual native Operator drawer before asserting its role switch');
