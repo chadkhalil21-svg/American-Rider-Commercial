@@ -459,7 +459,27 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p artifacts/native-commercial-ios .qa-native-build-cache/ios
-          SIM="$(xcrun simctl list -j devices available | python3 -c 'import json,sys;d=json.load(sys.stdin)["devices"];print(next(z["udid"] for a in d.values() for z in a if z.get("isAvailable") and "iPhone" in z["name"]))')"
+          # Apple Xcode 26.6 contains the iOS 26.5 SDK. Earlier runs chose
+          # the FIRST available iPhone (iOS 26.4) regardless of SDK runtime.
+          # Explicitly match the current SDK; refuse a missing simulator
+          # instead of silently starting another runtime. Codemagic and
+          # GitHub runner-image issue #12862 document cold/runtime mismatches.
+          SDKV="$(xcrun --sdk iphonesimulator --show-sdk-version)"
+          export SIM_RUNTIME="com.apple.CoreSimulator.SimRuntime.iOS-${SDKV//./-}"
+          echo "QA_IOS_SIMULATOR_SDK=$SDKV selected_runtime=$SIM_RUNTIME"
+          # Prewarm CoreSimulator's device database before selecting the
+          # runtime, as reported by the GitHub runner-images maintainers.
+          python3 - <<'PY'
+          import subprocess,sys
+          try:
+              subprocess.run(['xcrun','simctl','list','devices','available'],
+                             stdout=subprocess.DEVNULL,check=True,timeout=30)
+          except (subprocess.TimeoutExpired,subprocess.CalledProcessError):
+              print('QA_IOS_CORESIM_PREWARM_FAILED',flush=True)
+              sys.exit(124)
+          PY
+          SIM="$(xcrun simctl list -j devices available | python3 -c 'import json,sys,os;d=json.load(sys.stdin)["devices"];r=os.environ["SIM_RUNTIME"];devices=[x for x in d.get(r,[]) if x.get("isAvailable") and "iPhone" in x["name"]];print(devices[0]["udid"] if devices else "",end="")')"
+          test -n "$SIM" || { echo "::error::No available simulator for exact SDK runtime $SIM_RUNTIME"; exit 1; }
           echo "SIM_OPERATOR=$SIM" >> "$GITHUB_ENV"
           echo 'QA_IOS_STAGE=simulator_boot'
           xcrun simctl boot "$SIM" || true
