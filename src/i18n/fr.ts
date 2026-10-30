@@ -853,7 +853,7 @@ export default {
     emailPh: 'nom@courriel.com',
     select: 'Sélectionner',
     open: 'Ouvrir',
-    docUploadGuidance: "Envoyez une photo nette ou un PDF (15 Mo maximum). American Rider examine les documents avant de les approuver.",
+    docUploadGuidance: "Envoyez une photo nette ou un PDF (5 Mo maximum). American Rider examine les documents avant de les approuver.",
     docsHeld: 'Ce qu’American Rider détient pour vous, et ce qui manque encore.',
     underReview: 'En Cours d’Examen',
     travelWhileWaiting: 'Voyagez en tant que voyageur en attendant',
