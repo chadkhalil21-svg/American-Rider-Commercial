@@ -532,19 +532,19 @@ const codes = (a) => a.blockers.map((b) => b.code);
   const screen = fs.readFileSync(path.join(__dirname, '..', 'app', 'operator', 'documents.tsx'), 'utf8');
   const asked = [...(screen.match(/const DOCUMENTS[\s\S]*?\n\];/) || [''])[0].matchAll(/key: '(\w+)'/g)].map((m) => m[1]);
   check('…and they match the documents screen exactly', asked.length === 3 && asked.every((k) => REQUIRED_DOCS.includes(k)), JSON.stringify(asked));
-  // A 5-15 MiB upload may be too large for local OCR, but is not missing or refused.
-  // Server-authoritative qualification retains it as an actionable named-review exception.
+  // A valid <=5 MiB PDF or unreadable image may need manual review, not re-upload.
+  // Server-authoritative qualification retains it as an actionable exception.
   {
     const held = cleanUser();
     held.documents.insurance = {
       verdict: 'review',
-      reasons: ['The document exceeds the safe local OCR reading limit; original awaits named review.'],
+      reasons: ['PDF received; original awaits named review.'],
       summary: 'Waiting for a qualified person to review the original document.',
-      objectKey: 'operator-documents/test/insurance-6mb',
+      objectKey: 'operator-documents/test/insurance-declarations-pdf',
       evidence: { documentType: 'unidentified', isTheRequestedDocument: false, legible: false, fields: {} },
     };
     const a = A(held);
-    check('15 MiB submitted original stays a review exception, not a missing document',
+    check('submitted original awaiting review is neither missing nor refused',
       a.status === 'exception' && a.blockers.some(b => b.item === 'insurance' && b.code === 'document_review')
       && !a.blockers.some(b => b.item === 'insurance' && ['document_missing','document_refused','document_reupload_required'].includes(b.code)),
       JSON.stringify(a.blockers));
