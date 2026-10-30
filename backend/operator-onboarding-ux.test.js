@@ -14,7 +14,7 @@ for(let pass=0;pass<2;pass++){
  const options=read('src/data.ts');
  assert.doesNotMatch(docs,/\{ key: 'basics', title: 'traveler.qualBasics'/,'unverified basics must not count as approved');
  assert.match(q,/const areaAuthorized = areaActive/,'registration only in open service area');
- assert.match(q,/\{areaActive && <Card style=\{styles.listCard\}>/,'hide compliance checklist in unopened regions');
+ assert.match(q,/\{area\?\.market && <Card style=\{styles.listCard\}>/,'document checklist is available before a market opens');
  assert.match(q,/joinOperatorAreaWaitlist\(marketId\)/,'opt-in interest separate from registration');
  assert.match(q,/router.navigate\('\/operator\/payouts'\)/,'payout setup available from one checklist');
  assert.match(q,/marketCheckAgain/,'market errors have direct retry');
