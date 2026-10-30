@@ -204,7 +204,7 @@ export default function OperatorInsurance() {
           : coverageDaysLeft <= 30 ? t('traveler.insDaysLeft', { n: coverageDaysLeft })
           : t('traveler.insOnFileUntil', { date: policyExpiry })}</Text>
         {st === 'checking' && <Text style={styles.body}>{t('operator.checking')}</Text>}
-        {op.docReviews.insurance?.verdict === 'review' && <Text style={styles.body}>{t('traveler.insUnderPersonReview')}</Text>}
+        {(st === 'review' || op.docReviews.insurance?.verdict === 'review') && !policyApproved && <Text style={styles.body}>{t('traveler.insUnderPersonReview')}</Text>}
         {op.docReviews.insurance?.verdict === 'refuse' && op.docReviews.insurance.reasons.map((reason, i) => (
           <Text key={i} accessibilityRole="alert" style={styles.attention}>{reason}</Text>
         ))}

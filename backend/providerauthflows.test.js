@@ -50,7 +50,7 @@ assert.match(authScreen, /const r = await signInWithApple\(\)/,
   'Apple tap must still invoke authenticated Apple provider API');
 assert.match(authScreen, /<GoogleEntry[\s\S]*?auth\.continueWithGoogle/,
   'Google sign-in must remain available with its own branded label');
-assert.match(authScreen, /ssoButton: \{ width: '100%', height: 46, paddingVertical: 0, justifyContent: 'center' \}/);
+assert.match(authScreen, /ssoButton: \{ width: '100%', height: 36, paddingVertical: 0, justifyContent: 'center' \}/);
 assert.match(authScreen, /s\.btn, s\.ssoButton, primary \? s\.btnInk : s\.btnSso/);
 assert.match(authScreen, /btnText: \{ fontSize: 15, fontWeight: '600' \}/);
 console.log('Apple native authentication via compact branded SSO control + Google visual parity: PASS');

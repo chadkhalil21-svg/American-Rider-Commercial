@@ -1,6 +1,7 @@
 'use strict';
 const assert=require('node:assert/strict');
 const {PROGRAM_ENABLED,eligibleApproval,approvedRecruiterLink}=require('./recruiter-approval');
+const {payoutEligibleApproval}=require('./recruiter-eligibility');
 const now=1792700000000;
 class MemoryDb {
   constructor(){this.rows=new Map();this.reads=0;this.writes=0;}
@@ -57,7 +58,6 @@ assert.equal(db.rows.get('referral_codes/'+new URL(one.url).searchParams.get('r'
 for(const variant of [
   {...approved,status:'pending'},
   {...approved,suspended:true},
-  {...approved,payoutEligibilityVerified:false},
   {...approved,agreementAccepted:false},
   {...approved,identityVerified:false},
   {...approved,allowedRoles:['traveler']},
@@ -68,6 +68,10 @@ for(const variant of [
   const r=eligibleApproval(variant,'operator',now);
   assert.equal(r,false,'unapproved, expired or incomplete record must fail');
 }
+assert.equal(eligibleApproval({...approved,payoutEligibilityVerified:false},'operator',now),true,
+  'verified Recruiters may refer before completing bank onboarding');
+assert.equal(payoutEligibleApproval({...approved,payoutEligibilityVerified:false},'operator',now),false,
+  'a referral invitation must never itself authorize a payment');
 // Revoked/expired contract blocks sharing even when the Firebase uid is still approved.
 db.rows.set('recruiter_approvals/'+uid,{...approved,agreementAccepted:false});
 assert.equal((await approvedRecruiterLink({db,uid,role:'operator',now,

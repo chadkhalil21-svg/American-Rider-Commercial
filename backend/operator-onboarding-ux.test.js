@@ -14,7 +14,7 @@ for(let pass=0;pass<2;pass++){
  const options=read('src/data.ts');
  assert.doesNotMatch(docs,/\{ key: 'basics', title: 'traveler.qualBasics'/,'unverified basics must not count as approved');
  assert.match(q,/const areaAuthorized = areaActive/,'registration only in open service area');
- assert.match(q,/\{areaActive && <Card style=\{styles.listCard\}>/,'hide compliance checklist in unopened regions');
+ assert.match(q,/\{area\?\.market && <Card style=\{styles.listCard\}>/,'document checklist is available before a market opens');
  assert.match(q,/joinOperatorAreaWaitlist\(marketId\)/,'opt-in interest separate from registration');
  assert.match(q,/router.navigate\('\/operator\/payouts'\)/,'payout setup available from one checklist');
  assert.match(q,/marketCheckAgain/,'market errors have direct retry');
@@ -33,9 +33,9 @@ for(let pass=0;pass<2;pass++){
  assert.match(bg,/Linking.openURL\(url\)\.catch/,'provider URLs cannot fail silently');
  assert.match(bg,/status\?\.ok === false/,'screening status errors recover');
  assert.match(server,/app.post\('\/storage\/upload-url', requireAuth, LIMITS.document, requireFreshAuth, requirePrivateUploadPurpose/);
- assert.match(server,/if \(purpose === 'operator-document'\) return requireActiveOperatingMarket\(req, res, next\)/);
+ assert.match(server,/if \(purpose === 'operator-document'\) return requireSelectedDocumentMarket\(req, res, next\)/);
  assert.match(server,/if \(purpose === 'lost-item'\) return next\(\)/);
- assert.match(server,/app.post\('\/operator\/document', requireAuth, LIMITS.document, requireFreshAuth, requireActiveOperatingMarket/);
+ assert.match(server,/app.post\('\/operator\/document', requireAuth, LIMITS.document, requireFreshAuth, requireSelectedDocumentMarket/);
  assert.match(server,/app.post\('\/operator\/screening\/existing', requireAuth, LIMITS.screening, requireScreeningRequestMarket/);
  assert.match(server,/app.post\('\/connect\/onboard', requireAuth, LIMITS.connect, requireActiveOperatingMarket/);
  for(const lang of ['en','es','fr','it','de']){

@@ -254,8 +254,8 @@ const codes = (a) => a.blockers.map((b) => b.code);
     const src = fs.readFileSync(path.join(__dirname, 'documents.js'), 'utf8');
     check('4b. ordinary document review uses local OCR and never calls a metered model',
       /require\('\.\/localocr'\)/.test(src) && !/Anthropic|messages\.create|ANTHROPIC_API_KEY/.test(src));
-    check('4b. OCR cannot approve insurance without a human and independent continuing-status evidence',
-      /verdict:'review'/.test(src) && /required = 'A qualified person/.test(src));
+    check('4b. clean OCR may pass document-reading, but insurance still requires independent current carrier/broker verification',
+      /extractLocalDocument\(bytes, ocr\)/.test(src) && /continuingStatus\(u, now\)/.test(fs.readFileSync(path.join(__dirname,'qualification.js'),'utf8')));
   }
 
   // ——— 4c. The real human-review path must not bypass active insurer evidence —————
@@ -532,6 +532,37 @@ const codes = (a) => a.blockers.map((b) => b.code);
   const screen = fs.readFileSync(path.join(__dirname, '..', 'app', 'operator', 'documents.tsx'), 'utf8');
   const asked = [...(screen.match(/const DOCUMENTS[\s\S]*?\n\];/) || [''])[0].matchAll(/key: '(\w+)'/g)].map((m) => m[1]);
   check('…and they match the documents screen exactly', asked.length === 3 && asked.every((k) => REQUIRED_DOCS.includes(k)), JSON.stringify(asked));
+  // A valid <=5 MiB PDF or unreadable image may need manual review, not re-upload.
+  // Server-authoritative qualification retains it as an actionable exception.
+  {
+    const held = cleanUser();
+    held.documents.insurance = {
+      verdict: 'review',
+      reasons: ['PDF received; original awaits named review.'],
+      summary: 'Waiting for a qualified person to review the original document.',
+      objectKey: 'operator-documents/test/insurance-declarations-pdf',
+      evidence: { documentType: 'unidentified', isTheRequestedDocument: false, legible: false, fields: {} },
+    };
+    const a = A(held);
+    check('submitted original awaiting review is neither missing nor refused',
+      a.status === 'exception' && a.blockers.some(b => b.item === 'insurance' && b.code === 'document_review')
+      && !a.blockers.some(b => b.item === 'insurance' && ['document_missing','document_refused','document_reupload_required'].includes(b.code)),
+      JSON.stringify(a.blockers));
+    const context = fs.readFileSync(path.join(__dirname, '..', 'src/state/OperatorContext.tsx'), 'utf8');
+    const qualify = fs.readFileSync(path.join(__dirname, '..', 'app/operator/qualify.tsx'), 'utf8');
+    const documents = fs.readFileSync(path.join(__dirname, '..', 'app/operator/documents.tsx'), 'utf8');
+    const insurance = fs.readFileSync(path.join(__dirname, '..', 'app/operator/insurance.tsx'), 'utf8');
+    check('submitted original persists separate under-review checklist state',
+      context.includes("'todo' | 'checking' | 'review' | 'ok'") &&
+      /out\.verdict === 'review' \? 'review' : 'todo'/.test(context) &&
+      qualify.includes("st === 'review'") &&
+      qualify.includes("t('traveler.underReview')") &&
+      documents.includes("state === 'review'") &&
+      insurance.includes("st === 'review'"));
+    check('only accepted Operator documents contribute to verified count',
+      context.includes("QUAL_DOCS.filter((d) => docs[d.key] === 'ok')"));
+  }
+
   const noEvidence = cleanUser();
   delete noEvidence.documents.license.evidence;
   check('an "accept" with no stored reading is an exception, not a pass', codes(A(noEvidence)).includes('document_evidence_inconsistent'));

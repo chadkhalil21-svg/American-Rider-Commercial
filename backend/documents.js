@@ -27,6 +27,7 @@
 // statute names them and the DPPA governs the driving record. This is the cheap half — the
 // half that needs no vendor, and the half a $47.49 report was never going to check anyway.
 const { recognize, extract, localReady } = require('./localocr');
+const { extractLocalDocument } = require('./document-convert');
 const MODEL = 'local-tesseract-7.0.0';
 
 const KINDS = {
@@ -75,19 +76,19 @@ const KINDS = {
 // THE READER'S VERSION. Stored with every reading; a reading from an older version is re-read
 // by infra/migrate-documents.js rather than trusted. Bump it when the schema or prompt changes
 // what is extracted.
-const READER_VERSION = 3;
+const READER_VERSION = 5;
 
 /**
  * Download only the authenticated R2-signed document, bound memory, and extract locally.
- * OCR is never proof of identity, authenticity, insurance cover or continuing status. Until a
- * labelled-document benchmark establishes a safe accept threshold, EVERY automated reading is
- * a human exception. A trusted Ops reviewer can inspect the source and record structured facts.
+ * Routine clear originals can pass local deterministic document checks automatically.
+ * This does NOT replace independent background screening and carrier/broker confirmation
+ * of live insurance. Unreadable/ambiguous evidence remains a human exception, never a pass.
  */
 async function readDocument({ kind, imageUrl, expect = {}, now = Date.now(), ocr = recognize }) {
   const spec = KINDS[kind];
   if (!spec) return { ok:false, error:`unknown document kind: ${kind}` };
   const review = (reason) => ({ ok:true, verdict:'review', reasons:[reason], fields:{},
-    summary:'Waiting for a qualified person to review the original document.', expiry:null,
+    summary:'Document saved. Please check the requested details in the app; further verification may be needed.', expiry:null,
     evidence:{ documentType:'unidentified', isTheRequestedDocument:false, legible:false,
       fields:{}, insurance:null, concerns:[reason] }, readerVersion:READER_VERSION });
   let bytes;
@@ -95,34 +96,31 @@ async function readDocument({ kind, imageUrl, expect = {}, now = Date.now(), ocr
     const res = await fetch(imageUrl);
     if (!res.ok) return review('The private document could not be read; review the original upload.');
     const advertised = Number(res.headers.get('content-length') || 0);
-    if (advertised > 5*1024*1024) return review('The upload exceeds the safe local reading limit.');
+    if (advertised > 5*1024*1024) return review('Document received. Automatic text reading was skipped for this larger file; the original is held for private review.');
     const chunks=[]; let total=0;
     for await (const chunk of res.body) {
       total += chunk.length;
-      if (total > 5*1024*1024) return review('The upload exceeds the safe local reading limit.');
+      if (total > 5*1024*1024) return review('Document received. Automatic text reading was skipped for this larger file; the original is held for private review.');
       chunks.push(Buffer.from(chunk));
     }
     bytes=Buffer.concat(chunks,total);
   } catch {
     return review('The private document is temporarily unavailable; human review is required.');
   }
-  const jpeg=bytes.length>=3 && bytes[0]===0xff && bytes[1]===0xd8 && bytes[2]===0xff;
-  const png=bytes.length>=8 && bytes.subarray(0,8).equals(Buffer.from('89504e470d0a1a0a','hex'));
-  const webp=bytes.length>=12 && bytes.toString('ascii',0,4)==='RIFF' && bytes.toString('ascii',8,12)==='WEBP';
-  // PDFs are accepted as private original evidence for named human review only.
-  // OCR cannot safely confirm a PDF's contents or insurance authenticity.
-  const pdf=bytes.length>=5 && bytes.toString('ascii',0,5)==='%PDF-';
-  if (pdf) return review('PDF received. A qualified reviewer must inspect the original private document.');
-  if (!jpeg && !png && !webp) return review('This file format is not supported by local OCR; review the original upload.');
+  // Accept all original upload types, normalizing PDF (digital and scanned), HEIC/
+  // HEIF, WebP and standard camera JPEG/PNG locally. No third-party OCR API call.
+  // The reader never guesses through extraction or format errors.
   try {
-    const found = await ocr(bytes);
+    const found = await extractLocalDocument(bytes, ocr);
     const reading = extract({ kind, text:found.text, confidence:found.confidence });
     const result = decide({ kind, spec, read:reading, expect, now });
-    const required = 'A qualified person must verify the original document and authoritative coverage/status before approval.';
-    return { ...result, verdict:'review', reasons:[...result.reasons, required],
-      summary:reading.summary, readerVersion:READER_VERSION };
+    // For scans, confident and complete structured evidence may be accepted without
+    // a routine human click. Otherwise preserve the actual document and queue review.
+    // Independent insurer status and licensed screening checks run separately at
+    // every qualification and dispatch gate.
+    return { ...result, readerVersion:READER_VERSION };
   } catch {
-    return review('Local text extraction was unavailable; human review is required.');
+    return review('Automated extraction was unavailable or inconclusive; the original remains available for review.');
   }
 }
 
@@ -197,10 +195,12 @@ function decide({ kind, spec, read, expect, now }) {
 
   // Expired, wrong document, or personal-use insurance are refusals: each is a fact the
   // document itself states. Everything else a person looks at.
-  const hardFail =
+  // Low-confidence OCR is never evidence for outright refusal.
+  const hardFail = read.legible === true && (
     expired ||
-    read.isTheRequestedDocument === false ||
-    (kind === 'insurance' && f.commercialUse === 'no');
+    (read.isTheRequestedDocument === false && read.documentType && read.documentType !== 'unidentified') ||
+    (kind === 'insurance' && f.commercialUse === 'no')
+  );
 
   const verdict = hardFail ? 'refuse' : reasons.length || concerns.length ? 'review' : 'accept';
 
