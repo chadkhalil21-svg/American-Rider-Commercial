@@ -435,7 +435,7 @@ export function AuthScreen() {
                   <AppleAuthentication.AppleAuthenticationButton
                     buttonType={AppleAuthentication.AppleAuthenticationButtonType.CONTINUE}
                     buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.BLACK}
-                    cornerRadius={18}
+                    cornerRadius={12}
                     style={s.appleOfficialButton}
                     onPress={onApple}
                     pointerEvents="none"
@@ -752,9 +752,11 @@ const s = StyleSheet.create({
 // at least 46pt total touch height. iOS previews never replace the native control.
   appleTouchFrame: { width: '100%', height: 46, justifyContent: 'center' },
   appleOfficialButton: { width: '100%', height: 36 },
-  // 36pt visible capsule (18pt radius), matching Apple's native capsule on Build 58.
-  // The shared s.btn radius of 12pt was producing a visibly different Google outline.
-  ssoButton: { width: '100%', height: 36, borderRadius: 18, paddingVertical: 0, justifyContent: 'center' },
+  // Founder-selected rounded rectangle, not capsule. Maintain the existing
+  // 12pt institutional button radius on both the native Apple and Google control.
+  // Verify the native Apple rendering on a signed iPhone: Build 58 showed a
+  // capsule even when source requested 12pt, so source parity is not device proof.
+  ssoButton: { width: '100%', height: 36, borderRadius: 12, paddingVertical: 0, justifyContent: 'center' },
   googleOfficialMark: { width: 17, height: 17 },
   btn: { borderRadius: 12, paddingVertical: 14, alignItems: 'center' },
   btnRow: { flexDirection: 'row', justifyContent: 'center', gap: 10 },
