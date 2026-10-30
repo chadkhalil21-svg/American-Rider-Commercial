@@ -129,6 +129,14 @@ export default function OperatorReview() {
         {refused === null && !statusUnavailable && reviewReason ? (
           <Text accessibilityRole="text" style={styles.detail}>{reviewReason}</Text>
         ) : null}
+        <Pressable accessibilityRole="button" onPress={() => router.navigate('/operator/inbox')}
+          hitSlop={10} style={{ alignSelf: 'stretch', marginTop: 14, minHeight: 44, justifyContent: 'center' }}>
+          <Text style={styles.link}>American Rider Messages ›</Text>
+        </Pressable>
+        <Text style={styles.detail}>
+          Updates and document correction requests appear in American Rider Messages,
+          including when an email is missed or filtered as spam.
+        </Text>
         {refreshNotice ? (
           <Text accessibilityLiveRegion="polite" style={styles.feedback}>{refreshNotice}</Text>
         ) : null}
