@@ -17,9 +17,30 @@ assert.match(ui, /btnText: \{ fontSize: 15, fontWeight: '600' \}/);
 assert.match(ui, /btnTextSso: \{ color: colors\.ink, fontSize: 15, fontWeight: '600' \}/,
   'shared label must be 15pt semibold across providers');
 assert.match(ui, /<View style=\{s\.ssoInner\}>[\s\S]*?<View style=\{s\.ssoIconSlot\}>[\s\S]*?glyph === 'apple'[\s\S]*?source=\{GOOGLE_OFFICIAL_G_SOURCE\}[\s\S]*?<\/View>[\s\S]*?<Text style=\{\[s\.btnText, s\.btnTextSso, \{ color: onDark \}]}>{label}<\/Text>/,
-  'both branded logos share one icon slot and an identical text start position');
-assert.match(ui, /ssoInner: \{ width: '100%', maxWidth: 248, alignSelf: 'center', flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-start', gap: 10 \}/,
-  'fixed-width centered row with left-anchored icons and titles, independent of label lengths');
+  'both branded logos share one icon slot, label renderer and spacing');
+const rowStyle = ui.match(/ssoInner: (\{[^}]+\})/)?.[1];
+assert.ok(rowStyle, 'both providers must share an SSO inner row');
+assert.match(rowStyle, /alignSelf: 'center'/);
+assert.match(rowStyle, /flexDirection: 'row'/);
+assert.match(rowStyle, /alignItems: 'center'/);
+assert.match(rowStyle, /justifyContent: 'center'/,
+  'center the ENTIRE icon+text composition, not the fixed container');
+assert.match(rowStyle, /gap: 10/,
+  'preserve the agreed icon/text spacing');
+assert.doesNotMatch(rowStyle, /\b(?:width|maxWidth|flex|flexBasis)\s*:/,
+  'the inner row must have intrinsic width; fixed width left-aligned Build 59 contents');
+assert.doesNotMatch(rowStyle, /flex-start/,
+  'do not repeat Build 59 left-anchored logo/text row');
+const groupCenter = (buttonWidth, labelWidth) => {
+  const total = 36 + 10 + labelWidth;
+  return (buttonWidth - total) / 2 + total / 2;
+};
+for (const width of [320, 375, 430]) {
+  for (const labelWidth of [120, 168, 192, 234]) {
+    assert.equal(groupCenter(width, labelWidth), width / 2,
+      'the complete icon and label composition midpoint must match the button midpoint');
+  }
+}
 assert.match(ui, /ssoIconSlot: \{ width: 36, height: 36, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' \}/,
   'Apple/Google images must share a clipped 36pt icon slot');
 assert.match(ui, /appleOfficialMark: \{ width: 44, height: 44 \}/,
@@ -46,5 +67,5 @@ assert.equal(png.readUInt32BE(20),60);
 const blobSha=crypto.createHash('sha1').update(Buffer.concat([Buffer.from('blob '+png.length+'\0'),png])).digest('hex');
 assert.equal(blobSha,'aa3d1ada4145ec0d3a0438b273dfdedab016e027',
   'official Apple-hosted artwork must stay pixel-identical to retrieved asset');
-console.log('PASS SOURCE: Apple and Google share exact 15pt title size, 248pt left-anchored row, 36pt icon slot, 10pt gap, official logos, 12pt rectangles');
+console.log('PASS SOURCE: Apple and Google share 15pt title, intrinsic centered icon+label groups, 36pt icon slot, 10pt gap, official logos, 12pt rectangles');
 console.log('PENDING: exact-SHA signed-iPhone screenshot font-size, baseline and OAuth visual acceptance');
