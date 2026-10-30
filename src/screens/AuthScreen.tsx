@@ -112,9 +112,10 @@ function SsoButton({
       style={({ pressed }) => [s.btn, s.ssoButton, primary ? s.appleBrandBackground : s.btnSso, pressed && { opacity: 0.86 }]}
     >
       <View style={s.ssoInner}>
-        {/* Fixed 36pt icon slot and fixed-width row: Apple and Google logos and
-            the first letter of "Continue" now share the same X coordinates.
-            Center the ROW, not two variable-width logo+label groups. */}
+        {/* Center the icon + complete label as one intrinsic-width group.
+            A fixed-width left-anchored row left Build 59's shorter Apple label
+            visibly off-center, even though both labels began at the same X.
+            Both providers still share the same icon slot, gap and type style. */}
         <View style={s.ssoIconSlot}>
           {glyph === 'apple' ? (
             // Unmodified Apple-provided PNG. Its baked-in padding must not
@@ -731,14 +732,10 @@ const s = StyleSheet.create({
   },
   tagline: { textAlign: 'center', fontSize: 14.5, color: colors.ink2, letterSpacing: 0.1, marginTop: 20, lineHeight: 20 },
   // Both buttons retain the founder-approved 46pt footprint and Continue wording.
-// Apple's official native control owns its logo and lettering. At 36pt it uses
-// smaller Apple-set lettering consistent with the preferred 15pt Google label.
-// Both visible buttons are 36pt; the Apple touch frame and Google hitSlop provide
-// at least 46pt total touch height. iOS previews never replace the native control.
-  // Founder-selected rounded rectangle, not capsule. Maintain the existing
-  // 12pt institutional button radius on both the native Apple and Google control.
-  // Verify the native Apple rendering on a signed iPhone: Build 58 showed a
-  // capsule even when source requested 12pt, so source parity is not device proof.
+// Custom Apple and Google controls share the same 15pt semibold title component.
+// Both visible buttons are 36pt and hitSlop extends the 46pt tap target.
+// Preserve the founder-selected 12pt rounded-rectangle corners. A physical
+// iPhone screenshot is still required to prove final rendering.
   ssoButton: { width: '100%', height: 36, borderRadius: 12, paddingVertical: 0, justifyContent: 'center' },
   // Apple's official 60x60 PNG has generous internal black padding (glyph x19..40).
   // At 44pt within the shared 36pt slot its visible left edge aligns to
@@ -774,10 +771,10 @@ const s = StyleSheet.create({
   appleBrandBackground: { backgroundColor: '#000000' },
   btnSso: { backgroundColor: colors.card, borderWidth: 1, borderColor: '#747775' },
   btnTextSso: { color: colors.ink, fontSize: 15, fontWeight: '600' },
-  // 248pt centered row on normal iPhones. It shrinks only on narrower screens
-  // and preserves the same text origin for both providers, regardless of label
-  // lengths and distinct intrinsic logo artwork.
-  ssoInner: { width: '100%', maxWidth: 248, alignSelf: 'center', flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-start', gap: 10 },
+  // Intrinsic-width contents, horizontally centered as a complete group.
+  // Never reintroduce a fixed 248pt left-aligned inner row: different label
+  // lengths must NOT leave both groups stranded at the same left offset.
+  ssoInner: { alignSelf: 'center', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10 },
   ssoIconSlot: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
   orRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginVertical: 11 },
   orRule: { flex: 1, height: 1, backgroundColor: colors.hairline },
