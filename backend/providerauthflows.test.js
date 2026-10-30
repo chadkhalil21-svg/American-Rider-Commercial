@@ -54,6 +54,6 @@ assert.match(authScreen, /ssoButton: \{ width: '100%', height: 36, borderRadius:
   'Google compact SSO must use matching institutional rounded-rectangle geometry');
 assert.match(authScreen, /<Text style=\{\[s\.btnText, s\.btnTextSso, \{ color: onDark \}]}>{label}<\/Text>/,
   'Apple and Google must have the exact same 15pt React Native title renderer');
-assert.match(authScreen, /s\.btn, s\.ssoButton, primary \? s\.btnInk : s\.btnSso/);
+assert.match(authScreen, /s\.btn, s\.ssoButton, primary \? s\.appleBrandBackground : s\.btnSso/);
 assert.match(authScreen, /btnText: \{ fontSize: 15, fontWeight: '600' \}/);
 console.log('Apple and Google share exact 15pt title renderer; Apple authentication still uses native provider OAuth: PASS');
