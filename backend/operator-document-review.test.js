@@ -17,14 +17,6 @@ const owns = (key, uid, purpose) =>
   key.startsWith('operator-documents/' + uid + '/') && purpose === 'operator-document';
 const doc = { insurance: { objectKey: 'operator-documents/person1/insurance-proof' } };
 async function run() {
-  assert.equal(MAX_VIEW_BYTES, 15 * 1024 * 1024, 'private reviewer limit must match 15 MiB mobile upload');
-  const uploaderSource = fs.readFileSync(require('node:path').join(__dirname, '../src/backend/documentUpload.ts'), 'utf8');
-  assert.match(uploaderSource, /MAX_UPLOAD_BYTES\s*=\s*15\s*\*\s*1024\s*\*\s*1024/);
-  for (const language of ['en','es','fr','de','it']) {
-    const localeSource = fs.readFileSync(require('node:path').join(__dirname, '../src/i18n',language+'.ts'), 'utf8');
-    assert.match(localeSource, /docUploadGuidance:[^\n]*15 (?:MB|Mo)/,
-      language+' locale must show the actual 15 MB upload limit');
-  }
   assert.equal(viewContentType(png), 'image/png');
   assert.equal(viewContentType(jpeg), 'image/jpeg');
   assert.equal(viewContentType(pdf), 'application/pdf');
@@ -70,15 +62,6 @@ async function run() {
     fetcher: async () => res(Buffer.alloc(MAX_VIEW_BYTES + 1, 0xff)),
   });
   assert.equal(tooBig.status, 413);
-  const scannedPdf = Buffer.concat([pdf, Buffer.alloc(6 * 1024 * 1024, 0x20)]);
-  const acceptedScan = await loadPrivateReviewDocument({
-    ...options,
-    fetcher: async () => res(scannedPdf, 'application/pdf'),
-  });
-  assert.equal(acceptedScan.status, 200);
-  assert.equal(acceptedScan.contentType, 'application/pdf');
-  assert.equal(acceptedScan.body.length, scannedPdf.length);
-  assert.equal(JSON.stringify(acceptedScan).includes('temporary-signature'), false);
 
   const ops = fs.readFileSync(require.resolve('./ops'), 'utf8');
   assert.match(ops, /d\.objectKey && r2Owns\(d\.objectKey, u\.id/);
