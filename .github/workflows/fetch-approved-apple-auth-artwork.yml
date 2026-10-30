@@ -1,0 +1,48 @@
+name: Obtain official Apple sign-in artwork (one-time, candidate only)
+on:
+  push:
+    branches:
+      - fix/auth-signin-button-capsule-parity-20261029
+    paths:
+      - .github/workflows/fetch-approved-apple-auth-artwork.yml
+permissions:
+  contents: write
+jobs:
+  fetch-apple-provided-logo:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - name: Download Apple-hosted sign-in logo (never trace or recreate artwork)
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p assets/brand
+          curl --fail --location --retry 3 --max-time 45 \
+            --header 'Accept: image/png' \
+            'https://appleid.cdn-apple.com/appleid/button/logo?color=black&size=30&scale=2&border=false&border_radius=0' \
+            --output assets/brand/apple-signin-apple-official.png
+          python - <<'PY'
+          import struct
+          from pathlib import Path
+          p=Path('assets/brand/apple-signin-apple-official.png')
+          blob=p.read_bytes()
+          assert blob[:8]==b'\\x89PNG\\r\\n\\x1a\\n', 'Apple endpoint did not provide PNG'
+          width,height=struct.unpack('>II',blob[16:24])
+          assert 30<=width<=400 and width==height and 100<len(blob)<150000,'Unexpected official Apple asset dimensions'
+          print('Apple-official logo asset validated:',width,height,len(blob))
+          PY
+      - name: Commit unaltered Apple-provided artwork to PR branch only
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add assets/brand/apple-signin-apple-official.png
+          if git diff --cached --quiet; then
+            echo 'Existing official asset is unchanged'
+          else
+            git commit -m 'Include unmodified Apple-hosted authorized Sign in with Apple artwork'
+            git push origin HEAD:fix/auth-signin-button-capsule-parity-20261029
+          fi
