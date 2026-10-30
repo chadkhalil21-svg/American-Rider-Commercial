@@ -52,7 +52,8 @@ assert.match(authScreen, /<GoogleEntry[\s\S]*?auth\.continueWithGoogle/,
   'Google sign-in must remain available with its own branded label');
 assert.match(authScreen, /ssoButton: \{ width: '100%', height: 36, borderRadius: 12, paddingVertical: 0, justifyContent: 'center' \}/,
   'Google compact SSO must use matching institutional rounded-rectangle geometry');
-assert.match(authScreen, /cornerRadius=\{12\}/, 'native Apple visible corner radius must match Google');
+assert.match(authScreen, /<Text style=\{\[s\.btnText, s\.btnTextSso, \{ color: onDark \}]}>{label}<\/Text>/,
+  'Apple and Google must have the exact same 15pt React Native title renderer');
 assert.match(authScreen, /s\.btn, s\.ssoButton, primary \? s\.btnInk : s\.btnSso/);
 assert.match(authScreen, /btnText: \{ fontSize: 15, fontWeight: '600' \}/);
-console.log('Apple native authentication via compact branded SSO control + Google visual parity: PASS');
+console.log('Apple and Google share exact 15pt title renderer; Apple authentication still uses native provider OAuth: PASS');
