@@ -38,7 +38,7 @@ const groupCenter = (buttonWidth, labelWidth) => {
 for (const width of [320, 375, 430]) {
   for (const labelWidth of [120, 168, 192, 234]) {
     assert.equal(groupCenter(width, labelWidth), width / 2,
-      'the icon+label group's midpoint must remain at the button midpoint');
+      'the complete icon and label composition midpoint must match the button midpoint');
   }
 }
 assert.match(ui, /ssoIconSlot: \{ width: 36, height: 36, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' \}/,
