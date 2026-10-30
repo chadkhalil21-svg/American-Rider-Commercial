@@ -185,7 +185,7 @@ const { normalizeParty, operatorPartyView } = require('./travelparty');
 const family = require('./family');
 const { provisionTeenPin, verifyTeenPin, teenPinReady, pinForRide } = require('./teenpickup');
 const adultPickup = require('./adultpickup');
-const { listPlatformMessages, markPlatformMessageRead } = require('./platforminbox');
+const { listPlatformMessages, markPlatformMessageRead, postPlatformMessage } = require('./platforminbox');
 const { page } = require('./shell');
 const { screeningCurrent, sweepScreening } = require('./screening');
 const { screeningPreparationFor } = require('./screening-jurisdictions');
@@ -2916,17 +2916,25 @@ app.post('/operator/document', requireAuth, LIMITS.document, requireFreshAuth, r
       console.error('[qualification] after document', e.message);
     }
 
-    // Self-service first: explain a missing or unreadable detail directly to the
-    // Operator, rather than opening a routine Founder review. Never email private
-    // OCR text, identity mismatch names, licence/policy numbers, or source images.
-    // This email is advisory only; a delivery outage never changes eligibility.
+    // A durable, private in-app notice is the primary correction channel.
+    // Email and push are supplemental; inbox access persists when email is spammed
+    // or the phone has not registered an Expo push token.
     const notice = correctionNotice({kind,verdict:out.verdict,reasons:out.reasons});
-    if (notice && typeof req.email === 'string' && req.email.includes('@')) {
-      const crypto = require('node:crypto');
-      const idempotencyKey = 'operator-doc-' + crypto.createHash('sha256')
+    if (notice) {
+      const noticeKey = 'operator-doc-' + crypto.createHash('sha256')
         .update([String(req.uid),kind,objectKey,out.verdict].join('|')).digest('hex');
-      const delivered = await send({to:req.email,...notice,idempotencyKey});
-      if (!delivered.ok) console.warn('[operator-document] correction email unavailable');
+      try {
+        const message = await postPlatformMessage({
+          uid:req.uid,category:'qualification',title:notice.subject,
+          body:notice.text,action:{screen:kind==='insurance'?'/operator/insurance':'/operator/documents'},
+          required:true,idempotencyKey:noticeKey,
+        });
+        if (!message.ok) console.warn('[operator-document] in-app correction notice unavailable');
+      } catch { console.warn('[operator-document] in-app correction notice unavailable'); }
+      if (typeof req.email === 'string' && req.emailVerified === true && req.email.includes('@')) {
+        const delivered = await send({to:req.email,...notice,idempotencyKey:noticeKey});
+        if (!delivered.ok) console.warn('[operator-document] correction email unavailable');
+      }
     }
 
     res.json({
