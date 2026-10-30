@@ -112,27 +112,29 @@ function SsoButton({
       style={({ pressed }) => [s.btn, s.ssoButton, primary ? s.appleBrandBackground : s.btnSso, pressed && { opacity: 0.86 }]}
     >
       <View style={s.ssoInner}>
-        {glyph === 'apple' ? (
-          // The unmodified 60px artwork comes directly from Apple's Sign in with
-          // Apple REST artwork endpoint. Bundled to work offline; the graphic
-          // includes its own official padding on the approved black background.
-          <Image
-            source={require('../../assets/brand/apple-signin-apple-official.png')}
-            style={s.appleOfficialMark}
-            resizeMode="contain"
-            accessibilityIgnoresInvertColors
-          />
-        ) : (
-          // Google-owned iOS SDK multicolor G is bundled without modification,
-          // so it still appears offline. Preserve the compact 17pt icon and
-          // 15pt title while matching the Apple native control's 36pt visible height.
-          <Image
-            source={GOOGLE_OFFICIAL_G_SOURCE}
-            style={s.googleOfficialMark}
-            resizeMode="contain"
-            accessibilityIgnoresInvertColors
-          />
-        )}
+        {/* Fixed 36pt icon slot and fixed-width row: Apple and Google logos and
+            the first letter of "Continue" now share the same X coordinates.
+            Center the ROW, not two variable-width logo+label groups. */}
+        <View style={s.ssoIconSlot}>
+          {glyph === 'apple' ? (
+            // Unmodified Apple-provided PNG. Its baked-in padding must not
+            // displace the label or change the external icon slot.
+            <Image
+              source={require('../../assets/brand/apple-signin-apple-official.png')}
+              style={s.appleOfficialMark}
+              resizeMode="contain"
+              accessibilityIgnoresInvertColors
+            />
+          ) : (
+            // Google's official G occupies the same slot as Apple's artwork.
+            <Image
+              source={GOOGLE_OFFICIAL_G_SOURCE}
+              style={s.googleOfficialMark}
+              resizeMode="contain"
+              accessibilityIgnoresInvertColors
+            />
+          )}
+        </View>
         <Text style={[s.btnText, s.btnTextSso, { color: onDark }]}>{label}</Text>
       </View>
     </Pressable>
@@ -769,7 +771,11 @@ const s = StyleSheet.create({
   appleBrandBackground: { backgroundColor: '#000000' },
   btnSso: { backgroundColor: colors.card, borderWidth: 1, borderColor: '#747775' },
   btnTextSso: { color: colors.ink, fontSize: 15, fontWeight: '600' },
-  ssoInner: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10 },
+  // 248pt centered row on normal iPhones. It shrinks only on narrower screens
+  // and preserves the same text origin for both providers, regardless of label
+  // lengths and distinct intrinsic logo artwork.
+  ssoInner: { width: '100%', maxWidth: 248, alignSelf: 'center', flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-start', gap: 10 },
+  ssoIconSlot: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
   orRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginVertical: 11 },
   orRule: { flex: 1, height: 1, backgroundColor: colors.hairline },
   orText: { fontSize: 12.5, color: colors.muted },
