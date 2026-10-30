@@ -16,6 +16,13 @@ assert.match(ui, /<Text style=\{\[s\.btnText, s\.btnTextSso, \{ color: onDark \}
 assert.match(ui, /btnText: \{ fontSize: 15, fontWeight: '600' \}/);
 assert.match(ui, /btnTextSso: \{ color: colors\.ink, fontSize: 15, fontWeight: '600' \}/,
   'shared label must be 15pt semibold across providers');
+assert.match(ui, /<View style=\{s\.ssoInner\}>[\s\S]*?<View style=\{s\.ssoIconSlot\}>[\s\S]*?glyph === 'apple'[\s\S]*?source=\{GOOGLE_OFFICIAL_G_SOURCE\}[\s\S]*?<\/View>[\s\S]*?<Text style=\{\[s\.btnText, s\.btnTextSso, \{ color: onDark \}]}>{label}<\/Text>/,
+  'both branded logos share one icon slot and an identical text start position');
+assert.match(ui, /ssoInner: \{ width: '100%', maxWidth: 248, alignSelf: 'center', flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-start', gap: 10 \}/,
+  'fixed-width centered row with left-anchored icons and titles, independent of label lengths');
+assert.match(ui, /ssoIconSlot: \{ width: 36, height: 36, alignItems: 'center', justifyContent: 'center' \}/,
+  'Apple/Google images must share a fixed-width 36pt icon slot');
+
 assert.match(ui, /ssoButton: \{ width: '100%', height: 36, borderRadius: 12/,
   'both render the same 36pt rounded-rectangle shape');
 assert.match(ui, /hitSlop=\{5\}/, '36pt face must have 46pt effective tap height');
@@ -32,5 +39,5 @@ assert.equal(png.readUInt32BE(20),60);
 const blobSha=crypto.createHash('sha1').update(Buffer.concat([Buffer.from('blob '+png.length+'\0'),png])).digest('hex');
 assert.equal(blobSha,'aa3d1ada4145ec0d3a0438b273dfdedab016e027',
   'official Apple-hosted artwork must stay pixel-identical to retrieved asset');
-console.log('PASS SOURCE: Apple and Google labels are the SAME 15pt semibold Text component; Apple-provided logo; 12pt rectangles; 46pt target');
+console.log('PASS SOURCE: Apple and Google share exact 15pt title size, 248pt left-anchored row, 36pt icon slot, 10pt gap, official logos, 12pt rectangles');
 console.log('PENDING: exact-SHA signed-iPhone screenshot font-size, baseline and OAuth visual acceptance');
