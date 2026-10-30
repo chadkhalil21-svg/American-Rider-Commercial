@@ -14,7 +14,6 @@ import { Text } from '../components/AppText';
 import { Screen } from '../components/UI';
 import { LEGAL_URL, PAYMENT_SERVER_URL } from '../config';
 import Svg, { Path } from 'react-native-svg';
-import * as AppleAuthentication from 'expo-apple-authentication';
 
 import { appleSignInAvailable, signInWithApple } from '../state/appleSignIn';
 import { googleSignInConfigured, useGoogleSignIn } from '../state/googleSignIn';
@@ -89,8 +88,9 @@ function GoogleEntry({ label, onFailed, onStart }: { label: string; onFailed: ()
   );
 }
 
-// The OS supplies the official Apple sign-in artwork in every production iOS build.
-// This custom control is for Google and explicitly opted-in non-production previews only.
+// Apple expressly permits a custom sign-in control to match providers' font size.
+// Use Apple's unmodified Apple-provided logo artwork, never a traced Apple icon;
+// both Apple and Google titles render through the same 15pt semibold component.
 function SsoButton({
   label,
   onPress,
@@ -109,28 +109,33 @@ function SsoButton({
       accessibilityRole="button"
       accessibilityLabel={label}
       hitSlop={5}
-      style={({ pressed }) => [s.btn, s.ssoButton, primary ? s.btnInk : s.btnSso, pressed && { opacity: 0.86 }]}
+      style={({ pressed }) => [s.btn, s.ssoButton, primary ? s.appleBrandBackground : s.btnSso, pressed && { opacity: 0.86 }]}
     >
       <View style={s.ssoInner}>
-        {glyph === 'apple' ? (
-          <Svg width={17} height={17} viewBox="0 0 24 24">
-            <Path
-              d="M17.05 12.54c.02-2.3 1.88-3.4 1.96-3.45-1.07-1.56-2.73-1.78-3.32-1.8-1.41-.14-2.76.83-3.48.83-.72 0-1.83-.81-3.01-.79-1.55.02-2.98.9-3.78 2.28-1.61 2.8-.41 6.94 1.16 9.21.77 1.11 1.68 2.36 2.88 2.31 1.16-.05 1.6-.75 3-.75s1.79.75 3.01.72c1.24-.02 2.03-1.13 2.79-2.25.88-1.29 1.24-2.54 1.26-2.6-.03-.01-2.42-.93-2.44-3.69zM14.8 5.4c.64-.78 1.07-1.85.95-2.93-.92.04-2.03.61-2.69 1.38-.59.69-1.11 1.79-.97 2.84 1.03.08 2.07-.52 2.71-1.29z"
-              fill={onDark}
+        {/* Fixed 36pt icon slot and fixed-width row: Apple and Google logos and
+            the first letter of "Continue" now share the same X coordinates.
+            Center the ROW, not two variable-width logo+label groups. */}
+        <View style={s.ssoIconSlot}>
+          {glyph === 'apple' ? (
+            // Unmodified Apple-provided PNG. Its baked-in padding must not
+            // displace the label or change the external icon slot.
+            <Image
+              source={require('../../assets/brand/apple-signin-apple-official.png')}
+              style={s.appleOfficialMark}
+              resizeMode="contain"
+              accessibilityIgnoresInvertColors
             />
-          </Svg>
-        ) : (
-          // Google-owned iOS SDK multicolor G is bundled without modification,
-          // so it still appears offline. Preserve the compact 17pt icon and
-          // 15pt title while matching the Apple native control's 36pt visible height.
-          <Image
-            source={GOOGLE_OFFICIAL_G_SOURCE}
-            style={s.googleOfficialMark}
-            resizeMode="contain"
-            accessibilityIgnoresInvertColors
-          />
-        )}
-        <Text style={[s.btnText, primary ? s.btnTextInk : s.btnTextSso]}>{label}</Text>
+          ) : (
+            // Google's official G occupies the same slot as Apple's artwork.
+            <Image
+              source={GOOGLE_OFFICIAL_G_SOURCE}
+              style={s.googleOfficialMark}
+              resizeMode="contain"
+              accessibilityIgnoresInvertColors
+            />
+          )}
+        </View>
+        <Text style={[s.btnText, s.btnTextSso, { color: onDark }]}>{label}</Text>
       </View>
     </Pressable>
   );
@@ -425,27 +430,7 @@ export function AuthScreen() {
 
           {(appleReady || SSO_PREVIEW) && (
             <>
-              {appleReady ? (
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel={t('auth.continueWithApple')}
-                  onPress={onApple}
-                  style={s.appleTouchFrame}
-                >
-                  <AppleAuthentication.AppleAuthenticationButton
-                    buttonType={AppleAuthentication.AppleAuthenticationButtonType.CONTINUE}
-                    buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.BLACK}
-                    cornerRadius={12}
-                    style={s.appleOfficialButton}
-                    onPress={onApple}
-                    pointerEvents="none"
-                  />
-                </Pressable>
-              ) : (
-                // Non-production visual preview only. Never show a hand-drawn logo
-                // in a signed iOS App Store build.
-                <SsoButton label={t('auth.continueWithApple')} onPress={onApple} glyph="apple" primary />
-              )}
+              <SsoButton label={t('auth.continueWithApple')} onPress={onApple} glyph="apple" primary />
               <View style={{ height: 10 }} />
             </>
           )}
@@ -750,9 +735,15 @@ const s = StyleSheet.create({
 // smaller Apple-set lettering consistent with the preferred 15pt Google label.
 // Both visible buttons are 36pt; the Apple touch frame and Google hitSlop provide
 // at least 46pt total touch height. iOS previews never replace the native control.
-  appleTouchFrame: { width: '100%', height: 46, justifyContent: 'center' },
-  appleOfficialButton: { width: '100%', height: 36 },
-  ssoButton: { width: '100%', height: 36, paddingVertical: 0, justifyContent: 'center' },
+  // Founder-selected rounded rectangle, not capsule. Maintain the existing
+  // 12pt institutional button radius on both the native Apple and Google control.
+  // Verify the native Apple rendering on a signed iPhone: Build 58 showed a
+  // capsule even when source requested 12pt, so source parity is not device proof.
+  ssoButton: { width: '100%', height: 36, borderRadius: 12, paddingVertical: 0, justifyContent: 'center' },
+  // Apple's official 60x60 PNG has generous internal black padding (glyph x19..40).
+  // At 44pt within the shared 36pt slot its visible left edge aligns to
+  // Google's centered 17pt G, without modifying vendor artwork.
+  appleOfficialMark: { width: 44, height: 44 },
   googleOfficialMark: { width: 17, height: 17 },
   btn: { borderRadius: 12, paddingVertical: 14, alignItems: 'center' },
   btnRow: { flexDirection: 'row', justifyContent: 'center', gap: 10 },
@@ -779,9 +770,15 @@ const s = StyleSheet.create({
   legalLink: { color: colors.ink, fontWeight: '500' },
   legalLinkPressed: { color: colors.ink, textDecorationLine: 'underline' },
   // A single-sign-on control: the same geometry as the ghost button, mark beside the label.
-  btnSso: { backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border },
+  // Google's official light theme calls for a white button and #747775 1px outline.
+  appleBrandBackground: { backgroundColor: '#000000' },
+  btnSso: { backgroundColor: colors.card, borderWidth: 1, borderColor: '#747775' },
   btnTextSso: { color: colors.ink, fontSize: 15, fontWeight: '600' },
-  ssoInner: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10 },
+  // 248pt centered row on normal iPhones. It shrinks only on narrower screens
+  // and preserves the same text origin for both providers, regardless of label
+  // lengths and distinct intrinsic logo artwork.
+  ssoInner: { width: '100%', maxWidth: 248, alignSelf: 'center', flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-start', gap: 10 },
+  ssoIconSlot: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
   orRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginVertical: 11 },
   orRule: { flex: 1, height: 1, backgroundColor: colors.hairline },
   orText: { fontSize: 12.5, color: colors.muted },

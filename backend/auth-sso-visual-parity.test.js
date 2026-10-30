@@ -1,38 +1,50 @@
 'use strict';
-const assert = require('node:assert/strict');
-const fs = require('node:fs');
-const path = require('node:path');
+const assert=require('node:assert/strict');
+const fs=require('node:fs');
+const path=require('node:path');
+const crypto=require('node:crypto');
+// Both labels MUST be rendered by the exact same Text instance and styles:
+// Apple's native ASAuthorizationAppleIDButton uses its own uncontrollable font size.
+const ui=fs.readFileSync(path.join(__dirname,'..','src/screens/AuthScreen.tsx'),'utf8');
+assert.doesNotMatch(ui, /<AppleAuthentication\.AppleAuthenticationButton/,
+  'native Apple component controls its own font and failed Build 58 visual parity');
+assert.match(ui, /<SsoButton label=\{t\('auth\.continueWithApple'\)\} onPress=\{onApple\} glyph="apple" primary \/>/,
+  'Apple continues to call actual native Apple OAuth via shared control');
+assert.match(ui, /<GoogleEntry\s+label=\{t\('auth\.continueWithGoogle'\)\}/);
+assert.match(ui, /<Text style=\{\[s\.btnText, s\.btnTextSso, \{ color: onDark \}]}>{label}<\/Text>/,
+  'both providers must use exactly the same React Native Text and style');
+assert.match(ui, /btnText: \{ fontSize: 15, fontWeight: '600' \}/);
+assert.match(ui, /btnTextSso: \{ color: colors\.ink, fontSize: 15, fontWeight: '600' \}/,
+  'shared label must be 15pt semibold across providers');
+assert.match(ui, /<View style=\{s\.ssoInner\}>[\s\S]*?<View style=\{s\.ssoIconSlot\}>[\s\S]*?glyph === 'apple'[\s\S]*?source=\{GOOGLE_OFFICIAL_G_SOURCE\}[\s\S]*?<\/View>[\s\S]*?<Text style=\{\[s\.btnText, s\.btnTextSso, \{ color: onDark \}]}>{label}<\/Text>/,
+  'both branded logos share one icon slot and an identical text start position');
+assert.match(ui, /ssoInner: \{ width: '100%', maxWidth: 248, alignSelf: 'center', flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-start', gap: 10 \}/,
+  'fixed-width centered row with left-anchored icons and titles, independent of label lengths');
+assert.match(ui, /ssoIconSlot: \{ width: 36, height: 36, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' \}/,
+  'Apple/Google images must share a clipped 36pt icon slot');
+assert.match(ui, /appleOfficialMark: \{ width: 44, height: 44 \}/,
+  'Apple official PNG has built-in padding; 44pt canvas aligns the visible icon to Google');
+assert.match(ui, /googleOfficialMark: \{ width: 17, height: 17 \}/);
+const appleGlyphLeft = (36 - 44) / 2 + 44 * 19 / 60; // measured official PNG white pixels
+const googleGlyphLeft = (36 - 17) / 2;
+assert.ok(Math.abs(appleGlyphLeft - googleGlyphLeft) < 1,
+  'vendor artwork visible left edges must agree within 1pt, not merely occupy equal slots');
 
-// Preferred compact sign-in: native Apple and official Google use equal 36pt visible
-// buttons with 15pt-scale lettering and a 46pt minimum interaction region.
-// Signed-device comparison remains separate.
-const source = fs.readFileSync(path.join(__dirname, '..', 'src', 'screens', 'AuthScreen.tsx'), 'utf8');
-assert.match(source, /<AppleAuthentication\.AppleAuthenticationButton\s/, 'production iOS must render Apple-provided official artwork');
-assert.match(source, /buttonType=\{AppleAuthentication\.AppleAuthenticationButtonType\.CONTINUE\}/);
-assert.match(source, /buttonStyle=\{AppleAuthentication\.AppleAuthenticationButtonStyle\.BLACK\}/);
-assert.match(source, /appleOfficialButton:\s*\{\s*width:\s*'100%',\s*height:\s*36\s*\}/);
-assert.match(source, /appleTouchFrame:\s*\{[^}]*height:\s*46\b/);
-assert.match(source, /pointerEvents="none"/, 'native artwork delegates the full-size hit target to the parent');
-assert.match(source, /\{appleReady \? \(/, 'official Apple button must be used whenever the OS supports Apple auth');
-assert.match(source, /<GoogleEntry\s+label=\{t\('auth\.continueWithGoogle'\)\}/);
-assert.match(source, /style=\{\(\{ pressed \}\) => \[s\.btn, s\.ssoButton, primary \? s\.btnInk : s\.btnSso/);
-const button = source.match(/ssoButton:\s*\{[^}]*\}/)?.[0];
-assert.ok(button, 'Shared Apple and Google button style is required');
-assert.match(button, /width:\s*'100%'/);
-assert.match(button, /height:\s*36\b/);
-assert.match(source, /hitSlop=\{5\}/, 'Google touch target remains at least 46pt tall');
-assert.match(source, /btnText:\s*\{\s*fontSize:\s*15\b/);
-assert.match(source, /btnTextSso:\s*\{[^}]*fontSize:\s*15\b[^}]*fontWeight:\s*'600'/,
-  'preserve founder-preferred compact Google lettering');
-assert.match(source, /ssoInner:\s*\{[^}]*alignItems:\s*'center'/);
-assert.match(source, /btnSso:\s*\{[^}]*borderWidth:\s*1\b/);
-assert.equal((source.match(/<Svg width=\{17\} height=\{17\} viewBox="0 0 24 24">/g) || []).length, 1,
-  'only the nonproduction Apple preview may use its previous SVG');
-assert.match(source, /source=\{GOOGLE_OFFICIAL_G_SOURCE\}/,
-  'Google must use locally bundled official full-color identity art even when offline');
-const googleAsset = fs.readFileSync(path.join(__dirname, '..', 'src', 'brand', 'googleOfficialG.ts'), 'utf8');
-assert.match(googleAsset, /github\.com\/google\/GoogleSignIn-iOS\/blob\/main\/GoogleSignIn\/Sources\/Resources\/google@2x\.png/);
-assert.match(googleAsset, /data:image\/png;base64,iVBORw0KGgo/);
-assert.match(source, /googleOfficialMark:\s*\{ width: 17, height: 17 \}/,
-  'preserve proportionate Google artwork');
-console.log('PASS: equal 36pt visible Apple and official Google buttons, 46pt touch regions, 15pt Google label and 17pt unmodified G');
+assert.match(ui, /ssoButton: \{ width: '100%', height: 36, borderRadius: 12/,
+  'both render the same 36pt rounded-rectangle shape');
+assert.match(ui, /hitSlop=\{5\}/, '36pt face must have 46pt effective tap height');
+assert.match(ui, /source=\{require\('\.\.\/\.\.\/assets\/brand\/apple-signin-apple-official\.png'\)\}/,
+  'Apple logo must be bundled and Apple-provided');
+assert.doesNotMatch(ui,/d="M17\.05 12\.54/, 'no self-drawn Apple logo in custom button');
+assert.match(ui,/source=\{GOOGLE_OFFICIAL_G_SOURCE\}/);
+assert.match(ui,/googleOfficialMark: \{ width: 17, height: 17 \}/);
+assert.match(ui,/btnSso: \{ backgroundColor: colors\.card, borderWidth: 1, borderColor: '#747775' \}/);
+const png=fs.readFileSync(path.join(__dirname,'..','assets/brand/apple-signin-apple-official.png'));
+assert.equal(png.subarray(0,8).toString('hex'),'89504e470d0a1a0a');
+assert.equal(png.readUInt32BE(16),60);
+assert.equal(png.readUInt32BE(20),60);
+const blobSha=crypto.createHash('sha1').update(Buffer.concat([Buffer.from('blob '+png.length+'\0'),png])).digest('hex');
+assert.equal(blobSha,'aa3d1ada4145ec0d3a0438b273dfdedab016e027',
+  'official Apple-hosted artwork must stay pixel-identical to retrieved asset');
+console.log('PASS SOURCE: Apple and Google share exact 15pt title size, 248pt left-anchored row, 36pt icon slot, 10pt gap, official logos, 12pt rectangles');
+console.log('PENDING: exact-SHA signed-iPhone screenshot font-size, baseline and OAuth visual acceptance');
