@@ -21,6 +21,15 @@
 
 **State:** PLANNING ONLY. No creator has been contacted, invited, approved or offered compensation through this ledger change. No production system, referral rate, payment configuration or marketing spend is changed.
 
+
+### 30 October 2026 follow-up — no separate influencer activation or tier
+
+**Founder clarification:** An individual with a social-media audience is simply a normal Recruiter under the existing program. No distinct influencer feature, influencer fee schedule, dedicated platform launch, or new technical activation is required. Only the existing individual invitation/acceptance, agreement, attribution and payout eligibility processes apply. A planning note does not mean that particular creators were enrolled or invited.
+
+**Public prospect examples for later qualification, not contacted or endorsed:** Miami micro-creators **@mayitakeabite** (food and local destinations), **@ggthriveguide** (local things to do), and **@miami_eats_official** (dining and social-media marketing); Broward creator **@cubanbabiieats** (Fort Lauderdale dining/travel); **@thefoode** (Miami dining); and larger media/community account **@onlyindade** (Miami network). Also consider local Spanish/English community page managers, campus organization leaders or student creators, hospitality/event and nightlife hosts, and active driving-community organizers, provided they choose to participate through the same Recruiter pathway. Public examples originate from 2026 Feedspot/creator directories and the Only in Dade official website; confirm actual locality, audience composition and availability before any approach. Do not imply these people agreed or endorse American Rider.
+
+**Offer realism:** One recruit who completes ten eligible Travels earns their Recruiter only $1.50; even 100 such recruits generate $150 total. The $30 maximum per participant is contingent on 200 qualifying Travels, not an up-front bounty. Prioritize credible local participants who find this structure valuable, rather than promising major influencers substantial guaranteed compensation. All creator endorsements must clearly disclose their commission relationship (FTC Endorsement Guides).
+
 ## 30 October 2026 — Competitive Operator insurance provider partnerships (prior founder idea)
 
 **Founder directive:** Later research and compare insurers of different sizes, request realistic South Florida commercial/for-hire/livery or legally qualifying TNC quotes for representative Operator scenarios, and explore referring Operators to competitive providers. Obtain comparable terms for vehicle, driving history, usage, deductibles, coverage and eligibility.
