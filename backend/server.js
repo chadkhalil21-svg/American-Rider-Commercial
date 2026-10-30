@@ -3299,8 +3299,8 @@ async function issueInsuranceConfirmationRequest({ uid, user, contact, now = Dat
   }).catch(() => {});
 
   const sent = await send({
-    from: 'American Rider Insurance Verification <insurance@americanrider.app>',
-    replyTo: 'insurance@americanrider.app',
+    from: 'American Rider Insurance Verification <insurance@americanrider.tech>',
+    replyTo: 'insurance@americanrider.tech',
     to: email,
     subject: 'American Rider · Insurance status confirmation',
     text:
@@ -3309,7 +3309,7 @@ async function issueInsuranceConfirmationRequest({ uid, user, contact, now = Dat
       `The insured has authorized American Rider to request limited policy-status information for eligibility purposes. Please confirm whether the commercial automobile policy for ${operatorName}, policy ending ${last4}, remains active and unchanged for transportation-network / for-hire passenger operations.\n\n` +
       'Use the secure confirmation link below. It asks only for current status and does not request premium, claims, payment method, or unrelated policy information.\n\n' +
       url + '\n\n' +
-      'If your organization requires its own authorization form, reply to insurance@americanrider.app and American Rider will use that process instead.\n',
+      'If your organization requires its own authorization form, reply to insurance@americanrider.tech and American Rider will use that process instead.\n',
   });
 
   // A confirmation email may be in-flight when an Operator reports a
