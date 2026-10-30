@@ -49,6 +49,8 @@ def main():
     parser.add_argument('--apple', type=y_window, required=True)
     parser.add_argument('--google', type=y_window, required=True)
     parser.add_argument('--max-corner-fraction-difference', type=float, default=.08)
+    parser.add_argument('--max-corner-fraction', type=float, default=.42,
+                        help='Both controls must be rectangular, not pill-shaped')
     args = parser.parse_args()
     img = Image.open(args.png).convert('RGB')
     bg = img.getpixel((int(img.width * .04), (args.apple[1] + args.google[0]) // 2))
@@ -60,7 +62,9 @@ def main():
         raise SystemExit('FAIL: Apple and Google have different visible button heights')
     if gap > args.max_corner_fraction_difference:
         raise SystemExit('FAIL: Apple and Google have different rendered corner shapes')
-    print('PASS: screenshot has equivalent Apple/Google button shapes')
+    if max(apple['corner_to_height'], google['corner_to_height']) > args.max_corner_fraction:
+        raise SystemExit('FAIL: the Founder selected rectangular, not capsule buttons')
+    print('PASS: screenshot has equivalent rounded-rectangular Apple/Google shapes')
 
 
 if __name__ == '__main__':
