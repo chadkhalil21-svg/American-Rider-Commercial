@@ -107,9 +107,6 @@ async function readDocument({ kind, imageUrl, expect = {}, now = Date.now(), ocr
   } catch {
     return review('The private document is temporarily unavailable; human review is required.');
   }
-  const jpeg=bytes.length>=3 && bytes[0]===0xff && bytes[1]===0xd8 && bytes[2]===0xff;
-  const png=bytes.length>=8 && bytes.subarray(0,8).equals(Buffer.from('89504e470d0a1a0a','hex'));
-  const webp=bytes.length>=12 && bytes.toString('ascii',0,4)==='RIFF' && bytes.toString('ascii',8,12)==='WEBP';
   // Accept all original upload types, normalizing PDF (digital and scanned), HEIC/
   // HEIF, WebP and standard camera JPEG/PNG locally. No third-party OCR API call.
   // The reader never guesses through extraction or format errors.
@@ -198,10 +195,12 @@ function decide({ kind, spec, read, expect, now }) {
 
   // Expired, wrong document, or personal-use insurance are refusals: each is a fact the
   // document itself states. Everything else a person looks at.
-  const hardFail =
+  // Low-confidence OCR is never evidence for outright refusal.
+  const hardFail = read.legible === true && (
     expired ||
     read.isTheRequestedDocument === false ||
-    (kind === 'insurance' && f.commercialUse === 'no');
+    (kind === 'insurance' && f.commercialUse === 'no')
+  );
 
   const verdict = hardFail ? 'refuse' : reasons.length || concerns.length ? 'review' : 'accept';
 
