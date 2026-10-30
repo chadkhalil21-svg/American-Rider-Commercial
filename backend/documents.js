@@ -95,11 +95,11 @@ async function readDocument({ kind, imageUrl, expect = {}, now = Date.now(), ocr
     const res = await fetch(imageUrl);
     if (!res.ok) return review('The private document could not be read; review the original upload.');
     const advertised = Number(res.headers.get('content-length') || 0);
-    if (advertised > 5*1024*1024) return review('The upload exceeds the safe local reading limit.');
+    if (advertised > 5*1024*1024) return review('Document received. Automatic text reading was skipped for this larger file; the original is held for private review.');
     const chunks=[]; let total=0;
     for await (const chunk of res.body) {
       total += chunk.length;
-      if (total > 5*1024*1024) return review('The upload exceeds the safe local reading limit.');
+      if (total > 5*1024*1024) return review('Document received. Automatic text reading was skipped for this larger file; the original is held for private review.');
       chunks.push(Buffer.from(chunk));
     }
     bytes=Buffer.concat(chunks,total);
