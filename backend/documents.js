@@ -198,7 +198,7 @@ function decide({ kind, spec, read, expect, now }) {
   // Low-confidence OCR is never evidence for outright refusal.
   const hardFail = read.legible === true && (
     expired ||
-    read.isTheRequestedDocument === false ||
+    (read.isTheRequestedDocument === false && read.documentType && read.documentType !== 'unidentified') ||
     (kind === 'insurance' && f.commercialUse === 'no')
   );
 
