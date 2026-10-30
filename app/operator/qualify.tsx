@@ -292,6 +292,8 @@ export default function OperatorQualification() {
                   <BadgeOk label={t('operator.verified')} />
                 ) : st === 'checking' ? (
                   <Text style={styles.pillChecking}>{t('operator.checking')}</Text>
+                ) : st === 'review' ? (
+                  <Text style={styles.pillChecking}>{t('traveler.underReview')}</Text>
                 ) : (
                   <Text style={styles.pillTodo}>{t('traveler.add')} ›</Text>
                 )}
