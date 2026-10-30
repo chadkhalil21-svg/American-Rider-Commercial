@@ -43,6 +43,29 @@ def geometry(img, window, bg, threshold):
             'corner_to_height': round(radius_px / height_px, 3)}
 
 
+def label_height(img, button):
+    """Measure rendered glyph height, excluding logo, border and button corners."""
+    w, _ = img.size
+    mid = (button['top'] + button['bottom']) // 2
+    # An interior pixel well left of centered text establishes the native fill.
+    bg = img.getpixel((int(w * .22), mid))[:3]
+    first_x, last_x = int(w * .44), int(w * .84)
+    start = button['top'] + int(button['height'] * .19)
+    stop = button['bottom'] - int(button['height'] * .19)
+    rows = []
+    for y in range(start, stop + 1):
+        ink = 0
+        for x in range(first_x, last_x):
+            p = img.getpixel((x, y))[:3]
+            if max(abs(int(p[k]) - int(bg[k])) for k in range(3)) >= 85:
+                ink += 1
+        if 3 <= ink <= (last_x - first_x) * .65:
+            rows.append(y)
+    if not rows:
+        raise ValueError('No provider title text pixels found; inspect screenshot crop')
+    return max(rows) - min(rows) + 1
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('png')
@@ -58,6 +81,11 @@ def main():
     google = geometry(img, args.google, bg, 5)
     gap = abs(apple['corner_to_height'] - google['corner_to_height'])
     print('Apple:', apple, 'Google:', google, 'normalized corner gap:', round(gap, 3))
+    apple_text_px = label_height(img, apple)
+    google_text_px = label_height(img, google)
+    print('Rendered title glyph heights: Apple', apple_text_px, 'px; Google', google_text_px, 'px')
+    if abs(apple_text_px - google_text_px) > 3:
+        raise SystemExit('FAIL: Apple and Google have visibly different rendered title sizes')
     if abs(apple['height'] - google['height']) / max(apple['height'], google['height']) > .10:
         raise SystemExit('FAIL: Apple and Google have different visible button heights')
     if gap > args.max_corner_fraction_difference:
