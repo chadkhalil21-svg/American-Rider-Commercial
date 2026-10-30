@@ -33,8 +33,8 @@ assert.match(ui, /ssoButton:\s*\{\s*width:\s*'100%',\s*height:\s*36/,
   'match Apple 36pt visible shared button');
 assert.match(ui, /<SsoButton label=\{t\('auth\.continueWithApple'\)\} onPress=\{onApple\} glyph="apple" primary \/>/,
   'Apple and Google use the same 36pt SSO component');
-assert.match(ui, /glyph === 'apple' \? \([\s\S]*?\) : \(\s*\/\/ Google-owned iOS SDK multicolor/,
-  'monochrome hand-drawn G must not remain in the production branch');
+assert.match(ui, /glyph === 'apple' \? \([\s\S]*?source=\{require\('\.\.\/\.\.\/assets\/brand\/apple-signin-apple-official\.png'\)\}[\s\S]*?source=\{GOOGLE_OFFICIAL_G_SOURCE\}/,
+  'the shared icon slot must use original vendor-supplied Apple and Google artwork');
 assert.ok(labels.includes("continueWithGoogle: 'Continue with Google'"),
   'preserve the existing button wording');
 assert.match(ui, /btnSso:\s*\{\s*backgroundColor:\s*colors\.card/,
