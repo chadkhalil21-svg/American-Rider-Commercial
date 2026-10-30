@@ -52,9 +52,7 @@ export async function pickDocument(fromCamera: boolean): Promise<SelectedDocumen
   }
 }
 
-// Allow original scans while bounding one private Operator evidence item.
-// A larger file does not constitute automated approval or authentic insurance.
-const MAX_UPLOAD_BYTES = 15 * 1024 * 1024;
+const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
 const ACCEPTED_TYPES = new Set([
   'application/pdf', 'image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif',
 ]);
