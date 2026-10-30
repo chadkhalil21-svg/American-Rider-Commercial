@@ -29,6 +29,35 @@ The private screenshot must not be copied into the repository to fabricate QA.
 - Do not change the logo, tagline, email entry, blank-space arrangement,
   sign-in flow, or the broader front door. No homemade Apple artwork.
 
+## Exact typography correction (Build 58 repeat defect)
+Founder explicitly requires *both* provider titles to use Google's smaller typography,
+not Apple's visibly larger native wording. Build 58 source-only tests failed
+because `ASAuthorizationAppleIDButton` owns its own font, and its React Native
+wrapper does not expose the title font size. Apple's HIG allows a custom sign-in
+button with adjusted font size/weight so long as its official logo and
+permitted black/white title and fill are preserved.
+
+Production now uses ONE shared `SsoButton` React Native `Text` for both
+providers: `fontSize:15`, `fontWeight:'600'`, same system font family,
+same 36pt visible button, 12pt rectangle corner radius, and hitSlop 5 (46pt
+effective target). Apple asset is the **unmodified, bundled Apple-hosted PNG**
+from `https://appleid.cdn-apple.com/appleid/button/logo`, with SHA-1 Git
+blob `aa3d1ada4145ec0d3a0438b273dfdedab016e027`. No hand-drawn
+Apple logo is displayed. This changes only the visual entry button; the
+`onApple` handler still invokes `signInWithApple()` with nonce/Firebase
+credential validation. Google retains the official bundled multicolor G.
+
+**Mandatory signed-device gate:** inspect actual iPhone rendered title
+text bounds and baselines (not merely style properties), in the same locale
+and accessibility text settings. Reject the build if Apple's text appears
+larger or visibly heavier than Google's, if Apple glyph/logo is cropped or
+poorly proportioned, or if either provider fails to authenticate.
+
+Official guidance: https://developer.apple.com/design/human-interface-guidelines/sign-in-with-apple/
+Apple-provided logo API:
+https://developer.apple.com/documentation/signinwithapplerestapi/get-a-sign-in-with-apple-button-that-contains-just-the-apple-logo.
+Google branding: https://developers.google.com/identity/branding-guidelines
+
 ## Required verification before calling this visually correct
 
 1. Source, CI, TypeScript, translation and provider-auth regression checks pass.
