@@ -1,6 +1,6 @@
 // Economics precede compliance spend; server review, not a checklist, commissions duty.
 import { useFocusEffect, useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { Text } from '../../src/components/AppText';
 import { useGoBack } from '../../src/components/nav';
@@ -92,7 +92,31 @@ export default function OperatorQualification() {
     };
   }, [t]);
   const areaActive = area?.market?.status === 'active';
-  const areaAuthorized = areaActive; // Settled rule: no preparation in unopened markets.
+  const areaAuthorized = areaActive; // Paid duty stays confined to authorized markets.
+  // One-Founder operation: once all evidence is verified, report readiness
+  // automatically. The server remains authoritative and checks screening,
+  // independent insurance status and account state; this is NOT auto-approval.
+  // A transition guard prevents duplicate submissions across harmless re-renders.
+  const autoSubmitted = useRef('');
+  useEffect(() => {
+    if (!op.ready || !areaActive || !user?.uid || !op.allVerified ||
+        op.verification !== 'none' || submitting) return;
+    const key = user.uid + ':' + QUAL_DOCS.map(d => op.docs[d.key]).join(':');
+    if (autoSubmitted.current === key) return;
+    autoSubmitted.current = key;
+    let live = true;
+    setSubmitting(true);
+    void op.submitQualification().then(out => {
+      if (!live) return;
+      if (out.ok) {
+        setSubmitError(null);
+        router.replace('/operator/review');
+      } else {
+        setSubmitError(out.error || null);
+      }
+    }).finally(() => { if (live) setSubmitting(false); });
+    return () => { live = false; };
+  }, [op.ready, op.allVerified, op.verification, op.docs, areaActive, user?.uid, router]);
   // A link or QR received before installation can be recovered after sign-in.
   // Retry only when this screen is revisited, not with a background poll.
   useFocusEffect(React.useCallback(() => {
