@@ -867,7 +867,7 @@ export default {
     emailPh: 'you@email.com',
     select: 'Select',
     open: 'Open',
-    docUploadGuidance: "Upload a clear photograph or PDF (up to 5 MB). American Rider reviews submitted documents before approval.",
+    docUploadGuidance: "Upload a clear photograph or PDF (up to 15 MB). American Rider reviews submitted documents before approval.",
     docsHeld: 'What American Rider holds for you, and what is still needed.',
     underReview: 'Under Review',
     travelWhileWaiting: 'Travel as a Traveler while you wait',
