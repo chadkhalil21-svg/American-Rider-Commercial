@@ -1,4 +1,4 @@
-// End-to-end source contract: native Files -> bounded signed R2 PDF -> manual review.
+// End-to-end source contract: native Files -> bounded signed private R2 PDF -> automatic text extraction when possible.
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
@@ -44,15 +44,15 @@ async function run() {
     const d = await readDocument({
       kind: 'insurance',
       imageUrl: 'https://r2.example.com/private-signed-get',
-      ocr: async () => { ocrInvoked = true; throw Error('Never OCR a PDF as an image'); },
+      ocr: async () => { ocrInvoked = true; throw Error('Malformed PDF should not reach image OCR'); },
     });
     assert.equal(d.ok, true);
     assert.equal(d.verdict, 'review');
-    assert.match(d.reasons.join(' '), /PDF received/);
+    assert.match(d.reasons.join(' '), /Automated extraction was unavailable|PDF received/);
     assert.equal(ocrInvoked, false);
   } finally {
     global.fetch = prior;
   }
-  console.log('Native file selection and private PDF hold-for-human-review tests passed');
+  console.log('Native PDF file selection and safe fallback for malformed private PDF passed');
 }
 run().catch(e => { console.error(e); process.exitCode=1; });
