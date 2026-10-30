@@ -124,9 +124,9 @@ export default function OperatorDocuments() {
                   </Text>
                 ) : review?.verdict === 'refuse' ? (
                   <Text style={styles.rowRefused}>{review.reasons[0] || t('traveler.notAccepted')}</Text>
-                ) : review?.verdict === 'review' ? (
+                ) : state === 'review' || review?.verdict === 'review' ? (
                   <Text style={styles.rowSub}>
-                    {t('traveler.beingCheckedByPerson', { reason: review.reasons[0] || '' })}
+                    {t('traveler.beingCheckedByPerson', { reason: review?.reasons?.[0] || '' })}
                   </Text>
                 ) : (
                   <Text style={styles.rowSub}>{t(d.asks)}</Text>
