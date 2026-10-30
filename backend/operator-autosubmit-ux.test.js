@@ -1,0 +1,13 @@
+'use strict';
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const source = fs.readFileSync('app/operator/qualify.tsx','utf8');
+const server = fs.readFileSync('backend/server.js','utf8');
+const qualification = fs.readFileSync('backend/qualification.js','utf8');
+assert.match(source, /if \(!op\.ready \|\| !areaActive \|\| !user\?\.uid \|\| !op\.allVerified/, 'automatic qualification starts only when visible evidence is complete');
+assert.match(source, /autoSubmitted\.current = key/, 'one submission per verified checklist transition');
+assert.match(source, /void op\.submitQualification\(\)\.then/, 'no extra Operator button click is required');
+assert.match(server, /app\.post\('\/operator\/qualification\/submit'[\s\S]*?assessAndRecord\(/, 'server must independently reassess qualification');
+assert.match(qualification, /continuingStatus\(u, now\)/, 'current insurer status is never bypassed');
+assert.match(qualification, /screeningCurrent\(/, 'current screening must remain part of the eligibility engine');
+console.log('PASS zero-click qualification after complete evidence; insurer/screening server gates preserved');
