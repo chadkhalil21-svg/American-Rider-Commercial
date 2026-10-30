@@ -109,7 +109,7 @@ function SsoButton({
       accessibilityRole="button"
       accessibilityLabel={label}
       hitSlop={5}
-      style={({ pressed }) => [s.btn, s.ssoButton, primary ? s.btnInk : s.btnSso, pressed && { opacity: 0.86 }]}
+      style={({ pressed }) => [s.btn, s.ssoButton, primary ? s.appleBrandBackground : s.btnSso, pressed && { opacity: 0.86 }]}
     >
       <View style={s.ssoInner}>
         {glyph === 'apple' ? (
@@ -766,6 +766,7 @@ const s = StyleSheet.create({
   legalLinkPressed: { color: colors.ink, textDecorationLine: 'underline' },
   // A single-sign-on control: the same geometry as the ghost button, mark beside the label.
   // Google's official light theme calls for a white button and #747775 1px outline.
+  appleBrandBackground: { backgroundColor: '#000000' },
   btnSso: { backgroundColor: colors.card, borderWidth: 1, borderColor: '#747775' },
   btnTextSso: { color: colors.ink, fontSize: 15, fontWeight: '600' },
   ssoInner: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10 },
