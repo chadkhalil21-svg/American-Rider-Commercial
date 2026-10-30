@@ -45,7 +45,7 @@ export type DocKey =
   | 'inspection'
   | 'insurance'
   | 'background';
-export type DocState = 'todo' | 'checking' | 'ok';
+export type DocState = 'todo' | 'checking' | 'review' | 'ok';
 export type Verification = 'none' | 'pending' | 'commissioned';
 export type Role = 'traveler' | 'operator';
 
@@ -522,7 +522,11 @@ export function OperatorProvider({ children }: { children: React.ReactNode }) {
         AsyncStorage.setItem(K_COVERAGE, out.expiry).catch(() => {});
       }
       setDocs((prev) => {
-        const next = { ...prev, [k]: (out.verdict === 'accept' ? 'ok' : 'todo') as DocState };
+        // Preserve the distinction between a missing file and an uploaded original
+        // awaiting named review (including 5–15 MiB files too large for local OCR).
+        // Only server-confirmed acceptance can ever yield the verified 'ok' state.
+        const next = { ...prev, [k]: (out.verdict === 'accept' ? 'ok'
+          : out.verdict === 'review' ? 'review' : 'todo') as DocState };
         persistDocs(next);
         return next;
       });
