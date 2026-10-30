@@ -38,6 +38,14 @@ const { readDocument, documentsReady, READER_VERSION }=require('./documents');
     });
     assert.equal(tooUncertain.verdict,'review',
       'extremely low-confidence text cannot authorize even an apparently complete document');
+    const liberallyRead = await readDocument({ kind:'license',imageUrl:'https://private.example/signed',
+      expect:{name:'Alex Morgan'},ocr:async()=>({text:autoText,confidence:48}) });
+    assert.equal(liberallyRead.verdict,'accept',
+      'complete recognized evidence does not require arbitrary high OCR confidence');
+    const unreadableStillHeld = await readDocument({ kind:'license',imageUrl:'https://private.example/signed',
+      expect:{name:'Alex Morgan'},ocr:async()=>({text:autoText,confidence:10}) });
+    assert.equal(unreadableStillHeld.verdict,'review',
+      'unreliable extraction must not authorize a paid Operator');
     const wrongPerson = await readDocument({ kind:'license',imageUrl:'https://private.example/signed',
       expect:{name:'Other Person'},ocr:async()=>({text:autoText,confidence:96}) });
     assert.equal(wrongPerson.verdict,'review','identity mismatch never automatically approves');
