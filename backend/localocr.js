@@ -92,6 +92,7 @@ function extract({ kind, text, confidence }) {
     combinedSingleLimit: limit,
   };
   const insurer = value(/(?:^|\n)\s*(?:CARRIER|INSURER|INSURANCE COMPANY)\s*[:#.-]?\s*([A-Z0-9 &.,'-]{3,90})(?:\n|$)/);
+  const policyNumber = value(/(?:^|\n)\s*(?:POLICY\s*(?:NO\.?|NUMBER|#)|POLICY\s+ID)\s*[:#.-]?\s*([A-Z0-9-/]{5,40})(?:\n|$)/);
   const umRejected = /\bUNINSURED MOTORIST\s+REJECTED\s+IN\s+WRITING\b/.test(upper);
   const um = umRejected ? 'rejected_in_writing' :
     /\b(?:UM\/UIM|UNINSURED MOTORIST)\b.{0,20}(?:COVERAGE|INCLUDED|YES)/.test(upper) ? 'yes' : 'not_shown';
@@ -113,7 +114,7 @@ function extract({ kind, text, confidence }) {
     tncEndorsement: forHire ? 'yes' : 'unknown',
     generalLimits: limitFields, rideLimits: { combinedSingleLimit: limit },
     loggedOnLimits: limitFields, pip:{shown:pip?'yes':'not_shown',amount:pip},
-    uninsuredMotorist:{shown:um}, insurer,
+    uninsuredMotorist:{shown:um}, insurer, policyNumber,
   } : null;
   return {
     documentType: identified ? kind : 'unidentified',
