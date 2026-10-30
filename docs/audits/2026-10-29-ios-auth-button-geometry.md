@@ -58,6 +58,31 @@ Apple-provided logo API:
 https://developer.apple.com/documentation/signinwithapplerestapi/get-a-sign-in-with-apple-button-that-contains-just-the-apple-logo.
 Google branding: https://developers.google.com/identity/branding-guidelines
 
+## Build 59 physical-iPhone finding and centering correction (October 30)
+
+The founder's actual Build 59 TestFlight screenshot showed matching 36pt
+rounded rectangles and matched 15pt text, but both **complete logo+wording
+groups were visibly shifted left** inside the full-width buttons. Earlier
+source and preview tests mistakenly equated identical label starting X with
+balanced button contents. The root cause was a **fixed 248pt inner row with
+`justifyContent: 'flex-start'`**. A shorter Apple label left proportionally
+more unused space on the right.
+
+The corrected component retains the shared 36pt icon slot, 10pt gap, 15pt
+semibold label, original provider artwork, 36pt button height and 12pt radius.
+It removes the fixed-width inner row. React Native now lays out each
+icon+entire label as an **intrinsic-width flex row with centered justification**,
+while the outer button centers the complete composition. Because Apple and
+Google titles have different widths, **their text starting X can legitimately
+differ**. Their complete icon+label group must each be independently centered
+in the same full-width button. This is the visual requirement and overrides the
+older "same label X" source assertion.
+
+Regression tests explicitly reject any fixed width or left-justified
+`ssoInner` row. Do not certify from these source checks alone; signed-iPhone
+screenshot confirmation must inspect both overall group centers, not only
+font sizes, corner shapes and label starts.
+
 ## Required verification before calling this visually correct
 
 1. Source, CI, TypeScript, translation and provider-auth regression checks pass.
