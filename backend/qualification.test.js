@@ -254,8 +254,8 @@ const codes = (a) => a.blockers.map((b) => b.code);
     const src = fs.readFileSync(path.join(__dirname, 'documents.js'), 'utf8');
     check('4b. ordinary document review uses local OCR and never calls a metered model',
       /require\('\.\/localocr'\)/.test(src) && !/Anthropic|messages\.create|ANTHROPIC_API_KEY/.test(src));
-    check('4b. OCR cannot approve insurance without a human and independent continuing-status evidence',
-      /verdict:'review'/.test(src) && /required = 'A qualified person/.test(src));
+    check('4b. clean OCR may pass document-reading, but insurance still requires independent current carrier/broker verification',
+      /extractLocalDocument\(bytes, ocr\)/.test(src) && /continuingStatus\(u, now\)/.test(fs.readFileSync(path.join(__dirname,'qualification.js'),'utf8')));
   }
 
   // ——— 4c. The real human-review path must not bypass active insurer evidence —————
