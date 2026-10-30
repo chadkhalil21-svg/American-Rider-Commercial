@@ -29,7 +29,8 @@ jobs:
           from pathlib import Path
           p=Path('assets/brand/apple-signin-apple-official.png')
           blob=p.read_bytes()
-          assert blob[:8]==b'\\x89PNG\\r\\n\\x1a\\n', 'Apple endpoint did not provide PNG'
+          print('Apple endpoint response bytes:',len(blob),'head:',repr(blob[:145]))
+          assert blob[:4]==bytes([137,80,78,71]), 'Apple endpoint did not provide PNG'
           width,height=struct.unpack('>II',blob[16:24])
           assert 30<=width<=400 and width==height and 100<len(blob)<150000,'Unexpected official Apple asset dimensions'
           print('Apple-official logo asset validated:',width,height,len(blob))
