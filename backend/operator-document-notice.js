@@ -9,12 +9,12 @@ function correctionNotice({kind,verdict,reasons=[]}={}){
   if(!LABELS[kind]||!['review','refuse'].includes(verdict))return null;
   const reason=Array.isArray(reasons)?reasons.map(s=>String(s)).join(' ').toLowerCase():'';
   let action='Please open American Rider, review the document details and provide the missing or corrected evidence.';
-  if(/could not be read|unclear|text extraction|illegible|unavailable|photo|conclusive|skipped|temporarily|busy/.test(reason))
-    action='Please open American Rider and provide a clearer photo or original PDF. Make sure the full document and its dates are visible.';
+  if(/insur|cover|policy|livery|for.hire|commercial|limit|pip|motorist/.test(reason))
+    action='Please provide your current insurance declarations page or relevant endorsement showing the insured person, covered vehicle, policy dates, qualifying for-hire coverage and limits.';
   else if(/expir|validity|date/.test(reason))
     action='Please open American Rider and provide the current document showing its valid dates.';
-  else if(/insur|cover|policy|livery|for.hire|commercial|limit|pip|motorist/.test(reason))
-    action='Please provide your current insurance declarations page or relevant endorsement showing the insured person, covered vehicle, policy dates, qualifying for-hire coverage and limits.';
+  else if(/could not be read|unclear|text extraction|illegible|unavailable|photo|conclusive|skipped|temporarily|busy/.test(reason))
+    action='Please open American Rider and provide a clearer photo or original PDF. Make sure the full document and its dates are visible.';
   else if(/match|plate|account|owner|name/.test(reason))
     action='Please check that your account and vehicle details match your document. If they are correct, use Support within American Rider for assistance.';
   const subject='American Rider | Your '+LABELS[kind]+' needs one more detail';
