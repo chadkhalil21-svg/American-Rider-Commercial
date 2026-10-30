@@ -30,9 +30,9 @@ assert.match(ui, /googleOfficialMark:\s*\{\s*width:\s*17,\s*height:\s*17\s*\}/,
 assert.match(ui, /btnTextSso:\s*\{[^}]*fontSize:\s*15\b/,
   'preserve founder-preferred Google 15pt text');
 assert.match(ui, /ssoButton:\s*\{\s*width:\s*'100%',\s*height:\s*36/,
-  'match native Apple 36pt visible button');
-assert.match(ui, /appleOfficialButton:\s*\{\s*width:\s*'100%',\s*height:\s*36/,
-  'match Google 36pt visible button');
+  'match Apple 36pt visible shared button');
+assert.match(ui, /<SsoButton label=\{t\('auth\.continueWithApple'\)\} onPress=\{onApple\} glyph="apple" primary \/>/,
+  'Apple and Google use the same 36pt SSO component');
 assert.match(ui, /glyph === 'apple' \? \([\s\S]*?\) : \(\s*\/\/ Google-owned iOS SDK multicolor/,
   'monochrome hand-drawn G must not remain in the production branch');
 assert.ok(labels.includes("continueWithGoogle: 'Continue with Google'"),
@@ -41,5 +41,5 @@ assert.match(ui, /btnSso:\s*\{\s*backgroundColor:\s*colors\.card/,
   'Google sign-in logo must sit on the actual white card background');
 assert.match(ui, /accessibilityIgnoresInvertColors/,
   'OS accessibility inversion cannot recolor the vendor-supplied logo');
-console.log('PASS: official Google SDK multicolor G, 17pt artwork, 15pt title, both visible sign-in controls 36pt');
+console.log('PASS: official Google SDK G, 17pt art, same React Native 15pt semibold title component as Apple, both 36pt');
 console.log('NOT VERIFIED: installed device rendering, Google account OAuth, or provider/store approval');
