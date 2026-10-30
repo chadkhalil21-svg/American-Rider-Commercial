@@ -28,9 +28,9 @@ for (const lang of ['en', 'es', 'fr', 'it', 'de']) {
 }
 assert.match(ui, /AppleAuthentication\.AppleAuthenticationButtonType\.CONTINUE/);
 assert.match(ui, /AppleAuthentication\.AppleAuthenticationButtonStyle\.BLACK/);
-assert.match(ui, /appleOfficialButton:\s*\{ width: '100%', height: 46 \}/);
+assert.match(ui, /appleOfficialButton:\s*\{ width: '100%', height: 36 \}/);
 assert.match(ui, /\{appleReady \? \([\s\S]*?<AppleAuthentication\.AppleAuthenticationButton/,
   'a working native iOS Apple control must never use custom traced logo artwork');
 
-console.log('PASS: Apple official 46pt iOS button and deletion revocation/manual fallback; password and Google deletion unchanged');
+console.log('PASS: Apple official 36pt native artwork within 46pt touch area and deletion revocation/manual fallback; Google deletion unchanged');
 console.log('NOT VERIFIED: Native Apple user/device grant, token issuance, provider revocation, real App Store binary or Google Cloud Apple OAuth configuration');
