@@ -20,8 +20,15 @@ assert.match(ui, /<View style=\{s\.ssoInner\}>[\s\S]*?<View style=\{s\.ssoIconSl
   'both branded logos share one icon slot and an identical text start position');
 assert.match(ui, /ssoInner: \{ width: '100%', maxWidth: 248, alignSelf: 'center', flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-start', gap: 10 \}/,
   'fixed-width centered row with left-anchored icons and titles, independent of label lengths');
-assert.match(ui, /ssoIconSlot: \{ width: 36, height: 36, alignItems: 'center', justifyContent: 'center' \}/,
-  'Apple/Google images must share a fixed-width 36pt icon slot');
+assert.match(ui, /ssoIconSlot: \{ width: 36, height: 36, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' \}/,
+  'Apple/Google images must share a clipped 36pt icon slot');
+assert.match(ui, /appleOfficialMark: \{ width: 44, height: 44 \}/,
+  'Apple official PNG has built-in padding; 44pt canvas aligns the visible icon to Google');
+assert.match(ui, /googleOfficialMark: \{ width: 17, height: 17 \}/);
+const appleGlyphLeft = (36 - 44) / 2 + 44 * 19 / 60; // measured official PNG white pixels
+const googleGlyphLeft = (36 - 17) / 2;
+assert.ok(Math.abs(appleGlyphLeft - googleGlyphLeft) < 1,
+  'vendor artwork visible left edges must agree within 1pt, not merely occupy equal slots');
 
 assert.match(ui, /ssoButton: \{ width: '100%', height: 36, borderRadius: 12/,
   'both render the same 36pt rounded-rectangle shape');
