@@ -1,6 +1,7 @@
 'use strict';
 // One shared eligibility policy for URL issue and URL redemption.
-// A Founder-approved account alone is NOT a signed agreement or identity proof.
+// Referral access requires Founder approval, verified identity and agreement, not bank setup.
+// Actual money transfer retains the independent Stripe/bank/tax gate.
 // Pure function: no Firestore, HTTP, payment, location, or side effects.
 const validRole=role=>role==='operator'||role==='traveler';
 function eligibleApproval(approval,role,now=Date.now()){
@@ -8,7 +9,6 @@ function eligibleApproval(approval,role,now=Date.now()){
      !Number.isSafeInteger(now)||now<=0)return false;
   if(approval.status!=='approved'||approval.suspended===true||
      approval.identityVerified!==true||approval.agreementAccepted!==true||
-     approval.payoutEligibilityVerified!==true||
      !Array.isArray(approval.allowedRoles)||!approval.allowedRoles.includes(role))return false;
   if(typeof approval.approvedBy!=='string'||approval.approvedBy.length<2||
      !Number.isSafeInteger(approval.approvedAt)||approval.approvedAt<=0||
@@ -23,4 +23,7 @@ function recruiterMayRefer(account,approval,role,now){
     Array.isArray(account.allowedRoles) && account.allowedRoles.includes(role) &&
     eligibleApproval(approval,role,now);
 }
-module.exports={eligibleApproval,recruiterMayRefer};
+function payoutEligibleApproval(approval,role,now){
+  return eligibleApproval(approval,role,now)&&approval.payoutEligibilityVerified===true;
+}
+module.exports={eligibleApproval,recruiterMayRefer,payoutEligibleApproval};

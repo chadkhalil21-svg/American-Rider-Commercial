@@ -164,6 +164,7 @@ const { dutyCoverageExpiry } = require('./operator-duty-coverage');
 const crypto = require('node:crypto');
 const WORKER_ID = crypto.randomUUID();
 const { send, receiptEmail, emailReady: mailReady } = require('./email');
+const { correctionNotice } = require('./operator-document-notice');
 const {enqueueTravelReceipt,sweepTravelReceipts} = require('./travel-receipt-outbox');
 const { mount: mountOps, opsAuthMode, signedIn: opsSignedIn, actorOf: opsActorOf, oauthActorFingerprint } = require('./ops');
 const {mountFounderReadonly}=require('./founder-readonly-access');
@@ -2913,6 +2914,19 @@ app.post('/operator/document', requireAuth, LIMITS.document, requireFreshAuth, r
       qualification = { status: a.status, qualified: a.qualified };
     } catch (e) {
       console.error('[qualification] after document', e.message);
+    }
+
+    // Self-service first: explain a missing or unreadable detail directly to the
+    // Operator, rather than opening a routine Founder review. Never email private
+    // OCR text, identity mismatch names, licence/policy numbers, or source images.
+    // This email is advisory only; a delivery outage never changes eligibility.
+    const notice = correctionNotice({kind,verdict:out.verdict,reasons:out.reasons});
+    if (notice && typeof req.email === 'string' && req.email.includes('@')) {
+      const crypto = require('node:crypto');
+      const idempotencyKey = 'operator-doc-' + crypto.createHash('sha256')
+        .update([String(req.uid),kind,objectKey,out.verdict].join('|')).digest('hex');
+      const delivered = await send({to:req.email,...notice,idempotencyKey});
+      if (!delivered.ok) console.warn('[operator-document] correction email unavailable');
     }
 
     res.json({

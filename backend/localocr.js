@@ -98,7 +98,18 @@ function extract({ kind, text, confidence }) {
     /\b(?:UM\/UIM|UNINSURED MOTORIST)\b.{0,20}(?:COVERAGE|INCLUDED|YES)/.test(upper) ? 'yes' : 'not_shown';
   const fields = { name, number, expiry, state:'', vehicle:'', vin, plate, commercialUse, limits:limit };
   const concerns = [];
-  if (Number(confidence) < 85 || content.trim().length < 35) concerns.push('Text extraction confidence is insufficient for automatic approval.');
+  // OCR confidence is not a statutory condition. Permit clear, internally consistent
+  // essential fields at a lower score; never waive the required facts themselves.
+  // Low scores without the core fields still request a better image.
+  const score = Number(confidence);
+  const coreComplete = kind==='license' ? !!(name && number && expiry) :
+    kind==='registration' ? !!((plate || vin) && expiry) :
+    kind==='insurance' ? !!(name && expiry && effective && forHire && limit &&
+      (plate || vin) && pip && um !== 'not_shown') :
+    kind==='inspection' ? !!expiry : false;
+  const legible = identified && content.trim().length >= 20 &&
+    Number.isFinite(score) && (score >= 85 || (score >= 60 && coreComplete));
+  if (!legible) concerns.push('Some document text needs a clearer photo or additional evidence.');
   if (!expiry) concerns.push('Expiry could not be uniquely extracted.');
   if (!identified) concerns.push('Document type could not be established.');
   if (kind === 'license' && (!name || !number)) concerns.push('The licence holder and number must be legible.');
@@ -119,7 +130,7 @@ function extract({ kind, text, confidence }) {
   return {
     documentType: identified ? kind : 'unidentified',
     isTheRequestedDocument: identified,
-    legible: Number(confidence)>=85 && content.trim().length>=35,
+    legible,
     fields, insurance, concerns,
     summary: concerns.length ? 'Automatic extraction requires additional verification.' :
       'Document fields extracted automatically; eligibility is checked against independent records.',

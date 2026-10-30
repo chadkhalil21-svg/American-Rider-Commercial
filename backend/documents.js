@@ -76,7 +76,7 @@ const KINDS = {
 // THE READER'S VERSION. Stored with every reading; a reading from an older version is re-read
 // by infra/migrate-documents.js rather than trusted. Bump it when the schema or prompt changes
 // what is extracted.
-const READER_VERSION = 4;
+const READER_VERSION = 5;
 
 /**
  * Download only the authenticated R2-signed document, bound memory, and extract locally.
@@ -88,7 +88,7 @@ async function readDocument({ kind, imageUrl, expect = {}, now = Date.now(), ocr
   const spec = KINDS[kind];
   if (!spec) return { ok:false, error:`unknown document kind: ${kind}` };
   const review = (reason) => ({ ok:true, verdict:'review', reasons:[reason], fields:{},
-    summary:'Waiting for a qualified person to review the original document.', expiry:null,
+    summary:'Document saved. Please check the requested details in the app; further verification may be needed.', expiry:null,
     evidence:{ documentType:'unidentified', isTheRequestedDocument:false, legible:false,
       fields:{}, insurance:null, concerns:[reason] }, readerVersion:READER_VERSION });
   let bytes;

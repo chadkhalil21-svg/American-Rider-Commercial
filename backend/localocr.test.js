@@ -26,6 +26,18 @@ const { readDocument, documentsReady, READER_VERSION }=require('./documents');
     const accepted = await readDocument({ kind:'license',imageUrl:'https://private.example/signed',
       expect:{name:'Alex Morgan'},ocr:async()=>({text:autoText,confidence:96}) });
     assert.equal(accepted.verdict,'accept','clear current license should not require a Founder click');
+    const confidentFieldsAtModerateOcr = await readDocument({
+      kind:'license',imageUrl:'https://private.example/signed',
+      expect:{name:'Alex Morgan'},ocr:async()=>({text:autoText,confidence:68}),
+    });
+    assert.equal(confidentFieldsAtModerateOcr.verdict,'accept',
+      'complete matched licence details should not require arbitrary 85% OCR confidence');
+    const tooUncertain = await readDocument({
+      kind:'license',imageUrl:'https://private.example/signed',
+      expect:{name:'Alex Morgan'},ocr:async()=>({text:autoText,confidence:18}),
+    });
+    assert.equal(tooUncertain.verdict,'review',
+      'extremely low-confidence text cannot authorize even an apparently complete document');
     const wrongPerson = await readDocument({ kind:'license',imageUrl:'https://private.example/signed',
       expect:{name:'Other Person'},ocr:async()=>({text:autoText,confidence:96}) });
     assert.equal(wrongPerson.verdict,'review','identity mismatch never automatically approves');
