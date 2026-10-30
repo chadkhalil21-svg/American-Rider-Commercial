@@ -66,7 +66,6 @@ function iso(raw) {
 function extract({ kind, text, confidence }) {
   const content = String(text || '').replace(/\r/g,'').slice(0,16000);
   const upper = content.toUpperCase();
-  const lines = upper.split('\n').map(x=>x.trim()).filter(Boolean);
   const value = (pattern) => upper.match(pattern)?.[1]?.trim() || '';
   const datePattern = String.raw`(\d{4}-\d{1,2}-\d{1,2}|\d{1,2}[/.]\d{1,2}[/.]\d{4})`;
   const allDates = [...upper.matchAll(new RegExp('(?:EXP(?:IRATION|IRES|IRY)?|VALID\\s+TO|EXPIRES\\s+ON|POLICY\\s+END|END\\s+DATE)\\s*[:#.-]?\\s*'+datePattern,'g'))]
