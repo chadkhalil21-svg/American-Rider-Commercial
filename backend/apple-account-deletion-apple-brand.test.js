@@ -26,11 +26,12 @@ for (const lang of ['en', 'es', 'fr', 'it', 'de']) {
   assert.ok(contents.includes('appleRevokeAfterDeletion:'), lang+' must explain Apple manual disconnect');
   assert.ok(contents.includes('appleRevokeInstructions:'), lang+' must localize Apple support link');
 }
-assert.match(ui, /AppleAuthentication\.AppleAuthenticationButtonType\.CONTINUE/);
-assert.match(ui, /AppleAuthentication\.AppleAuthenticationButtonStyle\.BLACK/);
-assert.match(ui, /appleOfficialButton:\s*\{ width: '100%', height: 36 \}/);
-assert.match(ui, /\{appleReady \? \([\s\S]*?<AppleAuthentication\.AppleAuthenticationButton/,
-  'a working native iOS Apple control must never use custom traced logo artwork');
+assert.match(ui, /<SsoButton label=\{t\('auth\.continueWithApple'\)\} onPress=\{onApple\} glyph="apple" primary \/>/,
+  'custom visual control keeps the real Apple OAuth entry');
+assert.match(ui,/source=\{require\('\.\.\/\.\.\/assets\/brand\/apple-signin-apple-official\.png'\)\}/,
+  'must use Apple-hosted logo image unchanged, rather than traced Apple glyph');
+assert.match(ui,/btnTextSso: \{ color: colors\.ink, fontSize: 15, fontWeight: '600' \}/,
+  'Apple title uses same compact 15pt semibold text as Google');
 
-console.log('PASS: Apple official 36pt native artwork within 46pt touch area and deletion revocation/manual fallback; Google deletion unchanged');
+console.log('PASS: Apple official custom artwork and shared 15pt title; deletion revocation/manual fallback; Google unchanged');
 console.log('NOT VERIFIED: Native Apple user/device grant, token issuance, provider revocation, real App Store binary or Google Cloud Apple OAuth configuration');
