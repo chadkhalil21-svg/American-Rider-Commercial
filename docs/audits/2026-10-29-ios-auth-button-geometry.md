@@ -16,13 +16,13 @@ An independent pixel analysis of that *actual* 1170x2532 screenshot yielded:
 Normalized shape divergence is 0.231, above a proposed 0.08 tolerance.
 The private screenshot must not be copied into the repository to fabricate QA.
 
-## Authorized design fix
+## Founder-selected design (updated after pill preview)
 
 - Preserve genuine native AppleAuthenticationButton, original black background,
   accessibility, Continue wording and the actual onPress logic.
-- Request native Apple cornerRadius=18 (36pt/2).
-- Explicitly override Google's shared 12pt button radius with 18pt on
-  its own 36pt SSO style. Keep the genuine bundled Google multicolor G.
+- Request native Apple cornerRadius=12 to match the app's rounded rectangles.
+- Explicitly set Google's 12pt rounded rectangle radius on its 36pt SSO style.
+  Keep the genuine bundled Google multicolor G. Avoid pill-shaped 18pt corners.
 - Use Google's published light 1px outline #747775. Keep white fill.
 - Keep both widths at 100%, visible heights at 36pt, effective 46pt touch
   regions, 15pt Google text and iOS user-selected locale.
@@ -37,8 +37,9 @@ The private screenshot must not be copied into the repository to fabricate QA.
 4. Use `python scripts/check-auth-sso-shapes.py screenshot.png
    --apple START:END --google START:END` with rough button Y intervals;
    Pillow is required. This compares actual visible corner shape rather than
-   trusting style object fields. Normalize for device scale. The original
-   Build 58 screenshot fails this check as intended.
+   trusting style object fields. Normalize for device scale. Require both
+   approximately matching rectangular corner ratios (below 0.42 height).
+   The original Build 58 screenshot fails this check as intended.
 5. Visually confirm borders, equal left/right edges, comparable perceived text
    weight and icons; include landscape, a narrow iPhone, enlarged text, and
    each supported language so text does not clip.
@@ -52,6 +53,12 @@ The private screenshot must not be copied into the repository to fabricate QA.
 AppleAuthentication documentation (use `cornerRadius`, not
 `style.borderRadius`); Google Identity Sign in with Google branding
 guidelines (pill/rectangular allowed; Google light stroke #747775).
+
+**Important:** Build 58's Apple native button appeared pill-shaped despite
+`cornerRadius={12}` being present in its source. Neither Expo nor Apple documents
+this as an intended behavior. Do not claim the change fixes native rendering
+without a new signed-device screenshot. If Apple's native result still differs,
+investigate exact iOS/Expo native implementation before any TestFlight release.
 
 **State:** Source correction committed. Physical signed-device result remains
 **PENDING**, not a successful end-to-end visual test.
