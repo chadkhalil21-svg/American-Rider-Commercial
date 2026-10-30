@@ -532,6 +532,37 @@ const codes = (a) => a.blockers.map((b) => b.code);
   const screen = fs.readFileSync(path.join(__dirname, '..', 'app', 'operator', 'documents.tsx'), 'utf8');
   const asked = [...(screen.match(/const DOCUMENTS[\s\S]*?\n\];/) || [''])[0].matchAll(/key: '(\w+)'/g)].map((m) => m[1]);
   check('…and they match the documents screen exactly', asked.length === 3 && asked.every((k) => REQUIRED_DOCS.includes(k)), JSON.stringify(asked));
+  // A 5-15 MiB upload may be too large for local OCR, but is not missing or refused.
+  // Server-authoritative qualification retains it as an actionable named-review exception.
+  {
+    const held = cleanUser();
+    held.documents.insurance = {
+      verdict: 'review',
+      reasons: ['The document exceeds the safe local OCR reading limit; original awaits named review.'],
+      summary: 'Waiting for a qualified person to review the original document.',
+      objectKey: 'operator-documents/test/insurance-6mb',
+      evidence: { documentType: 'unidentified', isTheRequestedDocument: false, legible: false, fields: {} },
+    };
+    const a = A(held);
+    check('15 MiB submitted original stays a review exception, not a missing document',
+      a.status === 'exception' && a.blockers.some(b => b.item === 'insurance' && b.code === 'document_review')
+      && !a.blockers.some(b => b.item === 'insurance' && ['document_missing','document_refused','document_reupload_required'].includes(b.code)),
+      JSON.stringify(a.blockers));
+    const context = fs.readFileSync(path.join(__dirname, '..', 'src/state/OperatorContext.tsx'), 'utf8');
+    const qualify = fs.readFileSync(path.join(__dirname, '..', 'app/operator/qualify.tsx'), 'utf8');
+    const documents = fs.readFileSync(path.join(__dirname, '..', 'app/operator/documents.tsx'), 'utf8');
+    const insurance = fs.readFileSync(path.join(__dirname, '..', 'app/operator/insurance.tsx'), 'utf8');
+    check('submitted original persists separate under-review checklist state',
+      context.includes("'todo' | 'checking' | 'review' | 'ok'") &&
+      /out\.verdict === 'review' \? 'review' : 'todo'/.test(context) &&
+      qualify.includes("st === 'review'") &&
+      qualify.includes("t('traveler.underReview')") &&
+      documents.includes("state === 'review'") &&
+      insurance.includes("st === 'review'"));
+    check('only accepted Operator documents contribute to verified count',
+      context.includes("QUAL_DOCS.filter((d) => docs[d.key] === 'ok')"));
+  }
+
   const noEvidence = cleanUser();
   delete noEvidence.documents.license.evidence;
   check('an "accept" with no stored reading is an exception, not a pass', codes(A(noEvidence)).includes('document_evidence_inconsistent'));
