@@ -20,6 +20,11 @@ async function run() {
   assert.equal(MAX_VIEW_BYTES, 15 * 1024 * 1024, 'private reviewer limit must match 15 MiB mobile upload');
   const uploaderSource = fs.readFileSync(require('node:path').join(__dirname, '../src/backend/documentUpload.ts'), 'utf8');
   assert.match(uploaderSource, /MAX_UPLOAD_BYTES\s*=\s*15\s*\*\s*1024\s*\*\s*1024/);
+  for (const language of ['en','es','fr','de','it']) {
+    const localeSource = fs.readFileSync(require('node:path').join(__dirname, '../src/i18n',language+'.ts'), 'utf8');
+    assert.match(localeSource, /docUploadGuidance:[^\n]*15 (?:MB|Mo)/,
+      language+' locale must show the actual 15 MB upload limit');
+  }
   assert.equal(viewContentType(png), 'image/png');
   assert.equal(viewContentType(jpeg), 'image/jpeg');
   assert.equal(viewContentType(pdf), 'application/pdf');
