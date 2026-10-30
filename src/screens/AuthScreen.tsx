@@ -740,7 +740,10 @@ const s = StyleSheet.create({
   // Verify the native Apple rendering on a signed iPhone: Build 58 showed a
   // capsule even when source requested 12pt, so source parity is not device proof.
   ssoButton: { width: '100%', height: 36, borderRadius: 12, paddingVertical: 0, justifyContent: 'center' },
-  appleOfficialMark: { width: 36, height: 36 },
+  // Apple's official 60x60 PNG has generous internal black padding (glyph x19..40).
+  // At 44pt within the shared 36pt slot its visible left edge aligns to
+  // Google's centered 17pt G, without modifying vendor artwork.
+  appleOfficialMark: { width: 44, height: 44 },
   googleOfficialMark: { width: 17, height: 17 },
   btn: { borderRadius: 12, paddingVertical: 14, alignItems: 'center' },
   btnRow: { flexDirection: 'row', justifyContent: 'center', gap: 10 },
@@ -775,7 +778,7 @@ const s = StyleSheet.create({
   // and preserves the same text origin for both providers, regardless of label
   // lengths and distinct intrinsic logo artwork.
   ssoInner: { width: '100%', maxWidth: 248, alignSelf: 'center', flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-start', gap: 10 },
-  ssoIconSlot: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
+  ssoIconSlot: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
   orRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginVertical: 11 },
   orRule: { flex: 1, height: 1, backgroundColor: colors.hairline },
   orText: { fontSize: 12.5, color: colors.muted },
