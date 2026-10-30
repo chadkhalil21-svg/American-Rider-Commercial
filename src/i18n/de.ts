@@ -469,7 +469,7 @@ export default {
     byContinuingAccept: 'Wenn Sie fortfahren, akzeptieren Sie unsere %{terms} und unsere %{privacy}.',
     msgLostItemSuffix: ' · Verlorener Gegenstand',
     msgPlaceholder: 'Nachricht an %{name}',
-    beingCheckedByPerson: 'Eine Person prüft dies. %{reason}',
+    documentNeedsDetails: 'Dokument gespeichert. Bitte prüfen Sie Folgendes: %{reason}',
     stripeStillNeeds: 'Stripe benötigt noch %{items}. Solange diese fehlen, können Ihnen keine Fahrten zugewiesen werden — einen Fahrpreis, den wir nicht auszahlen können, nehmen wir nicht an.',
     stripeAFewDetails: 'einige Angaben',
     dragPinToStanding: 'Ziehen Sie die Markierung dorthin, wo Sie stehen — %{name} kommt genau dorthin.',

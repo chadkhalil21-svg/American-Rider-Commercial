@@ -56,7 +56,7 @@ for(let round=1;round<=2;round++){
  assert.match(review,/qualificationStatus\(\)/,'approval remains a server decision');
  assert.match(server,/app.post\('\/operator\/qualification\/submit', requireAuth, LIMITS.qualification, requireActiveOperatingMarket/,
    'unopened counties cannot submit an application');
- assert.match(server,/app.post\('\/operator\/document', requireAuth, LIMITS.document, requireFreshAuth, requireActiveOperatingMarket/,
-   'costly private documents remain blocked for unopened counties');
+ assert.match(server,/app.post\('\/operator\/document', requireAuth, LIMITS.document, requireFreshAuth, requireSelectedDocumentMarket/,
+   'private document intake accepts a selected market but cannot commission paid duty');
 }
 console.log('PASS twice: uncomplicated insurance comparison and honest Operator onboarding with real market/eligibility boundaries; no live quotes or providers contacted.');

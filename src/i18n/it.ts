@@ -468,7 +468,7 @@ export default {
     byContinuingAccept: 'Proseguendo, accetta i nostri %{terms} e la nostra %{privacy}.',
     msgLostItemSuffix: ' · Oggetto smarrito',
     msgPlaceholder: 'Messaggio a %{name}',
-    beingCheckedByPerson: 'Una persona lo sta verificando. %{reason}',
+    documentNeedsDetails: 'Documento salvato. Verifichi quanto segue: %{reason}',
     stripeStillNeeds: 'Stripe ha ancora bisogno di %{items}. Finché non li avrà, non le potranno essere assegnati viaggi: una tariffa che non possiamo liquidarle è una tariffa che non accettiamo.',
     stripeAFewDetails: 'alcuni dati',
     dragPinToStanding: 'Trascini il segnaposto dove si trova: %{name} verrà esattamente lì.',

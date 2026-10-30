@@ -475,7 +475,7 @@ export default {
     byContinuingAccept: 'En poursuivant, vous acceptez nos %{terms} et notre %{privacy}.',
     msgLostItemSuffix: ' · Objet perdu',
     msgPlaceholder: 'Message à %{name}',
-    beingCheckedByPerson: 'Une personne procède à la vérification. %{reason}',
+    documentNeedsDetails: 'Document enregistré. Vérifiez les éléments suivants : %{reason}',
     stripeStillNeeds: 'Stripe a encore besoin de %{items}. Tant qu’il ne les a pas, aucune course ne peut vous être attribuée — une course que nous ne pouvons pas vous reverser est une course que nous ne prenons pas.',
     stripeAFewDetails: 'quelques informations',
     dragPinToStanding: 'Faites glisser le repère là où vous vous tenez — %{name} viendra exactement là.',

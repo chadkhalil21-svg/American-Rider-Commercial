@@ -1,5 +1,5 @@
 'use strict';
-// Founder-settled active-market-first registration. Runs twice, entirely offline.
+// Founder-led advance document pre-enrollment, with active-market screening and duty. Runs twice, offline.
 const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const path=require('node:path');
@@ -31,12 +31,12 @@ for(let i=0;i<2;i++){
   'optional interest is separate and rate-limited');
  assert.match(server,/app.post\('\/storage\/upload-url', requireAuth, LIMITS.document, requireFreshAuth, requirePrivateUploadPurpose/,
   'private upload has purpose-scoped authorization');
- assert.match(server,/if \(purpose === 'operator-document'\) return requireActiveOperatingMarket\(req, res, next\)/,
-  'Operator document upload still requires an open service county');
+ assert.match(server,/if \(purpose === 'operator-document'\) return requireSelectedDocumentMarket\(req, res, next\)/,
+  'private document intake requires a selected listed county, not paid-market activation');
  assert.match(server,/if \(purpose === 'lost-item'\) return next\(\)/,
   'Traveler lost-property photos must not need Operator registration');
- assert.match(server,/app.post\('\/operator\/document', requireAuth, LIMITS.document, requireFreshAuth, requireActiveOperatingMarket/,
-  'document review still requires an open service county');
+ assert.match(server,/app.post\('\/operator\/document', requireAuth, LIMITS.document, requireFreshAuth, requireSelectedDocumentMarket/,
+  'advance private document review must not require an open service county');
  assert.match(server,/app.post\('\/operator\/qualification\/submit', requireAuth, LIMITS.qualification, requireActiveOperatingMarket/,
   'qualification submission still requires an open service county');
  assert.match(server,/app.post\('\/connect\/onboard', requireAuth, LIMITS.connect, requireActiveOperatingMarket/,
@@ -53,13 +53,15 @@ for(let i=0;i<2;i++){
  assert.match(server,/requireOperationalReadiness/,
   'duty retains separate eligibility gate');
  assert.match(form,/const areaAuthorized = areaActive;/,
-  'app checklist never unlocks for waitlist');
+  'paid qualification submission remains active-market-only');
  assert.doesNotMatch(form,/d.key === 'background' && area\?\.market\?\.status === 'waitlist'/,
   'background screen is not available in waitlist');
  assert.match(form, /joinOperatorAreaWaitlist\(marketId\)/,
   'joining an interest list is a separate user action');
- assert.match(form,/\{areaActive && <Card style=\{styles.listCard\}>/,
-  'checklist hidden before opening');
+ assert.match(form,/\{area\?\.market && <Card style=\{styles.listCard\}>/,
+  'private documentation checklist is available before opening');
+ assert.match(form,/!areaAuthorized && d.key === 'background'/,
+  'background procurement is still not offered in an unopened county');
  assert.match(connect,/joinOperatorAreaWaitlist\(marketId: string\)/);
  for(const lang of ['en','es','fr','it','de']){
   const tr=read('src/i18n/'+lang+'.ts');
@@ -67,4 +69,4 @@ for(let i=0;i<2;i++){
   assert.doesNotMatch(tr,/marketPrelaunch:/,'outdated preopening clearance promise absent');
  }
 }
-console.log('PASS twice: open-first registration, screening, documents, payouts, duty, opt-in waitlist; no billed calls or user data.');
+console.log('PASS twice: optional document pre-enrollment; screening, insurance confirmation, payouts, duty and waitlist gates protected.');

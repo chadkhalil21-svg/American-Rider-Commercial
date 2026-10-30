@@ -126,7 +126,7 @@ export default function OperatorDocuments() {
                   <Text style={styles.rowRefused}>{review.reasons[0] || t('traveler.notAccepted')}</Text>
                 ) : state === 'review' || review?.verdict === 'review' ? (
                   <Text style={styles.rowSub}>
-                    {t('traveler.beingCheckedByPerson', { reason: review?.reasons?.[0] || '' })}
+                    {t('traveler.documentNeedsDetails', { reason: review?.reasons?.[0] || t('traveler.underReview') })}
                   </Text>
                 ) : (
                   <Text style={styles.rowSub}>{t(d.asks)}</Text>

@@ -98,17 +98,16 @@ function extract({ kind, text, confidence }) {
     /\b(?:UM\/UIM|UNINSURED MOTORIST)\b.{0,20}(?:COVERAGE|INCLUDED|YES)/.test(upper) ? 'yes' : 'not_shown';
   const fields = { name, number, expiry, state:'', vehicle:'', vin, plate, commercialUse, limits:limit };
   const concerns = [];
-  // OCR confidence is not a statutory condition. Permit clear, internally consistent
-  // essential fields at a lower score; never waive the required facts themselves.
-  // Low scores without the core fields still request a better image.
+  // OCR quality is not statutory eligibility. Accept independently checkable core
+  // fields even with imperfect OCR and ask only for facts genuinely still missing.
+  // Extremely unreliable non-positive readings cannot prove any document.
   const score = Number(confidence);
   const coreComplete = kind==='license' ? !!(name && number && expiry) :
     kind==='registration' ? !!((plate || vin) && expiry) :
     kind==='insurance' ? !!(name && expiry && effective && forHire && limit &&
       (plate || vin) && pip && um !== 'not_shown') :
     kind==='inspection' ? !!expiry : false;
-  const legible = identified && content.trim().length >= 20 &&
-    Number.isFinite(score) && (score >= 85 || (score >= 60 && coreComplete));
+  const legible = identified && coreComplete && Number.isFinite(score) && score >= 45;
   if (!legible) concerns.push('Some document text needs a clearer photo or additional evidence.');
   if (!expiry) concerns.push('Expiry could not be uniquely extracted.');
   if (!identified) concerns.push('Document type could not be established.');

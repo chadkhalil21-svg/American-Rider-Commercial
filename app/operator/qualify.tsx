@@ -274,7 +274,7 @@ export default function OperatorQualification() {
           </Text>}
         </Card>
       )}
-      {areaActive && <Card style={styles.listCard}>
+      {area?.market && <Card style={styles.listCard}>
         <Pressable accessibilityRole="button" onPress={() => router.navigate('/operator/vehicle')}>
           <View style={styles.row}>
             <View style={{ flex: 1 }}>
@@ -291,8 +291,9 @@ export default function OperatorQualification() {
               accessibilityRole="button"
               key={d.key}
               onPress={() => {
-                if (!areaAuthorized) {
-                  // A closed area has no Operator compliance workflow.
+                if (!areaAuthorized && d.key === 'background') {
+                  // Screening procurement and paid duty remain closed until this
+                  // market is authorized. Only document pre-enrollment is available.
                   setAreaError(t('operator.marketAdmissionRequired'));
                   return;
                 }
@@ -336,7 +337,7 @@ export default function OperatorQualification() {
         <Text style={styles.rowSub}>{t('operator.econTitle')} ›</Text>
       </Pressable>}
 
-      {areaActive && <Text style={styles.footnote}>
+      {area?.market && <Text style={styles.footnote}>
         {t('traveler.verifyNotSellShort')}
       </Text>}
       {/* WAS: "Test program — document review is simulated." It was true when verifyDoc set a

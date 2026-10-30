@@ -486,7 +486,7 @@ export default {
     byContinuingAccept: 'By proceeding, you agree to our %{terms} and %{privacy}.',
     msgLostItemSuffix: ' · Lost item',
     msgPlaceholder: 'Message %{name}',
-    beingCheckedByPerson: 'Being checked by a person. %{reason}',
+    documentNeedsDetails: 'Document saved. Please check: %{reason}',
     stripeStillNeeds: 'Stripe still needs %{items}. Until it has them, travel cannot be assigned to you — a fare we cannot pay out is a fare we will not take.',
     stripeAFewDetails: 'a few details',
     dragPinToStanding: 'Drag the pin to where you’re standing — %{name} will come right there.',

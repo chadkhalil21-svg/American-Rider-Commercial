@@ -104,7 +104,7 @@ check('dispatch: the PICKUP must be in an active market (not the device position
 const online = route("post\\('\\/operator\\/online'");
 check('go on duty: declared market active and position in an active market', /operatingMarketGate\(user\)/.test(online) && /servesPoint\(\{ lat, lng \}\)/.test(online));
 const doc = route("post\\('\\/operator\\/document'");
-check('document reading (a model call) only in an active market', /operatingMarketGate\(u\)/.test(doc));
+check('document pre-enrollment is selected-market-only, with no commercial authorization', /requireSelectedDocumentMarket/.test(doc) || /requireSelectedDocumentMarket/.test(server.split("app.post('/operator/document'")[1]?.slice(0, 160) || ''));
 check(
   'screening report intake is tied to the configured jurisdiction registry before commercial activation',
   /app\.post\('\/operator\/screening\/existing', requireAuth, LIMITS\.screening, requireScreeningRequestMarket/.test(server) &&
