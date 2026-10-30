@@ -87,6 +87,14 @@ class MemoryDb {
     agreementAccepted:true,payoutEligibilityVerified:true,
     approvedBy:'founder',approvedAt:now-100,agreementAcceptedAt:now-90,
     expiresAt:now+24*3600_000,allowedRoles:['operator','traveler']};
+  db.rows.set('recruiter_approvals/inviter',{...approval,payoutEligibilityVerified:false});
+  const beforeBankShare=await shareLink({db,uid:'inviter',role:'operator',now,
+    origin:'https://americanrider.tech',paidRecruiterProgramEnabled:true});
+  assert.equal(beforeBankShare.ok,true,
+    'approved, identified Recruiter may issue link before bank verification');
+  const beforeBankClaim=await claim({db,uid:'traveler-before-bank',code,role:'traveler',
+    authCreatedAtMs:now,now,paidRecruiterProgram:{enabled:true,version:'recruiter-15c-20261024-v1'}});
+  assert.equal(beforeBankClaim.ok,true,'verified Recruiter attribution does not need a bank account');
   db.rows.set('recruiter_approvals/inviter',approval);
   const beforePaidShare=db.reads;
   const paidShare=await shareLink({db,uid:'inviter',role:'operator',now,
