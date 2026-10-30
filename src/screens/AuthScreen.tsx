@@ -66,7 +66,7 @@ function InkButton({
 }
 
 // A single-sign-on control with an official Google gradient G and the app's
-// existing bordered 46pt layout. The Apple fallback below is preview-only.
+// compact Google control; the Apple fallback below is preview-only.
 // Chad's instruction (13 Sept 2026) was explicit — no consumer brand colours on this screen.
 // GOOGLE'S HOOK THROWS DURING RENDER WHEN NO CLIENT ID IS CONFIGURED — "Client Id property
 // `iosClientId` must be defined" — and it took the whole app down on launch, because a hook
@@ -108,6 +108,7 @@ function SsoButton({
       onPress={onPress}
       accessibilityRole="button"
       accessibilityLabel={label}
+      hitSlop={5}
       style={({ pressed }) => [s.btn, s.ssoButton, primary ? s.btnInk : s.btnSso, pressed && { opacity: 0.86 }]}
     >
       <View style={s.ssoInner}>
@@ -120,9 +121,8 @@ function SsoButton({
           </Svg>
         ) : (
           // Google-owned iOS SDK multicolor G is bundled without modification,
-          // so it still appears offline. Preserve the 17pt icon footprint
-          // and the 46pt equal sign-in button heights. The 20pt G and 19pt Google title
-          // visually match the official 46pt native Apple control.
+          // so it still appears offline. Preserve the compact 17pt icon and
+          // 15pt title while matching the Apple native control's 36pt visible height.
           <Image
             source={GOOGLE_OFFICIAL_G_SOURCE}
             style={s.googleOfficialMark}
@@ -426,13 +426,21 @@ export function AuthScreen() {
           {(appleReady || SSO_PREVIEW) && (
             <>
               {appleReady ? (
-                <AppleAuthentication.AppleAuthenticationButton
-                  buttonType={AppleAuthentication.AppleAuthenticationButtonType.CONTINUE}
-                  buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.BLACK}
-                  cornerRadius={12}
-                  style={s.appleOfficialButton}
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={t('auth.continueWithApple')}
                   onPress={onApple}
-                />
+                  style={s.appleTouchFrame}
+                >
+                  <AppleAuthentication.AppleAuthenticationButton
+                    buttonType={AppleAuthentication.AppleAuthenticationButtonType.CONTINUE}
+                    buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.BLACK}
+                    cornerRadius={12}
+                    style={s.appleOfficialButton}
+                    onPress={onApple}
+                    pointerEvents="none"
+                  />
+                </Pressable>
               ) : (
                 // Non-production visual preview only. Never show a hand-drawn logo
                 // in a signed iOS App Store build.
@@ -738,12 +746,14 @@ const s = StyleSheet.create({
   },
   tagline: { textAlign: 'center', fontSize: 14.5, color: colors.ink2, letterSpacing: 0.1, marginTop: 20, lineHeight: 20 },
   // Both buttons retain the founder-approved 46pt footprint and Continue wording.
-// Apple's official native control owns its logo and lettering. Google matches
-// its visual scale with a 19pt label and 20pt unmodified official G. Signed iOS
-// builds never render the nonproduction preview Apple SVG.
-  appleOfficialButton: { width: '100%', height: 46 },
-  ssoButton: { width: '100%', height: 46, paddingVertical: 0, justifyContent: 'center' },
-  googleOfficialMark: { width: 20, height: 20 },
+// Apple's official native control owns its logo and lettering. At 36pt it uses
+// smaller Apple-set lettering consistent with the preferred 15pt Google label.
+// Both visible buttons are 36pt; the Apple touch frame and Google hitSlop provide
+// at least 46pt total touch height. iOS previews never replace the native control.
+  appleTouchFrame: { width: '100%', height: 46, justifyContent: 'center' },
+  appleOfficialButton: { width: '100%', height: 36 },
+  ssoButton: { width: '100%', height: 36, paddingVertical: 0, justifyContent: 'center' },
+  googleOfficialMark: { width: 17, height: 17 },
   btn: { borderRadius: 12, paddingVertical: 14, alignItems: 'center' },
   btnRow: { flexDirection: 'row', justifyContent: 'center', gap: 10 },
   btnInk: { backgroundColor: colors.ink },
@@ -770,7 +780,7 @@ const s = StyleSheet.create({
   legalLinkPressed: { color: colors.ink, textDecorationLine: 'underline' },
   // A single-sign-on control: the same geometry as the ghost button, mark beside the label.
   btnSso: { backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border },
-  btnTextSso: { color: colors.ink, fontSize: 19, fontWeight: '500' },
+  btnTextSso: { color: colors.ink, fontSize: 15, fontWeight: '600' },
   ssoInner: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10 },
   orRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginVertical: 11 },
   orRule: { flex: 1, height: 1, backgroundColor: colors.hairline },
