@@ -847,7 +847,7 @@ export default {
     emailPh: 'name@email.de',
     select: 'Auswählen',
     open: 'Öffnen',
-    docUploadGuidance: "Laden Sie ein deutliches Foto oder ein PDF hoch (bis zu 5 MB). American Rider prüft die Dokumente vor der Freigabe.",
+    docUploadGuidance: "Laden Sie ein deutliches Foto oder ein PDF hoch (bis zu 15 MB). American Rider prüft die Dokumente vor der Freigabe.",
     docsHeld: 'Was American Rider für Sie vorliegen hat und was noch fehlt.',
     underReview: 'In Prüfung',
     travelWhileWaiting: 'Fahren Sie währenddessen als Reisender',
