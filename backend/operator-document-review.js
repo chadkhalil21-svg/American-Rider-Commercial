@@ -1,7 +1,7 @@
 // Privately view an Operator's original uploaded document in named Operations.
 // The app stores only a private R2 object key; never publish signed URLs in HTML.
 // Bound downloads and validate bytes before returning them to an authenticated reviewer.
-const MAX_VIEW_BYTES = 15 * 1024 * 1024;
+const MAX_VIEW_BYTES = 5 * 1024 * 1024;
 const DOCUMENT_KINDS = new Set(['license', 'registration', 'insurance', 'inspection']);
 
 function viewContentType(buf) {
