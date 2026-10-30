@@ -2766,7 +2766,7 @@ async function runSweep(req, res) {
 // Lost-property photos must work for Travelers who have no Operator county.
 function requirePrivateUploadPurpose(req, res, next) {
   const purpose = String(req.body?.purpose || '');
-  if (purpose === 'operator-document') return requireActiveOperatingMarket(req, res, next);
+  if (purpose === 'operator-document') return requireSelectedDocumentMarket(req, res, next);
   if (purpose === 'lost-item') return next();
   return res.status(400).json({ code: 'unsupported_upload_purpose',
     error: 'This file type is not supported.' });
@@ -2805,7 +2805,7 @@ app.get('/storage/object', requireAuth, LIMITS.document, requireFreshAuth, async
 // information about transactions or experiences between the consumer and the report-maker.
 // Nothing here is looked up about the person — see the header of backend/documents.js for the
 // other edge of that line, which is CFPB Circular 2024-06.
-app.post('/operator/document', requireAuth, LIMITS.document, requireFreshAuth, requireActiveOperatingMarket, async (req, res) => {
+app.post('/operator/document', requireAuth, LIMITS.document, requireFreshAuth, requireSelectedDocumentMarket, async (req, res) => {
   const db = adminDb();
   if (!db) return res.status(503).json({ error: adminStatus().reason, code: 'no_admin_db' });
 
@@ -2830,11 +2830,9 @@ app.post('/operator/document', requireAuth, LIMITS.document, requireFreshAuth, r
     const u = userSnap.exists ? userSnap.data() : {};
     const o = opSnap.exists ? opSnap.data() : {};
 
-    // ONLY IN AN ACTIVE MARKET. Reviewing a document starts a
-    // regulated workflow; an operator whose declared operating market is on the waitlist gets
-    // neither. See POST /operator/market.
-    const gate = operatingMarketGate(u);
-    if (gate) return res.status(409).json(gate);
+    // Advance private document reading is allowed for a selected configured market.
+    // It does NOT commission local insurance rules, procure screening, enable
+    // payouts or open paid dispatch. Market selection is checked by middleware.
 
     // THE SAME UPLOAD IS READ ONCE. A retry, a double tap or a loop that re-sends one file gets
     // the stored reading back instead of consuming another OCR/human-review slot.
@@ -3013,6 +3011,20 @@ async function requireScreeningRequestMarket(req, res, next) {
     res.status(503).json({ code: 'screening_market_unavailable',
       error: 'The operating area cannot be verified. Please try again.' });
   }
+}
+
+// Private evidence intake only: a registered market selection is sufficient.
+ // Regulated screening/insurance confirmation, payout and paid duty retain active gates.
+async function requireSelectedDocumentMarket(req, res, next) {
+  const db = adminDb();
+  if (!db) return res.status(503).json({ error: adminStatus().reason, code: 'no_admin_db' });
+  try {
+    const snap = await db.collection('users').doc(String(req.uid)).get();
+    const market = operatingMarketOf(snap.exists ? snap.data() : null);
+    if (!market) return res.status(409).json({code:'market_selection_required',
+      error:'Select your intended operating county to save your documents.'});
+    return next();
+  } catch { return res.status(503).json({code:'market_selection_unavailable'}); }
 }
 
 async function requireActiveOperatingMarket(req, res, next) {
