@@ -25,14 +25,14 @@ assert.equal(gitBlob, 'cee58e844e97d849f9fbd32b1de28a5f0ed870c1',
   'the binary must match the exact Google-maintained official SDK image');
 assert.match(ui, /style=\{s\.googleOfficialMark\}[\s\S]*?resizeMode="contain"/,
   'official Google logo must keep its 1:1 proportions');
-assert.match(ui, /googleOfficialMark:\s*\{\s*width:\s*20,\s*height:\s*20\s*\}/,
-  'visible official Google artwork must match the native Apple control scale');
-assert.match(ui, /btnTextSso:\s*\{[^}]*fontSize:\s*19\b/,
-  'visible Google title must match the native Apple control scale');
-assert.match(ui, /ssoButton:\s*\{\s*width:\s*'100%',\s*height:\s*46/,
-  'preserve 46pt Google sign-in button height');
-assert.match(ui, /appleOfficialButton:\s*\{\s*width:\s*'100%',\s*height:\s*46/,
-  'preserve 46pt Apple native sign-in button height');
+assert.match(ui, /googleOfficialMark:\s*\{\s*width:\s*17,\s*height:\s*17\s*\}/,
+  'preserve founder-preferred compact Google icon size');
+assert.match(ui, /btnTextSso:\s*\{[^}]*fontSize:\s*15\b/,
+  'preserve founder-preferred Google 15pt text');
+assert.match(ui, /ssoButton:\s*\{\s*width:\s*'100%',\s*height:\s*36/,
+  'match native Apple 36pt visible button');
+assert.match(ui, /appleOfficialButton:\s*\{\s*width:\s*'100%',\s*height:\s*36/,
+  'match Google 36pt visible button');
 assert.match(ui, /glyph === 'apple' \? \([\s\S]*?\) : \(\s*\/\/ Google-owned iOS SDK multicolor/,
   'monochrome hand-drawn G must not remain in the production branch');
 assert.ok(labels.includes("continueWithGoogle: 'Continue with Google'"),
@@ -41,5 +41,5 @@ assert.match(ui, /btnSso:\s*\{\s*backgroundColor:\s*colors\.card/,
   'Google sign-in logo must sit on the actual white card background');
 assert.match(ui, /accessibilityIgnoresInvertColors/,
   'OS accessibility inversion cannot recolor the vendor-supplied logo');
-console.log('PASS: bundled official Google SDK multicolor G, 20pt artwork, 19pt title, both sign-in controls 46pt');
+console.log('PASS: official Google SDK multicolor G, 17pt artwork, 15pt title, both visible sign-in controls 36pt');
 console.log('NOT VERIFIED: installed device rendering, Google account OAuth, or provider/store approval');
