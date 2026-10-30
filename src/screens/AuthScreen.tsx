@@ -435,7 +435,7 @@ export function AuthScreen() {
                   <AppleAuthentication.AppleAuthenticationButton
                     buttonType={AppleAuthentication.AppleAuthenticationButtonType.CONTINUE}
                     buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.BLACK}
-                    cornerRadius={12}
+                    cornerRadius={18}
                     style={s.appleOfficialButton}
                     onPress={onApple}
                     pointerEvents="none"
@@ -752,7 +752,9 @@ const s = StyleSheet.create({
 // at least 46pt total touch height. iOS previews never replace the native control.
   appleTouchFrame: { width: '100%', height: 46, justifyContent: 'center' },
   appleOfficialButton: { width: '100%', height: 36 },
-  ssoButton: { width: '100%', height: 36, paddingVertical: 0, justifyContent: 'center' },
+  // 36pt visible capsule (18pt radius), matching Apple's native capsule on Build 58.
+  // The shared s.btn radius of 12pt was producing a visibly different Google outline.
+  ssoButton: { width: '100%', height: 36, borderRadius: 18, paddingVertical: 0, justifyContent: 'center' },
   googleOfficialMark: { width: 17, height: 17 },
   btn: { borderRadius: 12, paddingVertical: 14, alignItems: 'center' },
   btnRow: { flexDirection: 'row', justifyContent: 'center', gap: 10 },
@@ -779,7 +781,8 @@ const s = StyleSheet.create({
   legalLink: { color: colors.ink, fontWeight: '500' },
   legalLinkPressed: { color: colors.ink, textDecorationLine: 'underline' },
   // A single-sign-on control: the same geometry as the ghost button, mark beside the label.
-  btnSso: { backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border },
+  // Google's official light theme calls for a white button and #747775 1px outline.
+  btnSso: { backgroundColor: colors.card, borderWidth: 1, borderColor: '#747775' },
   btnTextSso: { color: colors.ink, fontSize: 15, fontWeight: '600' },
   ssoInner: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10 },
   orRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginVertical: 11 },
