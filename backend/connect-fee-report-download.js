@@ -9,7 +9,7 @@ async function downloadReportCsv({stripe,fileId}){
     throw Error('Stripe report file unavailable');
   const file=await stripe.files.retrieve(fileId);
   const expected='https://files.stripe.com/v1/files/'+fileId+'/contents';
-  if(file.id!==fileId||file.purpose!=='finance_report_run'||file.url!==expected||
+  if(file.id!==fileId||!['report_run','finance_report_run'].includes(file.purpose)||file.url!==expected||
      file.size>MAX_SIZE) throw Error('invalid Stripe finance report file');
   const credential=readKey('STRIPE_SECRET_KEY');
   if(!credential.startsWith('sk_live_'))throw Error('live Stripe report credential required');
