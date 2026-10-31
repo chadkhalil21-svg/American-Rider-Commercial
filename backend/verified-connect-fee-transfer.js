@@ -44,7 +44,8 @@ async function finalizeOffset({db,tx,ledger,rideId,transferId,now=Date.now()}) {
     const alloc=rows[i],snap=docs[i],d=snap.exists?snap.data()||{}:null;
     if(!d||d.status!=='reserved'||d.reservedRideId!==rideId||
        d.reservedCents!==alloc.recoverCents ||
-       d.providerBalanceTransactionId!==alloc.providerBalanceTransactionId ||
+       (d.providerBalanceTransactionId||null)!==(alloc.providerBalanceTransactionId||null) ||
+       (d.providerReportRunId||null)!==(alloc.providerReportRunId||null) ||
        d.uid!==ledger.operatorId || d.accountId!==ledger.accountId ||
        !Number.isSafeInteger(d.recoveredCents) ||
        d.recoveredCents+alloc.recoverCents>d.amountCents)
