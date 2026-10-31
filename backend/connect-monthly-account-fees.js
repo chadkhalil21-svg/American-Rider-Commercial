@@ -33,9 +33,11 @@ function accountFeeRow(row){
      String(row.currency||'').toLowerCase()!=='usd')return null;
   const value=String(row.connect_monthly_active_account_fee_subtotal_amount||'').trim();
   if(!value)return null;
-  let cost;try{cost=Math.abs(cents(value));}catch{return null;}
-  // This is a simple fee only, not an aggregate or net processing expense.
-  if(cost<=0||cost>200)return null;
+  let signed;try{signed=cents(value);}catch{return null;}
+  // Platform Earnings represents fees as NEGATIVE charges. Positive amounts
+  // can be credits or reversals; never turn a credit into an Operator debt.
+  if(signed>=0||signed< -200)return null;
+  const cost=-signed;
   return {accountId,amountCents:cost};
 }
 async function importMonthlyAccountFees({db,stripe,runId,month,
