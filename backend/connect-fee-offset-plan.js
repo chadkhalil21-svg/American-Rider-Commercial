@@ -37,7 +37,7 @@ function planVerifiedConnectOffsets({grossShareCents,operatorId,accountId,consen
        obligation.incurredAt<consent.acceptedAt || obligation.incurredAt>now ||
        !obligation.id || remainingGross<=0) continue;
     const sourceKey=(obligation.source==='stripe_authenticated_platform_earnings_report'
-      ? obligation.accountId+':'+obligation.billingMonth : obligation.providerBalanceTransactionId)+':'+obligation.kind;
+      ? obligation.accountId+':'+obligation.billingMonth : (obligation.providerFeeTransactionId||obligation.providerBalanceTransactionId))+':'+obligation.kind;
     if(seen.has(sourceKey))continue; // Same provider fee cannot be recovered twice.
     seen.add(sourceKey);
     const due=obligation.amountCents-obligation.recoveredCents;
