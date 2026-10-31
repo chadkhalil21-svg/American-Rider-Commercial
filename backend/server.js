@@ -2661,6 +2661,15 @@ async function runAllSweeps({criticalOnly=false}={}) {
     operatorFees: () => process.env.OPERATOR_CONNECT_FEE_REVIEW_ENABLED === 'true'
       ? maintenanceSweep('operatorFees', () => listDueFeeObligations({db:adminDb()}))
       : Promise.resolve({ok:true,disabled:true,reason:'fee_recovery_uncommissioned'}),
+    // Exact provider fee evidence is imported on the EXISTING leased scheduler.
+    // This job creates no charges or payouts and never scans all Operators.
+    operatorFeeEvidence: () => !criticalOnly &&
+      process.env.CONNECT_FEE_REPORT_AUTOMATION_ENABLED === 'enabled'
+      ? maintenanceSweep('operatorFeeEvidence', () =>
+        require('./connect-fee-daily-sweep').sweepConnectFeeEvidence({
+          db:adminDb(),stripe:stripeClient(),
+        }))
+      : Promise.resolve({ok:true,disabled:true}),
     familyAgeOut: () => maintenanceSweep('familyAgeOut', () => family.sweepFamilyAgeOut()),
     insuranceMonitoring: () => maintenanceSweep('insuranceMonitoring', () => sweepInsuranceMonitoring({ db: adminDb(), requestConfirmation: issueInsuranceConfirmationRequest, notify })),
     marketReference: () => maintenanceSweep('marketReference', async () => {
