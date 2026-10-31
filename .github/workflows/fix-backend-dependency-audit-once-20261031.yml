@@ -24,7 +24,7 @@ jobs:
         run: |
           set -euo pipefail
           npm ci --prefix backend
-          npm audit fix --omit=dev --prefix backend
+          npm audit fix --prefix backend
           npm audit --omit=dev --prefix backend
           for file in backend/package.json backend/package-lock.json; do
             test -f "$file"
