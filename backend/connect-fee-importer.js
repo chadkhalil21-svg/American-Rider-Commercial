@@ -8,7 +8,7 @@ const {checkFeeReport}=require('./connect-fee-report-run');
 const {downloadReportCsv}=require('./connect-fee-report-download');
 const {documentIdFor}=require('./operator-payout-event-ledger');
 const {currentConnectFeeConsent}=require('./connect-fee-consent');
-const MAX_ROWS=250;
+const MAX_ROWS=150; // bounded rows per existing scheduler tick
 function candidate(row){
   if(String(row.suite||'').toLowerCase()!=='connect'&&
      String(row.product||'').toLowerCase()!=='connect')return null;
@@ -28,17 +28,18 @@ function candidate(row){
 }
 function idFor(row){return createHash('sha256').update(
   row.balance_transaction_id+'|'+row.fee_transaction_id+'|'+row.incurred_by).digest('hex');}
-async function importPayoutFeeReport({db,stripe,runId,csv:testingCsv=null,now=Date.now(),maxRows=MAX_ROWS}={}){
+async function importPayoutFeeReport({db,stripe,runId,csv:testingCsv=null,now=Date.now(),startRow=0,maxRows=MAX_ROWS}={}){
   if(!db?.collection||!db?.runTransaction||!stripe?.balanceTransactions?.retrieve)
     throw Error('authenticated Stripe and database required');
-  if(!Number.isInteger(maxRows)||maxRows<1||maxRows>MAX_ROWS)throw Error('invalid report import batch');
+  if(!Number.isInteger(maxRows)||maxRows<1||maxRows>MAX_ROWS||!Number.isSafeInteger(startRow)||startRow<0)throw Error('invalid report import batch');
   const run=await checkFeeReport({stripe,runId});
   if(!run.ready)return {ok:true,ready:false,status:run.status,created:0};
   const fileCsv=testingCsv===null?await downloadReportCsv({stripe,fileId:run.fileId}):testingCsv;
   const rows=parseCsv(fileCsv);
-  if(rows.length>maxRows)throw Error('report import requires smaller date window');
+  if(startRow>rows.length)throw Error('invalid report cursor');
+  const batch=rows.slice(startRow,startRow+maxRows);
   let created=0,existing=0,quarantined=0;
-  for(const row of rows){
+  for(const row of batch){
     const item=candidate(row);
     if(!item){quarantined++;continue;}
     const payouts=await db.collection('operator_connect_payouts')
@@ -90,7 +91,9 @@ async function importPayoutFeeReport({db,stripe,runId,csv:testingCsv=null,now=Da
     });
     if(result==='created')created++;else existing++;
   }
-  return {ok:true,ready:true,inspected:rows.length,created,existing,quarantined,
+  return {ok:true,ready:true,inspected:batch.length,totalRows:rows.length,
+    nextRow:Math.min(rows.length,startRow+batch.length),
+    hasMore:startRow+batch.length<rows.length,created,existing,quarantined,
     // Most importantly: do NOT claim monthly account fees were recovered from
     // this payout-only report. Aggregated or invoiced fees remain quarantined.
     monthlyAccountFeesImported:0};
