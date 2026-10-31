@@ -23,8 +23,8 @@ jobs:
       - name: Update only vulnerable production dependencies
         run: |
           set -euo pipefail
+          npm install --package-lock-only --ignore-scripts --prefix backend
           npm ci --prefix backend
-          npm audit fix --force --omit=dev --prefix backend
           npm audit --omit=dev --prefix backend
           for file in backend/package.json backend/package-lock.json; do
             test -f "$file"
