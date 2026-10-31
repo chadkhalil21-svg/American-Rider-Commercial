@@ -35,10 +35,16 @@ async function sweepConnectFeeEvidence({db,stripe,now=Date.now(),
     return {ok:false,window:w.key,reason:'provider_report_failed'};
   }
   if(!status.ready)return {ok:true,window:w.key,pending:true};
-  const report=await importer({db,stripe,runId:prior.runId,now});
+  const report=await importer({db,stripe,runId:prior.runId,now,
+    startRow:prior.nextRow||0});
   if(!report.ok||!report.ready)return {ok:false,window:w.key,reason:'import_not_confirmed'};
-  await ref.set({state:'complete',completedAt:now,
-    inspected:report.inspected,created:report.created,
+  if(report.hasMore){
+    await ref.set({state:'pending',nextRow:report.nextRow,
+      lastPageAt:now},{merge:true});
+    return {ok:true,window:w.key,pending:true,nextRow:report.nextRow};
+  }
+  await ref.set({state:'complete',completedAt:now,nextRow:report.nextRow,
+    inspected:report.totalRows??report.inspected,created:report.created,
     quarantined:report.quarantined},{merge:true});
   return {ok:true,window:w.key,complete:true,created:report.created,
     quarantined:report.quarantined};
