@@ -15,7 +15,12 @@ function verifyWindow({start,end,now=Date.now()}){
 async function requestFeeReport({stripe,start,end,now}){
   if(typeof stripe?.reporting?.reportRuns?.create!=='function')
     throw Error('Stripe report client unavailable');
-  const parameters=verifyWindow({start,end,now});
+  const parameters={...verifyWindow({start,end,now}),
+    // The exact provider fee and its payout origin MUST both be present.
+    // Stripe Report Runs supports explicit columns; defaults vary by report.
+    columns:['fee_transaction_id','balance_transaction_id','incurred_by',
+      'incurred_by_type','fee_description','amount','tax','currency',
+      'suite','product','feature_name','settled_via']};
   const run=await stripe.reporting.reportRuns.create({report_type:REPORT,parameters});
   if(!/^frr_[A-Za-z0-9]+$/.test(String(run?.id||''))||
     run.report_type!==REPORT||run.livemode!==true)
