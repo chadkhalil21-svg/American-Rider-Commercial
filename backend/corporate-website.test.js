@@ -28,6 +28,11 @@ for(const html of [download,invited]){
   assert.doesNotMatch(html,/href="https:\/\/play\.google\.com/);
 }
 assert.match(invited,/Copy your invitation code before leaving this page/);
+assert.match(invited,/sessionStorage\.setItem\(key,JSON\.stringify/,'Visible referral code survives same-tab website navigation');
+assert.match(invited,/sessionStorage\.getItem\(key\)/,'Referral fallback restores same-session code');
+assert.match(invited,/saved\.at<=72\*60\*60\*1000|Date\.now\(\)-saved\.at<=72\*60\*60\*1000/,'Stored invite expires after 72 hours');
+assert.match(invited,/history\.replaceState\(null,"",location\.pathname\)/,'Referral query is removed from browser history');
+
 const {storeDownloadChoices}=require('../scripts/build-corporate-website.cjs');
 assert.match(storeDownloadChoices({ios:true}),/href="https:\/\/apps\.apple\.com\/app\/id6798078543"/);
 assert.doesNotMatch(storeDownloadChoices({ios:true}),/href="https:\/\/play\.google\.com/);
