@@ -47,7 +47,7 @@ async function importMonthlyAccountFees({db,stripe,runId,month,
   if(run.id!==runId)throw Error('Stripe report ID mismatch');
   const {start,end,fileId}=validatedReport(run,month,now);
   const text=csv===null?await downloadReportCsv({stripe,fileId}):csv;
-  const rows=parseCsv(text);
+  const rows=parseCsv(text,['connected_account_id','currency','connect_monthly_active_account_fee_subtotal_amount']);
   if(rows.length>maxRows)throw Error('paginate Stripe monthly report before import');
   if(!rows.length)return {ok:true,month,created:0,existing:0,quarantined:0};
   if(!Object.prototype.hasOwnProperty.call(rows[0],'connected_account_id') ||
