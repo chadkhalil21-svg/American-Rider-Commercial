@@ -12,9 +12,11 @@ const report={id:'frr_Signed',report_type:'platform_earnings.connected_accounts.
 assert.throws(()=>monthBounds('2026-13'),/bad billing/);
 assert.throws(()=>validatedReport({...report,livemode:false},month,now),/verified mature/);
 assert.throws(()=>validatedReport(report,month,bounds.end+86400000),/verified mature/);
-assert.deepEqual(accountFeeRow({connected_account_id:'acct_First',currency:'usd',connect_monthly_active_account_fee_subtotal_amount:'2.00'}),
+assert.deepEqual(accountFeeRow({connected_account_id:'acct_First',currency:'usd',connect_monthly_active_account_fee_subtotal_amount:'-2.00'}),
  {accountId:'acct_First',amountCents:200});
-assert.equal(accountFeeRow({connected_account_id:'acct_First',currency:'usd',connect_monthly_active_account_fee_subtotal_amount:'2.01'}),null);
+assert.equal(accountFeeRow({connected_account_id:'acct_First',currency:'usd',connect_monthly_active_account_fee_subtotal_amount:'+2.01'}),null);
+assert.equal(accountFeeRow({connected_account_id:'acct_First',currency:'usd',connect_monthly_active_account_fee_subtotal_amount:'2.00'}),null,'Stripe positive credit is not a fee');
+
 class Ref{
  constructor(db,p){this.db=db;this.path=p;}
  async get(){let v=this.db.store.get(this.path);return {exists:v!==undefined,data:()=>v};}
@@ -39,7 +41,7 @@ db.store.set('operator_months/'+month+'/accounts/op_1',
  {verifiedPayoutCount:1,payoutSeen:true,firstPayoutAt:first});
 const stripe={reporting:{reportRuns:{retrieve:async()=>report}}};
 const header='connected_account_id,currency,connect_monthly_active_account_fee_subtotal_amount';
-const csv=header+'\nacct_First,usd,2.00';
+const csv=header+'\nacct_First,usd,-2.00';
 (async()=>{
  const req={db,stripe,runId:report.id,month,now,csv};
  const a=await importMonthlyAccountFees(req);
@@ -56,14 +58,14 @@ const csv=header+'\nacct_First,usd,2.00';
  assert.equal(plan.allocations[0].providerReportRunId,'frr_Signed');
  assert.equal(planVerifiedConnectOffsets({grossShareCents:10000,operatorId:'op_1',
    accountId:'acct_First',consent,obligations:[{id:'bad',...entry,providerReportRunId:'fake'}],now}).withheldCents,0);
- await assert.rejects(importMonthlyAccountFees({...req,csv:header+'\nacct_First,usd,1.50'}),
+ await assert.rejects(importMonthlyAccountFees({...req,csv:header+'\nacct_First,usd,-1.50'}),
    /Monthly Stripe fee changed/);
  const old=db.store.get('users/op_1');
  db.store.set('users/op_1',{...old,stripeFeeConsent:{...consent,acceptedAt:first+1000}});
  const late=await importMonthlyAccountFees(req);
  assert.equal(late.quarantined,1);
  db.store.set('users/op_1',old);
- const duplicate=await importMonthlyAccountFees({...req,csv:header+'\nacct_First,usd,2.00\nacct_First,usd,2.00'});
+ const duplicate=await importMonthlyAccountFees({...req,csv:header+'\nacct_First,usd,-2.00\nacct_First,usd,-2.00'});
  assert.equal(duplicate.created,0);assert.equal(duplicate.quarantined,1);
  console.log('PASS: verified monthly $2 Operator-account attribution, no retroactive fee, duplicate quarantine and once-only earnings offset');
 })().catch(e=>{console.error(e);process.exitCode=1;});
