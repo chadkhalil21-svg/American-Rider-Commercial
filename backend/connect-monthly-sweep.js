@@ -43,10 +43,23 @@ async function sweepMonthlyConnectFees({db,stripe,now=Date.now(),
     await ref.set({runId:run.id,state:'pending',type,createdAt:now},{merge:true});
     return {ok:true,ready:false,requested:true};
   }
-  const result=await importer({db,stripe,runId:prior.runId,month,now});
+  const run=await stripe.reporting.reportRuns.retrieve(prior.runId);
+  if(run.status==='pending')return {ok:true,ready:false,pending:true};
+  if(run.status==='failed'){
+    await ref.set({state:'failed',failedAt:now},{merge:true});
+    return {ok:false,reason:'stripe_monthly_report_failed'};
+  }
+  if(run.status!=='succeeded')throw Error('unexpected report state');
+  const result=await importer({db,stripe,runId:prior.runId,month,now,
+    startRow:prior.nextRow||0});
   if(!result.ok)throw Error('Monthly Connect fee import did not succeed');
+  if(result.hasMore){
+    await ref.set({state:'pending',nextRow:result.nextRow,lastPageAt:now},{merge:true});
+    return {ok:true,ready:false,pending:true,nextRow:result.nextRow};
+  }
   await ref.set({state:'complete',completedAt:now,
-    created:result.created,quarantined:result.quarantined},{merge:true});
+    nextRow:result.nextRow,created:result.created,
+    quarantined:result.quarantined},{merge:true});
   return {ok:true,complete:true,created:result.created,quarantined:result.quarantined};
 }
 module.exports={COLUMNS,previousMonth,reportType,sweepMonthlyConnectFees};
