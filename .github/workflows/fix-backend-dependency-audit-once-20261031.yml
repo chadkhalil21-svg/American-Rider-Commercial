@@ -20,7 +20,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Update only vulnerable production dependencies
+      - name: Reconcile patched transitive dependencies and regenerate reviewed lockfile
         run: |
           set -euo pipefail
           npm install --package-lock-only --ignore-scripts --prefix backend
