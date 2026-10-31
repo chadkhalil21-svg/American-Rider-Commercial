@@ -21,24 +21,31 @@ function planVerifiedConnectOffsets({grossShareCents,operatorId,accountId,consen
     if(!obligation || obligation.status!=='due' || obligation.uid!==operatorId ||
        obligation.accountId!==accountId || obligation.currency!=='usd' ||
        !ELIGIBLE_KINDS.has(obligation.kind) ||
-       obligation.source!=='stripe_authenticated_balance_transaction' ||
+       !['stripe_authenticated_balance_transaction','stripe_authenticated_platform_earnings_report'].includes(obligation.source) ||
        !obligation.providerFeeConfirmed || obligation.providerFeePayer!=='application' ||
        !obligation.pricingOwnerConfirmed || obligation.feePaidDirectlyByOperator===true ||
-       !/^txn_[A-Za-z0-9]+$/.test(String(obligation.providerBalanceTransactionId||'')) ||
+       (obligation.source==='stripe_authenticated_balance_transaction'
+         ? !/^txn_[A-Za-z0-9]+$/.test(String(obligation.providerBalanceTransactionId||''))
+         : !(obligation.kind==='monthly_active_account' &&
+             /^frr_[A-Za-z0-9]+$/.test(String(obligation.providerReportRunId||'')) &&
+             /^20\d{2}-(0[1-9]|1[0-2])$/.test(String(obligation.billingMonth||'')) &&
+             obligation.providerBalanceTransactionId==null)) ||
        !Number.isSafeInteger(obligation.amountCents) || obligation.amountCents<=0 ||
        !Number.isSafeInteger(obligation.recoveredCents) || obligation.recoveredCents<0 ||
        obligation.recoveredCents>obligation.amountCents ||
        !Number.isSafeInteger(obligation.incurredAt) ||
        obligation.incurredAt<consent.acceptedAt || obligation.incurredAt>now ||
        !obligation.id || remainingGross<=0) continue;
-    const sourceKey=obligation.providerBalanceTransactionId+':'+obligation.kind;
+    const sourceKey=(obligation.source==='stripe_authenticated_platform_earnings_report'
+      ? obligation.accountId+':'+obligation.billingMonth : (obligation.providerFeeTransactionId||obligation.providerBalanceTransactionId))+':'+obligation.kind;
     if(seen.has(sourceKey))continue; // Same provider fee cannot be recovered twice.
     seen.add(sourceKey);
     const due=obligation.amountCents-obligation.recoveredCents;
     const recoverCents=Math.min(due,remainingGross);
     if(recoverCents<=0)continue;
-    allocations.push({obligationId:String(obligation.id),providerBalanceTransactionId:
-      obligation.providerBalanceTransactionId,recoverCents});
+    allocations.push({obligationId:String(obligation.id),
+      providerBalanceTransactionId:obligation.providerBalanceTransactionId||null,
+      providerReportRunId:obligation.providerReportRunId||null,recoverCents});
     remainingGross-=recoverCents;
   }
   const withheldCents=allocations.reduce((sum,o)=>sum+o.recoverCents,0);

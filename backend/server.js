@@ -2670,6 +2670,15 @@ async function runAllSweeps({criticalOnly=false}={}) {
           db:adminDb(),stripe:stripeClient(),
         }))
       : Promise.resolve({ok:true,disabled:true}),
+    // Monthly Operator-paid Connect fees require Stripe's connected-account
+    // expense report. Do not assess a monthly fee from payout activity alone.
+    operatorMonthlyFeeEvidence: () => !criticalOnly &&
+      process.env.CONNECT_MONTHLY_REPORT_AUTOMATION_ENABLED === 'enabled'
+      ? maintenanceSweep('operatorMonthlyFeeEvidence', () =>
+        require('./connect-monthly-sweep').sweepMonthlyConnectFees({
+          db:adminDb(),stripe:stripeClient(),
+        }))
+      : Promise.resolve({ok:true,disabled:true}),
     familyAgeOut: () => maintenanceSweep('familyAgeOut', () => family.sweepFamilyAgeOut()),
     insuranceMonitoring: () => maintenanceSweep('insuranceMonitoring', () => sweepInsuranceMonitoring({ db: adminDb(), requestConfirmation: issueInsuranceConfirmationRequest, notify })),
     marketReference: () => maintenanceSweep('marketReference', async () => {

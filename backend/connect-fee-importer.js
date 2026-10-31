@@ -38,6 +38,22 @@ async function importPayoutFeeReport({db,stripe,runId,csv:testingCsv=null,now=Da
   const rows=parseCsv(fileCsv);
   if(startRow>rows.length)throw Error('invalid report cursor');
   const batch=rows.slice(startRow,startRow+maxRows);
+  // A Stripe fee balance transaction may contain several itemized fees.
+  // Compare the full provider debit to the entire report group, never assume
+  // one row equals the complete amount of a daily consolidated debit.
+  const totals=new Map();
+  for(const r of rows){
+    const key=r.balance_transaction_id;
+    if(!/^txn_[A-Za-z0-9]+$/.test(String(key||'')))continue;
+    const prev=totals.get(key)||{sum:0,valid:true};
+    try{
+      if(String(r.currency||'').toLowerCase()!=='usd'||
+         !['balance','v2_balance'].includes(r.settled_via))prev.valid=false;
+      else {const signed=cents(r.amount)+cents(r.tax);
+        if(signed<=0)prev.valid=false;else prev.sum+=signed;}
+    }catch{prev.valid=false;}
+    totals.set(key,prev);
+  }
   let created=0,existing=0,quarantined=0;
   for(const row of batch){
     const item=candidate(row);
@@ -63,7 +79,8 @@ async function importPayoutFeeReport({db,stripe,runId,csv:testingCsv=null,now=Da
     if(bt.id!==row.balance_transaction_id||bt.livemode!==true||
        bt.currency!=='usd'||bt.type!=='stripe_fee'||
        !['fee','stripe_fee'].includes(bt.reporting_category)||
-       !Number.isSafeInteger(bt.net)||bt.net!==-item.amountCents||
+       !Number.isSafeInteger(bt.net)||
+       !totals.get(bt.id)?.valid||bt.net!==-totals.get(bt.id).sum||
        !Number.isSafeInteger(bt.created)||bt.created*1000<=user.stripeFeeConsent.acceptedAt){
       quarantined++;continue;
     }

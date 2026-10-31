@@ -3,7 +3,9 @@ const assert=require('node:assert/strict');
 const {NAMES,OPTIONAL,settleSweepJobs,createCriticalRecoveryGate}=require('./critical-sweep-recovery');
 const CRITICAL=NAMES.filter(n=>!OPTIONAL.includes(n));
 (async()=>{
- assert.equal(NAMES.length,14);
+ assert.equal(NAMES.length,16);
+ assert.ok(OPTIONAL.includes('operatorFeeEvidence'),'Stripe reporting must pause under quota');
+ assert.ok(OPTIONAL.includes('operatorMonthlyFeeEvidence'),'Monthly account billing must pause under quota');
  assert.ok(OPTIONAL.includes('pushReceipts'),'receipt polling pauses during quota recovery');
  assert.ok(CRITICAL.includes('monitor'));
  assert.ok(CRITICAL.includes('bookingRecovery'));

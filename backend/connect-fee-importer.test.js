@@ -47,5 +47,10 @@ balanceTransactions:{retrieve:async id=>{retrieved++;return {id,livemode:true,cu
  assert.equal(month.created,0);
  const refunded=await importPayoutFeeReport({...args,csv:header+'\n'+row.replace('0.48','-0.48')});
  assert.equal(refunded.created,0);
+ const pooledRows=[row.replace('ftxn_charge','ftxn_a').replace('0.48','0.38').replace('txn_ExactFee','txn_PooledFee'),
+   row.replace('ftxn_charge','ftxn_b').replace('0.48','0.10').replace('txn_ExactFee','txn_PooledFee')];
+ const pooledStripe={...stripe,balanceTransactions:{retrieve:async id=>({id,livemode:true,currency:'usd',type:'stripe_fee',reporting_category:'fee',net:-48,created:day+3600})}};
+ const grouped=await importPayoutFeeReport({...args,stripe:pooledStripe,csv:header+'\n'+pooledRows.join('\n')});
+ assert.equal(grouped.created,2,'two distinct verified fee lines share a single authentic Stripe debit');
  console.log('PASS immutable evidence-only Connect payout fee import; duplicate, foreign, refund and mismatch quarantine; no network writes');
 })().catch(e=>{console.error(e);process.exitCode=1});

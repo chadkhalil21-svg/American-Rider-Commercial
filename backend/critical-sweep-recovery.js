@@ -4,10 +4,12 @@
 // If it recovers, resume critical queues first and defer discretionary work.
 const NAMES=Object.freeze([
  'scheduled','monitor','pushReceipts','assignments','screening','settlements','bookingRecovery',
- 'providerEvents','operatorFees','familyAgeOut','insuranceMonitoring',
+ 'providerEvents','operatorFees','operatorFeeEvidence','operatorMonthlyFeeEvidence',
+ 'familyAgeOut','insuranceMonitoring',
  'marketReference','marketFleet','accountDeletion',
 ]);
-const OPTIONAL=Object.freeze(['pushReceipts','operatorFees','marketReference','marketFleet','accountDeletion']);
+const OPTIONAL=Object.freeze(['pushReceipts','operatorFees','operatorFeeEvidence',
+ 'operatorMonthlyFeeEvidence','marketReference','marketFleet','accountDeletion']);
 const OPTIONAL_SET=new Set(OPTIONAL);
 async function settleSweepJobs(jobs,{criticalOnly=false}={}){
  if(!jobs||typeof jobs!=='object')throw new TypeError('jobs required');

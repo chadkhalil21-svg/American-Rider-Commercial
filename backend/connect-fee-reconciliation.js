@@ -5,7 +5,7 @@
 const {createHash}=require('node:crypto');
 const REQUIRED=['fee_transaction_id','incurred_by','fee_description','amount',
   'tax','currency','suite','product','feature_name','settled_via'];
-function parseCsv(input){
+function parseCsv(input,required=REQUIRED){
   if(typeof input!=='string'||Buffer.byteLength(input)>6000000)throw Error('invalid report size');
   const rows=[];let row=[],field='',quoted=false;
   for(let i=0;i<input.length;i++){
@@ -23,7 +23,7 @@ function parseCsv(input){
   if(row.length||field){row.push(field);rows.push(row);}
   if(rows.length===0)return [];
   const headings=rows.shift().map(x=>x.replace(/^\uFEFF/,'').trim());
-  for(const name of REQUIRED)if(!headings.includes(name))throw Error('missing required fee column '+name);
+  for(const name of required)if(!headings.includes(name))throw Error('missing required fee column '+name);
   if(new Set(headings).size!==headings.length)throw Error('duplicate column');
   return rows.filter(r=>r.length>1||r[0]!=='').map(r=>{
     if(r.length!==headings.length)throw Error('malformed report row');
