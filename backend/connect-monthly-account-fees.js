@@ -39,23 +39,25 @@ function accountFeeRow(row){
   return {accountId,amountCents:cost};
 }
 async function importMonthlyAccountFees({db,stripe,runId,month,
-  now=Date.now(),csv=null,maxRows=MAX_ROWS}={}){
+  now=Date.now(),csv=null,startRow=0,maxRows=MAX_ROWS}={}){
   if(!db?.collection||!db?.runTransaction||!stripe?.reporting?.reportRuns?.retrieve||
-     !Number.isSafeInteger(maxRows)||maxRows<1||maxRows>MAX_ROWS)
+     !Number.isSafeInteger(maxRows)||maxRows<1||maxRows>MAX_ROWS||
+     !Number.isSafeInteger(startRow)||startRow<0)
     throw Error('validated database and Stripe reporting required');
   const run=await stripe.reporting.reportRuns.retrieve(runId);
   if(run.id!==runId)throw Error('Stripe report ID mismatch');
   const {start,end,fileId}=validatedReport(run,month,now);
   const text=csv===null?await downloadReportCsv({stripe,fileId}):csv;
   const rows=parseCsv(text,['connected_account_id','currency','connect_monthly_active_account_fee_subtotal_amount']);
-  if(rows.length>maxRows)throw Error('paginate Stripe monthly report before import');
+  if(startRow>rows.length)throw Error('invalid monthly report offset');
+  const batch=rows.slice(startRow,startRow+maxRows);
   if(!rows.length)return {ok:true,month,created:0,existing:0,quarantined:0};
   if(!Object.prototype.hasOwnProperty.call(rows[0],'connected_account_id') ||
      !Object.prototype.hasOwnProperty.call(rows[0],'connect_monthly_active_account_fee_subtotal_amount'))
     throw Error('report missing connected account monthly fees');
   let created=0,existing=0,quarantined=0;
   const processed=new Set();
-  for(const row of rows){
+  for(const row of batch){
     const fee=accountFeeRow(row);
     if(!fee||processed.has(fee.accountId)){quarantined++;continue;}
     processed.add(fee.accountId);
@@ -95,6 +97,7 @@ async function importMonthlyAccountFees({db,stripe,runId,month,
     });
     if(status==='created')created++;else existing++;
   }
-  return {ok:true,month,created,existing,quarantined};
+  return {ok:true,month,created,existing,quarantined,
+    nextRow:startRow+batch.length,hasMore:startRow+batch.length<rows.length,totalRows:rows.length};
 }
 module.exports={monthBounds,obligationId,validatedReport,accountFeeRow,importMonthlyAccountFees};
