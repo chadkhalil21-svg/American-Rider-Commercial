@@ -49,7 +49,8 @@ async function importPayoutFeeReport({db,stripe,runId,csv:testingCsv=null,now=Da
     try{
       if(String(r.currency||'').toLowerCase()!=='usd'||
          !['balance','v2_balance'].includes(r.settled_via))prev.valid=false;
-      else prev.sum+=cents(r.amount)+cents(r.tax);
+      else {const signed=cents(r.amount)+cents(r.tax);
+        if(signed<=0)prev.valid=false;else prev.sum+=signed;}
     }catch{prev.valid=false;}
     totals.set(key,prev);
   }
