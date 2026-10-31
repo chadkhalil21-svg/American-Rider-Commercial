@@ -32,7 +32,7 @@ let retrieved=0;
 const stripe={reporting:{reportRuns:{retrieve:async(id)=>({id,report_type:REPORT,livemode:true,status:'succeeded',result:{id:'file_Exact'}})}},
 balanceTransactions:{retrieve:async id=>{retrieved++;return {id,livemode:true,currency:'usd',type:'stripe_fee',reporting_category:'fee',net:-48,created:day+3600};}}};
 (async()=>{
- const args={db,stripe,runId:'frr_Exact',testingCsv:header+'\n'+row,now:(day+86400)*1000};
+ const args={db,stripe,runId:'frr_Exact',csv:header+'\n'+row,now:(day+86400)*1000};
  const a=await importPayoutFeeReport(args);
  assert.equal(a.created,1);assert.equal(a.monthlyAccountFeesImported,0);
  const b=await importPayoutFeeReport(args);
@@ -41,11 +41,11 @@ balanceTransactions:{retrieve:async id=>{retrieved++;return {id,livemode:true,cu
  assert.equal(record.providerFeeConfirmed,true);assert.equal(record.kind,'bank_payout');
  assert.equal(record.providerFeePayer,'application');
  const wrong={...stripe,balanceTransactions:{retrieve:async id=>({id,livemode:true,currency:'usd',type:'stripe_fee',reporting_category:'fee',net:-60,created:day+3600})}};
- const mismatch=await importPayoutFeeReport({...args,stripe:wrong,testingCsv:header+'\n'+row.replace('ftxn_charge','ftxn_wrong')});
+ const mismatch=await importPayoutFeeReport({...args,stripe:wrong,csv:header+'\n'+row.replace('ftxn_charge','ftxn_wrong')});
  assert.equal(mismatch.quarantined,1);
- const month=await importPayoutFeeReport({...args,testingCsv:header+'\n'+row.replace('po_Settled','')});
+ const month=await importPayoutFeeReport({...args,csv:header+'\n'+row.replace('po_Settled','')});
  assert.equal(month.created,0);
- const refunded=await importPayoutFeeReport({...args,testingCsv:header+'\n'+row.replace('0.48','-0.48')});
+ const refunded=await importPayoutFeeReport({...args,csv:header+'\n'+row.replace('0.48','-0.48')});
  assert.equal(refunded.created,0);
  console.log('PASS immutable evidence-only Connect payout fee import; duplicate, foreign, refund and mismatch quarantine; no network writes');
 })().catch(e=>{console.error(e);process.exitCode=1});
