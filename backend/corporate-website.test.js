@@ -30,6 +30,9 @@ for(const html of [download,invited]){
 assert.match(invited,/Copy your invitation code before leaving this page/);
 assert.match(invited,/sessionStorage\.setItem\(key,JSON\.stringify/,'Visible referral code survives same-tab website navigation');
 assert.match(invited,/sessionStorage\.getItem\(key\)/,'Referral fallback restores same-session code');
+assert.match(invited,/id="join-open-app"[^>]*hidden/,'App-open control initially hidden until invitation is validated');
+assert.match(invited,/americanrider:\/\/join\?r=/,'Existing installed app gets exact validated code through native scheme');
+assert.match(invited,/open\.href=.*encodeURIComponent\(code\).*encodeURIComponent\(role\)/,'App-open URL contains role and referral only after validation');
 assert.match(invited,/saved\.at<=72\*60\*60\*1000|Date\.now\(\)-saved\.at<=72\*60\*60\*1000/,'Stored invite expires after 72 hours');
 assert.match(invited,/history\.replaceState\(null,"",location\.pathname\)/,'Referral query is removed from browser history');
 
