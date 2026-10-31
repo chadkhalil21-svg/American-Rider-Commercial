@@ -28,7 +28,7 @@ function planVerifiedConnectOffsets({grossShareCents,operatorId,accountId,consen
          ? !/^txn_[A-Za-z0-9]+$/.test(String(obligation.providerBalanceTransactionId||''))
          : !(obligation.kind==='monthly_active_account' &&
              /^frr_[A-Za-z0-9]+$/.test(String(obligation.providerReportRunId||'')) &&
-             /^20\\d{2}-(0[1-9]|1[0-2])$/.test(String(obligation.billingMonth||'')) &&
+             /^20\d{2}-(0[1-9]|1[0-2])$/.test(String(obligation.billingMonth||'')) &&
              obligation.providerBalanceTransactionId==null)) ||
        !Number.isSafeInteger(obligation.amountCents) || obligation.amountCents<=0 ||
        !Number.isSafeInteger(obligation.recoveredCents) || obligation.recoveredCents<0 ||
