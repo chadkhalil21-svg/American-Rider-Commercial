@@ -5,6 +5,7 @@ const fs=require('node:fs');
 const path=require('node:path');
 const read=p=>fs.readFileSync(path.join(__dirname,'..',p),'utf8');
 const config=JSON.parse(read('app.json')).expo;
+assert.equal(config.scheme,'americanrider','Build 60 must understand the installed-app referral link');
 assert.deepEqual(config.ios.associatedDomains,['applinks:americanrider.tech']);
 const filter=config.android.intentFilters.find(f=>f.action==='VIEW'&&f.autoVerify===true);
 assert.ok(filter,'Android app needs a verified VIEW intent filter');
@@ -47,6 +48,9 @@ const builder=read('scripts/build-corporate-website.cjs');
 assert.match(builder,/Your introduction to American Rider/);
 assert.match(builder,/This invitation page preserves a referral code. It does not accept transportation bookings or payments./,'landing page must not promise an unverified public store install or booking');
 assert.match(builder,/role==="operator"/,'landing differentiates referral roles');
+assert.match(builder,/id="join-open-app"/,'website offers a one-tap return to installed app');
+assert.match(builder,/americanrider:\/\/join\?r=/,'website opens existing app with invitation');
+assert.match(builder,/sessionStorage\.getItem\(key\)/,'browser can recover same-session invitation');
 const invite=read('app/invite.tsx');
 assert.match(invite,/traveler\.sendInvitation/,'the established Traveler Invite surface remains');
 for(const lang of ['en','es','fr','it','de']){
