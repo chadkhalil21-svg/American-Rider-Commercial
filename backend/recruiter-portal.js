@@ -144,7 +144,7 @@ async function updateRecruiterProfile({db,uid,verifiedEmail,profileName,now=Date
 }
 
 async function recruiterSummary({db,uid,verifiedEmail,now=Date.now(),programEnabled=false,linkVerified=false,activityTrackingEnabled=false,
-  financialEnabled=false}={}){
+  financialEnabled=false,operatorInvitesEnabled=false}={}){
   if(!db||!validUid(uid))return {ok:false,reason:'invalid_request'};
   try{
     const ref=db.collection('recruiter_accounts').doc(uid);
@@ -175,7 +175,8 @@ async function recruiterSummary({db,uid,verifiedEmail,now=Date.now(),programEnab
     // launch flags and current identity/contract/role checks govern availability.
     // With flags OFF (the default), this adds zero approval-record reads.
     let linksAvailable=false;
-    if(programEnabled===true&&linkVerified===true&&data.status==='approved'){
+    if((programEnabled===true||(data.enrollmentSource==='qualified_operator'&&operatorInvitesEnabled===true))&&
+       linkVerified===true&&data.status==='approved'){
       const approval=await db.collection('recruiter_approvals').doc(uid).get();
       linksAvailable=approval.exists&&Array.isArray(data.allowedRoles)&&
         data.allowedRoles.some(role=>
