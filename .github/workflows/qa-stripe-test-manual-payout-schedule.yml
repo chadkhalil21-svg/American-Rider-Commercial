@@ -31,6 +31,8 @@ jobs:
           esac
       - name: Install pinned backend Stripe SDK
         run: npm ci --prefix backend --omit=dev
+      - name: Verify two-sided operator commission credited to existing Stripe balance only once
+        run: node backend/recruiter-operator-manual-credit.test.js
       - name: Actual TEST connected account creation, manual schedule and cleanup
         run: node backend/stripe-test-manual-payout-schedule.cjs
       - name: Save provider-only evidence
