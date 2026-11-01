@@ -514,7 +514,8 @@ async function createPaymentIntent({ travelCostCents, uid, email, tripNo, rideId
       product: 'American Rider travel',
       ...(manualCaptureEnabled()?{capturePolicy:'manual_v1'}:{}),
       uid: uid || '',
-      ...(selected?{selectedPaymentMethodId:selected.paymentMethodId}:{}),
+      ...(selected?{selectedPaymentMethodId:selected.paymentMethodId,
+        selectedCardIssuerCountry:selected.country}:{}),
       tripNo: tripNo || '',
       // The travel record this pays for, from the server's own lookup (travelmoney.js).
       rideId: rideId || '',
