@@ -26,6 +26,13 @@ jobs:
           node --check backend/firebase-admin.js
           node --check backend/cloudrun-sweep-mode.js
           node --check backend/durable-maintenance.js
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verify protected no-source Cloud Run scale-only logic and future deployment cap
+        run: |
+          python3 -m py_compile infra/cloud-run/scale-existing-paid-revision-20261101.py infra/cloud-run/deploy-existing-paid-source.py
+          python3 -m unittest discover -s infra/cloud-run -p test_scale_existing_paid_revision_20261101.py
       - name: Verify scheduler fail-closed and durable cadence twice
         run: |
           node backend/cloudrun-sweep-mode.test.js
