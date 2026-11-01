@@ -98,9 +98,11 @@ function simulateConfirmSetup(customer,id,brand,last4,country='US'){
  assert.equal(customers.get(first.id).invoice_settings.default_payment_method,'');
  assert.equal((await api.listPaymentMethods(identity)).length,0);
  assert.equal(charged,0);
- // Quote must cover ANY card selected after acceptance, not just a saved default.
+ // Unsaved cards and Apple/Google Pay remain international-safe. An
+ // explicitly selected saved Stripe card may use only its verified issuer.
  const fareSource=fs.readFileSync(path.join(__dirname,'fareauthority.js'),'utf8');
- assert.match(fareSource,/const cardCountry = null;/);
+ assert.match(fareSource,/let cardCountry=null,selectedPaymentMethodId=null;/);
+ assert.match(fareSource,/await cardCountryFor\(\{uid,email,paymentMethodId:body.paymentMethodId\}\)/);
  assert.doesNotMatch(fareSource,/uid && cardCountryFor \? cardCountryFor/);
  const {minimumPlatformFeeCents}=require('./economics');
  assert.ok(minimumPlatformFeeCents({travelCostCents:5000,cardCountry:null}) >
@@ -113,5 +115,5 @@ function simulateConfirmSetup(customer,id,brand,last4,country='US'){
  assert.match(wallet,/setPendingRemove\(m\)/);
  assert.match(wallet,/state === 'unreadable'/);
  assert.match(wallet,/platformPaySupported\(\)/);
- console.log('PASS: anonymous prepayment view, distinct customer, cancelled setup, add card, list, default, switch, foreign card, ownership, remove, no charge, safe quote, Apple Pay/Google Pay capability wiring');
+ console.log('PASS: anonymous prepayment view, distinct customer, cancelled setup, add card, list, default, switch, foreign card, ownership, remove, no charge, unknown issuer safe pricing, selected issuer verification, Apple Pay/Google Pay capability wiring');
 })().catch(e=>{console.error(e);process.exitCode=1;});
