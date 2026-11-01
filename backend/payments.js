@@ -558,6 +558,7 @@ async function createPaymentIntent({ travelCostCents, uid, email, tripNo, rideId
     customerId: customer.id,
     ephemeralKeySecret: ephemeralKey.secret,
     breakdown: q,
+    selectedPaymentMethodId:selected?.paymentMethodId||null,
     capturePolicy:manualCaptureEnabled()?'manual_v1':'captured_legacy',
   };
 }
@@ -581,6 +582,9 @@ async function resumePaymentIntent({ paymentIntentId, uid, rideId, email, travel
   if (!pi || pi.metadata?.uid !== String(uid) || pi.metadata?.rideId !== String(rideId)) return null;
   const q = quote(travelCostCents, journey, governmentFees, cardCountry, tollCents);
   if (pi.amount !== q.travelerPays) return null;
+  if(pi.metadata?.selectedPaymentMethodId&&
+     (!/^pm_[A-Za-z0-9]+$/.test(pi.metadata.selectedPaymentMethodId)||
+      (pi.status==='requires_capture'&&pi.payment_method!==pi.metadata.selectedPaymentMethodId)))return null;
   if (pi.status === 'requires_capture') {
     // Restore the already-authorized ORIGINAL Stripe hold after a phone crash.
     // Never create or present another PaymentIntent for the same Travel.
@@ -594,7 +598,8 @@ async function resumePaymentIntent({ paymentIntentId, uid, rideId, email, travel
     const verified = verifyHold({intent:pi,uid,rideId,totalCents:q.travelerPays,now,requiredUntil});
     if (!verified.ok) return null;
     return {paymentIntentId:pi.id,breakdown:q,capturePolicy:'manual_v1',
-      alreadyAuthorized:true,authorizationExpiresAt:verified.expires};
+      alreadyAuthorized:true,authorizationExpiresAt:verified.expires,
+      selectedPaymentMethodId:pi.metadata?.selectedPaymentMethodId||null};
   }
   if (!RESUMABLE.includes(pi.status)) return null;
   const customer = await customerForTraveler({ uid, email });
@@ -607,6 +612,7 @@ async function resumePaymentIntent({ paymentIntentId, uid, rideId, email, travel
     breakdown: q,
     capturePolicy:pi.metadata?.capturePolicy==='manual_v1'?'manual_v1':'captured_legacy',
     resumed: true,
+    selectedPaymentMethodId:pi.metadata?.selectedPaymentMethodId||null,
   };
 }
 
