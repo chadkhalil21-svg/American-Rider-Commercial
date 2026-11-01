@@ -135,7 +135,7 @@ class PaidSourceTest(unittest.TestCase):
         required={
             "/join/":"join-referral-code join-copy Keep your invitation code",
             "/recruitment/accept/":"accept-panel recruiters/accept emailVerified",
-            "/recruiters/portal/":"recruiters/link recruiters/me emailVerified",
+            "/recruiters/portal/":"referrals/share recruiters/me emailVerified",
         }
         class Result:
             status=200
