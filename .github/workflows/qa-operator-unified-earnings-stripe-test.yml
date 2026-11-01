@@ -1,0 +1,55 @@
+name: QA real Stripe TEST same Operator Travel and referral payments
+on:
+  pull_request:
+    branches: [release/current]
+    paths:
+      - '.github/workflows/qa-operator-unified-earnings-stripe-test.yml'
+      - 'backend/stripe-test-operator-unified-earnings.cjs'
+permissions:
+  contents: read
+jobs:
+  existing-operator-stripe-test-only:
+    if: ${{ github.event.pull_request.head.repo.full_name == github.repository && github.head_ref == 'qa/operator-referral-provider-20261031' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      STRIPE_TEST_SECRET_KEY: ${{ secrets.STRIPE_TEST_SECRET_KEY }}
+      CI: 'true'
+      NODE_ENV: test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Refuse live, publishable, or missing Stripe keys
+        shell: bash
+        run: |
+          set -euo pipefail
+          case "${STRIPE_TEST_SECRET_KEY:-}" in
+            sk_test_?*) echo 'PASS: Stripe test-only credential present' ;;
+            *) echo '::error::Only sk_test_ is accepted; no provider money writes'; exit 1 ;;
+          esac
+      - name: Install pinned Stripe SDK only
+        run: npm ci --prefix backend --omit=dev
+      - name: Exercise unified Operator eligibility, ledger and app Revenue
+        run: |
+          node backend/operator-referral-enrollment.test.js
+          node backend/recruiter-operator-connect.test.js
+          node backend/recruiter-operator-transfers.test.js
+          node backend/operator-payout-records.test.js
+          node backend/referral-service.test.js
+          node backend/recruiter-commercial-terms.test.js
+      - name: Real Stripe TEST same existing Operator account, two transfers, reversal and refund
+        run: node backend/stripe-test-operator-unified-earnings.cjs
+      - name: Save actual test provider evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: operator-travel-plus-referral-stripe-test
+          path: artifacts/operator-referral-stripe-test/
+          if-no-files-found: warn
+          retention-days: 14
+      - name: State exactly what is not proven
+        if: always()
+        run: |
+          echo 'Only Stripe TEST money and simulated server/UI records were exercised. No real Operator bank deposit, physical device, customer, production ledger write, change to provider payout schedule, or live transaction.' >> "$GITHUB_STEP_SUMMARY"
