@@ -26,10 +26,13 @@ function computeOperatorFleetEconomics(registeredOperators,overrides={}){
     presenceWritesPerActiveDay:360,otherOperationsCentsPerTravel:17,
     presenceBudgetUsdPerHour:.035,corporateBaseUsd:1500,
     corporatePerRegisteredOperatorUsd:3,collectionFraction:1,
+    // Financial-model toggle ONLY: zero until actual Operator-paid payout/routing
+    // fee collections are proven. Do not set production fee flags from this.
+    connectFeeRecoveryFraction:0,
     ...overrides};
   for(const [key,value] of Object.entries(opt))if(!['tiers','mapBudgetMode'].includes(key))nonNegativeNumber(value,key);
   if(!['optimizedCommercial','openFreeMapOnly','starterStandby'].includes(opt.mapBudgetMode))throw new RangeError('unknown map budget mode');
-  if(opt.activeFraction>1||opt.collectionFraction>1)throw new RangeError('fractions must be <= 1');
+  if(opt.activeFraction>1||opt.collectionFraction>1||opt.connectFeeRecoveryFraction>1)throw new RangeError('fractions must be <= 1');
   const tier=opt.tiers||DEFAULT_TIERS[registeredOperators];
   if(!tier)throw new RangeError('specify paid capacity tier for this cohort, no unverified infinite scaling');
   for(const [key,value] of Object.entries(tier))nonNegativeNumber(value,key);
@@ -39,6 +42,12 @@ function computeOperatorFleetEconomics(registeredOperators,overrides={}){
   const cardUsd=travels*.88,connectPercentUsd=travels*.09;
   const connectActiveUsd=active*2,accountFeeCollectedUsd=connectActiveUsd*opt.collectionFraction;
   const payoutFixedUsd=active*opt.payoutsPerActiveMonth*.25;
+  // Keep Stripe platform-paid Connect debits on the expense side for an honest
+  // audit. Count Operator reimbursement ONLY on the collection side of the
+  // scenario, independently of the existing $2/month account-fee collection.
+  const connectTransactionFeeCollectedUsd=(connectPercentUsd+payoutFixedUsd)*opt.connectFeeRecoveryFraction;
+  const netCompanyConnectExpenseUsd=connectActiveUsd+connectPercentUsd+payoutFixedUsd-
+    accountFeeCollectedUsd-connectTransactionFeeCollectedUsd;
   const reservedRiskUsd=travels*.25; // earmarked provision, not vendor cash
   const otherVariableUsd=travels*opt.otherOperationsCentsPerTravel/100;
   const operatorDutyUsd=monthlyHours*opt.presenceBudgetUsdPerHour;
@@ -65,12 +74,13 @@ function computeOperatorFleetEconomics(registeredOperators,overrides={}){
     emailUsd,firestoreUsd,infrastructureUsd,corporateBudgetUsd};
   const totalExpenseUsd=Object.values(expenses).reduce((x,y)=>x+y,0);
   const platformTravelRevenueUsd=travels*2.67;
-  const grossRevenueUsd=platformTravelRevenueUsd+accountFeeCollectedUsd;
+  const grossRevenueUsd=platformTravelRevenueUsd+accountFeeCollectedUsd+connectTransactionFeeCollectedUsd;
   const remainderUsd=grossRevenueUsd-totalExpenseUsd;
   return {registeredOperators,activeOperators:active,
     travelsDaily:travels/30,travelsMonthly:travels,
     mapCredits,emailCount,payouts:active*opt.payoutsPerActiveMonth,
-    platformTravelRevenueUsd,accountFeeCollectedUsd,grossRevenueUsd,
+    platformTravelRevenueUsd,accountFeeCollectedUsd,connectTransactionFeeCollectedUsd,
+    netCompanyConnectExpenseUsd,grossRevenueUsd,
     expenses,totalExpenseUsd,remainderUsd,
     remainderPerTravelUsd:travels?remainderUsd/travels:null,
     breakEven:remainderUsd>=0,
