@@ -49,6 +49,29 @@ async function operatorPayoutRecords({ db, operatorUid, after = null }) {
       transferredCents: outcome.cents,
     });
   }
+  // Build 60 already renders authenticated server transfer records in Revenue.
+  // Show the Operator's independently bank-confirmed referral commissions there,
+  // without claiming provisional/held credits as paid or changing native code.
+  // This is one lifetime verified figure, never an additional credit or transfer.
+  // Only the first page includes it, so pagination cannot duplicate the display.
+  if (!after) {
+    const wallet = await db.collection('recruiter_commission_wallets').doc(operatorUid).get();
+    if (wallet.exists) {
+      const w = wallet.data() || {};
+      const paid = w.netPaidCents;
+      if (Number.isSafeInteger(paid) && paid > 0 && paid <= Number.MAX_SAFE_INTEGER) {
+        records.unshift({
+          rideId: 'referral-verified-paid',
+          tripNo: 'Referral earnings (verified paid)',
+          completedAt: null,
+          status: 'transfer_recorded',
+          transferredCents: paid,
+        });
+      } else if (paid !== undefined && (!Number.isSafeInteger(paid) || paid < 0)) {
+        throw new Error('Referral wallet requires reconciliation');
+      }
+    }
+  }
   return {
     ok: true,
     records,
