@@ -1,3 +1,11 @@
+## 1 November 2026 | PR #434 reconciled onto merged finance PR #433 (DRAFT; not commissioned)
+
+**Verified source-only integration:** PR #434 now combines Stripe-verified selected SAVED card issuer/Customer ownership, selected-card quote and PaymentIntent method binding, card-switch rejection and exact charged-method checks, with all already-merged PR #433 referral obligations, guarded $0.30/travel margin reserve and Operator Connect fee/payout reconciliation. The merged source preserves 99% gross Operator Travel Fare, one connected account for Operator referrals, unchanged live payout cadence, and issuer-unknown conservative pricing for new cards and wallets. Build 60 is unchanged. No Cloud Run deployment, production charges, payout schedule changes, bank payouts or users were created by this integration.
+
+**Release gate:** PR #434 requires all checks on the exact combined head (not the superseded earlier #432-only tests), real signed iOS/Android card, wallet, 3DS and scheduled authorization verification, legal/UI acceptance and a later protected Cloud Run release before live use. The production API remains at prior verified revision 00040-lcf unless independently reconfirmed. Backend/Firestore cost optimizations remain measurement-first; retain safety-critical 90-second Operator availability renewal and current geographically bounded dispatch while authentic billed read/write metrics are unavailable.
+
+---
+
 ## 1 November 2026 | Founder integration of Recruiter guarantee and Operator payout controls (review gate, NOT LIVE)
 
 **Read source, not assumptions:** PR #432 (Stripe-owned saved-card issuer preflight and exact actual charge method guard) was safely **MERGED** into release/current as fee8e2de72198643ace7e5a62a5f8e0e29cfe264 after all seven release checks passed. This does not yet provide issuer-first mobile checkout and does not change any Traveler charge, quote or acceptance flow. Build 60 still selects the card after quote, with international-safe unknown-card estimate.
