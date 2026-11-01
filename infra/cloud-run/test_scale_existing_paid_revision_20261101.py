@@ -47,4 +47,7 @@ class TestScale(unittest.TestCase):
         self.assertNotIn("gcloud run deploy",source)
         self.assertNotIn("--source=",source)
         self.assertNotIn("STRIPE_SECRET_KEY=sk_",source)
+        future=(f.parent/"deploy-existing-paid-source.py").read_text()
+        self.assertIn("--max-instances=default",future)
+        self.assertNotIn("--max-instances=2",future)
 if __name__=="__main__":unittest.main()
