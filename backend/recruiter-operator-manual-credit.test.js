@@ -73,6 +73,7 @@ class Db{
    update:async()=>{payoutUpdates++;},create:async()=>{accountCreates++;}},
   balance:{retrieve:async()=>({available:[{currency:'usd',amount:available}]})},
   transfers:{
+    retrieve:async transferId=>transferId===transfer?.id?structuredClone(transfer):null,
    list:async()=>({data:transfer?[transfer]:[],has_more:false}),
    create:async(x,options)=>{transferWrites++;
     assert.equal(options.idempotencyKey,'ar_rec_'+BATCH);
@@ -100,7 +101,7 @@ class Db{
  const sent=await submitOperatorReferralTransfer(args);
  assert.equal(sent.status,'credited_to_operator_stripe');
  assert.equal(sent.feeCents,0);assert.equal(transferWrites,1);
- assert.equal((await submitOperatorReferralTransfer(args)).status,'credited_to_operator_stripe');
+ assert.equal((await submitOperatorReferralTransfer(args)).status,'paid');
  assert.equal(transferWrites,1);
  assert.equal(bankCreates,0);assert.equal(accountCreates,0);assert.equal(payoutUpdates,0);
  const payout=db.at('recruiter_commission_payouts/'+BATCH);
