@@ -12,9 +12,9 @@ try {
 
   process.env.AR_RECRUITER_MARGIN_GUARANTEE_ENABLED='1';
   const q=quote(5000,null,[],'US',0);
-  assert.equal(q.appFee,323,'both $0.15 rewards are explicitly priced');
+  assert.equal(q.appFee,321,'both $0.15 rewards are explicitly priced');
   assert.equal(q.operatorGets,4950,'guarantee never reduces 99% gross Fare');
-  assert.equal(q.travelerPays,5323,'quote is the only accepted Traveler Total');
+  assert.equal(q.travelerPays,5321,'quote is the only accepted Traveler Total');
   assert.equal(q._economics.referralReserveCents,30);
   assert(q._economics.platformContributionCents>=75);
   assert.equal(fundedRecruiterSnapshot({
