@@ -58,6 +58,43 @@ async function operatorPayoutRecords({ db, operatorUid, after = null }) {
     const wallet = await db.collection('recruiter_commission_wallets').doc(operatorUid).get();
     if (wallet.exists) {
       const w = wallet.data() || {};
+      // Matured but unpaid commissions must be visible in Build 60 without
+      // falsely claiming they have been transferred or bank-settled.
+      const available = w.availableCents;
+      if (Number.isSafeInteger(available) && available > 0) {
+        records.unshift({
+          rideId: 'referral-available',
+          tripNo: 'Referral earnings available       if (Number.isSafeInteger(paid) && paid > 0 && paid <= Number.MAX_SAFE_INTEGER) {
+        records.unshift({
+          rideId: 'referral-verified-paid',
+          tripNo: 'Referral earnings (verified paid)',
+          completedAt: null,
+          status: 'transfer_recorded',
+          transferredCents: paid,
+        });
+      } else if (paid !== undefined && (!Number.isSafeInteger(paid) || paid < 0)) {
+        throw new Error('Referral wallet requires reconciliation');
+      }
+    }
+  }
+  return {
+    ok: true,
+    records,
+    hasMore: all.length > PAGE_SIZE,
+    nextCursor: all.length > PAGE_SIZE && docs.length ? docs[docs.length - 1].id : null,
+    // We have intentionally NOT returned an all-time earnings/owed balance.
+    scope: 'one_page_of_server_records',
+  };
+}
+module.exports = { PAGE_SIZE, statusForCompletedTravel, operatorPayoutRecords };
+ + (available / 100).toFixed(2) + ' (not paid)',
+          completedAt: null,
+          status: 'reconciliation_needed',
+          transferredCents: null,
+        });
+      } else if (available !== undefined && (!Number.isSafeInteger(available) || available < 0)) {
+        throw new Error('Referral wallet requires reconciliation');
+      }
       const paid = w.netPaidCents;
       if (Number.isSafeInteger(paid) && paid > 0 && paid <= Number.MAX_SAFE_INTEGER) {
         records.unshift({
