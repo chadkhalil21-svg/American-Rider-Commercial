@@ -82,7 +82,8 @@ assert.match(invitationSite,/browserSessionPersistence/);
 assert.match(portal,/private recruiter|recruitment account/i);
 assert.match(portal,/recruiters\/me/);
 assert.match(portal,/getIdToken/);
-assert.match(portal,/recruiters\/link/);
+assert.match(portal,/referrals\/share/); // shared verified invitation route, including qualified Operators
+assert.match(portal,/recruiter-fee-notice/); // no second fee for an existing Operator Connect account
 assert.match(portal,/Stripe handles identity and bank verification|Stripe Connect/i);
 assert.doesNotMatch(portal,/Bank enrollment, compensation and payment history are not yet commissioned/i);
 assert.doesNotMatch(portal,/public self-enroll|Start earning immediately/i);

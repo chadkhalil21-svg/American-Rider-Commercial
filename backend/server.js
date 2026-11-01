@@ -714,6 +714,7 @@ app.get('/about', (req, res) => res.type('html').send(ABOUT_HTML));
 // personal agreement acceptance and Stripe recipient checks. Ordinary paid
 // Travels never depend on Recruiter activation.
 const recruiterPortal=require('./recruiter-portal');
+const {ensureQualifiedOperatorRecruiter}=require('./operator-referral-enrollment');
 // Web-first recruiter invitations need a verified, live website acceptance path.
 // Web fallback is independently verified; native links stay separately attested.
 const recruiterInvitesEnabled=readKey('AR_RECRUITER_INVITES_ENABLED')==='1'&&
@@ -842,8 +843,14 @@ const recruiterRewardsEnabled=()=>recruiterStripeEnabled()&&
 const recruiterTerms=()=>recruiterAgreement.termsConfig(
   require('./recruiter-commercial-terms').CURRENT_TERMS);
 app.get('/recruiters/stripe/terms',requireAuth,requireFreshAuth,
-  requireVerifiedEmail,recruiterLimit,(req,res)=>{
+  requireVerifiedEmail,recruiterLimit,async(req,res)=>{
   res.set('Cache-Control','private, no-store, max-age=0');
+  const db=adminDb();
+  const operator=db?await ensureQualifiedOperatorRecruiter({db,uid:String(req.uid),verifiedEmail:req.email}):null;
+  if(operator?.ok===true&&operator.operatorReferral===true) return res.json({ok:true,feeCents:0,
+    feeVersion:recruiterStripe.FEE_VERSION,feeDisclosure:'Existing Operators reuse their verified Stripe account. No second Stripe account or additional $2 monthly Connect fee.',
+    provider:'stripe_connect',payoutMode:'existing_operator_connect',
+    status:'ready_for_consent'});
   res.json({ok:true,feeCents:recruiterStripe.FEE_CENTS,
     feeVersion:recruiterStripe.FEE_VERSION,
     feeDisclosure:recruiterStripe.FEE_DISCLOSURE,
@@ -861,10 +868,12 @@ app.post('/recruiters/agreement',requireAuth,requireFreshAuth,
   requireVerifiedEmail,recruiterLimit,async(req,res)=>{
   res.set('Cache-Control','private, no-store, max-age=0');
   const t=recruiterTerms();
-  if(!recruiterStripeEnabled()||!t)
+  const db=adminDb();
+  const enrollment=db?await ensureQualifiedOperatorRecruiter({db,uid:String(req.uid),verifiedEmail:req.email}):null;
+  if(!t||(!recruiterStripeEnabled()&&!(enrollment?.ok===true&&enrollment.operatorReferral===true)))
     return res.status(503).json({ok:false,code:'recruiter_program_not_commissioned'});
   const result=await recruiterAgreement.acceptRecruiterAgreement({
-    db:adminDb(),uid:String(req.uid),verifiedEmail:req.email,
+    db,uid:String(req.uid),verifiedEmail:req.email,
     version:req.body?.version,accepted:req.body?.accepted===true,terms:t,
   });
   res.status(result.ok?200:result.reason==='not_authorized'?403:409).json(result);
@@ -894,7 +903,10 @@ app.post('/recruiters/stripe/onboard',requireAuth,requireFreshAuth,
 app.get('/recruiters/stripe/status',requireAuth,requireFreshAuth,
   requireVerifiedEmail,recruiterLimit,async(req,res)=>{
   res.set('Cache-Control','private, no-store, max-age=0');
-  if(!recruiterStripeEnabled()||!recruiterTerms())
+  const db=adminDb();
+  const enrolled=db?await ensureQualifiedOperatorRecruiter({db,uid:String(req.uid),verifiedEmail:req.email}):null;
+  const existingOperator=enrolled?.ok===true&&enrolled.operatorReferral===true;
+  if(!existingOperator&&(!recruiterStripeEnabled()||!recruiterTerms()))
     return res.json({ok:true,status:'not_commissioned',ready:false,
       feeCents:recruiterStripe.FEE_CENTS});
   const result=await recruiterStripe.verifyRecruiterBank({
@@ -902,7 +914,8 @@ app.get('/recruiters/stripe/status',requireAuth,requireFreshAuth,
     operatorSharedApproved:recruiterRewardsEnabled()&&
       readKey('AR_RECRUITER_OPERATOR_SHARED_PAYOUT_ENABLED')==='1',
   });
-  res.status(result.ok?200:result.reason==='not_authorized'?403:409).json(result);
+  res.status(result.ok?200:result.reason==='not_authorized'?403:409).json(
+    existingOperator?{...result,payoutMode:'existing_operator_connect',feeCents:0}:result);
 });
 
 app.get('/recruiters/link',requireAuth,requireFreshAuth,requireVerifiedEmail,
@@ -936,11 +949,14 @@ app.post('/recruiters/profile',requireAuth,requireFreshAuth,
 });
 app.get('/recruiters/me',requireAuth,requireVerifiedEmail,recruiterLimit,async(req,res)=>{
   res.set('Cache-Control','private, no-store, max-age=0');
+  const db=adminDb();
+  if(db)await ensureQualifiedOperatorRecruiter({db,uid:String(req.uid),verifiedEmail:req.email});
   const programEnabled=readKey('AR_RECRUITER_PROGRAM_ENABLED')==='1'&&
     readKey('AR_REFERRALS_ENABLED')==='1';
   const out=await recruiterPortal.recruiterSummary({
-    db:adminDb(),uid:String(req.uid),verifiedEmail:req.email,
-    programEnabled,linkVerified:readKey('AR_RECRUITER_WEB_REFERRAL_VERIFIED')==='1',
+    db,uid:String(req.uid),verifiedEmail:req.email,
+    programEnabled,operatorInvitesEnabled:readKey('AR_REFERRALS_ENABLED')==='1',
+    linkVerified:readKey('AR_RECRUITER_WEB_REFERRAL_VERIFIED')==='1'||readKey('AR_APP_LINKS_VERIFIED')==='1',
     activityTrackingEnabled:readKey('AR_RECRUITER_TRAVEL_TRACKING_ENABLED')==='1',
     financialEnabled:recruiterRewardsEnabled(),
   });
@@ -984,6 +1000,9 @@ app.get('/referrals/share',requireReferralLaunch,requireAuth,
     if(readKey('AR_RECRUITER_WEB_REFERRAL_VERIFIED')!=='1'&&
        readKey('AR_APP_LINKS_VERIFIED')!=='1')
       return res.status(503).json({ok:false,code:'referral_landing_not_verified'});
+    const enrolled=await ensureQualifiedOperatorRecruiter({db,uid:String(req.uid),verifiedEmail:req.email});
+    if(enrolled.operatorReferral===true&&enrolled.ok!==true)
+      return res.status(403).json({ok:false,code:'operator_not_qualified'});
     const out=await referrals.shareLink({db,uid:String(req.uid),role,
       origin:'https://americanrider.tech',
       paidRecruiterProgramEnabled:recruiterRewardsEnabled()});
@@ -1844,6 +1863,7 @@ app.get('/operator/payout-records', requireAuth, LIMITS.connect, async (req, res
     return res.status(400).json({ ok: false, code: 'invalid_cursor' });
   }
   try {
+    if(!after&&req.email)await ensureQualifiedOperatorRecruiter({db,uid:String(req.uid),verifiedEmail:req.email});
     const result = await operatorPayoutRecords({ db, operatorUid: String(req.uid), after: after || null });
     res.json(result);
   } catch {

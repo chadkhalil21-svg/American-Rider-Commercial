@@ -43,7 +43,7 @@ assert.match(api,/AR_RECRUITER_WEB_REFERRAL_VERIFIED/);
 assert.match(read('infra/cloud-run/deploy-existing-paid-source.py'),/AR_APP_LINKS_VERIFIED/);
 assert.match(api,/origin:'https:\/\/americanrider\.tech'/);
 const portal=read('scripts/corporate-recruiter-portal.cjs');
-assert.match(portal,/I may receive compensation/,'compensated invitations disclose the relationship');
+assert.match(portal,/I may receive \$0\.15 per qualifying/,'compensated Operator invitations must disclose the precise approved rate');
 const builder=read('scripts/build-corporate-website.cjs');
 assert.match(builder,/Your introduction to American Rider/);
 assert.match(builder,/This invitation page preserves a referral code. It does not accept transportation bookings or payments./,'landing page must not promise an unverified public store install or booking');

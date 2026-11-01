@@ -6,6 +6,7 @@
 const crypto=require('node:crypto');
 const {normalizedCode,inviteLink,claimDecision}=require('./referral-policy');
 const {recruiterMayRefer}=require('./recruiter-eligibility');
+const {mayShareUnpaidOperatorInvitation}=require('./operator-referral-enrollment');
 const CLAIM_WINDOW_MS=72*60*60*1000;
 const validRole=role=>role==='traveler'||role==='operator';
 
@@ -27,7 +28,8 @@ async function shareLink({db,uid,role,now=Date.now(),origin,paidRecruiterProgram
       ]);
       if((account.exists||approval.exists) &&
          (!account.exists||!approval.exists||
-          !recruiterMayRefer(account.data(),approval.data(),role,now)))
+          !(recruiterMayRefer(account.data(),approval.data(),role,now)||
+            mayShareUnpaidOperatorInvitation(account.data(),approval.data(),role,now))))
         throw Error('unapproved_recruiter');
       // The account and approval records have already been read for eligibility.
       // Return one server-authoritative compensation state without another query.
@@ -94,7 +96,8 @@ async function claim({db,uid,code,role,authCreatedAtMs,now=Date.now(),
       ]);
       if((recruiterSnap.exists||approvalSnap.exists) &&
          (!recruiterSnap.exists||!approvalSnap.exists||
-          !recruiterMayRefer(recruiterSnap.data(),approvalSnap.data(),role,now)))
+          !(recruiterMayRefer(recruiterSnap.data(),approvalSnap.data(),role,now)||
+            mayShareUnpaidOperatorInvitation(recruiterSnap.data(),approvalSnap.data(),role,now))))
         return {ok:false,reason:'referrer_not_eligible'};
       if(claimSnap.exists)return {ok:false,reason:'already_attributed'};
       // Do not reassign an already-qualified or formerly active Operator.
@@ -115,6 +118,7 @@ async function claim({db,uid,code,role,authCreatedAtMs,now=Date.now(),
       // separately commissioned program. Ordinary personal invitations never
       // become paid referrals merely because the rate has been approved.
       const paid=Boolean(recruiterSnap.exists&&approvalSnap.exists&&
+        recruiterMayRefer(recruiterSnap.data(),approvalSnap.data(),role,now)&&
         paidRecruiterProgram?.enabled===true&&
         typeof paidRecruiterProgram.version==='string'&&
         paidRecruiterProgram.version.length>0);

@@ -49,6 +49,38 @@ async function operatorPayoutRecords({ db, operatorUid, after = null }) {
       transferredCents: outcome.cents,
     });
   }
+  // Read-only, owner-scoped wallet figures shown in Build 60's existing
+  // server ledger. Never call an unpaid commission a verified bank payout.
+  if (!after) {
+    const wallet = await db.collection('recruiter_commission_wallets').doc(operatorUid).get();
+    if (wallet.exists) {
+      const w = wallet.data() || {};
+      const available = w.availableCents;
+      const paid = w.netPaidCents;
+      for (const n of [available, paid]) {
+        if (n !== undefined && (!Number.isSafeInteger(n) || n < 0))
+          throw new Error('Referral wallet requires reconciliation');
+      }
+      if (Number.isSafeInteger(available) && available > 0) {
+        records.unshift({
+          rideId: 'referral-available',
+          tripNo: 'Referral earnings available $' + (available / 100).toFixed(2) + ' (not paid)',
+          completedAt: null,
+          status: 'reconciliation_needed',
+          transferredCents: null,
+        });
+      }
+      if (Number.isSafeInteger(paid) && paid > 0) {
+        records.unshift({
+          rideId: 'referral-verified-paid',
+          tripNo: 'Referral earnings (verified paid)',
+          completedAt: null,
+          status: 'transfer_recorded',
+          transferredCents: paid,
+        });
+      }
+    }
+  }
   return {
     ok: true,
     records,
