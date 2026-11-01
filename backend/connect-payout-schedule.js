@@ -1,16 +1,25 @@
 'use strict';
-// A platform-controlled payout cadence, NOT an Operator payday selector.
-// Default weekly Friday for Operator onboarding by Founder approval.
-// Existing accounts are not bulk-changed; weekly does not make pending funds eligible for Instant.
+// A platform-controlled payout cadence. Existing accounts are never bulk-changed.
+// Founder prefers on-demand standard or Instant payouts chosen in Stripe Express.
+// Switch only after the Express manual-payout controls and bank reconciliation
+// are independently certified on a real eligible connected account.
 // Stripe Accounts v1: settings.payouts.schedule.weekly_anchor.
 // https://docs.stripe.com/connect/manage-payout-schedule
 
 const WEEKDAYS = new Set(['monday','tuesday','wednesday','thursday','friday','saturday','sunday']);
 
 function desiredAutomaticSchedule(env = process.env) {
-  // Founder-approved launch default. Existing accounts are reconciled during onboarding;
-  // no account is silently mutated merely by loading this module.
+  // Keep production's preexisting behavior UNTIL Stripe Express Manual payouts
+  // and the revised commission bank reconciliation are independently verified.
+  // An explicit, jointly gated manual choice is safe to prepare before release.
   const interval = String(env.CONNECT_STANDARD_PAYOUT_INTERVAL || 'weekly').trim().toLowerCase();
+  if (interval === 'manual') {
+    if (String(env.CONNECT_OPERATOR_CHOICE_PAYOUTS_VERIFIED || '') !== '1')
+      throw Error('Operator-controlled manual payouts require independently verified Stripe Express controls');
+    if (String(env.CONNECT_MANUAL_REFERRAL_RECONCILIATION_VERIFIED || '') !== '1')
+      throw Error('manual referral bank reconciliation must be independently verified');
+    return {interval: 'manual'};
+  }
   if (interval === 'daily') return {interval: 'daily'};
   if (interval !== 'weekly') throw Error('unsupported automatic payout cadence');
   const weeklyAnchor = String(env.CONNECT_STANDARD_PAYOUT_WEEKDAY || 'friday').trim().toLowerCase();
