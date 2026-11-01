@@ -249,6 +249,12 @@ async function reconcileRecruiterPayout({db,batchId,proof,now=Date.now()}={}){
   const s=await tx.get(ref),p=s.exists?s.data():null;
   if(!p||!validUid(p.uid)||!Array.isArray(p.eventIds)||
      p.providerPaymentId!==proof.providerPaymentId)return state({},'provider_payment_mismatch');
+  if(proof.destination==='stripe_balance'&&
+      (p.payoutMode!=='existing_operator_connect'||
+       p.providerTransferId!==proof.providerPaymentId||
+       !/^tr_[A-Za-z0-9_]+$/.test(String(p.providerTransferId||''))||
+       !/^py_[A-Za-z0-9_]+$/.test(String(p.operatorDestinationPaymentId||''))))
+    return state({},'operator_stripe_credit_not_cryptographically_bound');
   if(p.status===proof.status)return {ok:true,duplicate:true,status:p.status};
   // A failed bank deposit returns funds to the Connected Stripe account,
   // not to the American Rider platform. Do NOT release this Recruiter's
@@ -310,7 +316,11 @@ async function reconcileRecruiterPayout({db,batchId,proof,now=Date.now()}={}){
   }
   tx.set(walletRef,updated,{merge:true});
   tx.update(ref,{status:proof.status,providerEventId:proof.eventId,
-    reconciledAt:now});
+    reconciledAt:now,
+    ...(proof.destination==='stripe_balance'?{bankPaid:false,
+      settlementBoundary:'connected_stripe_balance',
+      stripeBalanceCreditedAt:now}:{}),
+  });
   return {ok:true,status:proof.status,amountCents:full,recoveryRequired:recoveryDue>0||reversed>0};
  });}catch{return state({},'payout_reconciliation_unavailable');}
 }
