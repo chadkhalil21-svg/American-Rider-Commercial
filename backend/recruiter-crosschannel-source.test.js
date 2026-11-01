@@ -31,7 +31,7 @@ assert.match(site, /out\("recruitment\/accept"/);
 assert.match(site, /Recruiter sign-in/);
 assert.match(portal, /\/recruiters\/me/);
 assert.match(portal, /emailVerified/);
-assert.match(portal, /\/recruiters\/link\?role/);
+assert.match(portal, /\/referrals\/share\?role/); // common verified invitation for paid Recruiters and Operators
 assert.match(accept, /\/recruiters\/accept/);
 assert.match(accept, /emailVerified/);
 assert.match(accept,/createUserWithEmailAndPassword/);
