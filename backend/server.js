@@ -903,7 +903,10 @@ app.post('/recruiters/stripe/onboard',requireAuth,requireFreshAuth,
 app.get('/recruiters/stripe/status',requireAuth,requireFreshAuth,
   requireVerifiedEmail,recruiterLimit,async(req,res)=>{
   res.set('Cache-Control','private, no-store, max-age=0');
-  if(!recruiterStripeEnabled()||!recruiterTerms())
+  const db=adminDb();
+  const enrolled=db?await ensureQualifiedOperatorRecruiter({db,uid:String(req.uid),verifiedEmail:req.email}):null;
+  const existingOperator=enrolled?.ok===true&&enrolled.operatorReferral===true;
+  if(!existingOperator&&(!recruiterStripeEnabled()||!recruiterTerms()))
     return res.json({ok:true,status:'not_commissioned',ready:false,
       feeCents:recruiterStripe.FEE_CENTS});
   const result=await recruiterStripe.verifyRecruiterBank({
@@ -911,7 +914,8 @@ app.get('/recruiters/stripe/status',requireAuth,requireFreshAuth,
     operatorSharedApproved:recruiterRewardsEnabled()&&
       readKey('AR_RECRUITER_OPERATOR_SHARED_PAYOUT_ENABLED')==='1',
   });
-  res.status(result.ok?200:result.reason==='not_authorized'?403:409).json(result);
+  res.status(result.ok?200:result.reason==='not_authorized'?403:409).json(
+    existingOperator?{...result,payoutMode:'existing_operator_connect',feeCents:0}:result);
 });
 
 app.get('/recruiters/link',requireAuth,requireFreshAuth,requireVerifiedEmail,
@@ -951,7 +955,8 @@ app.get('/recruiters/me',requireAuth,requireVerifiedEmail,recruiterLimit,async(r
     readKey('AR_REFERRALS_ENABLED')==='1';
   const out=await recruiterPortal.recruiterSummary({
     db,uid:String(req.uid),verifiedEmail:req.email,
-    programEnabled,linkVerified:readKey('AR_RECRUITER_WEB_REFERRAL_VERIFIED')==='1',
+    programEnabled,operatorInvitesEnabled:readKey('AR_REFERRALS_ENABLED')==='1',
+    linkVerified:readKey('AR_RECRUITER_WEB_REFERRAL_VERIFIED')==='1'||readKey('AR_APP_LINKS_VERIFIED')==='1',
     activityTrackingEnabled:readKey('AR_RECRUITER_TRAVEL_TRACKING_ENABLED')==='1',
     financialEnabled:recruiterRewardsEnabled(),
   });
