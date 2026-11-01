@@ -73,7 +73,7 @@ async function operatorPayoutRecords({ db, operatorUid, after = null }) {
       if (Number.isSafeInteger(paid) && paid > 0) {
         records.unshift({
           rideId: 'referral-verified-paid',
-          tripNo: 'Referral earnings (verified paid)',
+          tripNo: 'Referral earnings transferred to Stripe (bank withdrawal shown separately)',
           completedAt: null,
           status: 'transfer_recorded',
           transferredCents: paid,

@@ -67,6 +67,12 @@ function getStripe() {
 // backend/economics.js is canonical. src/data.ts mirrors the same integer-cent formula only
 // for local display fallback; server quotes remain authoritative.
 
+function referralMarginReserveCents(transactionCount=1) {
+  // Disabled by default. An audited, explicitly commissioned switch must
+  // cover up to two qualifying $0.15 referrals for EACH priced car Travel.
+  return readKey('AR_RECRUITER_MARGIN_GUARANTEE_ENABLED')==='1'
+    ? 30 * transactionCount : 0;
+}
 function platformFeeCents(
   travelCostCents,
   cardCountry,
@@ -80,6 +86,7 @@ function platformFeeCents(
     tollCents,
     cardCountry,
     transactionCount,
+    referralReserveCents:referralMarginReserveCents(transactionCount),
   });
 }
 
@@ -217,6 +224,7 @@ function quote(travelCostCents, journey, governmentFees, cardCountry, tollCents)
           tollCents: Math.max(0, Number(journey.leg1TollCents) || 0) + tolls,
           cardCountry,
           transactionCount: 2,
+          referralReserveCents:referralMarginReserveCents(2),
         })
       : economicsFor({
           travelCostCents,
@@ -225,6 +233,7 @@ function quote(travelCostCents, journey, governmentFees, cardCountry, tollCents)
           tollCents: tolls,
           cardCountry,
           transactionCount: 1,
+          referralReserveCents:referralMarginReserveCents(1),
         }),
   };
 }
