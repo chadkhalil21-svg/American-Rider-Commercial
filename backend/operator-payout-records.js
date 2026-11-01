@@ -49,54 +49,37 @@ async function operatorPayoutRecords({ db, operatorUid, after = null }) {
       transferredCents: outcome.cents,
     });
   }
-  // Build 60 already renders authenticated server transfer records in Revenue.
-  // Show the Operator's independently bank-confirmed referral commissions there,
-  // without claiming provisional/held credits as paid or changing native code.
-  // This is one lifetime verified figure, never an additional credit or transfer.
-  // Only the first page includes it, so pagination cannot duplicate the display.
+  // Build 60's existing Revenue ledger displays these owner-scoped wallet
+  // figures. Matured-unpaid earnings are explicitly not represented as paid.
+  // Never add these values to Travel Fare, create a second Stripe transfer,
+  // or repeat them on later pages.
   if (!after) {
     const wallet = await db.collection('recruiter_commission_wallets').doc(operatorUid).get();
     if (wallet.exists) {
       const w = wallet.data() || {};
-      // Matured but unpaid commissions must be visible in Build 60 without
-      // falsely claiming they have been transferred or bank-settled.
       const available = w.availableCents;
+      const paid = w.netPaidCents;
+      for (const n of [available, paid]) {
+        if (n !== undefined && (!Number.isSafeInteger(n) || n < 0))
+          throw new Error('Referral wallet requires reconciliation');
+      }
       if (Number.isSafeInteger(available) && available > 0) {
         records.unshift({
           rideId: 'referral-available',
-          tripNo: 'Referral earnings available       if (Number.isSafeInteger(paid) && paid > 0 && paid <= Number.MAX_SAFE_INTEGER) {
-        records.unshift({
-          rideId: 'referral-verified-paid',
-          tripNo: 'Referral earnings (verified paid)',
-          completedAt: null,
-          status: 'transfer_recorded',
-          transferredCents: paid,
-        });
-      } else if (paid !== undefined && (!Number.isSafeInteger(paid) || paid < 0)) {
-        throw new Error('Referral wallet requires reconciliation');
-      }
-    }
-  }
-  return {
-    ok: true,
-    records,
-    hasMore: all.length > PAGE_SIZE,
+          tripNo: 'Referral earnings 
     nextCursor: all.length > PAGE_SIZE && docs.length ? docs[docs.length - 1].id : null,
     // We have intentionally NOT returned an all-time earnings/owed balance.
     scope: 'one_page_of_server_records',
   };
 }
 module.exports = { PAGE_SIZE, statusForCompletedTravel, operatorPayoutRecords };
- + (available / 100).toFixed(2) + ' (not paid)',
+ + (available / 100).toFixed(2) + ' (earned, not yet paid)',
           completedAt: null,
           status: 'reconciliation_needed',
           transferredCents: null,
         });
-      } else if (available !== undefined && (!Number.isSafeInteger(available) || available < 0)) {
-        throw new Error('Referral wallet requires reconciliation');
       }
-      const paid = w.netPaidCents;
-      if (Number.isSafeInteger(paid) && paid > 0 && paid <= Number.MAX_SAFE_INTEGER) {
+      if (Number.isSafeInteger(paid) && paid > 0) {
         records.unshift({
           rideId: 'referral-verified-paid',
           tripNo: 'Referral earnings (verified paid)',
@@ -104,8 +87,6 @@ module.exports = { PAGE_SIZE, statusForCompletedTravel, operatorPayoutRecords };
           status: 'transfer_recorded',
           transferredCents: paid,
         });
-      } else if (paid !== undefined && (!Number.isSafeInteger(paid) || paid < 0)) {
-        throw new Error('Referral wallet requires reconciliation');
       }
     }
   }
