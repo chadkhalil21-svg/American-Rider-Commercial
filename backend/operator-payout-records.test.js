@@ -2,7 +2,7 @@
 const assert = require('node:assert/strict');
 const { operatorPayoutRecords, statusForCompletedTravel, PAGE_SIZE } = require('./operator-payout-records');
 
-function mockDb(rows, verifiedPaidCents = 0) {
+function mockDb(rows, verifiedPaidCents = 0, availableCents = 0) {
   let reads = 0;
   let writes = 0;
   return {
@@ -11,7 +11,7 @@ function mockDb(rows, verifiedPaidCents = 0) {
         if (name === 'recruiter_commission_wallets') return {
           doc(uid) {
             assert.equal(uid, 'own_operator');
-            return {async get(){return {exists:true,data:()=>({netPaidCents:verifiedPaidCents})};}};
+            return {async get(){return {exists:true,data:()=>({netPaidCents:verifiedPaidCents,availableCents})};}};
           },
         };
         assert.equal(name, 'rides');
@@ -92,6 +92,11 @@ async function exercise() {
   assert.equal(first.records[0].status,'transfer_recorded');
   const later=await operatorPayoutRecords({db:paid.db,operatorUid:'own_operator',after:'ride_0011'});
   assert.equal(later.records.some(x=>x.rideId==='referral-verified-paid'),false);
+  const available=mockDb(rows,0,345);
+  const credit=await operatorPayoutRecords({db:available.db,operatorUid:'own_operator'});
+  assert.equal(credit.records[0].tripNo,'Referral earnings available $3.45 (not paid)');
+  assert.equal(credit.records[0].status,'reconciliation_needed');
+  assert.equal(credit.records[0].transferredCents,null);
   const corrupt=mockDb(rows,-450);
   await assert.rejects(operatorPayoutRecords({db:corrupt.db,operatorUid:'own_operator'}),/requires reconciliation/);
   await assert.rejects(operatorPayoutRecords({ db: mock.db, operatorUid: '' }), /Authenticated/);
