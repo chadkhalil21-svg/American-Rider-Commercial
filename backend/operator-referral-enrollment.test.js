@@ -50,7 +50,10 @@ function fixture({qualified=true,verified=true,seed={}}={}){
   'recruiter_accounts/operator001':{status:'suspended',enrollmentSource:'qualified_operator'},
   'recruiter_approvals/operator001':{status:'suspended',suspended:true},
  }});
- assert.equal((await ensureQualifiedOperatorRecruiter(suspended.opts)).existing,true);
+ assert.equal((await ensureQualifiedOperatorRecruiter(suspended.opts)).reason,'recruiter_suspended');
  assert.equal(suspended.store.get('recruiter_accounts/operator001').status,'suspended');
+ const lapsed=await ensureQualifiedOperatorRecruiter({...f.opts,evaluate:()=>({qualified:false})});
+ assert.equal(lapsed.reason,'operator_not_qualified');
+ assert.equal(lapsed.operatorReferral,true);
  console.log('PASS qualified Operator auto-enrollment: idempotent, consent-gated, no Stripe duplicate, no suspended override');
 })().catch(e=>{console.error(e);process.exitCode=1});
