@@ -2326,16 +2326,16 @@ app.post('/fare-quote', attachAuth, LIMITS.quoteIp, requireOperationalReadiness,
   if (String(priced.pricedBy || '').endsWith('-distance') && priced.tollStatus === 'unknown') {
     return res.status(503).json({ error: 'Toll cost could not be verified for this route.', code: 'toll_unavailable' });
   }
-  // WHICH FEE SCHEDULE, DECIDED HERE AND NOWHERE ELSE. The fee depends on the issuing country
-  // of the traveler's default card (Chad, 20 Sept 2026), and the ONE place that can be read
-  // without the price moving later is before the quote is given. A traveler with nothing on
-  // file, or nobody signed in, is quoted domestic — see isDomesticCard() in payments.js.
+  // If the Traveler chose a saved Stripe card before the quote, its issuing
+  // country was verified by Stripe and is bound to this Total. An unselected
+  // or new wallet card retains the conservative unknown-issuer cost.
   res.json({
     travelerPays: priced.travelerPays, operatorGets: priced.operatorGets,
     platformTake: priced.platformTake, commission: priced.commission, appFee: priced.appFee,
     governmentFeeCents: priced.governmentFeeCents, tollCents: priced.tollCents || 0, tollStatus: priced.tollStatus, feeLines: priced.feeLines,
     travelCostCents: priced.travelCostCents, miles: priced.miles, minutes: priced.minutes,
     timedBy: priced.timedBy, pricedBy: priced.pricedBy,
+    ...(priced.selectedPaymentMethodId?{selectedPaymentMethodId:priced.selectedPaymentMethodId}:{}),
     // Identity-bound research token. No write occurs on quote computation.
     ...(req.uid&&priced.pricedBy==='routed-distance'&&!req.body?.journeyNo&&
        String(req.body?.travelClass||'standard').toLowerCase()==='standard'
