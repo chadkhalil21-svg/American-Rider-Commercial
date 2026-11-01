@@ -20,15 +20,30 @@ async function ensureQualifiedOperatorRecruiter({
  try{
   // Existing independent Recruiters and suspended accounts are never overwritten.
   const [oldA,oldP]=await Promise.all([ar.get(),ap.get()]);
-  if(oldA.exists||oldP.exists)
-   return oldA.exists&&oldP.exists
-     ?{ok:true,existing:true,operatorReferral:oldA.data()?.enrollmentSource===SOURCE}
-     :{ok:false,reason:'recruiter_records_require_review'};
+  if(oldA.exists||oldP.exists){
+   if(!oldA.exists||!oldP.exists)return {ok:false,reason:'recruiter_records_require_review'};
+   if(oldA.data()?.enrollmentSource!==SOURCE)
+     return {ok:true,existing:true,operatorReferral:false};
+   if(oldA.data()?.status!=='approved'||oldP.data()?.status!=='approved'||
+      oldP.data()?.suspended===true)
+     return {ok:false,operatorReferral:true,reason:'recruiter_suspended'};
+  }
   const lookup=identityLookup||((id)=>require('firebase-admin/auth').getAuth().getUser(id));
   const identity=await lookup(uid);
   if(identity?.disabled!==false||identity.emailVerified!==true||
      emailOf(identity.email)!==email)
-   return {ok:false,reason:'operator_identity_not_verified'};
+   return {ok:false,operatorReferral:oldA.exists&&oldA.data()?.enrollmentSource===SOURCE,
+     reason:'operator_identity_not_verified'};
+  if(oldA.exists){
+   // Referral privileges expire with Operator qualification; a historic
+   // approval document cannot authorize sharing after insurance/screening lapse.
+   const [u,o]=await Promise.all([
+     db.collection('users').doc(uid).get(),db.collection('operators').doc(uid).get()]);
+   if(!u.exists||!o.exists||evaluate({user:u.data(),fleet:o.data(),
+      context:'qualify',liveMoney:true,account:{disabled:false},now})?.qualified!==true)
+     return {ok:false,operatorReferral:true,reason:'operator_not_qualified'};
+   return {ok:true,existing:true,operatorReferral:true};
+  }
   return await db.runTransaction(async tx=>{
    const userRef=db.collection('users').doc(uid),fleetRef=db.collection('operators').doc(uid);
    const [a,p,u,o]=await Promise.all([tx.get(ar),tx.get(ap),tx.get(userRef),tx.get(fleetRef)]);
