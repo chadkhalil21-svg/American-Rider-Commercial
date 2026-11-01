@@ -28,7 +28,7 @@ const {
   transferToOperator, refundableFor, connectDashboardLink, pingStripe, probeNetwork,
   transferFixed, operatorPayoutAccount, settleUncapturedTravel,
   listPaymentMethods, createSetupIntent, setDefaultPaymentMethod, detachPaymentMethod,
-  defaultCardCountry, chargeOperatorAccountFee,
+  defaultCardCountry, verifiedSelectedCardCountry, chargeOperatorAccountFee,
 } = require('./payments');
 const { readKey } = require('./env');
 const { requireAuth, requireFreshAuth, attachAuth, requireVerifiedEmail } = require('./auth');
@@ -2304,8 +2304,10 @@ app.get('/place-search', LIMITS.placeSearchIp, async (req, res) => {
 // No login needed: this only reveals pricing, and a traveler must see the price before booking.
 app.post('/fare-quote', attachAuth, LIMITS.quoteIp, requireOperationalReadiness, requireServedPickup, async (req, res) => {
   const priced = await authoritativeFare({
-    body: req.body, uid: req.uid, email: req.email, db: adminDb(), cardCountryFor: defaultCardCountry,
+    body: req.body, uid: req.uid, email: req.email, db: adminDb(), cardCountryFor: verifiedSelectedCardCountry,
   });
+  if(priced?.invalidSelectedCard)return res.status(409).json({
+    error:priced.reason,code:'selected_payment_card_invalid'});
   if (priced?.invalidJourney) return res.status(409).json({ error: priced.reason, code: 'invalid_smart_journey' });
   if (priced?.outsideMarket) {
     return res.status(409).json({ error: priced.reason, code: 'outside_market', where: priced.outsideMarket });
@@ -2324,16 +2326,16 @@ app.post('/fare-quote', attachAuth, LIMITS.quoteIp, requireOperationalReadiness,
   if (String(priced.pricedBy || '').endsWith('-distance') && priced.tollStatus === 'unknown') {
     return res.status(503).json({ error: 'Toll cost could not be verified for this route.', code: 'toll_unavailable' });
   }
-  // WHICH FEE SCHEDULE, DECIDED HERE AND NOWHERE ELSE. The fee depends on the issuing country
-  // of the traveler's default card (Chad, 20 Sept 2026), and the ONE place that can be read
-  // without the price moving later is before the quote is given. A traveler with nothing on
-  // file, or nobody signed in, is quoted domestic — see isDomesticCard() in payments.js.
+  // If the Traveler chose a saved Stripe card before the quote, its issuing
+  // country was verified by Stripe and is bound to this Total. An unselected
+  // or new wallet card retains the conservative unknown-issuer cost.
   res.json({
     travelerPays: priced.travelerPays, operatorGets: priced.operatorGets,
     platformTake: priced.platformTake, commission: priced.commission, appFee: priced.appFee,
     governmentFeeCents: priced.governmentFeeCents, tollCents: priced.tollCents || 0, tollStatus: priced.tollStatus, feeLines: priced.feeLines,
     travelCostCents: priced.travelCostCents, miles: priced.miles, minutes: priced.minutes,
     timedBy: priced.timedBy, pricedBy: priced.pricedBy,
+    ...(priced.selectedPaymentMethodId?{selectedPaymentMethodId:priced.selectedPaymentMethodId}:{}),
     // Identity-bound research token. No write occurs on quote computation.
     ...(req.uid&&priced.pricedBy==='routed-distance'&&!req.body?.journeyNo&&
        String(req.body?.travelClass||'standard').toLowerCase()==='standard'
@@ -2480,6 +2482,7 @@ app.post('/create-payment-intent', requireAuth, LIMITS.payments, requireFreshAut
           // remittance.js reads it back by the month.
           governmentFees: ride.feeLines,
           cardCountry: ride.cardCountry || null,
+          ...(ride.selectedPaymentMethodId?{selectedPaymentMethodId:ride.selectedPaymentMethodId}:{}),
           tollCents: Math.max(0, Number(ride.tollCents) || 0),
           // Stamped onto the PaymentIntent so a later refund can prove who paid, and for which
           // travel.
@@ -2543,7 +2546,9 @@ app.post('/charge-ride', requireAuth, LIMITS.payments, requireOperationalReadine
     });
   }
   // Price the ride on the server — never from a client-sent amount.
-  const priced = await authoritativeFare({ body: req.body, uid: req.uid, email: req.email, cardCountryFor: defaultCardCountry });
+  const priced = await authoritativeFare({ body: req.body, uid: req.uid, email: req.email, cardCountryFor: verifiedSelectedCardCountry });
+  if(priced?.invalidSelectedCard)return res.status(409).json({
+    error:priced.reason,code:'selected_payment_card_invalid'});
   if (priced?.invalidJourney) return res.status(409).json({ error: priced.reason, code: 'invalid_smart_journey' });
   if (priced?.outsideMarket) {
     return res.status(409).json({ error: priced.reason, code: 'outside_market', where: priced.outsideMarket });
@@ -4345,8 +4350,8 @@ app.post('/travel/prepare', requireAuth, LIMITS.dispatch, requireFreshAuth, requ
     }
     if (!servesPoint(pickup)) return res.status(409).json({ error: outsideMarketMessage('pickup'), code: 'outside_market' });
     const priced = await authoritativeFare({
-      body: { pickup, dest: destinationPoint, destination: b.dest, travelClass: b.cls, journeyNo: b.journeyNo },
-      uid: req.uid, email: req.email, db, cardCountryFor: defaultCardCountry,
+      body: { pickup, dest: destinationPoint, destination: b.dest, travelClass: b.cls, journeyNo: b.journeyNo, paymentMethodId: b.paymentMethodId ?? null },
+      uid: req.uid, email: req.email, db, cardCountryFor: verifiedSelectedCardCountry,
     });
     if (!priced || priced.invalidJourney || priced.outsideMarket || priced.permitRequired) {
       return res.status(409).json({ error: priced?.reason || 'The Travel cannot be priced', code: priced?.permitRequired ? 'permit_required' : 'quote_unavailable' });
@@ -4427,6 +4432,7 @@ app.post('/travel/prepare', requireAuth, LIMITS.dispatch, requireFreshAuth, requ
       tollCents: Math.max(0, Number(priced.tollCents) || 0), feeLines: priced.feeLines,
       ...fundedRecruiterSnapshot(priced,{enabled:recruiterRewardsEnabled()}),
       pricedBy: priced.pricedBy, cardCountry: priced.cardCountry,
+      ...(priced.selectedPaymentMethodId?{selectedPaymentMethodId:priced.selectedPaymentMethodId}:{}),
       journey: priced.journey || null, cabinPreferences,
       ...(manualFeeOffered ? {
         cancellationFeeDisclosureVersion:'net3-allin400-v1',
@@ -4587,8 +4593,10 @@ app.post('/travel/schedule', requireAuth, LIMITS.dispatch, requireFreshAuth, req
   }
   const priced = await authoritativeFare({
     body: { pickup, dest: destinationPoint, destination: b.dest, travelClass: b.travelClass },
-    uid: req.uid, email: req.email, db, cardCountryFor: defaultCardCountry,
+    uid: req.uid, email: req.email, db, cardCountryFor: verifiedSelectedCardCountry,
   });
+  if(priced?.invalidSelectedCard)return res.status(409).json({
+    error:priced.reason,code:'selected_payment_card_invalid'});
   if (priced?.invalidJourney) return res.status(409).json({ error: priced.reason, code: 'invalid_smart_journey' });
   if (priced?.route?.tollStatus === 'unknown') return res.status(503).json({ error: 'Toll pricing is temporarily unavailable.', code: 'toll_unavailable' });
   if (!priced || priced.outsideMarket || priced.permitRequired) {
@@ -4967,8 +4975,10 @@ app.post('/travel/return-operator', requireAuth, LIMITS.dispatch, requireOperati
   if (!next) return res.json({ path: null, operator: null });
   const priced = await authoritativeFare({
     body: { pickup: { lat: Number(next.operator.lat), lng: Number(next.operator.lng) }, dest: destination, travelClass: 'Standard' },
-    uid: req.uid, email: req.email, db, cardCountryFor: defaultCardCountry,
+    uid: req.uid, email: req.email, db, cardCountryFor: verifiedSelectedCardCountry,
   });
+  if(priced?.invalidSelectedCard)return res.status(409).json({
+    error:priced.reason,code:'selected_payment_card_invalid'});
   if (priced?.invalidJourney) return res.status(409).json({ error: priced.reason, code: 'invalid_smart_journey' });
   if (!priced || priced.outsideMarket || priced.permitRequired) {
     return res.status(409).json({ error: 'The return travel cannot be priced' });
