@@ -47,6 +47,12 @@ jobs:
         env:
           CLOUDSDK_CORE_PROJECT: american-rider-35688
         run: python3 infra/cloud-run/revision-status-readonly.py
+      - name: Verify LIVE serving Cloud Run instance and concurrency ceilings (READ ONLY)
+        env:
+          CLOUDSDK_CORE_PROJECT: american-rider-35688
+        run: |
+          python3 -m unittest discover -s infra/cloud-run -p test_scale_capacity_readonly.py
+          python3 infra/cloud-run/scale-capacity-readonly.py
       - name: Confirm currently serving production API matches release (READ ONLY)
         shell: bash
         env:
