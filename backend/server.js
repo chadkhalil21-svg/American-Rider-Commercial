@@ -847,7 +847,7 @@ app.get('/recruiters/stripe/terms',requireAuth,requireFreshAuth,
   res.set('Cache-Control','private, no-store, max-age=0');
   const db=adminDb();
   const operator=db?await ensureQualifiedOperatorRecruiter({db,uid:String(req.uid),verifiedEmail:req.email}):null;
-  if(operator?.operatorReferral===true) return res.json({ok:true,feeCents:0,
+  if(operator?.ok===true&&operator.operatorReferral===true) return res.json({ok:true,feeCents:0,
     feeVersion:recruiterStripe.FEE_VERSION,feeDisclosure:'Existing Operators reuse their verified Stripe account. No second Stripe account or additional $2 monthly Connect fee.',
     provider:'stripe_connect',payoutMode:'existing_operator_connect',
     status:'ready_for_consent'});
@@ -870,7 +870,7 @@ app.post('/recruiters/agreement',requireAuth,requireFreshAuth,
   const t=recruiterTerms();
   const db=adminDb();
   const enrollment=db?await ensureQualifiedOperatorRecruiter({db,uid:String(req.uid),verifiedEmail:req.email}):null;
-  if(!t||(!recruiterStripeEnabled()&&enrollment?.operatorReferral!==true))
+  if(!t||(!recruiterStripeEnabled()&&!(enrollment?.ok===true&&enrollment.operatorReferral===true)))
     return res.status(503).json({ok:false,code:'recruiter_program_not_commissioned'});
   const result=await recruiterAgreement.acceptRecruiterAgreement({
     db,uid:String(req.uid),verifiedEmail:req.email,
