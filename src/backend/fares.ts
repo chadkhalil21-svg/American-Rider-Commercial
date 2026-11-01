@@ -11,6 +11,7 @@ import * as Location from 'expo-location';
 import { Platform } from 'react-native';
 
 import { auth } from '../firebase';
+import { fetchPaymentMethods } from './payments';
 import { PAYMENT_SERVER_URL } from '../config';
 import type { FeeLine } from '../data';
 import { t } from '../i18n';
@@ -23,6 +24,7 @@ export type QuoteFailureCode =
 export type Quote = {
   travelerPays: number; // cents — the ONE price shown to the traveler (fare + platform fee)
   researchQuoteToken?: string; // optional signed research reference; no fare authority
+  selectedPaymentMethodId?: string; // Stripe-owned saved card used for this exact quote
   /** The journey time the fare was computed from, when the server priced by coordinates. */
   minutes?: number;
   operatorGets: number; // cents — 99% of the fare
@@ -122,6 +124,7 @@ async function fetchQuoteUnshared(args: {
   dest?: Coords | null;
   destination?: string | null;
   travelClass?: string | null;
+  preferSavedCard?: boolean; // only when Traveler chose Card, not wallet
   journeyNo?: string | null;
   /** A safe failure reason for the UI; this callback never changes fare authority. */
   onFailure?: (reason: QuoteFailureCode) => void;
@@ -134,8 +137,16 @@ async function fetchQuoteUnshared(args: {
         : null;
   if (!base) { args.onFailure?.('route_geometry_required'); return null; }
   // The class is a NAME, never a price — the server applies the multiplier.
+  // Resolve the exact current default saved card BEFORE asking for the final
+  // Total. Unknown/unavailable cards keep conservative issuer-safe pricing.
+  const wallet=auth.currentUser&&args.preferSavedCard===true
+    ?await fetchPaymentMethods().catch(()=>({methods:[],unavailable:'error'}))
+    :{methods:[]};
+  const selected=wallet.methods.find(m=>m.isDefault&&m.type==='card') ||
+    wallet.methods.find(m=>m.type==='card') || null;
   const body = {
     ...base,
+    ...(selected?.id?{paymentMethodId:selected.id}:{}),
     ...(args.travelClass ? {travelClass:args.travelClass} : {}),
     ...(args.journeyNo ? {journeyNo:args.journeyNo} : {}),
   };
@@ -197,6 +208,9 @@ async function fetchQuoteUnshared(args: {
        d.travelerPays<d.travelCostCents){ args.onFailure?.('invalid_quote'); return null; }
     return {
       travelerPays: d.travelerPays,
+      ...(typeof d.selectedPaymentMethodId==='string'&&
+          /^pm_[A-Za-z0-9]+$/.test(d.selectedPaymentMethodId)
+        ?{selectedPaymentMethodId:d.selectedPaymentMethodId}:{}),
       ...(typeof d.researchQuoteToken==='string'&&d.researchQuoteToken.length<=450?{researchQuoteToken:d.researchQuoteToken}:{}),
       minutes: typeof d.minutes === 'number' ? d.minutes : undefined,
       operatorGets: d.operatorGets,
@@ -231,6 +245,7 @@ export function fetchQuote(args: QuoteArgs): Promise<Quote | Unavailable | null>
     uid: auth.currentUser?.uid ?? null,
     route: effectiveRoute,
     travelClass: args.travelClass ?? null,
+    preferSavedCard:args.preferSavedCard===true,
     journeyNo: args.journeyNo ?? null,
   });
   const previous = pendingQuotes.get(key);
