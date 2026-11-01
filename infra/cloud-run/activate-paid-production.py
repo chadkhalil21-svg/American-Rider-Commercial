@@ -238,7 +238,7 @@ def activate(sha, secret):
         gcloud("run", "deploy", SERVICE, f"--project={PROJECT}", f"--region={REGION}",
                "--source=./backend", f"--service-account={RUNTIME}",
                "--invoker-iam-check", "--ingress=all",
-               "--min-instances=0", "--max-instances=2",
+               "--min-instances=0", "--max-instances=default",
                "--cpu=1", "--memory=1Gi", "--concurrency=20",
                f"--update-secrets=STRIPE_SECRET_KEY={STRIPE_SECRET}:{version}",
                f"--update-env-vars=DEPLOYMENT_MODE=production,AR_CLOUDRUN_CUTOVER_ACTIVE=1,AR_EXTERNAL_SCHEDULER=1,AR_RELEASE_COMMIT={sha}",
