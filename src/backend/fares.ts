@@ -124,6 +124,7 @@ async function fetchQuoteUnshared(args: {
   dest?: Coords | null;
   destination?: string | null;
   travelClass?: string | null;
+  preferSavedCard?: boolean; // only when Traveler chose Card, not wallet
   journeyNo?: string | null;
   /** A safe failure reason for the UI; this callback never changes fare authority. */
   onFailure?: (reason: QuoteFailureCode) => void;
@@ -138,7 +139,7 @@ async function fetchQuoteUnshared(args: {
   // The class is a NAME, never a price — the server applies the multiplier.
   // Resolve the exact current default saved card BEFORE asking for the final
   // Total. Unknown/unavailable cards keep conservative issuer-safe pricing.
-  const wallet=auth.currentUser
+  const wallet=auth.currentUser&&args.preferSavedCard===true
     ?await fetchPaymentMethods().catch(()=>({methods:[],unavailable:'error'}))
     :{methods:[]};
   const selected=wallet.methods.find(m=>m.isDefault&&m.type==='card') ||
@@ -244,6 +245,7 @@ export function fetchQuote(args: QuoteArgs): Promise<Quote | Unavailable | null>
     uid: auth.currentUser?.uid ?? null,
     route: effectiveRoute,
     travelClass: args.travelClass ?? null,
+    preferSavedCard:args.preferSavedCard===true,
     journeyNo: args.journeyNo ?? null,
   });
   const previous = pendingQuotes.get(key);
