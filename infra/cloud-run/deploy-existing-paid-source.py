@@ -146,7 +146,7 @@ def require_live_recruiter_web():
     expected={
         "/join/":("join-referral-code","join-copy","Keep your invitation code"),
         "/recruitment/accept/":("accept-panel","recruiters/accept","emailVerified"),
-        "/recruiters/portal/":("recruiters/link","recruiters/me","emailVerified"),
+        "/recruiters/portal/":("referrals/share","recruiters/me","emailVerified"),
     }
     for route,markers in expected.items():
         url="https://americanrider.tech"+route

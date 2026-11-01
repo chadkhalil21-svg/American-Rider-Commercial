@@ -84,6 +84,9 @@ assert.match(portal,/recruiters\/me/);
 assert.match(portal,/getIdToken/);
 assert.match(portal,/referrals\/share/); // shared verified invitation route, including qualified Operators
 assert.match(portal,/recruiter-fee-notice/); // no second fee for an existing Operator Connect account
+assert.ok(portal.includes("summary?.agreement==='accepted'){const verified=await request('/recruiters/stripe/status')"), 'accepted Operator terms must automatically verify existing bank recipient on sign-in');
+assert.ok(portal.includes("if(terms.existingOperator){const verified=await request('/recruiters/stripe/status')"), 'one-time Operator acceptance must immediately verify existing Stripe recipient');
+assert.ok(portal.includes('await refresh(person);return;}'), 'Operator account display should refresh after agreement');
 assert.match(portal,/Stripe handles identity and bank verification|Stripe Connect/i);
 assert.doesNotMatch(portal,/Bank enrollment, compensation and payment history are not yet commissioned/i);
 assert.doesNotMatch(portal,/public self-enroll|Start earning immediately/i);
