@@ -293,7 +293,7 @@ export default {
     payoutRecoveryUnconfirmed: 'Non è stato possibile confermare il recupero dei viaggi non pagati. I dati sui pagamenti potrebbero essere incompleti.',
     payoutTruthIntro: 'La Sua quota è pari al 99% della tariffa del Viaggio. La conclusione di un Viaggio non conferma un accredito bancario.',
     payoutTruthTransfer: 'Dopo la conclusione di un Viaggio, American Rider tenta di trasferire la Sua quota a Stripe. Le verifiche del pagamento o del conto possono ritardare il trasferimento.',
-    payoutTruthBank: "Pagamento standard: Stripe invia automaticamente alla banca i guadagni disponibili. Nessuna richiesta necessaria. Nessun sovrapprezzo istantaneo; possono applicarsi altri costi Connect comunicati.",
+    payoutTruthBank: "Pagamento standard: il Suo conto Stripe determina quando i guadagni disponibili vengono inviati alla banca. Se sono abilitati i pagamenti manuali, può richiedere un pagamento standard quando desidera. Restano applicabili i costi Connect comunicati.",
     payoutTruthInstant: "Pagamento istantaneo: se idoneo, richieda tramite Stripe il saldo disponibile per i pagamenti istantanei, con un costo aggiuntivo comunicato. I fondi già inclusi in un bonifico standard non possono essere prelevati di nuovo.",
     viewStripePayouts: "Visualizza i pagamenti in Stripe",
     lostLoading: "Caricamento segnalazione…",
