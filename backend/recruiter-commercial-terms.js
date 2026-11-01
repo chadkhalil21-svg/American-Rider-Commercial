@@ -3,7 +3,7 @@
 // This is the participant-facing contract, not a claim of attorney certification.
 // Every person must accept these exact SHA256-bound terms while signed in.
 // Changing the text requires a new named version and an explicit new acceptance.
-const VERSION='recruiter-15c-20261024-v1';
+const VERSION='recruiter-15c-20261031-v2';
 const TEXT=[
 'AMERICAN RIDER INDEPENDENT RECRUITER AGREEMENT',
 'Version: '+VERSION,
@@ -12,7 +12,7 @@ const TEXT=[
 '',
 '2. Qualifying compensation. American Rider pays $0.15 for each genuinely attributed, eligible, completed, paid and settled Travel involving a referred Operator, for the first 200 qualifying Travels for that Operator; and $0.15 for each genuinely attributed, eligible, completed, paid and settled Travel involving a referred Traveler, for the first 200 qualifying Travels for that Traveler. Either or both roles may earn a commission on a qualifying Travel; the maximum combined referral cost for one Travel is $0.30. The first 200 qualifying Travels and $30 lifetime gross cap apply separately to each introduced person and role, not to the Recruiter overall. Existing, fraudulent, duplicate, self-generated, collusive, refunded or disputed activity does not qualify. A valid attribution requires the identified new participant to claim the Recruiter code through the approved signed-in process within its allowed period.',
 '',
-'3. Protection of Traveler and Operator money. Recruiting commissions are an American Rider platform expense from verified available platform contribution. They do not reduce the Operator’s 99% of the Travel Fare and do not add an undisclosed fee to the Traveler Total. Where a Travel does not provide sufficient verified budget, no Recruiter commission is payable on that Travel.',
+'3. Protection of Traveler and Operator money. Every genuinely attributed qualifying completed, paid, and settled Travel earns the stated commission within the published per-person and per-role limits. American Rider funds these obligations from its overall referral and operating budget. A Travel’s individual margin alone does not cancel an otherwise earned reward. Commissions do not reduce the Operator’s 99% gross Travel Fare or produce an undisclosed increase to a previously accepted Traveler Total. Verified refunds, disputes, fraud, eligibility failures and the stated caps remain applicable.',
 '',
 '4. Payment schedule and hold. Every qualifying $0.15 commission is held at least 24 hours after its paid and settled Travel is recorded, plus any documented payment, fraud, chargeback or refund risk hold. Verified, matured, undisputed commissions become available in the private Recruiter earnings ledger. Standard payments are processed once each calendar month, at the first eligible UTC month boundary after the Recruiter’s gross available balance reaches $25. $25 is a processing threshold, not a fee or lifetime cap. Funds arrive according to Stripe and the receiving financial institution. No specific bank-arrival date is guaranteed.',
 '',
