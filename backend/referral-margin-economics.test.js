@@ -28,6 +28,11 @@ for(const cardCountry of ['US','GB',null]){
   });
   assert(costed.platformContributionCents>=MIN_PLATFORM_CONTRIBUTION_CENTS);
 }
+// Smart continuation has two Travel units and can reserve 30 cents for each.
+const twoLegs=minimumPlatformFeeCents({travelCostCents:5000,
+  cardCountry:'US',transactionCount:2,referralReserveCents:60});
+assert(feeIsSufficient({travelCostCents:5000,platformFeeCents:twoLegs,
+  cardCountry:'US',transactionCount:2,referralReserveCents:60}));
 const domestic=economicsFor({...args,cardCountry:'US'});
 const foreign=economicsFor({...args,cardCountry:'GB'});
 assert.equal(domestic.platformContributionCents,114);

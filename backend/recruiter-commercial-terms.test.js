@@ -5,7 +5,7 @@ const {termsConfig,acceptRecruiterAgreement}=require('./recruiter-agreement');
 const now=Date.UTC(2026,9,24);
 const cfg=termsConfig({...CURRENT_TERMS,now});
 assert.ok(cfg,'Founder-approved contract must be available without attorney-signoff flag');
-assert.equal(cfg.version,'recruiter-15c-20261024-v1');
+assert.equal(cfg.version,'recruiter-15c-20261031-v2');
 for(const phrase of ['$0.15','200 qualifying Travels','$25','24 hours','90 consecutive days','$2.00','Stripe Connect']){
  assert.ok(cfg.text.includes(phrase),'contract missing '+phrase);
 }
@@ -14,6 +14,8 @@ assert.equal(termsConfig({...CURRENT_TERMS,expiresAt:now-1,now}),null,
 assert.equal(termsConfig({...CURRENT_TERMS,text:'test',now}),null,
  'invalid contract must fail closed');
 assert.match(cfg.sha256,/^[a-f0-9]{64}$/);
+assert.match(cfg.text,/individual margin alone does not cancel/);
+assert.match(cfg.text,/operating budget/);
 const uid='recruiter-confirmed-01',email='recruiter@sample.com';
 const rows=new Map([
  ['recruiter_accounts/'+uid,{status:'approved',verifiedEmail:email}],

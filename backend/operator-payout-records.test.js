@@ -87,7 +87,7 @@ async function exercise() {
   assert.equal(mock.writes, 0);
   const paid=mockDb(rows,450);
   const first=await operatorPayoutRecords({db:paid.db,operatorUid:'own_operator'});
-  assert.equal(first.records[0].tripNo,'Referral earnings (verified paid)');
+  assert.equal(first.records[0].tripNo,'Referral earnings transferred to Stripe (bank withdrawal shown separately)');
   assert.equal(first.records[0].transferredCents,450);
   assert.equal(first.records[0].status,'transfer_recorded');
   const later=await operatorPayoutRecords({db:paid.db,operatorUid:'own_operator',after:'ride_0011'});
