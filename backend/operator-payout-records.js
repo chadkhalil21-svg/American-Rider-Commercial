@@ -49,10 +49,8 @@ async function operatorPayoutRecords({ db, operatorUid, after = null }) {
       transferredCents: outcome.cents,
     });
   }
-  // Build 60's existing Revenue ledger displays these owner-scoped wallet
-  // figures. Matured-unpaid earnings are explicitly not represented as paid.
-  // Never add these values to Travel Fare, create a second Stripe transfer,
-  // or repeat them on later pages.
+  // Read-only, owner-scoped wallet figures shown in Build 60's existing
+  // server ledger. Never call an unpaid commission a verified bank payout.
   if (!after) {
     const wallet = await db.collection('recruiter_commission_wallets').doc(operatorUid).get();
     if (wallet.exists) {
@@ -66,14 +64,7 @@ async function operatorPayoutRecords({ db, operatorUid, after = null }) {
       if (Number.isSafeInteger(available) && available > 0) {
         records.unshift({
           rideId: 'referral-available',
-          tripNo: 'Referral earnings 
-    nextCursor: all.length > PAGE_SIZE && docs.length ? docs[docs.length - 1].id : null,
-    // We have intentionally NOT returned an all-time earnings/owed balance.
-    scope: 'one_page_of_server_records',
-  };
-}
-module.exports = { PAGE_SIZE, statusForCompletedTravel, operatorPayoutRecords };
- + (available / 100).toFixed(2) + ' (earned, not yet paid)',
+          tripNo: 'Referral earnings $' + (available / 100).toFixed(2) + ' (earned, not yet paid)',
           completedAt: null,
           status: 'reconciliation_needed',
           transferredCents: null,
