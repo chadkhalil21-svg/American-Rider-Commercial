@@ -294,7 +294,7 @@ export default {
     payoutRecoveryUnconfirmed: 'Die Nachzahlung älterer unbezahlter Fahrten konnte nicht bestätigt werden. Die Auszahlungsdaten können unvollständig sein.',
     payoutTruthIntro: 'Ihr Anteil beträgt 99 % des Fahrpreises. Der Abschluss einer Fahrt bestätigt noch keinen Geldeingang auf Ihrem Bankkonto.',
     payoutTruthTransfer: 'Nach Abschluss einer Fahrt versucht American Rider, Ihren Anteil an Stripe zu übertragen. Zahlungs- oder Kontoprüfungen können die Übertragung verzögern.',
-    payoutTruthBank: "Standardauszahlung: Stripe sendet verfügbares Guthaben automatisch an Ihre Bank. Keine Anfrage erforderlich. Kein Sofortauszahlungsaufschlag; andere offengelegte Connect-Gebühren können gelten.",
+    payoutTruthBank: "Standardauszahlung: Ihr Stripe-Konto legt fest, wann verfügbares Guthaben an Ihre Bank überwiesen wird. Wenn manuelle Auszahlungen aktiviert sind, können Sie eine Standardauszahlung selbst anfordern. Die offengelegten Connect-Gebühren gelten weiterhin.",
     payoutTruthInstant: "Sofortauszahlung: Falls berechtigt, können Sie das für Sofortauszahlungen verfügbare Guthaben bei Stripe gegen eine zusätzlich ausgewiesene Gebühr anfordern. Bereits in einer Standard-Bankauszahlung enthaltene Beträge können nicht erneut ausgezahlt werden.",
     viewStripePayouts: "Auszahlungen bei Stripe ansehen",
     lostLoading: "Bericht wird geladen…",
