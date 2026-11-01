@@ -76,6 +76,10 @@ function paymentMatches(ride, payment, uid, rideId, now=Date.now()) {
      payment.metadata?.rideId!==String(rideId)||
      payment.id!==String(ride.paymentIntentId||'')||
      payment.currency!=='usd')return false;
+  if(payment.metadata?.selectedPaymentMethodId&&
+     (payment.payment_method!==payment.metadata.selectedPaymentMethodId||
+      ride.selectedPaymentMethodId!==payment.metadata.selectedPaymentMethodId))
+    return false;
   if(payment.status==='succeeded')
     return Number(payment.amount_received)===Number(ride.costCents)&&
       Number(payment.amount_received)>0;
