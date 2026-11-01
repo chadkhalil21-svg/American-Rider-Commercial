@@ -1,0 +1,47 @@
+name: QA Stripe TEST Manual Operator Payout Schedule
+on:
+  pull_request:
+    branches: [release/current]
+    paths:
+      - '.github/workflows/qa-stripe-test-manual-payout-schedule.yml'
+      - 'backend/stripe-test-manual-payout-schedule.cjs'
+permissions:
+  contents: read
+jobs:
+  test-only-disposable-express:
+    if: ${{ github.event.pull_request.head.repo.full_name == github.repository && github.head_ref == 'founder-operator-choice-payouts-20261031' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      STRIPE_TEST_SECRET_KEY: ${{ secrets.STRIPE_TEST_SECRET_KEY }}
+      CI: 'true'
+      NODE_ENV: test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Refuse missing and non-TEST keys
+        shell: bash
+        run: |
+          set -euo pipefail
+          case "${STRIPE_TEST_SECRET_KEY:-}" in
+            sk_test_?*) echo 'PASS Stripe TEST-only credential present' ;;
+            *) echo '::error::Only sk_test_ credentials allowed'; exit 1 ;;
+          esac
+      - name: Install pinned backend Stripe SDK
+        run: npm ci --prefix backend --omit=dev
+      - name: Actual TEST connected account creation, manual schedule and cleanup
+        run: node backend/stripe-test-manual-payout-schedule.cjs
+      - name: Save provider-only evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: operator-manual-stripe-test
+          path: artifacts/operator-manual-payout-test/
+          retention-days: 14
+          if-no-files-found: warn
+      - name: Explain limits
+        if: always()
+        run: |
+          echo 'Stripe TEST schedule only; no real account, Operator Stripe Express Dashboard or Instant eligibility, bank payout, live monthly $2 fee, or customer-facing native changes.' >> "$GITHUB_STEP_SUMMARY"
