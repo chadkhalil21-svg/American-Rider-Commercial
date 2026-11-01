@@ -201,7 +201,7 @@ async function recruiterSummary({db,uid,verifiedEmail,now=Date.now(),programEnab
       counts,profileName:data.profileName||null,
       compensation:financialEnabled?'commissioned':'not_commissioned',wallet,
       bankSetup:financialEnabled?'provider_verification_required':'not_commissioned',
-      agreement:'pending_secure_agreement',
+      agreement:data.agreementAccepted===true?'accepted':'pending_secure_agreement',
       linksAvailable,verifiedOperators:null,qualifyingTravels:null,
       reviewedAt:data.reviewedAt||null,asOf:now};
   }catch{return {ok:false,reason:'recruiter_summary_unavailable'};}
