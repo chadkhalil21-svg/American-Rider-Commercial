@@ -55,9 +55,28 @@ const collectionsFail=forecast(100,{collectionFraction:0});
 assert.equal(collectionsFail.accountFeeCollectedUsd,0);
 assert(Math.abs(forecast(100).remainderUsd-collectionsFail.remainderUsd-120)<1e-6,
   'active Stripe account fees are paid whether or not recoveries succeed');
+// New analysis never guesses actual recovery. As provider-confirmed deductions
+// become available, the platform's billed Connect cost is offset ONCE, with
+// separate monthly-account collection preserved and no Traveler fee change.
+const fullyCollected=forecast(100,{connectFeeRecoveryFraction:1});
+const defaultRecovery=forecast(100);
+const expectedTransactionRecovery=defaultRecovery.expenses.connectPercentUsd+defaultRecovery.expenses.payoutFixedUsd;
+assert.equal(fullyCollected.connectTransactionFeeCollectedUsd,expectedTransactionRecovery);
+assert.equal(fullyCollected.netCompanyConnectExpenseUsd,0);
+assert(Math.abs(fullyCollected.remainderUsd-defaultRecovery.remainderUsd-expectedTransactionRecovery)<1e-6);
+assert.equal(defaultRecovery.connectTransactionFeeCollectedUsd,0,
+  'a provider TEST transfer is not evidence of production payout fee collections');
+const partialRecovery=forecast(100,{connectFeeRecoveryFraction:.5,collectionFraction:.5});
+assert(Math.abs(partialRecovery.netCompanyConnectExpenseUsd-
+  (defaultRecovery.expenses.connectActiveUsd+expectedTransactionRecovery)*.5)<1e-6,
+  'failed monthly AND transaction fee collections remain company expenses');
+const noCollections=forecast(100,{connectFeeRecoveryFraction:0,collectionFraction:0});
+assert.equal(noCollections.netCompanyConnectExpenseUsd,
+  defaultRecovery.expenses.connectActiveUsd+expectedTransactionRecovery);
+assert.throws(()=>forecast(50,{connectFeeRecoveryFraction:1.2}),/fractions/);
 const moreRides=forecast(100,{travelsPerActiveDay:8});
 assert(moreRides.travelsMonthly===9600 && moreRides.expenses.cardUsd>forecast(100).expenses.cardUsd);
 assert.throws(()=>forecast(75),/paid capacity tier/);
 assert.throws(()=>forecast(50,{activeFraction:1.2}),/fractions/);
 assert.throws(()=>forecast(50,{corporateBaseUsd:-100}),/nonnegative/);
-console.log('PASS 50/100/200/500/1000 cohort model, no-ride loss, idle utilization stress, $2 account fee collections, optimized paid-tile tiers/default-daily and weekly-payout variations, maps/Firestore/email/vendor accounting, 10K/50K cohort scenario (not load cert), demand increase, missing capacity tier and corporate insurance stress');
+console.log('PASS verified-vs-unverified Connect recovery modeling, 50/100/200/500/1000 cohort model, no-ride loss, idle utilization stress, $2 account fee collections, optimized paid-tile tiers/default-daily and weekly-payout variations, maps/Firestore/email/vendor accounting, 10K/50K cohort scenario (not load cert), demand increase, missing capacity tier and corporate insurance stress');
