@@ -64,7 +64,7 @@ async function operatorPayoutRecords({ db, operatorUid, after = null }) {
       if (Number.isSafeInteger(available) && available > 0) {
         records.unshift({
           rideId: 'referral-available',
-          tripNo: 'Referral earnings $' + (available / 100).toFixed(2) + ' (earned, not yet paid)',
+          tripNo: 'Referral earnings available $' + (available / 100).toFixed(2) + ' (not paid)',
           completedAt: null,
           status: 'reconciliation_needed',
           transferredCents: null,
