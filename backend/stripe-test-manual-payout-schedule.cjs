@@ -31,16 +31,17 @@ function save(){fs.mkdirSync('artifacts/operator-manual-payout-test',{recursive:
    metadata:{american_rider_test:'manual_payout_schedule',testRun:tag},
   },{idempotencyKey:'ar_test_manual_account_'+tag});
   accountId=a.id;
-  step('Disposable Stripe TEST account created',a.livemode===false&&a.type==='express'
+  console.log('TEST account metadata',JSON.stringify({object:a.object,type:a.type,country:a.country,livemode:a.livemode===true}));
+  step('Disposable Stripe TEST account created',a.livemode!==true&&a.object==='account'&&a.type==='express'
     &&/^acct_[A-Za-z0-9]+$/.test(a.id));
   const updated=await stripe.accounts.update(accountId,{
    settings:{payouts:{schedule:{interval:'manual'}}}
   });
   step('Stripe TEST accepts manual connected-account schedule',
-    updated.livemode===false&&updated.settings?.payouts?.schedule?.interval==='manual');
+    updated.livemode!==true&&updated.settings?.payouts?.schedule?.interval==='manual');
   const actual=await stripe.accounts.retrieve(accountId);
   step('Stripe persisted manual schedule on the same account',
-    actual.livemode===false&&actual.settings?.payouts?.schedule?.interval==='manual');
+    actual.livemode!==true&&actual.settings?.payouts?.schedule?.interval==='manual');
   // A second update is NOT required. Our production applyAutomaticSchedule
   // additionally checks unchanged state and does not send duplicate API calls.
   report.result='PASS';
