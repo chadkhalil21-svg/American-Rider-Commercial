@@ -99,6 +99,8 @@ def validate_new(before,new_name,old_identity):
     if one_live(before)!=EXPECTED_OLD or service_limit(before)!=20:
         raise Stop("Serving traffic or service-level scaling cap changed during staging")
     new=revision(new_name)
+    if (new.get('metadata') or {}).get('name')!=new_name:
+        raise Stop('Candidate revision identity mismatch')
     if identity(new)!=old_identity:
         raise Stop("New candidate unexpectedly changed image, env, CPU, memory, or identity")
     if limit(new)!=100:
