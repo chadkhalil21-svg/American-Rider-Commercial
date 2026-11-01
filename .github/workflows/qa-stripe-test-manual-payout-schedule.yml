@@ -9,7 +9,7 @@ permissions:
   contents: read
 jobs:
   test-only-disposable-express:
-    if: ${{ github.event.pull_request.head.repo.full_name == github.repository && github.head_ref == 'founder-operator-choice-payouts-20261031' }}
+    if: ${{ github.event.pull_request.head.repo.full_name == github.repository && github.head_ref == 'founder-integrated-finance-payouts-20261101' }}
     runs-on: ubuntu-latest
     timeout-minutes: 12
     env:
