@@ -307,7 +307,7 @@ export default {
     payoutRecoveryUnconfirmed: 'Recovery of earlier unpaid Travel could not be confirmed. Payout records may be incomplete.',
     payoutTruthIntro: 'Your share is 99% of the Travel Fare. Completing a Travel does not itself confirm a bank deposit.',
     payoutTruthTransfer: 'After a Travel is completed, American Rider attempts to transfer your share to Stripe. Payment or account checks can delay the transfer.',
-    payoutTruthBank: "Standard payout: Stripe automatically sends available earnings to your bank. No request is necessary. There is no Instant Payout surcharge; other disclosed Connect fees may apply.",
+    payoutTruthBank: "Standard payout: Your Stripe account controls when available earnings are sent to your bank. Where manual payouts are enabled, request a Standard payout when you choose. The account's disclosed Connect fees still apply.",
     payoutTruthInstant: "Instant payout: If eligible, request your Stripe Instant Available balance for an additional disclosed fee. Money already included in a Standard bank payout cannot be withdrawn again.",
     viewStripePayouts: "View payouts in Stripe",
     lostLoading: "Loading report…",
