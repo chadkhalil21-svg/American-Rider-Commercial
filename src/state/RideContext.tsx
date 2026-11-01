@@ -448,7 +448,8 @@ export function RideProvider({ children }: { children: React.ReactNode }) {
     setQuotedFeeLines([]);
     setResearchQuoteToken(null);
     setRepricing(true);
-    fetchQuote({ pickup: pickupPin, dest, destination: arrival.short, travelClass })
+    fetchQuote({ pickup: pickupPin, dest, destination: arrival.short, travelClass,
+      preferSavedCard:pay==='card' })
       .then((q) => {
         if (!live || seq !== repriceSeq.current) return;
         if (q && !isUnavailable(q)) {
@@ -471,7 +472,7 @@ export function RideProvider({ children }: { children: React.ReactNode }) {
       });
     return () => { live = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pickupPin, arrival.short, travelClass]);
+  }, [pickupPin, arrival.short, travelClass, pay]);
   // Read from runDispatch, which must not re-create itself when the traveler moves the pin.
   const pickupPinRef = useRef<Coords | null>(null);
   pickupPinRef.current = pickupPin;
