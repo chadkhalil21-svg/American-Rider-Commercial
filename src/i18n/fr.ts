@@ -299,7 +299,7 @@ export default {
     payoutRecoveryUnconfirmed: 'Le recouvrement des trajets impayés n’a pas pu être confirmé. Le suivi des versements peut être incomplet.',
     payoutTruthIntro: 'Votre part représente 99 % du tarif du trajet. La fin du trajet ne confirme pas un dépôt bancaire.',
     payoutTruthTransfer: 'Après un trajet terminé, American Rider tente de transférer votre part vers Stripe. Les vérifications du paiement ou du compte peuvent retarder le transfert.',
-    payoutTruthBank: "Versement standard : Stripe envoie automatiquement vos gains disponibles à votre banque. Aucune demande n’est nécessaire. Aucun supplément instantané; d’autres frais Connect annoncés peuvent s’appliquer.",
+    payoutTruthBank: "Versement standard : votre compte Stripe détermine quand les gains disponibles sont envoyés à votre banque. Si les versements manuels sont activés, demandez un versement standard à votre convenance. Les frais Connect annoncés restent applicables.",
     payoutTruthInstant: "Versement instantané : si vous êtes admissible, demandez dans Stripe le solde disponible pour un versement instantané, avec des frais supplémentaires annoncés. Les fonds déjà inclus dans un versement bancaire standard ne peuvent pas être retirés une seconde fois.",
     viewStripePayouts: "Voir les versements dans Stripe",
     lostLoading: "Chargement du rapport…",
