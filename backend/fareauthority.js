@@ -107,8 +107,19 @@ async function authoritativeFare({ body, uid = null, email = null, db = null, ca
   // card country does not identify the card actually charged. Costing a default
   // US card as domestic could underfund a foreign-card charge and invalidate the
   // quote shown before checkout. Unknown = international-safe in economics.js.
-  // Avoid an unnecessary Stripe Customer + PaymentMethod read on every quote.
-  const cardCountry = null;
+  // Existing Build 60 still has no selected method at quote time: keep its
+  // international-safe pricing untouched. A future signed checkout may opt in
+  // by supplying the ID of its chosen SAVED card, verified by Stripe server-side.
+  let cardCountry=null,selectedPaymentMethodId=null;
+  if(body?.paymentMethodId!==undefined&&body?.paymentMethodId!==null){
+    if(!uid||typeof cardCountryFor!=='function')
+      return {invalidSelectedCard:true,reason:'Choose a valid saved card while signed in.'};
+    const verified=await cardCountryFor({uid,email,paymentMethodId:body.paymentMethodId});
+    if(!verified?.ok)return {invalidSelectedCard:true,
+      reason:'Selected payment card could not be verified. Choose it again.'};
+    cardCountry=verified.cardCountry;
+    selectedPaymentMethodId=verified.paymentMethodId;
+  }
   const [journey, toll, marketReference] = await Promise.all([
     journeyFor({ db, uid, journeyNo: requestedJourneyNo }),
     tollPromise,
@@ -153,7 +164,8 @@ async function authoritativeFare({ body, uid = null, email = null, db = null, ca
   // return a public-looking $0 toll for an unverified physical route.
   return { ...route, ...breakdown,
     tollCents: toll.status === 'unknown' ? null : breakdown.tollCents,
-    marketPricing, journey, cardCountry: cardCountry || null };
+    marketPricing, journey, cardCountry: cardCountry || null,
+    selectedPaymentMethodId };
 }
 
 module.exports = { priceRoute, authoritativeFare, journeyFor };

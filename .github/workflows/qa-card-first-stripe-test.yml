@@ -1,0 +1,47 @@
+name: QA actual Stripe TEST saved US/GB card authorization
+on:
+  pull_request:
+    branches: [release/current]
+    paths:
+      - '.github/workflows/qa-card-first-stripe-test.yml'
+      - 'backend/stripe-test-selected-card-authorization.cjs'
+permissions:
+  contents: read
+jobs:
+  saved-card-actual-provider:
+    if: ${{ github.event.pull_request.head.repo.full_name == github.repository && github.head_ref == 'founder-card-first-integrated-20261101' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      STRIPE_TEST_SECRET_KEY: ${{ secrets.STRIPE_TEST_SECRET_KEY }}
+      CI: 'true'
+      NODE_ENV: test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Refuse any non-TEST Stripe secret
+        shell: bash
+        run: |
+          set -euo pipefail
+          case "${STRIPE_TEST_SECRET_KEY:-}" in
+            sk_test_?*) echo 'PASS TEST-only Stripe credential' ;;
+            *) echo '::error::Only Stripe sk_test_ permitted'; exit 1 ;;
+          esac
+      - name: Install pinned Stripe server SDK
+        run: npm ci --prefix backend --omit=dev
+      - name: Confirm and cancel real Stripe TEST manual card authorizations in US and GB
+        run: node backend/stripe-test-selected-card-authorization.cjs
+      - name: Preserve test-only provider evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: card-first-actual-stripe-test
+          path: artifacts/card-first-stripe-test/
+          if-no-files-found: warn
+          retention-days: 14
+      - name: Test limits
+        if: always()
+        run: |
+          echo 'Authentic Stripe TEST authorization, exact issuer and cancellation only. No signed iOS/Android physical-device payment, real card, production capture, bank payout or native 3DS certified.' >> "$GITHUB_STEP_SUMMARY"
