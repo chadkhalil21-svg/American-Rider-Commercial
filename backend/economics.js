@@ -80,9 +80,10 @@ function economicsFor({
   // Future paid referral offers must reserve the entire actual obligation first.
   referralReserveCents = 0,
 }) {
+  const maxReferralCents = 30 * Math.max(1, Math.trunc(Number(transactionCount) || 1));
   if (!Number.isSafeInteger(referralReserveCents) ||
-      referralReserveCents < 0 || referralReserveCents > 30)
-    throw new RangeError('referralReserveCents must be a whole number from 0 to 30');
+      referralReserveCents < 0 || referralReserveCents > maxReferralCents)
+    throw new RangeError('referralReserveCents must be 0 to 30 cents per Travel');
   const fare = Math.max(0, Math.trunc(Number(travelCostCents) || 0));
   const fee = Math.max(0, Math.trunc(Number(platformFeeCents) || 0));
   const government = Math.max(0, Math.trunc(Number(governmentFeeCents) || 0));
