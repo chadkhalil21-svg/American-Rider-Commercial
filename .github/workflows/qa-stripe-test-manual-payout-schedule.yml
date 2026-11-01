@@ -5,6 +5,7 @@ on:
     paths:
       - '.github/workflows/qa-stripe-test-manual-payout-schedule.yml'
       - 'backend/stripe-test-manual-payout-schedule.cjs'
+      - 'backend/stripe-test-selected-card-issuer.cjs'
 permissions:
   contents: read
 jobs:
@@ -33,6 +34,8 @@ jobs:
         run: npm ci --prefix backend --omit=dev
       - name: Verify two-sided operator commission credited to existing Stripe balance only once
         run: node backend/recruiter-operator-manual-credit.test.js
+      - name: Actual Stripe TEST domestic and international issuer customer ownership
+        run: node backend/stripe-test-selected-card-issuer.cjs
       - name: Actual TEST connected account creation, manual schedule and cleanup
         run: node backend/stripe-test-manual-payout-schedule.cjs
       - name: Save provider-only evidence
