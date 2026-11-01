@@ -10,7 +10,7 @@
 //   1. ask this server for a PaymentIntent (it prices the travel; the app never sends a price)
 //   2. hand the client secret to Stripe's PaymentSheet, which collects the card ON THE PHONE
 //   3. report what actually happened — including the traveler simply cancelling the sheet
-import { initPaymentSheet, presentPaymentSheet, retrievePaymentIntent, isPlatformPaySupported } from '@stripe/stripe-react-native';
+import { initPaymentSheet, presentPaymentSheet, confirmPayment, retrievePaymentIntent, isPlatformPaySupported } from '@stripe/stripe-react-native';
 import { Platform } from 'react-native';
 import { PAYMENT_SERVER_URL } from '../config';
 import { auth } from '../firebase';
@@ -175,6 +175,7 @@ export async function payForRide(opts: {
   pickup?: { lat: number; lng: number } | null;
   dest?: { lat: number; lng: number } | null;
   /** The travel this pays for. The server stamps the intent onto it — see /create-payment-intent. */
+  selectedPaymentMethodId?: string | null; // exact saved card selected before fare consent
   rideId?: string | null;
   /** Leg 2 of a Smart Travel journey: leg 1's Travel Number, so one platform fee covers both. */
   journeyNo?: string | null;
@@ -182,6 +183,7 @@ export async function payForRide(opts: {
   // ---- 1. The intent, priced by the server ----
   let intent: {
     clientSecret?: string;
+    selectedPaymentMethodId?: string | null;
     paymentIntentId?: string;
     mode?: 'live' | 'test' | 'no-key';
     customerId?: string;
@@ -238,6 +240,30 @@ export async function payForRide(opts: {
   if (intentMode !== 'live' && intentMode !== 'test')
     return { ok: false, error: t('traveler.errPaymentUnavailableNoCharge') };
   const walletTestEnv = intentMode === 'test';
+  // A previously selected saved card already determined the server's domestic
+  // or international quote. Confirm ONLY that exact method. PaymentSheet is
+  // retained for new cards and mobile wallets at the international-safe rate.
+  if(intent.selectedPaymentMethodId){
+    if(intent.selectedPaymentMethodId!==opts.selectedPaymentMethodId)
+      return {ok:false,error:t('traveler.errPaymentNotStarted')};
+    try{
+      const confirmed=await confirmPayment(intent.clientSecret,{
+        paymentMethodType:'Card',
+        paymentMethodData:{paymentMethodId:intent.selectedPaymentMethodId},
+      });
+      if(confirmed.error)return {ok:false,
+        canceled:confirmed.error.code==='Canceled',
+        error:confirmed.error.code==='Canceled'?undefined:travelerFacing(confirmed.error.message)};
+      if(confirmed.paymentIntent?.paymentMethod&&
+         typeof confirmed.paymentIntent.paymentMethod==='object'&&
+         confirmed.paymentIntent.paymentMethod.id!==intent.selectedPaymentMethodId)
+        return {ok:false,error:t('traveler.errPaymentNotCompleted')};
+      return {ok:true,paymentIntentId:intent.paymentIntentId,
+        amountCents:intent.breakdown?.travelerPays,
+        authorizationOnly:intent.capturePolicy==='manual_v1',
+        methodLabel:await methodLabelFor(intent.clientSecret)};
+    }catch{return {ok:false,error:t('traveler.errPaymentUnavailableNoCharge')};}
+  }
   try {
   const init = await initPaymentSheet({
     merchantDisplayName: 'American Rider',
