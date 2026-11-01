@@ -377,12 +377,6 @@ async function listPaymentMethods({ uid, email }) {
 async function createSetupIntent({ uid, email }) {
   const stripe = getStripe();
   const customer = await customerForTraveler({ uid, email });
-  const selected=selectedPaymentMethodId
-    ?await require('./selected-card-issuer').verifiedSelectedCard({
-       stripe,customerId:customer.id,paymentMethodId:selectedPaymentMethodId})
-    :null;
-  if(selectedPaymentMethodId&&(!selected?.ok||selected.cardCountry!==cardCountry))
-    throw Error('Selected payment card must be reverified before payment authorization');
   const ephemeralKey = await stripe.ephemeralKeys.create(
     { customer: customer.id },
     { apiVersion: '2024-06-20' },
@@ -470,6 +464,12 @@ async function createPaymentIntent({ travelCostCents, uid, email, tripNo, rideId
   // The PaymentSheet needs all three: a customer, a short-lived key that lets the phone read
   // that customer's saved cards, and the intent itself.
   const customer = await customerForTraveler({ uid, email });
+  const selected=selectedPaymentMethodId
+    ?await require('./selected-card-issuer').verifiedSelectedCard({
+       stripe,customerId:customer.id,paymentMethodId:selectedPaymentMethodId})
+    :null;
+  if(selectedPaymentMethodId&&(!selected?.ok||selected.cardCountry!==cardCountry))
+    throw Error('Selected payment card must be reverified before payment authorization');
   const ephemeralKey = await stripe.ephemeralKeys.create(
     { customer: customer.id },
     { apiVersion: '2024-06-20' },
