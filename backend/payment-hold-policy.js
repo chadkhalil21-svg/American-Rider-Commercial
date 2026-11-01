@@ -35,6 +35,10 @@ function verifyHold({intent,uid,rideId,totalCents,now,requiredUntil,
   if (intent.currency!=='usd' || !Number.isSafeInteger(totalCents) || totalCents<=0 ||
       intent.amount!==totalCents || intent.amount_capturable!==totalCents)
     return denied('amount_or_currency_mismatch');
+  if(intent.metadata?.selectedPaymentMethodId&&
+     (intent.payment_method!==intent.metadata.selectedPaymentMethodId||
+      !/^pm_[A-Za-z0-9]+$/.test(String(intent.payment_method||''))))
+    return denied('selected_card_changed_requote_required');
   if (!Number.isFinite(now)||!Number.isFinite(requiredUntil)||requiredUntil<now)
     return denied('invalid_time');
   if(!Number.isSafeInteger(minCaptureHeadroomMs)||minCaptureHeadroomMs<30000||
