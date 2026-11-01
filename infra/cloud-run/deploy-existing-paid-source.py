@@ -309,7 +309,10 @@ def main():
         updates+=","+",".join(k+"="+v for k,v in recruit_env.items())
     cmd("run","deploy",SERVICE,f"--project={PROJECT}",f"--region={REGION}",
         "--source=./backend","--no-traffic","--service-account=ar-production-live-runtime@american-rider-35688.iam.gserviceaccount.com",
-        # Do not silently reimpose an obsolete two-instance REVISION cap after the\n        # Founder-approved one-time same-image capacity uplift. Service-level max\n        # stays 20 until a separate quota/latency/cost-certified authorization.\n        "--min-instances=0","--max-instances=default","--cpu=1","--memory=1Gi","--concurrency=20",
+        # Do not silently reimpose an obsolete two-instance REVISION cap after the
+        # Founder-approved one-time same-image capacity uplift. Service-level max
+        # stays 20 until a separate quota/latency/cost-certified authorization.
+        "--min-instances=0","--max-instances=default","--cpu=1","--memory=1Gi","--concurrency=20",
         f"--update-env-vars={updates}",timeout=1800)
     # Do not compare only status.latestReadyRevisionName. The service's routed
     # pointer may remain old for a READY candidate created with --no-traffic.
