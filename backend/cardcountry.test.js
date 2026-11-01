@@ -49,9 +49,12 @@ const server = read('server.js');
 check("/fare-quote is wrapped in attachAuth",
   /app\.post\('\/fare-quote',\s*attachAuth/.test(server),
   'without it every signed-in quote would lose the known card-country input');
-check('/fare-quote passes the card-country reader into the canonical fare authority',
-  /authoritativeFare\(\{[\s\S]{0,250}?cardCountryFor: defaultCardCountry/.test(server),
-  'the country is read and then dropped');
+check('/fare-quote uses server-authenticated selected-card issuer for the canonical fare',
+  /authoritativeFare\(\{[\s\S]{0,250}?cardCountryFor: verifiedSelectedCardCountry/.test(server),
+  'selected Stripe-owned card issuer must reach authoritative pricing');
+check('server returns selected card ID so client binds the accepted Total to the card',
+  /priced\.selectedPaymentMethodId\?\{selectedPaymentMethodId:priced\.selectedPaymentMethodId\}/.test(server),
+  'verified selected card identity was not returned with the price');
 check('attachAuth never refuses a caller — the price must be visible before sign-in',
   /async function attachAuth[\s\S]{0,900}?next\(\);\s*\n\}/.test(read('auth.js')) &&
   !/async function attachAuth[\s\S]{0,900}?res\.status\(401\)/.test(read('auth.js')),
