@@ -62,9 +62,12 @@ async function submitOperatorReferralTransfer({db,stripe,batchId,
   return deny('operator_connect_identity_or_bank_hold');
  // This path only deposits money into the existing Stripe balance.
  // Stripe's existing Operator payout cadence transfers it to the bank.
- if(b.status==='operator_balance_pending'||b.status==='submitted')
+ const manual=account.settings?.payouts?.schedule?.interval==='manual';
+ if(b.status==='operator_balance_pending'||b.status==='submitted'){
+  if(manual)return finalizeManualStripeReferralCredit({db,stripe,batchId,now});
   return {ok:true,status:'awaiting_operator_automatic_bank_payout',bankPaid:false,
     transferId:b.providerTransferId};
+ }
  const group='ar_rec_'+batchId;
  let listed;
  try{listed=await stripe.transfers.list({transfer_group:group,limit:2});}
@@ -104,7 +107,7 @@ async function submitOperatorReferralTransfer({db,stripe,batchId,
   catch{return deny('provider_transfer_unknown_no_duplicate_retry');}
   if(!transferMatches(transfer,b))return deny('provider_transfer_confirmation_mismatch');
  }
- return db.runTransaction(async tx=>{
+ const saved=await db.runTransaction(async tx=>{
   const ref=db.collection('recruiter_commission_payouts').doc(batchId);
   const latest=await tx.get(ref),p=latest.exists?latest.data():null;
   if(!p||p.uid!==b.uid||p.recipientRef!==b.recipientRef||
@@ -117,6 +120,37 @@ async function submitOperatorReferralTransfer({db,stripe,batchId,
   return {ok:true,status:'awaiting_operator_automatic_bank_payout',bankPaid:false,
    transferId:transfer.id,netCents:b.netCents,feeCents:0};
  });
+ if(!saved.ok||!manual)return saved;
+ return finalizeManualStripeReferralCredit({db,stripe,batchId,now});
+}
+// On a manually paid Stripe Express account the Operator controls the bank payout.
+// Stripe cannot allocate a manual bank payout to an individual referral credit.
+// The provable payout boundary is an exact transfer into that Operator's own
+// Stripe balance. Never describe it as a confirmed bank deposit.
+async function finalizeManualStripeReferralCredit({db,stripe,batchId,now}){
+ const check=await operatorBatch(db,batchId);
+ if(!check.ok)return check;
+ const batch=check.batch;
+ if(batch.status==='paid')return {ok:true,status:'credited_to_operator_stripe',
+   duplicate:true,bankPaid:false};
+ if(!['operator_balance_pending','submitted'].includes(batch.status)||
+    !/^tr_[A-Za-z0-9_]+$/.test(String(batch.providerTransferId||''))||
+    !stripe?.transfers?.retrieve)
+   return deny('manual_referral_credit_unconfirmed');
+ let t;
+ try{t=await stripe.transfers.retrieve(batch.providerTransferId);}
+ catch{return deny('stripe_credit_lookup_unavailable');}
+ if(!transferMatches(t,batch))return deny('stripe_credit_identity_or_reversal_mismatch');
+ const proof={verified:true,providerPaymentId:t.id,idempotencyKey:batchId};
+ const submitted=await recordRecruiterPayoutSubmission({db,batchId,proof,now});
+ if(!submitted.ok)return submitted;
+ const confirmed=await reconcileRecruiterPayout({db,batchId,now,
+   proof:{verified:true,status:'paid',providerPaymentId:t.id,
+     eventId:t.id,destination:'stripe_balance'}});
+ if(!confirmed.ok)return confirmed;
+ return {ok:true,status:'credited_to_operator_stripe',bankPaid:false,
+   transferId:t.id,netCents:batch.netCents,feeCents:0,
+   verifiedBoundary:'connected_stripe_balance',reconciled:true};
 }
 // Stripe's payout.paid concerns an aggregate bank payout. It never proves
 // a specific commission paid unless the connected-account balance transaction
