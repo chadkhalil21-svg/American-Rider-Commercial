@@ -312,8 +312,10 @@ async function verifiedSelectedCardCountry({uid,email,paymentMethodId}){
    return {ok:false,reason:'selected_card_identity_invalid'};
  try{
    const customer=await customerForTraveler({uid,email});
-   return require('./selected-card-issuer').verifiedSelectedCard({
+   const verified=await require('./selected-card-authority').verifySelectedCard({
      stripe:getStripe(),customerId:customer.id,paymentMethodId});
+   return verified.ok?{ok:true,paymentMethodId:verified.paymentMethodId,
+     cardCountry:verified.country}:verified;
  }catch{return {ok:false,reason:'selected_card_provider_unavailable'};}
 }
 
@@ -465,10 +467,10 @@ async function createPaymentIntent({ travelCostCents, uid, email, tripNo, rideId
   // that customer's saved cards, and the intent itself.
   const customer = await customerForTraveler({ uid, email });
   const selected=selectedPaymentMethodId
-    ?await require('./selected-card-issuer').verifiedSelectedCard({
+    ?await require('./selected-card-authority').verifySelectedCard({
        stripe,customerId:customer.id,paymentMethodId:selectedPaymentMethodId})
     :null;
-  if(selectedPaymentMethodId&&(!selected?.ok||selected.cardCountry!==cardCountry))
+  if(selectedPaymentMethodId&&(!selected?.ok||selected.country!==cardCountry))
     throw Error('Selected payment card must be reverified before payment authorization');
   const ephemeralKey = await stripe.ephemeralKeys.create(
     { customer: customer.id },
