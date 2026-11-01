@@ -1,0 +1,44 @@
+name: Increase existing paid Cloud Run capacity ONLY (Founder-approved; same code)
+
+# One-time Founder instruction, 1 Nov 2026: remove the 2-instance revision
+# restriction while PRESERVING the currently configured 20-instance SERVICE cap.
+# This has no trigger from routine source commits once completed; subsequent
+# attempts fail on the exact old revision and require separate authorization.
+on:
+  push:
+    branches: [release/current]
+    paths:
+      - infra/cloud-run/scale-existing-paid-revision-20261101.py
+      - .github/workflows/cloud-run-capacity-only-20261101.yml
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: american-rider-paid-cloudrun-source
+  cancel-in-progress: false
+
+jobs:
+  grow-within-existing-service-cap:
+    if: ${{ github.ref == 'refs/heads/release/current' }}
+    runs-on: ubuntu-latest
+    environment: american-rider-commercial-live
+    timeout-minutes: 16
+    env:
+      FOUNDER_CAPACITY_APPROVAL: SCALE_EXISTING_IMAGE_WITHIN_20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Test precisely scoped no-source scaling and rollback guards
+        run: python3 -m unittest discover -s infra/cloud-run -p test_scale_existing_paid_revision_20261101.py
+      - name: Federated production deployer, existing protected environment
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: projects/623854974930/locations/global/workloadIdentityPools/github-production/providers/github
+          service_account: ar-production-deployer@american-rider-35688.iam.gserviceaccount.com
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Verify old revision, stage same IMAGE at zero traffic, health-gate cutover or rollback
+        run: python3 infra/cloud-run/scale-existing-paid-revision-20261101.py
