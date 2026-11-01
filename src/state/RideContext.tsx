@@ -385,6 +385,7 @@ export function RideProvider({ children }: { children: React.ReactNode }) {
   const [quotedFareCents, setRawQuotedFareCents] = useState<number | null>(null);
   const [quotedTotalCents, setQuotedTotalCents] = useState<number | null>(null);
   const quotedTotalRef=useRef<number|null>(null);
+  const quotedSelectedCardRef=useRef<string|null>(null);
   quotedTotalRef.current=quotedTotalCents;
   const [quotedForClass, setQuotedForClass] = useState<string | null>(null);
   // Any old quote is void after a route/class change, and only a complete server
@@ -443,6 +444,7 @@ export function RideProvider({ children }: { children: React.ReactNode }) {
     if (!dest) { setRepricing(false); return undefined; }
     let live = true;
     setQuotedFareCents(null);
+    quotedSelectedCardRef.current=null;
     setQuotedFeeLines([]);
     setResearchQuoteToken(null);
     setRepricing(true);
@@ -451,6 +453,7 @@ export function RideProvider({ children }: { children: React.ReactNode }) {
         if (!live || seq !== repriceSeq.current) return;
         if (q && !isUnavailable(q)) {
           setQuotedServerPrice(q.travelCostCents, q.travelerPays, travelClass);
+          quotedSelectedCardRef.current=q.selectedPaymentMethodId??null;
           setQuotedFeeLines(q.feeLines);
           setResearchQuoteToken(q.researchQuoteToken ?? null);
         }
@@ -979,6 +982,7 @@ export function RideProvider({ children }: { children: React.ReactNode }) {
           const prepared = await prepareRide({
             bookingKey: bookingKeyRef.current, pickup: from, destinationPoint: dest,
             agreedTotalCents:quotedTotalRef.current,
+            paymentMethodId:quotedSelectedCardRef.current,
             cancellationFeeDisclosureVersion:feeDisclosureVersionRef.current,
             researchQuoteToken:researchQuoteRef.current,
             dep: departure.short, dest: arrival.short,
@@ -1020,6 +1024,7 @@ export function RideProvider({ children }: { children: React.ReactNode }) {
           setPayment({ status: 'processing', tripNo: lastTripRef.current.no });
           const result = await payForRide({
             rideId, tripNo: lastTripRef.current.no,
+            selectedPaymentMethodId:quotedSelectedCardRef.current,
             departure: departure.short, destination: arrival.short,
             travelClass: travelClassRef.current,
             pickup: from, dest,
