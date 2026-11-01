@@ -309,7 +309,7 @@ export default {
     payoutRecoveryUnconfirmed: 'No se pudo confirmar la recuperación de viajes pendientes de pago. Es posible que falten datos de los pagos.',
     payoutTruthIntro: 'Su parte es el 99 % de la tarifa del Viaje. Completar un Viaje no confirma por sí solo un depósito bancario.',
     payoutTruthTransfer: 'Tras completar un Viaje, American Rider intenta transferir su parte a Stripe. Las verificaciones del pago o la cuenta pueden retrasar la transferencia.',
-    payoutTruthBank: "Pago estándar: Stripe envía automáticamente sus ganancias disponibles al banco. No hace falta solicitarlo. Sin recargo de pago instantáneo; pueden aplicarse otros cargos Connect informados.",
+    payoutTruthBank: "Pago estándar: su cuenta de Stripe determina cuándo se envían sus ganancias disponibles al banco. Si están habilitados los pagos manuales, puede solicitar un pago estándar cuando lo desee. Se aplican los cargos Connect informados.",
     payoutTruthInstant: "Pago instantáneo: si cumple los requisitos, solicite en Stripe el saldo disponible para pagos instantáneos, con una comisión adicional informada. Los fondos ya incluidos en un pago bancario estándar no se pueden retirar de nuevo.",
     viewStripePayouts: "Ver pagos en Stripe",
     lostLoading: "Cargando informe…",
