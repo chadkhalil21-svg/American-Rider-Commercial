@@ -187,6 +187,7 @@ export async function returnOperator(args: {
 // this file no longer holds operator records of any kind.
 export type PrepareOptions = {
   bookingKey: string;
+  paymentMethodId?: string | null; // selected saved card as verified with the displayed quote
   agreedTotalCents?: number | null; // all-in amount the Traveler actually accepted
   cancellationFeeDisclosureVersion?: string | null; // version visibly presented at confirm
   researchQuoteToken?: string | null; // research-only; never a fare input
