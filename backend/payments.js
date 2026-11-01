@@ -304,6 +304,21 @@ function describePaymentMethod(pm, defaultId) {
  * default. The canonical economics treats null as international-safe, so returning null rather
  * than guessing domestic keeps a Stripe outage or first Travel from being deliberately under-priced.
  */
+// Only a Stripe-owned, *selected* saved card may receive issuer-specific pricing.
+// Returning an error (rather than null/US) makes an unavailable or detached
+// card fail closed before the Travel's final price is accepted.
+async function verifiedSelectedCardCountry({uid,email,paymentMethodId}){
+ if(!uid||!/^pm_[A-Za-z0-9]+$/.test(String(paymentMethodId||'')))
+   return {ok:false,reason:'selected_card_identity_invalid'};
+ try{
+   const customer=await customerForTraveler({uid,email});
+   const verified=await require('./selected-card-authority').verifySelectedCard({
+     stripe:getStripe(),customerId:customer.id,paymentMethodId});
+   return verified.ok?{ok:true,paymentMethodId:verified.paymentMethodId,
+     cardCountry:verified.country}:verified;
+ }catch{return {ok:false,reason:'selected_card_provider_unavailable'};}
+}
+
 async function defaultCardCountry({ uid, email }) {
   try {
     const methods = await listPaymentMethods({ uid, email });
@@ -444,13 +459,19 @@ function idempotencyForTravel(kind, uid, tripNo, amountCents) {
   return { idempotencyKey: `ar_${kind}_${uid}_${tripNo}_${amountCents}` };
 }
 
-async function createPaymentIntent({ travelCostCents, uid, email, tripNo, rideId, dep, dest, journey, governmentFees, cardCountry, tollCents = 0 }) {
+async function createPaymentIntent({ travelCostCents, uid, email, tripNo, rideId, dep, dest, journey, governmentFees, cardCountry, selectedPaymentMethodId=null, tollCents = 0 }) {
   const stripe = getStripe();
   const q = quote(travelCostCents, journey, governmentFees, cardCountry, tollCents);
 
   // The PaymentSheet needs all three: a customer, a short-lived key that lets the phone read
   // that customer's saved cards, and the intent itself.
   const customer = await customerForTraveler({ uid, email });
+  const selected=selectedPaymentMethodId
+    ?await require('./selected-card-authority').verifySelectedCard({
+       stripe,customerId:customer.id,paymentMethodId:selectedPaymentMethodId})
+    :null;
+  if(selectedPaymentMethodId&&(!selected?.ok||selected.country!==cardCountry))
+    throw Error('Selected payment card must be reverified before payment authorization');
   const ephemeralKey = await stripe.ephemeralKeys.create(
     { customer: customer.id },
     { apiVersion: '2024-06-20' },
@@ -460,6 +481,7 @@ async function createPaymentIntent({ travelCostCents, uid, email, tripNo, rideId
     amount: q.travelerPays, // traveler is charged the all-in price
     currency: 'usd',
     customer: customer.id,
+    ...(selected?{payment_method:selected.paymentMethodId}:{}),
     ...(manualCaptureEnabled()
       ? { capture_method:'manual', payment_method_types:['card'] }
       : { automatic_payment_methods:{enabled:true} }),
@@ -492,6 +514,8 @@ async function createPaymentIntent({ travelCostCents, uid, email, tripNo, rideId
       product: 'American Rider travel',
       ...(manualCaptureEnabled()?{capturePolicy:'manual_v1'}:{}),
       uid: uid || '',
+      ...(selected?{selectedPaymentMethodId:selected.paymentMethodId,
+        selectedCardIssuerCountry:selected.country}:{}),
       tripNo: tripNo || '',
       // The travel record this pays for, from the server's own lookup (travelmoney.js).
       rideId: rideId || '',
@@ -537,6 +561,7 @@ async function createPaymentIntent({ travelCostCents, uid, email, tripNo, rideId
     customerId: customer.id,
     ephemeralKeySecret: ephemeralKey.secret,
     breakdown: q,
+    selectedPaymentMethodId:selected?.paymentMethodId||null,
     capturePolicy:manualCaptureEnabled()?'manual_v1':'captured_legacy',
   };
 }
@@ -560,6 +585,9 @@ async function resumePaymentIntent({ paymentIntentId, uid, rideId, email, travel
   if (!pi || pi.metadata?.uid !== String(uid) || pi.metadata?.rideId !== String(rideId)) return null;
   const q = quote(travelCostCents, journey, governmentFees, cardCountry, tollCents);
   if (pi.amount !== q.travelerPays) return null;
+  if(pi.metadata?.selectedPaymentMethodId&&
+     (!/^pm_[A-Za-z0-9]+$/.test(pi.metadata.selectedPaymentMethodId)||
+      (pi.status==='requires_capture'&&pi.payment_method!==pi.metadata.selectedPaymentMethodId)))return null;
   if (pi.status === 'requires_capture') {
     // Restore the already-authorized ORIGINAL Stripe hold after a phone crash.
     // Never create or present another PaymentIntent for the same Travel.
@@ -573,7 +601,8 @@ async function resumePaymentIntent({ paymentIntentId, uid, rideId, email, travel
     const verified = verifyHold({intent:pi,uid,rideId,totalCents:q.travelerPays,now,requiredUntil});
     if (!verified.ok) return null;
     return {paymentIntentId:pi.id,breakdown:q,capturePolicy:'manual_v1',
-      alreadyAuthorized:true,authorizationExpiresAt:verified.expires};
+      alreadyAuthorized:true,authorizationExpiresAt:verified.expires,
+      selectedPaymentMethodId:pi.metadata?.selectedPaymentMethodId||null};
   }
   if (!RESUMABLE.includes(pi.status)) return null;
   const customer = await customerForTraveler({ uid, email });
@@ -586,6 +615,7 @@ async function resumePaymentIntent({ paymentIntentId, uid, rideId, email, travel
     breakdown: q,
     capturePolicy:pi.metadata?.capturePolicy==='manual_v1'?'manual_v1':'captured_legacy',
     resumed: true,
+    selectedPaymentMethodId:pi.metadata?.selectedPaymentMethodId||null,
   };
 }
 
@@ -1287,7 +1317,7 @@ async function chargeOperatorAccountFee({ uid, month, amountCents }) {
 
 module.exports = {
   operatorPayoutAccount,
-  quote, commissionCents, platformFeeCents, isDomesticCard, defaultCardCountry, journeyFeeCents, createPaymentIntent, resumePaymentIntent, verifiedTravelPayment, cancelUnpaidIntent, chargeRide, refundTravel,
+  quote, commissionCents, platformFeeCents, isDomesticCard, defaultCardCountry, verifiedSelectedCardCountry, journeyFeeCents, createPaymentIntent, resumePaymentIntent, verifiedTravelPayment, cancelUnpaidIntent, chargeRide, refundTravel,
   MIN_PLATFORM_FEE_CENTS,
   customerForTraveler, connectAccountFor, configureConnectPayoutSchedule, connectOnboardingLink, connectAccountStatus,
   transferToOperator, paidWithFromIntent, refundableFor, connectDashboardLink, pingStripe, probeNetwork,
