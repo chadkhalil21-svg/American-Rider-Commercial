@@ -37,6 +37,7 @@ class TestScale(unittest.TestCase):
     def test_refuse_app_image_change(self,health):
         baseline=m.verify_before(svc(),rev())
         newer=rev("100",image="sha256:different")
+        newer["metadata"]["name"]=NAME+"-next"
         with mock.patch.object(m,"revision",return_value=newer):
             with self.assertRaisesRegex(m.Stop,"image"):m.validate_new(svc(),NAME+"-next",baseline)
     def test_no_source_rebuild_or_payment_actions(self):
