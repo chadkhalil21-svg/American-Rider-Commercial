@@ -20,6 +20,14 @@ async function executeManualSettlement({
    return reject('wrong_payment_or_travel');
  if(pi.metadata?.capturePolicy!=='manual_v1'||pi.capture_method!=='manual') 
    return reject('not_a_manual_travel_authorization');
+ // A selected saved domestic card fixes the accepted fare. Never capture if
+ // Stripe actually authorized a different card inside PaymentSheet. The
+ // Traveler must be re-quoted and asked to accept the new amount first.
+ if(action!=='cancel'&&pi.metadata?.selectedPaymentMethodId&&
+    !require('./selected-card-authority').exactChargedCardMatch({
+      intent:pi,paymentMethodId:pi.metadata.selectedPaymentMethodId,
+      country:pi.metadata.selectedCardIssuerCountry}))
+   return reject('selected_card_or_issuer_changed_requote_required');
  // No client may instruct a capture of an unrelated legacy charge, even if the
  // quoted amount and Traveler match.
 
