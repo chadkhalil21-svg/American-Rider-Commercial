@@ -10,8 +10,10 @@ const uid='traveler-card-test',rideId='trip-card-test';
 const card='pm_VerifiedCard1234567';
 const base={id:'pi_CardFirst123',status:'requires_capture',currency:'usd',
   amount:2000,amount_capturable:2000,capture_method:'manual',payment_method:card,
-  metadata:{uid,rideId,capturePolicy:'manual_v1',selectedPaymentMethodId:card},
-  latest_charge:{payment_method_details:{card:{capture_before:Math.ceil((now+3*86400000)/1000)}}}};
+  metadata:{uid,rideId,capturePolicy:'manual_v1',selectedPaymentMethodId:card,
+    selectedCardIssuerCountry:'US'},
+  latest_charge:{payment_method_details:{type:'card',card:{country:'US',
+    capture_before:Math.ceil((now+3*86400000)/1000)}}}};
 const ride={paymentIntentId:base.id,costCents:2000,routedMinutes:60,
   selectedPaymentMethodId:card};
 const consent=pi=>verifyHold({intent:pi,uid,rideId,totalCents:2000,
@@ -24,6 +26,13 @@ for(const pm of ['pm_ChangedForeignCard','',null]){
  assert.equal(paymentMatches(ride,modified,uid,rideId,now),false);
 }
 assert.equal(paymentMatches({...ride,selectedPaymentMethodId:'pm_ChangedForeignCard'},base,uid,rideId,now),false);
+const foreignIssuer={...base,latest_charge:{payment_method_details:{type:'card',card:{
+  country:'GB',capture_before:Math.ceil((now+3*86400000)/1000)}}}};
+assert.equal(consent(foreignIssuer).ok,false,'same card ID but different charged issuer is not domestic');
+assert.equal(paymentMatches(ride,foreignIssuer,uid,rideId,now),false);
+const noIssuer={...base,latest_charge:{payment_method_details:{type:'card',card:{
+  capture_before:Math.ceil((now+3*86400000)/1000)}}}};
+assert.equal(consent(noIssuer).ok,false,'missing Stripe charge country is not proof of domestic pricing');
 const feeUS=minimumPlatformFeeCents({travelCostCents:5000,cardCountry:'US'});
 const feeGB=minimumPlatformFeeCents({travelCostCents:5000,cardCountry:'GB'});
 assert(feeUS<feeGB,'Stripe actual domestic issuer can lower the sufficient fee');
