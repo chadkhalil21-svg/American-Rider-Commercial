@@ -48,7 +48,7 @@ function portalHtml(){
   html=html.replace("async function share(role){",
     "async function share(role,mode='share'){");
   html=html.replace("  const disclosure='I may receive $0.15",
-    "  if(mode==='qr'){if(!window.__arRenderQr(data.url,role))throw Error('qr_unavailable');note('Personal QR card ready.');return;}\\n  const disclosure='I may receive compensation".replace('\\n','\n'));
+    "  if(mode==='qr'){if(!window.__arRenderQr(data.url,role))throw Error('qr_unavailable');note('Personal QR card ready.');return;}\\n  const disclosure='I may receive $0.15".replace('\\n','\n'));
   html=html.replace("  by('operator-link').disabled=!data.linksAvailable;",
     "  by('operator-link').disabled=!data.linksAvailable;by('qr-operator').disabled=!data.linksAvailable;");
   html=html.replace("  by('traveler-link').disabled=!data.linksAvailable;",
