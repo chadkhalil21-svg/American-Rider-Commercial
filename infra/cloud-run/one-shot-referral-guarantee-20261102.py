@@ -12,7 +12,7 @@ import os
 import urllib.request
 
 OLD_SHA = "1caf415"
-NEW_SHA = "9bdc396"
+NEW_SHA = "2b65e98"
 PAID_SCRIPT = "/tmp/american-rider-controlled-referral-deployer.py"
 spec = importlib.util.spec_from_file_location("ar_paid_controller", PAID_SCRIPT)
 paid = importlib.util.module_from_spec(spec)
