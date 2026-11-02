@@ -1,0 +1,55 @@
+name: Verify exact LIVE Stripe Connect fee and manual payout readiness (READ ONLY)
+
+# No production writes; only the protected main branch obtains federated access.
+on:
+  push:
+    branches: [release/current]
+    paths:
+      - '.github/workflows/live-stripe-connect-fee-payout-audit-20261102.yml'
+  pull_request:
+    branches: [release/current]
+    paths:
+      - '.github/workflows/live-stripe-connect-fee-payout-audit-20261102.yml'
+      - 'infra/cloud-run/read-only-live-stripe-fee-payout-audit.py'
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: american-rider-stripe-fee-identity-read-only-audit
+  cancel-in-progress: false
+
+jobs:
+  validate-read-only-tool:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: No source deployment or provider writes
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m py_compile infra/cloud-run/read-only-live-stripe-fee-payout-audit.py
+          grep -q 'No fees assessed, no payout schedule altered, no money moved.' infra/cloud-run/read-only-live-stripe-fee-payout-audit.py
+  google-read-only-provider-evidence:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/release/current'
+    needs: validate-read-only-tool
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: american-rider-commercial-live
+    steps:
+      - uses: actions/checkout@v4
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: projects/623854974930/locations/global/workloadIdentityPools/github-production/providers/github
+          service_account: ar-production-deployer@american-rider-35688.iam.gserviceaccount.com
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Only authenticated provider identities, source indexes and existing feature gates
+        shell: bash
+        env:
+          CLOUDSDK_CORE_PROJECT: american-rider-35688
+        run: |
+          set -euo pipefail
+          python3 infra/cloud-run/read-only-live-stripe-fee-payout-audit.py
+          echo 'READ-ONLY: Nothing charged, deducted, transferred, scheduled, accepted, or deployed.' >> "$GITHUB_STEP_SUMMARY"
