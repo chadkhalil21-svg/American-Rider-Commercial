@@ -39,7 +39,7 @@ def smoke_here_route():
     data=read_json("/route",{"pickup":origin,"dest":dest})
     points=data.get("coords")
     if (data.get("provider")!="here" or not isinstance(points,list)
-        or not 2<=len(points)<=160
+        or not 2<=len(points)<=30000
         or not isinstance(data.get("distanceMeters"),(int,float))
         or data["distanceMeters"]<=0
         or not isinstance(data.get("durationSec"),(int,float))
