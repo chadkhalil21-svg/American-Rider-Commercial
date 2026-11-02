@@ -75,6 +75,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          npm ci
           npm ci --prefix backend
           node backend/here-flex-polyline.test.js
           node backend/here-road-geometry-fallback.test.js
