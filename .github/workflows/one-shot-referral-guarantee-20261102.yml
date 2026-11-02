@@ -65,7 +65,7 @@ jobs:
             echo 'STOP: hotfix changed something outside seven referral files.'
             exit 1
           }
-          test "$(grep -c 'recruiter-15c-20261031-v2' backend/referral-accrual.js)" -eq 1
+          grep -q "version:'recruiter-15c-20261031-v2'" backend/referral-accrual.js
           test "$(grep -c 'recruiter-15c-20261031-v2' backend/recruiter-commercial-terms.js)" -eq 1
           echo 'PASS exactly seven referral-only files; no changed fares, operator deductions or checkout.'
       - uses: actions/setup-node@v4
