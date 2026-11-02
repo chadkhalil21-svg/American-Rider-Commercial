@@ -7,6 +7,7 @@
 const { readKey } = require('./env');
 const { officialTollPriceForRoute } = require('./official-toll-pricing');
 const { recordTollDecision } = require('./toll-decision-audit');
+const { decodeHerePolyline } = require('./here-flex-polyline');
 
 const HERE_TOLL_URL = 'https://router.hereapi.com/v8/routes';
 const TIMEOUT_MS = 7000;
@@ -98,7 +99,7 @@ async function verifiedHereRoute(from, to) {
   if (!key || ![from?.lat, from?.lng, to?.lat, to?.lng].every(Number.isFinite)) return null;
   const params = new URLSearchParams({
     origin: `${from.lat},${from.lng}`, destination: `${to.lat},${to.lng}`,
-    transportMode: 'car', return: 'summary,tolls', currency: 'USD',
+    transportMode: 'car', return: 'summary,tolls,polyline', currency: 'USD',
     departureTime: 'any', apiKey: key,
   });
   const controller = new AbortController();
@@ -111,16 +112,25 @@ async function verifiedHereRoute(from, to) {
     if (tolls.status === 'unknown') return null;
     const sections = payload?.routes?.[0]?.sections;
     if (!Array.isArray(sections) || !sections.length) return null;
-    let distanceMeters = 0, durationSec = 0;
+    let distanceMeters = 0, durationSec = 0, coords = [];
     for (const section of sections) {
       if (!Number.isFinite(section?.summary?.length) || section.summary.length < 0 ||
           !Number.isFinite(section?.summary?.duration) || section.summary.duration < 0) return null;
       distanceMeters += section.summary.length;
       durationSec += section.summary.duration;
+      // Geometry is optional for price authority: invalid geometry must not
+      // invalidate independently verified mileage, time, or toll charges.
+      if (coords) {
+        const segment=decodeHerePolyline(section?.polyline);
+        if (!segment || coords.length+segment.length>30000) coords=null;
+        else if (coords.length===0) coords=segment;
+        else coords.push(...segment.slice(1));
+      }
     }
     if (!Number.isFinite(distanceMeters) || distanceMeters <= 0 ||
         !Number.isFinite(durationSec) || durationSec <= 0) return null;
-    return { distanceMeters, durationSec, provider: 'here', verifiedTolls: tolls };
+    return { distanceMeters, durationSec, provider: 'here', verifiedTolls: tolls,
+      ...(coords && coords.length>=2 ? {coords} : {}) };
   } catch { return null; }
   finally { clearTimeout(timer); }
 }
