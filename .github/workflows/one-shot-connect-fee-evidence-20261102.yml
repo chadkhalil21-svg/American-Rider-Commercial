@@ -1,0 +1,88 @@
+name: One-time Connect fee evidence and verified recovery (same paid image)
+
+# Founder authorized backend-only fee collection when, and ONLY when, a real
+# provider invoice is matched to the exact Operator, and prior consent exists.
+# Real Firestore index must be READY, current Build 60 code/payment keys remain
+# identical, rollout is zero-traffic-first with automatic rollback.
+on:
+  pull_request:
+    branches: [release/current]
+    paths:
+      - '.github/workflows/one-shot-connect-fee-evidence-20261102.yml'
+      - 'infra/cloud-run/enable-verified-connect-fees-20261102.py'
+  push:
+    branches: [release/current]
+    paths:
+      - '.github/workflows/one-shot-connect-fee-evidence-20261102.yml'
+
+permissions:
+  contents: read
+  id-token: write
+concurrency:
+  group: american-rider-paid-cloudrun-source
+  cancel-in-progress: false
+
+jobs:
+  fee-accuracy-qa:
+    if: ${{ github.event_name == 'pull_request' || github.ref == 'refs/heads/release/current' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Compile protected rollout, run financial and provider-matching regressions
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m py_compile infra/cloud-run/enable-verified-connect-fees-20261102.py
+          python3 -m py_compile infra/cloud-run/deploy-existing-paid-source.py
+          npm ci --prefix backend
+          node backend/connect-fee-offset-plan.test.js
+          node backend/connect-fee-importer.test.js
+          node backend/connect-monthly-account-fees.test.js
+          node backend/verified-connect-fee-transfer.test.js
+          node backend/connect-fee-daily-sweep.test.js
+          node backend/connect-monthly-sweep.test.js
+          node backend/operator-payout-event-ledger.test.js
+          node backend/connect-payout-schedule.test.js
+          node backend/operator-choice-payment-fee-certification.test.js
+          node backend/payout-transfer-guard.test.js
+          node backend/recruiter-commission-ledger.test.js
+          echo 'PASS synthetic once-only invoices, exact Operator, required consent, already-paid exclusion and no duplicate bill.' >> "$GITHUB_STEP_SUMMARY"
+
+  fee-evidence-cutover:
+    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/release/current' }}
+    needs: [fee-accuracy-qa]
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    environment: american-rider-commercial-live
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+      - name: Preserve approved paid controls and index-gated fee-only same-image changes
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp infra/cloud-run/deploy-existing-paid-source.py /tmp/ar-protected-paid-controller.py
+          python3 -m py_compile /tmp/ar-protected-paid-controller.py
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: projects/623854974930/locations/global/workloadIdentityPools/github-production/providers/github
+          service_account: ar-production-deployer@american-rider-35688.iam.gserviceaccount.com
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Verify live Firestore index then stage SAME IMAGE, preserve Stripe/Scheduler and rollback if not ready
+        shell: bash
+        env:
+          CLOUDSDK_CORE_PROJECT: american-rider-35688
+        run: |
+          set -euo pipefail
+          python3 infra/cloud-run/enable-verified-connect-fees-20261102.py
+          echo 'PASS: exact-provider, consent-gated Connect fee evidence and recovery prepared; no estimated, unmatched or double fee; no real fee collection claimed.' >> "$GITHUB_STEP_SUMMARY"
