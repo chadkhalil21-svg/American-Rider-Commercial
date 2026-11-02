@@ -83,7 +83,7 @@ jobs:
           node backend/booking-readiness.test.js
           node backend/payments.test.js
           node --check backend/server.js
-          npm test --prefix backend
+          for f in backend/*.test.js; do node "$f"; done
       - name: Authenticate existing production Google deployer, no downloaded keys
         uses: google-github-actions/auth@v2
         with:
