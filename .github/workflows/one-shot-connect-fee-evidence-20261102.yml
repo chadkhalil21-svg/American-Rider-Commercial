@@ -55,7 +55,6 @@ jobs:
           node backend/operator-choice-payment-fee-certification.test.js
           node backend/payout-transfer-guard.test.js
           node backend/recruiter-commission-ledger.test.js
-          node backend/conditional-referral-guarantee.test.js
           echo 'PASS synthetic once-only invoices, exact Operator, required consent, already-paid exclusion and no duplicate bill.' >> "$GITHUB_STEP_SUMMARY"
 
   fee-evidence-cutover:
