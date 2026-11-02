@@ -43,6 +43,8 @@ jobs:
           node backend/fleet-economics-forecast.test.js
       - name: Read live production route and payment readiness without changing anything
         run: node scripts/qa-prelaunch-live-routing-status-20261102.mjs
+      - name: One live signed-mobile fare quote without creating payments or bookings
+        run: node scripts/qa-live-paid-quote-smoke-20261102.mjs
       - name: State strict verification boundaries
         run: |
           echo 'Offline tests cannot create Stripe billed fee evidence, settle a real bank payout, certify a real Operator consent, or establish HERE/GCP invoice prices.' >> "$GITHUB_STEP_SUMMARY"
