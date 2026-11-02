@@ -53,6 +53,55 @@ jobs:
         run: |
           python3 -m unittest discover -s infra/cloud-run -p test_scale_capacity_readonly.py
           python3 infra/cloud-run/scale-capacity-readonly.py
+      - name: Read serving revision no-build finance/referral feature gates (READ ONLY)
+        shell: bash
+        env:
+          CLOUDSDK_CORE_PROJECT: american-rider-35688
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json,subprocess
+          def read(*args):
+              return json.loads(subprocess.check_output(['gcloud',*args,'--format=json'],timeout=60))
+          service=read('run','services','describe','american-rider-api-production',
+                       '--project=american-rider-35688','--region=us-east1')
+          rows=service.get('status',{}).get('traffic',[])
+          serving=[t['revisionName'] for t in rows if t.get('percent')==100 and t.get('revisionName')]
+          if len(serving)!=1:raise SystemExit('STOP: exactly one 100%-traffic revision required')
+          revision=read('run','revisions','describe',serving[0],
+                        '--project=american-rider-35688','--region=us-east1')
+          spec=revision.get('spec',{})
+          containers=spec.get('containers',[]) or spec.get('template',{}).get('spec',{}).get('containers',[])
+          if not containers:raise SystemExit('STOP: unable to read exact serving revision env')
+          env={entry.get('name'):entry.get('value') for entry in containers[0].get('env',[]) if 'value' in entry}
+          groups={
+            'Operator referral enrollment prerequisites':[
+              'AR_REFERRALS_ENABLED','AR_RECRUITER_PROGRAM_ENABLED',
+              'AR_RECRUITER_WEB_REFERRAL_VERIFIED'],
+            'Referral finance safeguards':[
+              'AR_RECRUITER_FINANCE_ENABLED','AR_RECRUITER_REWARDS_ENABLED',
+              'AR_RECRUITER_STRIPE_PAYOUTS_ENABLED',
+              'AR_RECRUITER_OPERATOR_SHARED_PAYOUT_ENABLED',
+              'AR_RECRUITER_MARGIN_GUARANTEE_ENABLED'],
+            'Operator-paid Connect fee safeguards':[
+              'CONNECT_FEE_REPORT_AUTOMATION_ENABLED','CONNECT_VERIFIED_FEE_RECOVERY'],
+            'Optional manual withdrawals':[
+              'CONNECT_OPERATOR_CHOICE_PAYOUTS_VERIFIED',
+              'CONNECT_MANUAL_REFERRAL_RECONCILIATION_VERIFIED']
+          }
+          print('READ ONLY, CURRENT 100%-TRAFFIC CLOUD RUN REVISION:',serving[0])
+          for label,keys in groups.items():
+              print(label+':')
+              for key in keys:
+                  value=env.get(key)
+                  if value is None:state='not configured'
+                  elif value in ('1','true','enabled'):state='enabled'
+                  else:state='not enabled'
+                  print('  '+key+': '+state)
+          interval=env.get('CONNECT_STANDARD_PAYOUT_INTERVAL','weekly (default)')
+          print('Payout schedule configured:',interval if interval in ('weekly','daily','manual','weekly (default)') else 'custom/unknown')
+          print('No settings or financial records changed; flags alone do NOT prove fee evidence, consent, or bank payout availability.')
+          PY
       - name: Confirm currently serving production API matches release (READ ONLY)
         shell: bash
         env:
