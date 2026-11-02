@@ -1,0 +1,130 @@
+name: One-time conditional referral guarantee (existing paid Build 60 backend)
+
+on:
+  pull_request:
+    branches: [release/current]
+    paths:
+      - '.github/workflows/one-shot-referral-guarantee-20261102.yml'
+      - 'infra/cloud-run/one-shot-referral-guarantee-20261102.py'
+  push:
+    branches: [release/current]
+    paths:
+      - '.github/workflows/one-shot-referral-guarantee-20261102.yml'
+
+permissions:
+  contents: read
+  id-token: write
+concurrency:
+  group: american-rider-paid-cloudrun-source
+  cancel-in-progress: false
+
+env:
+  HOTFIX_COMMIT: 2b65e9899e7306b5b34715749718e5b99a75d1ab
+  LIVE_BASE_COMMIT: 1caf4150ada2e01e30c08b737dac981024011831
+
+jobs:
+  certify-conditional-referrals:
+    if: ${{ github.event_name == 'pull_request' || github.ref == 'refs/heads/release/current' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - name: Read protected rollout controller and wrapper
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Check source and guard shape
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f infra/cloud-run/one-shot-referral-guarantee-20261102.py
+          test -f infra/cloud-run/deploy-existing-paid-source.py
+          python3 -m py_compile infra/cloud-run/one-shot-referral-guarantee-20261102.py infra/cloud-run/deploy-existing-paid-source.py
+      - name: Checkout exact live Build 60 source plus limited referral fix
+        uses: actions/checkout@v4
+        with:
+          ref: 2b65e9899e7306b5b34715749718e5b99a75d1ab
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Refuse unrelated pricing, payment, or live backend changes
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$HOTFIX_COMMIT"
+          git cat-file -e "$LIVE_BASE_COMMIT^{commit}"
+          changed="$(git diff --name-only "$LIVE_BASE_COMMIT" "$HOTFIX_COMMIT" | LC_ALL=C sort)"
+          allowed="$(printf '%s\n' \
+            backend/referral-accrual.js \
+            backend/recruiter-accrual-sweep.js \
+            backend/recruiter-reward-budget.js \
+            backend/recruiter-commercial-terms.js \
+            backend/recruiter-reward-budget.test.js \
+            backend/recruiter-commercial-terms.test.js \
+            backend/conditional-referral-guarantee.test.js | LC_ALL=C sort)"
+          test "$changed" = "$allowed" || {
+            echo 'STOP: hotfix changed something outside seven referral files.'
+            exit 1
+          }
+          grep -q "version:'recruiter-15c-20261031-v2'" backend/referral-accrual.js
+          test "$(grep -c 'recruiter-15c-20261031-v2' backend/recruiter-commercial-terms.js)" -eq 1
+          echo 'PASS exactly seven referral-only files; no changed fares, operator deductions or checkout.'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Full regression plus 0, 1 and 2 referral payments, original fare and agreement continuity
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm ci
+          npm ci --prefix backend
+          node backend/conditional-referral-guarantee.test.js
+          node backend/recruiter-reward-budget.test.js
+          node backend/recruiter-commercial-terms.test.js
+          node backend/referral-accrual.test.js
+          node backend/recruiter-accrual-sweep.test.js
+          node backend/payments.test.js
+          node backend/booking-readiness.test.js
+          node backend/here-road-geometry-fallback.test.js
+          for f in backend/*.test.js; do node "$f"; done
+          node --check backend/server.js
+
+  guarded-production-cutover:
+    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/release/current' }}
+    needs: [certify-conditional-referrals]
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    environment: american-rider-commercial-live
+    env:
+      FOUNDER_CONFIRM: DEPLOY_EXISTING_PAID_CODE_ONLY
+      FOUNDER_GOOGLE_OPS_CONFIRM: NO
+    steps:
+      - name: Preserve controlled paid rollout and referral wrapper
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Save protected rollback controllers outside source
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp infra/cloud-run/deploy-existing-paid-source.py /tmp/american-rider-controlled-referral-deployer.py
+          cp infra/cloud-run/one-shot-referral-guarantee-20261102.py /tmp/american-rider-referral-guarantee-wrapper.py
+          python3 -m py_compile /tmp/american-rider-controlled-referral-deployer.py /tmp/american-rider-referral-guarantee-wrapper.py
+      - uses: actions/checkout@v4
+        with:
+          ref: 2b65e9899e7306b5b34715749718e5b99a75d1ab
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: projects/623854974930/locations/global/workloadIdentityPools/github-production/providers/github
+          service_account: ar-production-deployer@american-rider-35688.iam.gserviceaccount.com
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Existing paid revision only, zero-traffic staging and verified rollback
+        shell: bash
+        env:
+          CLOUDSDK_CORE_PROJECT: american-rider-35688
+        run: |
+          set -euo pipefail
+          GITHUB_SHA="$HOTFIX_COMMIT" python3 /tmp/american-rider-referral-guarantee-wrapper.py
+          echo 'PASS conditional 0/15/30c commissions, no universal surcharge, Build 60 payment and HERE map preserved.' >> "$GITHUB_STEP_SUMMARY"
