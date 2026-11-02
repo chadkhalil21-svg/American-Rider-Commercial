@@ -52,7 +52,7 @@ def verify_index():
     # transfer if recovery were enabled. Never infer deployment from JSON source.
     try:
         output=cli("firestore","indexes","composite","list",
-            "--database=(default)",f"--project={PROJ}",timeout=75)
+            "--database=(default)",f"--project={PROJ}","--format=json",timeout=75)
         parsed=json.loads(output)
     except (ValueError,TypeError,subprocess.TimeoutExpired):
         raise paid.Stop("Live Firestore fee-recovery index cannot be verified.") from None
@@ -94,6 +94,15 @@ def service():
 def scheduler():
     return meta("scheduler","jobs","describe",JOB,f"--project={PROJ}",f"--location={REGION}")
 
+def scheduler_signature(job):
+    # Last attempt timestamps may advance every minute; immutable configuration must not.
+    return {k:job.get(k) for k in ("schedule","timeZone","state","httpTarget","retryConfig","attemptDeadline")}
+
+def service_cap(s):
+    raw=(s.get("scaling") or {}).get("maxInstanceCount") or (s.get("metadata",{}).get("annotations") or {}).get("run.googleapis.com/maxScale")
+    try:return int(raw)
+    except (TypeError,ValueError):return None
+
 def assert_same_environ(before,after):
     old,new=paid.env(before),paid.env(after)
     allowed=set(ENABLERS)
@@ -119,6 +128,8 @@ def main():
         raise paid.Stop("Correct live paid/capture/recruiter Build 60 version not serving.")
     before=service()
     old_name=paid.require_single_traffic(before)
+    if service_cap(before)!=20:
+        raise paid.Stop("Production service cost ceiling differs from protected 20-instance limit.")
     before_scheduler=scheduler()
     paid.assert_live(before,before_scheduler)
     oldrev=rev(old_name)
@@ -141,10 +152,10 @@ def main():
     staged=service()
     if paid.require_single_traffic(staged)!=old_name:
         raise paid.Stop("Traffic unexpectedly moved before validation.")
-    if identity(rev(new_name))!=before_id:
+    if identity(rev(new_name))!=before_id or service_cap(staged)!=20:
         raise paid.Stop("Fee-only candidate image, scaling or identity drift.")
     assert_same_environ(before,staged)
-    if scheduler()!=before_scheduler:
+    if scheduler_signature(scheduler())!=scheduler_signature(before_scheduler):
         raise paid.Stop("Production dispatch clock unexpectedly changed.")
     print("PASS new zero-traffic revision with IDENTICAL Build 60 source image and payment secrets.")
     try:
@@ -155,7 +166,7 @@ def main():
         if paid.require_single_traffic(after)!=new_name:
             raise paid.Stop("New revision not serving 100%.")
         assert_same_environ(before,after)
-        if identity(rev(new_name))!=before_id or scheduler()!=before_scheduler:
+        if identity(rev(new_name))!=before_id or service_cap(after)!=20 or scheduler_signature(scheduler())!=scheduler_signature(before_scheduler):
             raise paid.Stop("Source, capacity or scheduler drift detected.")
         paid.public_readiness(sha=EXPECTED_SHA,require_manual_capture=True)
         print("SUCCESS provider-evidence-based fee import and one-time consent-gated recovery ENABLED.")
