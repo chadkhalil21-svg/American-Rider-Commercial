@@ -1,0 +1,89 @@
+name: QA Prelaunch Connect and Routing (Stripe TEST only)
+
+on:
+  pull_request:
+    branches: [release/current]
+    paths:
+      - '.github/workflows/qa-connect-prelaunch-20261102.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  synthetic-fee-recovery-and-routing:
+    if: ${{ github.event.pull_request.head.repo.full_name == github.repository && github.head_ref == 'qa/connect-prelaunch-20261102' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install pinned backend packages
+        run: npm ci --prefix backend
+      - name: Verify Connect monthly account, bank payout, routing, fee-offset and idempotent recovery scenarios (offline)
+        run: |
+          node backend/connect-fee-offset-plan.test.js
+          node backend/connect-fee-importer.test.js
+          node backend/connect-monthly-account-fees.test.js
+          node backend/verified-connect-fee-transfer.test.js
+          node backend/connect-fee-daily-sweep.test.js
+          node backend/connect-monthly-sweep.test.js
+          node backend/operator-payout-event-ledger.test.js
+          node backend/connect-payout-schedule.test.js
+          node backend/operator-choice-payment-fee-certification.test.js
+          node backend/payout-transfer-guard.test.js
+      - name: Verify existing geocoding, road-routing, toll calculation and full-cost assumptions (offline)
+        run: |
+          node backend/place-search.test.js
+          node backend/streets.test.js
+          node backend/tolls.test.js
+          node backend/fully-loaded-coverage.test.js
+          node backend/fleet-economics-forecast.test.js
+      - name: Read live production route and payment readiness without changing anything
+        run: node scripts/qa-prelaunch-live-routing-status-20261102.mjs
+      - name: One live signed-mobile fare quote without creating payments or bookings
+        run: node scripts/qa-live-paid-quote-smoke-20261102.mjs
+      - name: State strict verification boundaries
+        run: |
+          echo 'Offline tests cannot create Stripe billed fee evidence, settle a real bank payout, certify a real Operator consent, or establish HERE/GCP invoice prices.' >> "$GITHUB_STEP_SUMMARY"
+          echo 'No 96 dollar road router, SMS vendor, AI support service, payout flag, live money, Cloud Run deployment, or mobile build is changed.' >> "$GITHUB_STEP_SUMMARY"
+
+  actual-stripe-test-only:
+    if: ${{ github.event.pull_request.head.repo.full_name == github.repository && github.head_ref == 'qa/connect-prelaunch-20261102' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      STRIPE_TEST_SECRET_KEY: ${{ secrets.STRIPE_TEST_SECRET_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Refuse absent or non-TEST credentials
+        shell: bash
+        run: |
+          case "${STRIPE_TEST_SECRET_KEY:-}" in
+            sk_test_?*) echo 'Stripe TEST credential selected';;
+            *) echo 'No valid Stripe TEST secret; provider tests not executed'; exit 1;;
+          esac
+      - name: Install pinned Stripe SDK
+        run: npm ci --prefix backend
+      - name: Disposable Stripe TEST Express manual payout schedule (created, verified, deleted)
+        run: node backend/stripe-test-manual-payout-schedule.cjs
+      - name: Stripe TEST manual authorization, capture, void, refund and cleanup
+        run: node backend/stripe-manual-sandbox-acceptance.cjs
+      - name: Upload sanitized test evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: connect-prelaunch-stripe-test-evidence
+          path: artifacts/operator-manual-payout-test/evidence.json
+          if-no-files-found: ignore
+      - name: State provider limits
+        if: always()
+        run: |
+          echo 'Provider TEST does NOT demonstrate an actual priced Connect invoice, a bank-settled standard or instant payout, a fee recovered from a real Operator, native Operator payout UX, or production approval.' >> "$GITHUB_STEP_SUMMARY"
+          echo 'No live charges, platform settings, connected production accounts, or paid release are modified.' >> "$GITHUB_STEP_SUMMARY"
