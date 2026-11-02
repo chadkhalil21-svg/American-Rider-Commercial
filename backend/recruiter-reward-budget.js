@@ -1,29 +1,24 @@
 'use strict';
-// Immutable booking-time funding snapshot. No Firestore reads, quote changes,
-// subscriptions or external calls. Never create a financial promise on a fee
-// that cannot cover both invited roles while preserving the platform margin.
-const {economicsFor}=require('./economics');
+// Booking-time referral liability for the two genuinely attributed roles.
+// This is an expense of American Rider, not a per-Travel profit test.
+// Quote/booking validation still fails closed for malformed monetary inputs.
+// Exact funded cash, settled payment, identity, caps and payout safeguards
+// remain separate from the obligation to reward a qualifying referral.
 const {PROGRAM}=require('./referral-accrual');
 const MAX_TWO_ROLES_CENTS=30;
-const BANK_PAYOUT_ALLOWANCE_CENTS=2; // amortized platform cost for two $0.15 rewards
+const MIN_PLATFORM_FEE_CENTS=250;
 const valid=n=>Number.isSafeInteger(n)&&n>=0;
 function fundedRecruiterSnapshot(priced,{enabled=false}={}){
   if(enabled!==true)return {};
   const fare=priced?.travelCostCents,total=priced?.travelerPays;
   const government=priced?.governmentFeeCents??0,toll=priced?.tollCents??0;
   if(!valid(fare)||fare===0||!valid(total)||!valid(government)||!valid(toll)||
-     total<fare+government+toll)return {referralAvailableCents:0,referralProgramVersion:PROGRAM.version};
-  const fee=total-fare-government-toll;
-  try{
-    // Unknown issuer is international-costed, never assumed to be cheaper.
-    const e=economicsFor({travelCostCents:fare,platformFeeCents:fee,
-      governmentFeeCents:government,tollCents:toll,
-      cardCountry:priced?.cardCountry??null,
-      transactionCount:1,referralReserveCents:MAX_TWO_ROLES_CENTS});
-    const funded=e.platformContributionCents>=
-      e.requiredContributionCents+BANK_PAYOUT_ALLOWANCE_CENTS;
-    return {referralAvailableCents:funded?MAX_TWO_ROLES_CENTS:0,
-      referralProgramVersion:PROGRAM.version};
-  }catch{return {referralAvailableCents:0,referralProgramVersion:PROGRAM.version};}
+     total<fare+government+toll+MIN_PLATFORM_FEE_CENTS)
+    return {referralAvailableCents:0,referralProgramVersion:PROGRAM.version};
+  // A validated Travel can support both contracted commissions. Low margin
+  // is funded from the platform's aggregate referral budget, never a silent
+  // forfeiture by an eligible recruiter or a reduction in Operator earnings.
+  return {referralAvailableCents:MAX_TWO_ROLES_CENTS,
+    referralProgramVersion:PROGRAM.version};
 }
 module.exports={fundedRecruiterSnapshot};
