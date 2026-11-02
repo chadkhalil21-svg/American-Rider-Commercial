@@ -4,6 +4,9 @@
 const {recordHeldAccrual,PROGRAM}=require('./referral-accrual');
 const {releaseCommission}=require('./recruiter-commission-ledger');
 const LIMIT=25;
+// Preserve legitimate v1 commitments already accepted/booked before v2 approval.
+const LEGACY_VERSION='recruiter-15c-20261024-v1';
+const effectiveVersion=(value)=>value===LEGACY_VERSION?LEGACY_VERSION:PROGRAM.version;
 async function sweepFundedRecruiterAccrual({db,enabled=false,holdMs,now=Date.now(),limit=LIMIT}={}){
  if(!enabled)return {ok:true,disabled:true,processed:0};
  if(!db||!Number.isSafeInteger(holdMs)||holdMs<86400000||holdMs>120*86400000||
@@ -12,8 +15,11 @@ async function sweepFundedRecruiterAccrual({db,enabled=false,holdMs,now=Date.now
   const page=await db.collection('rides').where('referralAccrualPending','==',true).limit(limit).get();
   let processed=0,credited=0,blocked=0;
   for(const doc of page.docs||[]){
+   const bookedVersion=typeof doc.data==='function'
+     ?doc.data()?.referralProgramVersion:null;
    const result=await recordHeldAccrual({db,rideId:doc.id,
-      program:{...PROGRAM,enabled:true,holdMs},now});
+      program:{...PROGRAM,version:effectiveVersion(bookedVersion),
+        enabled:true,holdMs},now});
    if(!result.ok){
      // A verified refund, dispute or cancellation permanently disqualifies
      // a still-pending reward. Retire that named Travel once, rather than
@@ -52,8 +58,11 @@ async function sweepMaturedRecruiterRewards({db,approved=false,holdMs,minimumCen
     .where('nextReleaseAt','<=',now).limit(limit).get();
   let released=0,blocked=0;
   for(const doc of page.docs||[]){
+   const recordedVersion=typeof doc.data==='function'
+     ?doc.data()?.programVersion:null;
    const out=await releaseCommission({db,eventId:doc.id,
-     terms:{enabled:true,approved:true,version:PROGRAM.version,holdMs,minimumCents},now});
+     terms:{enabled:true,approved:true,version:effectiveVersion(recordedVersion),
+       holdMs,minimumCents},now});
    if(out.ok){released++;continue;}
    blocked++;
    // Backoff, then explicit exception after repeated failure. In no case
