@@ -1,0 +1,99 @@
+name: One-time isolated HERE route geometry hotfix (preserve paid Build 60 backend)
+
+# Explicit Founder authorization 2 Nov 2026. Merge of THIS one-off workflow is
+# the only automatic trigger; future ordinary branch pushes DO NOT rerun it.
+on:
+  push:
+    branches: [release/current]
+    paths:
+      - '.github/workflows/one-shot-here-hotfix-20261102.yml'
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: american-rider-paid-cloudrun-source
+  cancel-in-progress: false
+
+jobs:
+  isolated-route-cutover:
+    if: ${{ github.ref == 'refs/heads/release/current' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    environment: american-rider-commercial-live
+    env:
+      FOUNDER_CONFIRM: DEPLOY_EXISTING_PAID_CODE_ONLY
+      FOUNDER_GOOGLE_OPS_CONFIRM: NO
+      HOTFIX_COMMIT: 1caf4150ada2e01e30c08b737dac981024011831
+      LIVE_BASE_COMMIT: 553fd54293bc3b1c70e53d6b0a313b3eee64eaac
+    steps:
+      - name: Read founder-approved latest deployment safety controller
+        uses: actions/checkout@v4
+        with:
+          ref: release/current
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Preserve protected rollout/rollback controller outside source
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp infra/cloud-run/deploy-existing-paid-source.py /tmp/american-rider-controlled-paid-source.py
+          cp infra/cloud-run/one-shot-here-hotfix-20261102.py /tmp/american-rider-here-rollback-wrapper.py
+          python3 -m py_compile /tmp/american-rider-controlled-paid-source.py /tmp/american-rider-here-rollback-wrapper.py
+      - name: Fetch exact isolated production-base-plus-routing-code commit
+        uses: actions/checkout@v4
+        with:
+          ref: 1caf4150ada2e01e30c08b737dac981024011831
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Refuse ALL non-routing backend changes versus currently serving payment release
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$HOTFIX_COMMIT"
+          git cat-file -e "$LIVE_BASE_COMMIT^{commit}"
+          changed="$(git diff --name-only "$LIVE_BASE_COMMIT" "$HOTFIX_COMMIT" | LC_ALL=C sort)"
+          allowed="$(printf '%s\n' \
+            backend/here-flex-polyline.js \
+            backend/here-flex-polyline.test.js \
+            backend/here-road-geometry-fallback.test.js \
+            backend/streets.js \
+            backend/tolls.js | LC_ALL=C sort)"
+          test "$changed" = "$allowed" || {
+            echo 'STOP: proposed hotfix differs from five audited HERE routing files.'
+            exit 1
+          }
+          echo 'Verified exact historic live payment code, with five routing-only files changed.'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Full backend regression and HERE road-toll geometry tests BEFORE touching Google
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm ci --prefix backend
+          node backend/here-flex-polyline.test.js
+          node backend/here-road-geometry-fallback.test.js
+          node backend/tolls.test.js
+          node backend/booking-readiness.test.js
+          node backend/payments.test.js
+          node --check backend/server.js
+          npm test --prefix backend
+      - name: Authenticate existing production Google deployer, no downloaded keys
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: projects/623854974930/locations/global/workloadIdentityPools/github-production/providers/github
+          service_account: ar-production-deployer@american-rider-35688.iam.gserviceaccount.com
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Zero-traffic READY staging, preserve Stripe/Scheduler, verify public route, rollback on failure
+        shell: bash
+        env:
+          CLOUDSDK_CORE_PROJECT: american-rider-35688
+        run: |
+          set -euo pipefail
+          GITHUB_SHA="$HOTFIX_COMMIT" python3 /tmp/american-rider-here-rollback-wrapper.py
+          echo 'PASS: same existing live API, no mobile change, real HERE /route served, payment and manual capture remained ready.' >> "$GITHUB_STEP_SUMMARY"
