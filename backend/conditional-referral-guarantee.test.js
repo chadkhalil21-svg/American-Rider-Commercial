@@ -75,7 +75,15 @@ class Db {
     const oldOutcome=await recordHeldAccrual({db:legacy,rideId:legacy.rideId,
       program:{...PROGRAM,version:old,enabled:true},now:1000});
     assert.equal(oldOutcome.heldCents,15,'existing v1 commitments still payable');
-    console.log('PASS conditional 0/15/30c referrals, no universal pricing surcharge, 99% fare, legacy v1, idempotency');
+    // Existing v1 referral stays eligible on a NEW v2-booked Travel.
+    const carried=new Db(['traveler']);
+    carried.docs.get('referral_attributions/traveler-good_traveler').programVersion=old;
+    const carriedOut=await recordHeldAccrual({db:carried,rideId:carried.rideId,
+      program:{...PROGRAM,enabled:true},now:1000});
+    assert.equal(carriedOut.heldCents,15,'existing v1 referrer earns on v2 Travel');
+    assert.equal(carried.docs.get('referral_reward_events/'+carried.rideId+'_traveler').programVersion,
+      old,'event retains accepted legacy agreement for release');
+    console.log('PASS conditional 0/15/30c referrals, no universal pricing surcharge, 99% fare, legacy v1 carry-forward, idempotency');
   }finally{
     if(previous===undefined)delete process.env.AR_RECRUITER_MARGIN_GUARANTEE_ENABLED;
     else process.env.AR_RECRUITER_MARGIN_GUARANTEE_ENABLED=previous;
