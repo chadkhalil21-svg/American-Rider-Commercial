@@ -9,7 +9,7 @@
 const {rewardDecision}=require('./referral-policy');
 const PROGRAM=Object.freeze({
   enabled:false,perTravelCents:15,maxTravels:200,maxCents:3000,
-  version:'recruiter-15c-20261024-v1',holdMs:86400000,
+  version:'recruiter-15c-20261031-v2',holdMs:86400000,
 });
 function evidence(ride,id){
   if(!ride||typeof id!=='string'||!id)return null;
