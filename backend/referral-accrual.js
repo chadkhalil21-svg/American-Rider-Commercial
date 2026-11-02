@@ -66,7 +66,8 @@ async function recordHeldAccrual({db,rideId,program=PROGRAM,now=Date.now()}={}){
       for(const item of reads){
         if(!item.claim||item.done||item.claim.rewardEnabled!==true||
            item.claim.inviteeUid!==item.uid||item.claim.role!==item.role||
-           item.claim.programVersion!==program.version)continue;
+           ![program.version, ...(program.version==='recruiter-15c-20261031-v2' ?
+             ['recruiter-15c-20261024-v1'] : [])].includes(item.claim.programVersion))continue;
         const decision=rewardDecision({
           attribution:{targetRole:item.role,inviteeUid:item.uid},
           travel,program,
@@ -77,7 +78,9 @@ async function recordHeldAccrual({db,rideId,program=PROGRAM,now=Date.now()}={}){
         if(!decision.eligible)continue;
         tx.create(item.eventRef,{
           travelId:rideId,inviteeUid:item.uid,inviterUid:item.claim.inviterUid,
-          role:item.role,programVersion:program.version,
+          // Legacy claims keep their exact accepted contract for subsequent
+          // payout and maturity verification, even on v2-booked Travels.
+          role:item.role,programVersion:item.claim.programVersion,
           amountCents:decision.rewardCents,status:'held',createdAt:now,
           nextReleaseAt:now+program.holdMs,
         });
