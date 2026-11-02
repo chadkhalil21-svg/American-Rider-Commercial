@@ -31,7 +31,7 @@ jobs:
       - name: Read founder-approved latest deployment safety controller
         uses: actions/checkout@v4
         with:
-          ref: release/current
+          ref: ${{ github.sha }}
           fetch-depth: 1
           persist-credentials: false
       - name: Preserve protected rollout/rollback controller outside source
