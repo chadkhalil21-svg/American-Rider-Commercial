@@ -19,7 +19,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  HOTFIX_COMMIT: 9bdc3969a220a695d45427869a12b9d4ca8a80a9
+  HOTFIX_COMMIT: 2b65e9899e7306b5b34715749718e5b99a75d1ab
   LIVE_BASE_COMMIT: 1caf4150ada2e01e30c08b737dac981024011831
 
 jobs:
@@ -43,7 +43,7 @@ jobs:
       - name: Checkout exact live Build 60 source plus limited referral fix
         uses: actions/checkout@v4
         with:
-          ref: 9bdc3969a220a695d45427869a12b9d4ca8a80a9
+          ref: 2b65e9899e7306b5b34715749718e5b99a75d1ab
           fetch-depth: 0
           persist-credentials: false
       - name: Refuse unrelated pricing, payment, or live backend changes
@@ -112,7 +112,7 @@ jobs:
           python3 -m py_compile /tmp/american-rider-controlled-referral-deployer.py /tmp/american-rider-referral-guarantee-wrapper.py
       - uses: actions/checkout@v4
         with:
-          ref: 9bdc3969a220a695d45427869a12b9d4ca8a80a9
+          ref: 2b65e9899e7306b5b34715749718e5b99a75d1ab
           fetch-depth: 0
           persist-credentials: false
       - uses: google-github-actions/auth@v2
