@@ -6,6 +6,7 @@ on:
     branches: [release/current]
     paths:
       - '.github/workflows/live-stripe-connect-fee-payout-audit-20261102.yml'
+      - 'infra/cloud-run/read-only-live-stripe-fee-payout-audit.py'
   pull_request:
     branches: [release/current]
     paths:
