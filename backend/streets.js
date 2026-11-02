@@ -65,11 +65,16 @@ async function routeCar(from, to, opts = {}) {
     const viaOsrm = await routeOsrm(osrm, from, to);
     if (viaOsrm) return viaOsrm;
   }
-  try {
-    return await transit.planCar(from, to, { region });
-  } catch {
-    return null;
+  if (region.otpUrl) {
+    try {
+      const planned=await transit.planCar(from,to,{region});
+      if(planned)return planned;
+    } catch { /* Existing HERE account remains the final fallback. */ }
   }
+  // Reuse the HERE key already configured for route distance and toll pricing.
+  // No OSRM instance, OpenTripPlanner VM or new subscription is needed.
+  try { return await require('./tolls').verifiedHereRoute(from,to); }
+  catch { return null; }
 }
 
 module.exports = { routeCar, routeOsrm, OSRM_TIMEOUT_MS };
