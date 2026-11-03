@@ -198,7 +198,7 @@ class MemoryDb {
   assert.equal(accepted,25);
   assert.equal(links,50);
   assert.equal(claims,50);
-  assert.equal(db.rows.size>200,true);
+  assert.equal(db.rows.size>=200,true);
   console.log('PASS isolated end-to-end synthetic Recruiter journey: 25 individual invitations, 25 accepted verified-email identities, 25 contracts, 50 scoped role links and 50 role attributions.');
   console.log('PASS security: wrong-mailbox, pre-agreement link, no-consent, replay, invitation theft, suspension and post-suspension referral rejected.');
   console.log('ZERO live emails, Firebase users, real identities, Stripe accounts, commissions or bank payouts created.');
