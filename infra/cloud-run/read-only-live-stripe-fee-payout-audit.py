@@ -131,6 +131,19 @@ def main():
     revision,env=get_revision()
     flags={e.get("name"):e.get("value") for e in env if "value" in e}
     print("Live 100% traffic revision:",revision)
+    # Safe yes/no comparison against the Secret Manager row the Founder selected.
+    # This uses live Cloud Run revision metadata, not source-code guesses.
+    # Do not disclose secret values or even resource names to Actions logs.
+    refs=[e.get("valueFrom",{}).get("secretKeyRef") for e in env
+          if e.get("name")=="STRIPE_SECRET_KEY"]
+    if len(refs)!=1 or not isinstance(refs[0],dict):
+        print("Founder-selected Stripe secret binding: UNVERIFIED (missing exact reference)")
+    else:
+        binding=refs[0].get("name","")
+        normalized=binding.rsplit("/",1)[-1] if isinstance(binding,str) else ""
+        print("Founder-selected Stripe secret binding:",
+              "CONFIRMED MATCH" if normalized=="ar-render-import-stripe-secret-key"
+              else "DOES NOT MATCH; do not grant this secret access")
     for k in ["AR_RECRUITER_FINANCE_ENABLED",
               "AR_RECRUITER_REWARDS_ENABLED",
               "CONNECT_FEE_REPORT_AUTOMATION_ENABLED",
