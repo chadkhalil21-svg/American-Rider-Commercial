@@ -1,0 +1,30 @@
+name: Isolated Recruiter Synthetic End-to-End Verification
+on:
+  push:
+    branches:
+      - test/recruiter-synthetic-journey-20261103
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  synthetic-recruiter:
+    name: 25 Recruiters, invitation through referral with payout boundary
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify complete synthetic Recruiter invitation, agreement, owned links and attribution
+        run: node backend/recruiter-synthetic-journey.test.js
+      - name: Verify independent payout, fee, bank event, replay and recovery simulations
+        run: node backend/recruiter-stripe-payout.test.js
+      - name: Verify invitation deduplication and expiry
+        run: node backend/recruiter-invite-service.test.js
+      - name: Verify Recruiter portal and web source contract
+        run: node backend/recruiter-crosschannel-source.test.js
+      - name: Summarize exact proof boundary
+        run: |
+          echo 'Synthetic chain and independent payout controls passed.' >> "$GITHUB_STEP_SUMMARY"
+          echo 'NO real user accepted, no live banking events, no production changes.' >> "$GITHUB_STEP_SUMMARY"
