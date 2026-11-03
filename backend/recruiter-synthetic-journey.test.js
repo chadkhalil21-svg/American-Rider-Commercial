@@ -44,19 +44,19 @@ class MemoryDb {
       },
       where(key,op,value){
         assert.equal(op,'==');
-        const filters=[[key,value]];
-        const chain={
-          where(nextKey,nextOp,nextValue){
-            assert.equal(nextOp,'==');
-            filters.push([nextKey,nextValue]);
-            return chain;
-          },
-          count(){
-            return {get:async()=>({data:()=>({count:[...db.rows.entries()].filter(([path,v])=>
-              path.startsWith(col+'/')&&filters.every(([field,expected])=>v[field]===expected)).length})})};
-          },
-        };
-        return chain;
+        function makeChain(filters) {
+          return {
+            where(nextKey,nextOp,nextValue){
+              assert.equal(nextOp,'==');
+              return makeChain([...filters,[nextKey,nextValue]]);
+            },
+            count(){
+              return {get:async()=>({data:()=>({count:[...db.rows.entries()].filter(([path,v])=>
+                path.startsWith(col+'/')&&filters.every(([field,expected])=>v[field]===expected)).length})})};
+            },
+          };
+        }
+        return makeChain([[key,value]]);
       },
     };
   }
