@@ -1,0 +1,46 @@
+name: Independent Traveler Operator Dispatch Payments Referral Acceptance
+on:
+  pull_request:
+    branches: [release/current]
+    paths:
+      - '.github/workflows/business-logic-independent-acceptance.yml'
+      - 'scripts/business-logic-independent-acceptance.cjs'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  business-logic-acceptance:
+    name: ${{ matrix.group }} (isolated)
+    runs-on: ubuntu-latest
+    timeout-minutes: 24
+    strategy:
+      fail-fast: false
+      matrix:
+        group: [traveler, operator, dispatch, payments, referrals, shared]
+    env:
+      CI: 'true'
+      NODE_ENV: test
+      AR_SYNTHETIC_ONLY: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install pinned project dependencies for local tests
+        run: |
+          npm ci
+          npm ci --prefix backend
+      - name: Execute one isolated category with explicit per-suite results
+        run: node scripts/business-logic-independent-acceptance.cjs "${{ matrix.group }}"
+      - name: Upload isolated evidence whether success or failure
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: business-logic-${{ matrix.group }}-evidence
+          path: artifacts/business-logic-acceptance/
+          if-no-files-found: warn
+          retention-days: 14
+      - name: Evidence boundary
+        if: always()
+        run: echo "Source/synthetic test coverage only; no live charges, real account approval, on-device OAuth, Stripe TEST provider capture/Connect transfer, bank arrival, or App Store publication is certified." >> "$GITHUB_STEP_SUMMARY"
