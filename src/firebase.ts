@@ -4,10 +4,20 @@
 // Security comes from Firebase Auth + Firestore Security Rules, not from hiding these.
 import { initializeApp } from 'firebase/app';
 import * as fbAuth from 'firebase/auth';
-import { getAuth, initializeAuth, type Auth, type Persistence } from 'firebase/auth';
-import { getFirestore } from 'firebase/firestore';
+import { connectAuthEmulator, getAuth, initializeAuth, type Auth, type Persistence } from 'firebase/auth';
+import { connectFirestoreEmulator, getFirestore } from 'firebase/firestore';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
+
+// Strictly local, throwaway Firebase test environment for REAL native emulator
+// interaction, not a bypass in the App Store or production Cloud Run client.
+// This flag is never enabled by EAS or an ordinary developer launch.
+const isolatedQa =
+  Platform.OS !== 'web' &&
+  process.env.EXPO_PUBLIC_AR_NATIVE_QA === '1' &&
+  (process.env.EXPO_PUBLIC_API_URL === 'http://10.0.2.2:4242' ||
+    process.env.EXPO_PUBLIC_API_URL === 'http://127.0.0.1:4242');
+const emulatorHost = Platform.OS === 'android' ? '10.0.2.2' : '127.0.0.1';
 
 const firebaseConfig = {
   apiKey: 'AIzaSyAQMJ1ikGvhrmCZY9D0OjM6EM2r2m0V4OY',
@@ -18,7 +28,14 @@ const firebaseConfig = {
   appId: '1:623854974930:web:d73e4dec7949c3756efa0b',
 };
 
-export const app = initializeApp(firebaseConfig);
+export const app = initializeApp(isolatedQa ? {
+  apiKey: 'native-qa-local-only',
+  authDomain: 'demo-american-rider-qa.firebaseapp.com',
+  projectId: 'demo-american-rider-qa',
+  storageBucket: 'demo-american-rider-qa.appspot.com',
+  messagingSenderId: '000000000001',
+  appId: '1:000000000001:web:local-native-qa',
+} : firebaseConfig);
 
 // STAYING SIGNED IN — the thing every rideshare app gets right and we didn't.
 //
@@ -56,6 +73,8 @@ function createAuth(): Auth {
 }
 
 export const auth = createAuth();
+if (isolatedQa) connectAuthEmulator(auth, `http://${emulatorHost}:9099`, { disableWarnings: true });
 
 // The live Firestore database — operators, rides, etc.
 export const db = getFirestore(app);
+if (isolatedQa) connectFirestoreEmulator(db, emulatorHost, 8080);
