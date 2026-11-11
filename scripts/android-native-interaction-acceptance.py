@@ -62,19 +62,31 @@ def center(node):
     x1,y1,x2,y2=map(int,m.groups())
     return (x1+x2)//2,(y1+y2)//2
 
-def wait_visible(*patterns, label="screen", seconds=22):
+def wait_visible(*patterns, label="screen", seconds=40):
+    # Native Release cold starts on shared CI may spend considerable time loading JS.
+    # Preserve strict UI evidence: retry genuine hierarchy dumps, never infer PASS from pid.
     expiry = time.monotonic()+seconds
+    last_nodes = []
     while time.monotonic()<expiry:
         nodes=snapshot(label)
+        last_nodes = nodes
         node=locate(nodes, patterns)
-        if node:
+        # xml.etree.ElementTree leaf nodes are falsy even when found.
+        # Test identity, not Python truthiness, for a visible UI control.
+        if node is not None:
             return node
         time.sleep(2)
-    # Distinct failure. No "pass" just because an activity was foreground.
-    raise AssertionError(f"Expected displayed control {patterns} not found on {label}")
+    visible = [desc(n) for n in last_nodes if desc(n)][:35]
+    try:
+        log = adb("logcat","-d","-v","brief","-s","AndroidRuntime:E","ReactNativeJS:E")
+        (ARTIFACTS / "startup-errors.txt").write_text(log)
+    except Exception:
+        pass
+    raise AssertionError(f"Expected displayed control {patterns} not found on {label}; last labels={visible}")
 
 def touch(patterns,label):
     node=wait_visible(*patterns,label=label)
+    # A found XML leaf node is a valid control despite bool(node) == False.
     x,y=center(node)
     adb("shell","input","tap",str(x),str(y))
     print(f"PASS actual Android touchscreen tap: {label}")
@@ -90,7 +102,7 @@ def first_edit(label):
 def go_home():
     adb("shell","am","force-stop",PACKAGE)
     adb("shell","am","start","-W","-n",PACKAGE+"/.MainActivity")
-    wait_visible("Email Address", label="anonymous-welcome", seconds=40)
+    wait_visible("Email Address", label="anonymous-welcome", seconds=150)
     print("PASS actual Android signed-out first screen and email-entry control")
 
 def assert_no_private_screen(label):
@@ -122,6 +134,10 @@ def run():
     wait_visible("Enter a valid email address",label="invalid-email-alert")
     print("PASS client-side invalid-email validation; no server account lookup")
     adb("shell","pm","clear",PACKAGE)
+    # Clearing app data also revokes Android runtime permissions; regrant
+    # them to the disposable emulator fixture before testing the next screen.
+    for permission in ("ACCESS_COARSE_LOCATION","ACCESS_FINE_LOCATION","ACCESS_BACKGROUND_LOCATION"):
+        adb("shell","pm","grant",PACKAGE,"android.permission."+permission)
     go_home()
     first_edit("email-valid")
     adb("shell","input","text","qa@example.com")
