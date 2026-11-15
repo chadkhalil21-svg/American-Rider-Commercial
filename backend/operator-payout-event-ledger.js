@@ -29,6 +29,13 @@ function decodePayoutEvent(event) {
 function documentIdFor({accountId,payoutId}) {
   return createHash('sha256').update(accountId+':'+payoutId).digest('hex');
 }
+function assertPayoutIdentity(stored,p) {
+  if (stored.accountId!==p.accountId || stored.payoutId!==p.payoutId)
+    throw Error('provider payout identity conflict');
+  if (stored.amountCents!==p.amountCents || stored.method!==p.method ||
+      stored.payoutCreatedAt!==p.payoutCreatedAt || stored.month!==p.month)
+    throw Error('Stripe payout identity changed');
+}
 async function recordOperatorPayoutEvent({db,event}) {
   if (!db || typeof db.runTransaction!=='function') throw Error('database required');
   const p=decodePayoutEvent(event);
@@ -36,7 +43,9 @@ async function recordOperatorPayoutEvent({db,event}) {
   const pre=await payoutRef.get();
   if (pre.exists) {
     const v=pre.data()||{};
-    if (v.accountId!==p.accountId || v.payoutId!==p.payoutId) throw Error('provider payout identity conflict');
+    // Never acknowledge a duplicate or stale signed event with contradictory
+    // immutable provider facts. Keep the no-extra-read/no-write fast path.
+    assertPayoutIdentity(v,p);
     if (v.eventAt>p.eventAt) return {ok:true,stale:true};
     if (v.eventAt===p.eventAt && v.status===p.status) return {ok:true,duplicate:true};
     if (v.eventAt===p.eventAt && v.status!==p.status) throw Error('ambiguous same-time payout state');
@@ -50,9 +59,10 @@ async function recordOperatorPayoutEvent({db,event}) {
     const [oldSnap,monthSnap]=await Promise.all([tx.get(payoutRef),tx.get(monthRef)]);
     const prior=oldSnap.exists ? oldSnap.data()||{} : null;
     const summary=monthSnap.exists ? monthSnap.data()||{} : {};
-    if (prior && (prior.accountId!==p.accountId || prior.payoutId!==p.payoutId ||
-         prior.uid!==uid || prior.month!==p.month || prior.amountCents!==p.amountCents ||
-         prior.method!==p.method)) throw Error('Stripe payout identity changed');
+    if (prior) {
+      assertPayoutIdentity(prior,p);
+      if (prior.uid!==uid) throw Error('Stripe payout identity changed');
+    }
     if (prior?.eventAt > p.eventAt) return {ok:true,stale:true};
     if (prior?.eventAt===p.eventAt && prior.status===p.status) return {ok:true,duplicate:true};
     if (prior?.eventAt===p.eventAt && prior.status!==p.status) throw Error('ambiguous payout transition');
