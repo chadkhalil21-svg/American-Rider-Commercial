@@ -156,7 +156,7 @@ const { createSweepCadence, createQuotaBackoff, quotaError } = require('./sweepc
 const { durableMaintenance } = require('./durable-maintenance');
 const { externalSweepMode } = require('./cloudrun-sweep-mode');
 const { settleSweepJobs, createCriticalRecoveryGate } = require('./critical-sweep-recovery');
-const { createBackgroundReporter } = require('./workload-summary');
+const { createBackgroundReporter, observeBackgroundWork } = require('./workload-summary');
 const { listDueFeeObligations } = require('./operator-payout-event-ledger');
 const { cachedPayoutStatus } = require('./stripe-duty-cache');
 const { shouldMarkOffDuty } = require('./operator-duty-write-policy');
@@ -2725,7 +2725,7 @@ async function runAllSweeps({criticalOnly=false}={}) {
   }, {criticalOnly});
 }
 
-async function runLeasedSweepsOnce() {
+async function executeLeasedSweeps() {
   const name = 'operations_sweep';
   // Optional research stays on long backoff, but an outage must not silence
   // safety monitoring, refunds and settlement for an unnecessary 5-10 minutes.
@@ -2769,6 +2769,7 @@ async function runLeasedSweepsOnce() {
 
 // All timer and authenticated requests share one in-process execution slot. The
 // Firestore lease remains the cross-instance authority.
+const runLeasedSweepsOnce = observeBackgroundWork(executeLeasedSweeps, reportBackgroundWork);
 const runLeasedSweeps = singleFlight(runLeasedSweepsOnce);
 
 async function runSweep(req, res) {
