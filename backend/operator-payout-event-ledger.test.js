@@ -56,6 +56,21 @@ function event(id,type='payout.paid',seconds=t,amount=10000){
   const dup=await recordOperatorPayoutEvent({db,event:event('first')});
   assert.equal(dup.duplicate,true);
   assert.equal(db.writes,count,'repeat event must cost ZERO writes');
+  // An older or same-time event is not automatically a genuine replay.
+  // Immutable provider facts must match before any fast-path acknowledgment.
+  const corrupted=[
+    event('first','payout.paid',t,10001),
+    {...event('first'),data:{object:{...event('first').data.object,method:'instant'}}},
+    {...event('first'),data:{object:{...event('first').data.object,created:t-86400}}},
+    event('first','payout.paid',t-1,10001),
+    {...event('first','payout.failed',t+1),
+      data:{object:{...event('first','payout.failed',t+1).data.object,created:t-86400}}},
+  ];
+  for(const bad of corrupted){
+    await assert.rejects(recordOperatorPayoutEvent({db,event:bad}),/Stripe payout identity changed/);
+    assert.equal(db.writes,count,'contradictory provider event must cost ZERO writes');
+  }
+  assert.equal((await recordOperatorPayoutEvent({db,event:event('first')})).duplicate,true);
   const second=await recordOperatorPayoutEvent({db,event:event('second','payout.paid',t+1)});
   assert.equal(second.count,2);
   const failed=await recordOperatorPayoutEvent({db,event:event('first','payout.failed',t+2)});
